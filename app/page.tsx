@@ -23,6 +23,7 @@ import {
   Atom,
   X,
   Presentation,
+  Shield,
 } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { LanguageSwitcher } from '@/components/language-switcher';
@@ -59,6 +60,8 @@ import { SpeechButton } from '@/components/audio/speech-button';
 import { useImportClassroom } from '@/lib/import/use-import-classroom';
 import { shouldShowVocationalTestUi } from '@/lib/config/feature-flags';
 import { useImportPptx } from '@/lib/import/use-import-pptx';
+import { shouldShowAdminEntry } from '@/lib/auth/route-policy';
+import type { SessionIdentity } from '@/lib/auth/types';
 
 const log = createLogger('Home');
 
@@ -95,6 +98,7 @@ function HomePage() {
   const showVocationalTestUi = shouldShowVocationalTestUi();
   const [form, setForm] = useState<FormState>(initialFormState);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [identity, setIdentity] = useState<SessionIdentity | null>(null);
   const [settingsSection, setSettingsSection] = useState<
     import('@/lib/types/settings').SettingsSection | undefined
   >(undefined);
@@ -141,6 +145,24 @@ function HomePage() {
     }
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/auth/session')
+      .then(
+        (response) =>
+          response.json() as Promise<{ authenticated: boolean; identity?: SessionIdentity }>,
+      )
+      .then((session) => {
+        if (!cancelled) setIdentity(session.authenticated ? (session.identity ?? null) : null);
+      })
+      .catch(() => {
+        if (!cancelled) setIdentity(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Restore requirement draft from localStorage on mount. The previous derived-state
   // pattern initialised `prev` from the cached value itself, so on the first client
@@ -391,6 +413,19 @@ function HomePage() {
         ref={toolbarRef}
         className="fixed top-4 right-4 z-50 flex items-center gap-1 bg-white/60 dark:bg-gray-800/60 backdrop-blur-md px-2 py-1.5 rounded-full border border-gray-100/50 dark:border-gray-700/50 shadow-sm"
       >
+        {shouldShowAdminEntry(identity) && (
+          <>
+            <button
+              onClick={() => router.push('/admin')}
+              className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all"
+              aria-label="Admin"
+            >
+              <Shield className="w-4 h-4" />
+            </button>
+            <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700" />
+          </>
+        )}
+
         {/* Language Selector */}
         <LanguageSwitcher onOpen={() => setThemeOpen(false)} />
 

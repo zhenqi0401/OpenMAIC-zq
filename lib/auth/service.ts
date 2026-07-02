@@ -54,6 +54,7 @@ export type AuthServiceErrorCode =
   | 'INVITE_CODE_DISABLED'
   | 'INVITE_CODE_EXPIRED'
   | 'INVITE_ROLE_NOT_FOUND'
+  | 'INVITE_ROLE_NOT_ALLOWED'
   | 'INVALID_CREDENTIALS'
   | 'USER_DISABLED'
   | 'ADMIN_ROLE_NOT_FOUND'
@@ -135,17 +136,17 @@ function signHostSso(hostUserId: string, secret: string): string {
   return createHmac('sha256', secret).update(hostUserId).digest('hex');
 }
 
-export function verifyHostSsoSignature(
-  hostUserId: string,
-  signature: string | null | undefined,
-  secret: string,
-): boolean {
-  if (!signature || !secret) return false;
-  const expected = signHostSso(hostUserId, secret);
-  return /^[a-f0-9]+$/i.test(signature) && signaturesMatch(signature, expected);
-}
-
-verifyHostSsoSignature.sign = signHostSso;
+export const verifyHostSsoSignature: {
+  (hostUserId: string, signature: string | null | undefined, secret: string): boolean;
+  sign: typeof signHostSso;
+} = Object.assign(
+  (hostUserId: string, signature: string | null | undefined, secret: string): boolean => {
+    if (!signature || !secret) return false;
+    const expected = signHostSso(hostUserId, secret);
+    return /^[a-f0-9]+$/i.test(signature) && signaturesMatch(signature, expected);
+  },
+  { sign: signHostSso },
+);
 
 export function createAuthService(repository: AuthRepository) {
   async function getUserRole(user: AuthUser): Promise<AuthRole> {
@@ -176,6 +177,7 @@ export function createAuthService(repository: AuthRepository) {
 
       const role = await repository.findRoleById(inviteCode.roleId);
       if (!role) throw new AuthServiceError('INVITE_ROLE_NOT_FOUND');
+      if (role.isAdmin) throw new AuthServiceError('INVITE_ROLE_NOT_ALLOWED');
 
       const user = await repository.createUser({
         phone,

@@ -173,6 +173,25 @@ describe('Slice-07 auth service', () => {
     vi.useRealTimers();
   });
 
+  test('does not allow the learner registration entry to create administrator accounts', async () => {
+    const repo = makeRepo();
+    repo.inviteCodes.push({
+      codeHash: hashInviteCode('ADMIN-CODE'),
+      roleId: adminRole.id,
+      enabled: true,
+      expiresAt: null,
+    });
+    const service = createAuthService(repo);
+
+    await expect(
+      service.registerWithPassword({
+        phone: '13800138004',
+        password: 'password-123',
+        inviteCode: 'ADMIN-CODE',
+      }),
+    ).rejects.toMatchObject(new AuthServiceError('INVITE_ROLE_NOT_ALLOWED'));
+  });
+
   test('logs in an active password user and rejects wrong passwords', async () => {
     const repo = makeRepo();
     const service = createAuthService(repo);

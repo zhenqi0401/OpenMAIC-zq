@@ -7,6 +7,7 @@ import {
   type AuthRole,
   type AuthUser,
 } from '@/lib/auth/service';
+import { createSessionToken } from '@/lib/security/session-token';
 
 const mocks = vi.hoisted(() => ({
   cookieStore: {
@@ -103,13 +104,36 @@ function makeRepo(): AuthRepository & { users: AuthUser[] } {
 }
 
 async function postRoute(route: string, body: Record<string, unknown>, headers?: HeadersInit) {
-  const module = (await import(route)) as { POST: (request: Request) => Promise<Response> };
-  return module.POST(
+  const routeModule = (await import(route)) as { POST: (request: Request) => Promise<Response> };
+  return routeModule.POST(
     new Request('http://localhost/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify(body),
     }),
+  );
+}
+
+async function getRoute(route: string) {
+  const routeModule = (await import(route)) as { GET: (request: Request) => Promise<Response> };
+  return routeModule.GET(new Request('http://localhost/test'));
+}
+
+async function patchRoute(
+  route: string,
+  body: Record<string, unknown>,
+  context: { params: Promise<{ id: string }> },
+) {
+  const routeModule = (await import(route)) as {
+    PATCH: (request: Request, context: { params: Promise<{ id: string }> }) => Promise<Response>;
+  };
+  return routeModule.PATCH(
+    new Request('http://localhost/test', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+    context,
   );
 }
 
@@ -172,5 +196,80 @@ describe('Slice-07 auth routes', () => {
       { 'x-openmaic-signature': 'bad' },
     );
     expect(rejected.status).toBe(401);
+  });
+
+  test('admin user APIs require administrator sessions and update current user roles', async () => {
+    const repo = mocks.repository as ReturnType<typeof makeRepo>;
+    repo.users.push(
+      {
+        id: 'admin-1',
+        phone: null,
+        passwordHash: null,
+        hostUserId: 'host-admin-1',
+        roleId: adminRole.id,
+        status: 'active',
+        displayName: 'Admin',
+      },
+      {
+        id: 'learner-1',
+        phone: '13800138000',
+        passwordHash: null,
+        hostUserId: null,
+        roleId: learnerRole.id,
+        status: 'active',
+        displayName: 'Learner',
+      },
+      {
+        id: 'learner-2',
+        phone: '13800138001',
+        passwordHash: null,
+        hostUserId: null,
+        roleId: learnerRole.id,
+        status: 'active',
+        displayName: 'Learner 2',
+      },
+    );
+    mocks.cookieStore.get.mockReturnValue({
+      value: createSessionToken(
+        {
+          userId: 'admin-1',
+          roleId: adminRole.id,
+          roleCode: 'admin',
+          isAdmin: true,
+          authSource: 'host-sso',
+        },
+        'session-secret',
+      ),
+    });
+
+    const listResponse = await getRoute('@/app/api/admin/users/route');
+    const listJson = await listResponse.json();
+    expect(listResponse.status).toBe(200);
+    expect(listJson.users).toHaveLength(3);
+
+    const updateResponse = await patchRoute(
+      '@/app/api/admin/users/[id]/role/route',
+      { roleId: adminRole.id },
+      { params: Promise.resolve({ id: 'learner-1' }) },
+    );
+    const updateJson = await updateResponse.json();
+    expect(updateResponse.status).toBe(200);
+    expect(updateJson.user.role.code).toBe('admin');
+
+    mocks.cookieStore.get.mockReturnValue({
+      value: createSessionToken(
+        {
+          userId: 'learner-2',
+          roleId: learnerRole.id,
+          roleCode: 'learner',
+          isAdmin: false,
+          authSource: 'password',
+        },
+        'session-secret',
+      ),
+    });
+
+    const forbidden = await getRoute('@/app/api/admin/users/route');
+    expect(forbidden.status).toBe(403);
   });
 });
