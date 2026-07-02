@@ -123,6 +123,7 @@ CREATE TABLE "media_files" (
 	"scene_id" uuid,
 	"media_type" varchar(32) NOT NULL,
 	"mime_type" varchar(128),
+	"size_bytes" integer,
 	"prompt" text,
 	"params" jsonb,
 	"oss_key" text NOT NULL,

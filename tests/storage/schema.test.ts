@@ -39,6 +39,7 @@ describe('Slice-00 database foundation SQL', () => {
 
   test('keeps media blobs out of PostgreSQL', () => {
     expect(migrationSql).toContain('"oss_key" text NOT NULL');
+    expect(migrationSql).toContain('"size_bytes" integer');
     expect(migrationSql).not.toMatch(/\bBLOB\b|\bBYTEA\b/i);
   });
 

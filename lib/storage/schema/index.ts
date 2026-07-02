@@ -150,6 +150,7 @@ export const mediaFiles = pgTable(
     sceneId: uuid('scene_id').references(() => scenes.id, { onDelete: 'set null' }),
     mediaType: varchar('media_type', { length: 32 }).notNull(),
     mimeType: varchar('mime_type', { length: 128 }),
+    sizeBytes: integer('size_bytes'),
     prompt: text('prompt'),
     params: jsonb('params'),
     ossKey: text('oss_key').notNull(),
