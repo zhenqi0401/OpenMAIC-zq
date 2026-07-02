@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Shield, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { CourseAdminPanel } from '@/components/admin/courses/CourseAdminPanel';
 
 interface AdminUser {
   id: string;
@@ -114,6 +115,7 @@ export default function AdminPage() {
             </div>
           ))}
         </div>
+        <CourseAdminPanel />
       </div>
     </main>
   );

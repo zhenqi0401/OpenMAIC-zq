@@ -15,6 +15,10 @@ import { MultiTabEditConflictPrompt } from '@/components/edit/MultiTabEditConfli
 import { InteractiveIframeHost } from '@/components/scene-renderers/InteractiveIframeHost';
 import { CHROME_EASE } from '@/lib/edit/transitions';
 import { preloadEditor } from '@/lib/edit/preload-editor';
+import {
+  shouldAllowProModeEntry,
+  type CourseAuthoringIdentity,
+} from '@/lib/authoring/course-permissions';
 
 /**
  * Stage — top-level classroom container. Dispatches between the two
@@ -32,8 +36,10 @@ import { preloadEditor } from '@/lib/edit/preload-editor';
  */
 export function Stage({
   onRetryOutline,
+  authoringIdentity,
 }: {
   onRetryOutline?: (outlineId: string) => Promise<void>;
+  authoringIdentity?: CourseAuthoringIdentity | null;
 }) {
   const { mode, setMode, scenes, currentSceneId, generatingOutlines, stage } = useStageStore();
   const currentScene = useStageStore((s) => s.getCurrentScene());
@@ -47,6 +53,10 @@ export function Stage({
     sceneCount: scenes.length,
     generatingOutlineCount: generatingOutlines.length,
     hasCurrentScene: !!currentScene,
+  });
+  const canEnterProMode = shouldAllowProModeEntry({
+    isSceneEditable: isEditable,
+    identity: authoringIdentity,
   });
 
   // Cross-tab edit lock (#571). Lives at this layer because entry must
@@ -91,10 +101,10 @@ export function Stage({
   // Auto-exit edit mode when the current scene becomes uneditable
   // (pending generation, no scenes, currently generating).
   useEffect(() => {
-    if (mode === 'edit' && !isEditable) {
+    if (mode === 'edit' && !canEnterProMode) {
       setMode('playback');
     }
-  }, [mode, isEditable, setMode]);
+  }, [mode, canEnterProMode, setMode]);
 
   // Release the lock whenever we're not in edit mode (covers manual
   // exit, auto-exit, scene becomes uneditable). The hook also self-
@@ -104,7 +114,7 @@ export function Stage({
     if (mode !== 'edit') releaseEditLock();
   }, [mode, releaseEditLock]);
 
-  const toggleHandler = isMaicEditorEnabled() ? handleToggleEditMode : undefined;
+  const toggleHandler = isMaicEditorEnabled() && canEnterProMode ? handleToggleEditMode : undefined;
 
   // Mode swap choreography — a clean opacity cross-fade. Both roots layer
   // via `absolute inset-0` so they coexist for the ~280ms window without
@@ -132,7 +142,7 @@ export function Stage({
           >
             <EditChromeRoot
               scene={currentScene}
-              isEditable={isEditable}
+              isEditable={canEnterProMode}
               onToggleEditMode={toggleHandler}
             />
           </motion.div>
@@ -148,7 +158,7 @@ export function Stage({
             <PlaybackChromeRoot
               ref={playbackRef}
               onRetryOutline={onRetryOutline}
-              canEnterProMode={isEditable}
+              canEnterProMode={canEnterProMode}
               onEnterProMode={toggleHandler}
             />
           </motion.div>

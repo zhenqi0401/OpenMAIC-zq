@@ -1,74 +1,76 @@
-# SLICE-03：内容预览与编辑
+# SLICE-03：课程生成、编辑、发布与可见范围
 
 ## 声明
-- **实现需求**：REQ-001, REQ-002, REQ-003, REQ-004, REQ-005
-- **实现架构**：ARCH-002, ARCH-014, ARCH-042, ARCH-050, ARCH-051
-- **拥有路径**：`components/generation/content-preview/`, 修改 `app/generation-preview/page.tsx`, 修改 `lib/media/media-orchestrator.ts`
-- **产出接口**：`ContentPreviewPage` 组件（ARCH-042）、扩展的 `previewPhase` 状态机
-- **消费接口**：postMessage 类型定义（SLICE-00）、现有 `useMediaGenerationStore`、现有 `SceneContent` 类型
-- **依赖切片**：SLICE-00
+- **实现需求**：REQ-001~005, REQ-037~041
+- **实现架构**：ARCH-002, ARCH-005, ARCH-032, ARCH-033, ARCH-041
+- **拥有路径**：`app/generation-preview/`, `components/edit/`, `components/admin/courses/`, `lib/authoring/`
+- **产出接口**：课程管理权限门控、课程发布/可见范围配置、学员课程列表过滤
+- **依赖切片**：SLICE-00, SLICE-01, SLICE-07
 
 ## 任务
 
-### Task 1：生成流程改造 — 拆分内容生成与媒体生成
-- 修改 `app/generation-preview/page.tsx`：
-  - 在 `handleConfirmOutlines()` 中移除 `generateMediaForOutlines()` 调用（ARCH-050）
-  - 内容生成（`startGeneration()`）完成后，`previewPhase` 转入 `'content-review'` 而非直接跳转到 classroom
-  - 新增 `'content-review'` → `'generating-media'` 的状态转换（用户触发）
-- 修改 `app/generation-preview/types.ts`：
-  - `PreviewPhase` 类型已在 SLICE-00 扩展，此处使用新状态
+### Task 1：大纲确认默认行为
+- 确保 AI 生成大纲后默认停留在大纲预览/编辑阶段。
+- 未点击确认前不继续生成完整课程。
+- 不新增内容预览页、不拆媒体生成链路。
 
-### Task 2：内容预览页面组件
-- 创建 `components/generation/content-preview/content-preview-page.tsx`（ARCH-042）
-- 左侧：场景列表（可折叠），显示场景类型图标 + 标题 + 编辑状态标记
-- 右侧：当前选中场景的详细内容展示
-- 顶部工具栏：「返回大纲」「批量生成媒体」「确认发布」按钮
-- 底部状态栏：显示媒体生成进度（已生成 / 总数）
+### Task 2：Pro Mode 权限门控
+- 复用现有 Pro Mode / AI 编辑助手。
+- 只有管理员可进入编辑、保存、发布。
+- 普通学员隐藏入口并在保存动作上二次校验。
 
-### Task 3：场景内容编辑器
-- 创建 `components/generation/content-preview/scene-content-editor.tsx`
-- 根据场景类型渲染不同编辑器：
-  - **slide**：文案编辑（富文本或 textarea）、remark（教师旁白）编辑
-  - **quiz**：题目/选项/答案编辑（复用 `OutlinesEditor` 中 quiz 配置的交互模式）
-  - **interactive**：只读展示配置摘要（interactive 内容太复杂不支持编辑）
-  - **pbl**：项目主题/描述/技能点编辑
-- 编辑回调：`onChange(sceneId, newContent)` 更新父组件的 `editedContents` Map
+### Task 3：课程分类
+- 管理员后台维护分类。
+- 创建/编辑课程时选择分类。
+- 分类用于阶段考核策略筛选。
 
-### Task 4：课后测评题目编辑区
-- 在 `ContentPreviewPage` 底部或独立 tab 中展示课后测评题目编辑区
-- 渲染 AI 生成的 `assessment_questions`（QuizQuestion[]，仅选择题）
-- 支持：编辑题目文本、编辑选项、修改正确答案、删除题目、新增题目
-- 编辑后的题目通过 `onConfirm` 回调与课程内容一起提交
+### Task 4：课程发布状态
+- 课程生成完成后默认 `draft`。
+- 管理员设置可见范围后点击发布，状态变为 `published`。
+- 管理员可下架为 `archived` 或继续编辑草稿。
 
-### Task 5：媒体生成触发按钮
-- 创建 `components/generation/content-preview/media-trigger.tsx`（REQ-003）
-- 每个 slide 场景旁显示一个「生成视频/图片」按钮
-- 按钮状态对应 `useMediaGenerationStore` 中的 task 状态：
-  - 无任务 → 「生成」按钮
-  - pending → 「等待中」
-  - generating → 进度动画
-  - done → 缩略图预览 + 「重新生成」按钮
-  - failed → 错误信息 + 「重试」按钮
-- 点击触发 `generateMediaForOutlines([outline], stageId)`
-- quiz / interactive / pbl 场景不显示媒体生成按钮
+### Task 5：课程可见范围
+- 支持 `all` 和 `roles` 两种模式。
+- `roles` 模式选择一个或多个 OpenMAIC 内部角色。
+- 不做指定用户、部门、组织树。
 
-### Task 6：批量媒体生成
-- 在顶部工具栏添加「批量生成所有媒体」按钮（REQ-003）
-- 点击后对所有有 `mediaGenerations` 的 slide 场景调用 `generateMediaForOutlines()`
-- 显示总体进度：已完成 / 总数
-- 生成过程不阻塞编辑（REQ-004）——媒体生成在后台进行
+### Task 6：学员课程列表
+- 登录后所有用户默认进入课程列表。
+- 学员只看到已发布且对自己角色可见课程。
+- 管理员看到后台入口按钮，并可进入管理课程。
 
-### Task 7：内容变更检测与媒体失效标记
-- 创建 `components/generation/content-preview/content-diff.ts`（ARCH-051）
-- 实现 `hasContentChanged(original, edited)` — 对比关键字段（slide 的 elements/remark，quiz 的 questions）
-- 当检测到变更时，对应 `SceneMediaStatus.contentChanged` 设为 true
-- UI 显示黄色警告标记「内容已变更，建议重新生成媒体」
-- 用户可忽略警告直接发布，或重新生成
+### Task 7：测评题匹配提示
+- 管理员修改课程内容后，提示课后测评题可能不匹配。
+- 管理员可选择手动重生成测评题或直接编辑。
+- 系统不自动覆盖人工编辑过的测评题。
 
-### Task 8：确认发布流程
-- 「确认发布」按钮点击后：
-  - 将编辑后的内容写回 IndexedDB（scenes 表）
-  - 将课后测评题目写入 stage 记录
-  - 如果嵌入模式：通过 postMessage 发送 `course-published` 事件
-  - 跳转到 classroom 页面开始学习
-- 如果有场景的媒体未生成，弹出确认对话框提示用户
+### Task 8：测试
+- 大纲页不确认不继续生成。
+- 管理员可编辑，学员不可编辑。
+- 发布前学员不可见，发布后按角色可见。
+- 下架后学员列表消失。
+
+• Slice-03 已完成并标记 /goal complete。最终用时约 40 分 20 秒，goal 记录 token 使用量 555834。
+
+  这次主要改动：
+
+  - 在 app/page.tsx 给管理员生成课程加了分类选择，并把 categoryId 带入生成 session。
+  - 在 app/generation-preview/page.tsx 强制大纲确认后再继续，并在生成首个场景后创建服务端 draft 课程内容。
+  - 在 app/classroom/[id]/page.tsx 将后续自动生成出的场景继续同步回服务端课程草稿。
+  - 新增 lib/authoring 下的课程草稿、权限、大纲确认 helper，并接入 Pro Mode 管理员门控。
+  - 新增后台课程管理 UI components/admin/courses/CourseAdminPanel.tsx，支持分类、课程草稿、可见范围、发布/下架、测评题不
+    匹配提示。
+
+  - 补了 Slice-03 的 authoring/storage 测试。
+
+  验证结果：
+
+  - pnpm.cmd test 通过：228 files / 1809 tests。
+  - pnpm.cmd lint 通过；剩余 15 个既有 warning，无 error。
+  - pnpm.cmd build 通过；仅有 Next 的 middleware convention deprecated warning。
+  - 变更文件的 prettier --check 通过。
+  - pnpm.cmd check 仍失败，但原因是仓库既有 1069 个文件格式问题，不是本次改动文件。
+  - 本地 dev server 没启动成功：之前尝试后台 pnpm dev 被会话策略拒绝了。
+
+  注意：工作区里原本已有 AGENTS/docs 等大量未提交改动和若干 untracked 目录，我没有回滚或整理这些无关状态。建议下一个
+  slice 走 SLICE-04。

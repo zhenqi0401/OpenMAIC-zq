@@ -1,6 +1,7 @@
 import { assertHostApiAccess, type StoredHostApiKey } from '@/lib/host-api/access';
 import type { DashboardSummary, HostQueryFilters } from '@/lib/host-api/types';
 import type { AuthRole } from '@/lib/auth/service';
+import { shouldShowAssessmentMismatchWarning } from '@/lib/authoring/course-draft';
 
 export type CourseStatus = 'draft' | 'published' | 'archived';
 export type CourseVisibilityMode = 'all' | 'roles';
@@ -49,6 +50,7 @@ export interface EnterpriseStoredCourseContent {
   courseId: string;
   scenes: unknown[];
   outlines: unknown[];
+  assessmentMismatchWarning?: boolean;
 }
 
 export interface EnterpriseCourseProgress {
@@ -256,6 +258,27 @@ function isCourseVisibleToRole(course: EnterpriseCourse, roleId: string): boolea
   return course.visibleRoleIds.includes(roleId);
 }
 
+function assertValidVisibility(visibility: {
+  visibilityMode: CourseVisibilityMode;
+  visibleRoleIds: string[];
+}): void {
+  if (visibility.visibilityMode === 'roles' && visibility.visibleRoleIds.length === 0) {
+    throw new EnterpriseStorageServiceError(
+      'INVALID_REQUEST',
+      'At least one role is required for role visibility',
+    );
+  }
+}
+
+function assertPublishable(course: EnterpriseCourse): void {
+  if (course.visibilityMode === 'roles' && course.visibleRoleIds.length === 0) {
+    throw new EnterpriseStorageServiceError(
+      'INVALID_REQUEST',
+      'At least one role is required before publishing a role-visible course',
+    );
+  }
+}
+
 function parseHostKeyId(token: string | null | undefined): string | null {
   if (!token) return null;
   const separatorIndex = token.indexOf('.');
@@ -329,11 +352,15 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
       id: string,
       visibility: { visibilityMode: CourseVisibilityMode; visibleRoleIds: string[] },
     ) => {
+      assertValidVisibility(visibility);
       const course = await repository.updateCourseVisibility(id, visibility);
       if (!course) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       return course;
     },
     publishCourse: async (id: string) => {
+      const current = await repository.getCourseContent(id);
+      if (!current) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      assertPublishable(current.course);
       const course = await repository.publishCourse(id);
       if (!course) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       return course;
@@ -355,8 +382,17 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
       return isCourseVisibleToRole(content.course, roleId) ? content : null;
     },
 
-    replaceCourseContent: (courseId: string, input: ReplaceCourseContentInput) =>
-      repository.replaceCourseContent(courseId, input),
+    replaceCourseContent: async (courseId: string, input: ReplaceCourseContentInput) => {
+      const current = await repository.getCourseContent(courseId);
+      if (!current) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      const content = await repository.replaceCourseContent(courseId, input);
+      return {
+        ...content,
+        assessmentMismatchWarning: shouldShowAssessmentMismatchWarning(
+          current.course.assessmentQuestions,
+        ),
+      };
+    },
 
     saveCourseProgress: (input: EnterpriseCourseProgress) => repository.upsertCourseProgress(input),
 

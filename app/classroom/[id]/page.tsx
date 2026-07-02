@@ -14,6 +14,8 @@ import { MediaStageProvider } from '@/lib/contexts/media-stage-context';
 import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { migrateScene } from '@/lib/edit/slide-schema';
 import type { Scene } from '@/lib/types/stage';
+import { canManageCourses, type CourseAuthoringIdentity } from '@/lib/authoring/course-permissions';
+import { replaceGeneratedCourseDraftContent } from '@/lib/authoring/course-draft';
 
 const log = createLogger('Classroom');
 
@@ -25,17 +27,40 @@ export default function ClassroomDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [authoringIdentity, setAuthoringIdentity] = useState<CourseAuthoringIdentity | null>(null);
 
   const generationStartedRef = useRef(false);
+  const generatedCourseIdRef = useRef<string | null>(null);
+
+  const syncGeneratedDraftContent = useCallback((courseId = generatedCourseIdRef.current) => {
+    if (!courseId) return;
+
+    const { scenes, outlines } = useStageStore.getState();
+    replaceGeneratedCourseDraftContent(fetch, courseId, { scenes, outlines }).catch((error) => {
+      log.warn('[Classroom] Failed to sync generated course draft content:', error);
+    });
+  }, []);
 
   const { generateRemaining, retrySingleOutline, stop } = useSceneGenerator({
+    onSceneGenerated: () => {
+      syncGeneratedDraftContent();
+    },
     onComplete: () => {
       log.info('[Classroom] All scenes generated');
+      syncGeneratedDraftContent();
     },
   });
 
   const loadClassroom = useCallback(async () => {
     try {
+      try {
+        const sessionResponse = await fetch('/api/auth/session');
+        const session = sessionResponse.ok ? await sessionResponse.json() : null;
+        setAuthoringIdentity(canManageCourses(session) ? { isAdmin: true } : { isAdmin: false });
+      } catch {
+        setAuthoringIdentity({ isAdmin: false });
+      }
+
       await loadFromStorage(classroomId);
 
       // If IndexedDB had no data, try server-side storage (API-generated classrooms)
@@ -130,6 +155,7 @@ export default function ClassroomDetailPage() {
     setLoading(true);
     setError(null);
     generationStartedRef.current = false;
+    generatedCourseIdRef.current = null;
 
     // Clear previous classroom's media tasks to prevent cross-classroom contamination.
     // Placeholder IDs (gen_img_1, gen_vid_1) are NOT globally unique across stages,
@@ -169,6 +195,8 @@ export default function ClassroomDetailPage() {
       // Load generation params from sessionStorage (stored by generation-preview before navigating)
       const genParamsStr = sessionStorage.getItem('generationParams');
       const params = genParamsStr ? JSON.parse(genParamsStr) : {};
+      generatedCourseIdRef.current =
+        typeof params.generatedCourseId === 'string' ? params.generatedCourseId : null;
 
       // Reconstruct imageMapping from IndexedDB using pdfImages storageIds
       const storageIds = (params.pdfImages || [])
@@ -239,7 +267,7 @@ export default function ClassroomDetailPage() {
               </div>
             </div>
           ) : (
-            <Stage onRetryOutline={retrySingleOutline} />
+            <Stage authoringIdentity={authoringIdentity} onRetryOutline={retrySingleOutline} />
           )}
         </div>
       </MediaStageProvider>

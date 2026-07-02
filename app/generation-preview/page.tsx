@@ -40,9 +40,10 @@ import { createLogger } from '@/lib/logger';
 import { type GenerationSessionState, ALL_STEPS, getActiveSteps } from './types';
 import { StepVisualizer } from './components/visualizers';
 import { resolveTaskEngineModeFromOutlineDoneEvent } from './vocational-mode';
+import { shouldPauseForOutlineConfirmation } from '@/lib/authoring/outline-confirmation';
+import { persistGeneratedCourseDraft } from '@/lib/authoring/course-draft';
 
 const log = createLogger('GenerationPreview');
-const OUTLINE_REVIEW_AUTO_CONTINUE_MS = 2500;
 
 function GenerationPreviewContent() {
   const router = useRouter();
@@ -53,7 +54,6 @@ function GenerationPreviewContent() {
   const outlineReviewResolveRef = useRef<((outlines: SceneOutline[]) => void) | null>(null);
   // Sticky flag: true once the user signals review intent (either by clicking the
   // streaming card mid-stream, or by restoring a session that was already in review).
-  // Combined with `reviewOutlineEnabled` to decide whether the post-stream timer fires.
   const outlineReviewIntentRef = useRef(false);
   const { profiles: voxcpmProfiles } = useVoxCPMVoiceProfiles();
 
@@ -83,9 +83,6 @@ function GenerationPreviewContent() {
     }>
   >([]);
   const agentRevealResolveRef = useRef<(() => void) | null>(null);
-  const reviewOutlineEnabled = useSettingsStore((s) => s.reviewOutlineEnabled);
-  const setReviewOutlineEnabled = useSettingsStore((s) => s.setReviewOutlineEnabled);
-
   // Compute active steps based on session state
   const activeSteps = getActiveSteps(session);
   const isOutlineReady = session?.previewPhase === 'outline-ready';
@@ -125,12 +122,9 @@ function GenerationPreviewContent() {
       };
       signal.addEventListener('abort', onAbort, { once: true });
       if (!shouldReview) {
-        outlineReviewTimerRef.current = setTimeout(() => {
-          outlineReviewTimerRef.current = null;
-          outlineReviewResolveRef.current = null;
-          signal.removeEventListener('abort', onAbort);
-          resolve(outlines);
-        }, OUTLINE_REVIEW_AUTO_CONTINUE_MS);
+        signal.removeEventListener('abort', onAbort);
+        outlineReviewResolveRef.current = null;
+        resolve(outlines);
       }
     });
 
@@ -596,8 +590,10 @@ function GenerationPreviewContent() {
 
         // Mid-stream review intent (sticky ref) overrides the auto-continue timer.
         const userOpenedReviewEarly = outlineReviewIntentRef.current;
-        const shouldReviewOutlines =
-          useSettingsStore.getState().reviewOutlineEnabled || userOpenedReviewEarly;
+        const shouldReviewOutlines = shouldPauseForOutlineConfirmation({
+          reviewOutlineEnabled: useSettingsStore.getState().reviewOutlineEnabled,
+          userOpenedReviewEarly,
+        });
         const updatedSession: GenerationSessionState = {
           ...currentSession,
           sceneOutlines: outlines,
@@ -951,6 +947,20 @@ function GenerationPreviewContent() {
       const remaining = outlines.filter((o) => o.order !== firstScene.order);
       store.setGeneratingOutlines(remaining);
 
+      let generatedCourseId: string | undefined;
+      if (currentSession.categoryId) {
+        const persisted = await persistGeneratedCourseDraft(fetch, {
+          stage,
+          categoryId: currentSession.categoryId,
+          scenes: useStageStore.getState().scenes,
+          outlines,
+        });
+        if (persisted.course && typeof persisted.course === 'object' && 'id' in persisted.course) {
+          const id = persisted.course.id;
+          generatedCourseId = typeof id === 'string' ? id : undefined;
+        }
+      }
+
       // Store generation params for classroom to continue generation
       sessionStorage.setItem(
         'generationParams',
@@ -959,6 +969,7 @@ function GenerationPreviewContent() {
           agents,
           userProfile,
           languageDirective,
+          generatedCourseId,
         }),
       );
 
@@ -1008,16 +1019,13 @@ function GenerationPreviewContent() {
 
   // Inverse of expand. Mid-stream: shrink back to the streaming preview card so
   // the user can keep watching while SSE fills in the rest. Post-stream: shrink
-  // back to the small card too, then re-arm the 2.5s auto-continue timer — same
-  // pacing as the no-review path so the user has a beat to see the card before
-  // the page advances. Jumping straight to content gen feels too abrupt.
+  // back to the small card and wait for explicit confirmation.
   const handleCollapseEditor = () => {
     if (!session) return;
     if (isOutlineStreaming) {
       // Intentionally drop the review-intent flag: collapsing mid-stream is the
-      // user saying "actually, never mind". When SSE finishes, the no-early-open
-      // path runs and the standard `reviewOutlineEnabled` / auto-continue rules
-      // decide what happens next. There is no parked promise to settle yet —
+      // user saying "actually, never mind". When SSE finishes, the normal
+      // explicit-confirmation path decides what happens next. There is no parked promise to settle yet —
       // the promise is created only after SSE completes (see line 583).
       outlineReviewIntentRef.current = false;
       persistSession({ ...session, previewPhase: 'preparing' });
@@ -1032,32 +1040,8 @@ function GenerationPreviewContent() {
       sceneOutlines: collapsedOutlines,
       previewPhase: 'outline-ready',
     });
-    setStatusMessage(t('generation.reviewOutlineAutoContinue'));
-
-    // Re-arm the auto-continue timer. The SSE-completion flow is parked inside
-    // `waitForOutlineReviewChoice` (because `shouldReview` was true when the
-    // user opened the editor) — fire its resolve via a fresh timeout to match
-    // the no-review path's pacing.
     clearOutlineReviewTimer();
-    outlineReviewTimerRef.current = setTimeout(() => {
-      outlineReviewTimerRef.current = null;
-      const resolve = outlineReviewResolveRef.current;
-      outlineReviewResolveRef.current = null;
-      if (resolve) {
-        resolve(collapsedOutlines);
-        return;
-      }
-      // No parked promise (e.g. session was restored from a refresh into
-      // 'review' state). Drive the transition ourselves.
-      const confirmedSession: GenerationSessionState = {
-        ...session,
-        sceneOutlines: collapsedOutlines,
-        previewPhase: 'generating-content',
-      };
-      persistSession(confirmedSession);
-      hasStartedRef.current = true;
-      void startGeneration(confirmedSession);
-    }, OUTLINE_REVIEW_AUTO_CONTINUE_MS);
+    setStatusMessage('');
   };
 
   const handleOutlinesChange = (outlines: SceneOutline[]) => {
@@ -1204,8 +1188,7 @@ function GenerationPreviewContent() {
               onChange={handleOutlinesChange}
               onConfirm={handleConfirmOutlines}
               onBack={goBackToHome}
-              alwaysReview={reviewOutlineEnabled}
-              onAlwaysReviewChange={setReviewOutlineEnabled}
+              alwaysReview
               isLoading={isConfirmingOutlines}
               isStreaming={isOutlineStreaming}
               onCollapse={handleCollapseEditor}
