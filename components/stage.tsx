@@ -36,9 +36,11 @@ import {
  */
 export function Stage({
   onRetryOutline,
+  enterpriseCourseId,
   authoringIdentity,
 }: {
   onRetryOutline?: (outlineId: string) => Promise<void>;
+  enterpriseCourseId?: string | null;
   authoringIdentity?: CourseAuthoringIdentity | null;
 }) {
   const { mode, setMode, scenes, currentSceneId, generatingOutlines, stage } = useStageStore();
@@ -158,6 +160,7 @@ export function Stage({
             <PlaybackChromeRoot
               ref={playbackRef}
               onRetryOutline={onRetryOutline}
+              enterpriseCourseId={enterpriseCourseId}
               canEnterProMode={canEnterProMode}
               onEnterProMode={toggleHandler}
             />

@@ -12,6 +12,7 @@ import type { CanvasToolbarProps } from '@/components/canvas/canvas-toolbar';
 import type { Scene, StageMode } from '@/lib/types/stage';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { ClassroomCompletePageConnected } from '@/components/scene-renderers/classroom-complete';
+import { CourseAssessmentPanel } from '@/components/assessment/CourseAssessmentPanel';
 
 interface CanvasAreaProps extends CanvasToolbarProps {
   readonly currentScene: Scene | null;
@@ -19,8 +20,13 @@ interface CanvasAreaProps extends CanvasToolbarProps {
   readonly hideToolbar?: boolean;
   readonly isPendingScene?: boolean;
   readonly isCourseComplete?: boolean;
+  readonly enterpriseCourseId?: string | null;
+  readonly assessmentPassed?: boolean;
+  readonly learningProgress?: { sceneIndex: number; actionIndex: number };
   readonly isGenerationFailed?: boolean;
   readonly onRetryGeneration?: () => void;
+  readonly onAssessmentPassed?: () => void;
+  readonly onRestartLearning?: () => void;
 }
 
 export function CanvasArea({
@@ -46,8 +52,13 @@ export function CanvasArea({
   hideToolbar,
   isPendingScene,
   isCourseComplete,
+  enterpriseCourseId,
+  assessmentPassed,
+  learningProgress,
   isGenerationFailed,
   onRetryGeneration,
+  onAssessmentPassed,
+  onRestartLearning,
 }: CanvasAreaProps) {
   const { t } = useI18n();
   const showControls = mode === 'playback' && !whiteboardOpen;
@@ -130,7 +141,20 @@ export function CanvasArea({
                 transition={{ duration: 0.3, ease: 'easeOut' }}
                 className="absolute inset-0"
               >
-                <ClassroomCompletePageConnected />
+                {enterpriseCourseId &&
+                !assessmentPassed &&
+                learningProgress &&
+                onAssessmentPassed &&
+                onRestartLearning ? (
+                  <CourseAssessmentPanel
+                    courseId={enterpriseCourseId}
+                    learningProgress={learningProgress}
+                    onPassed={onAssessmentPassed}
+                    onRestartLearning={onRestartLearning}
+                  />
+                ) : (
+                  <ClassroomCompletePageConnected />
+                )}
               </motion.div>
             )}
             {isPendingScene && !currentScene && !isCourseComplete && (

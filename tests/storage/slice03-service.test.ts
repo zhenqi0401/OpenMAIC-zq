@@ -82,8 +82,24 @@ function makeRepository(course: EnterpriseCourse = makeCourse()): EnterpriseRepo
     async replaceCourseContent(courseId, input) {
       return { courseId, scenes: input.scenes, outlines: input.outlines };
     },
+    async updateCourseAssessmentQuestions(id, questions) {
+      return id === course.id ? { ...course, assessmentQuestions: questions } : null;
+    },
+    async getCourseProgress() {
+      return null;
+    },
     async upsertCourseProgress(input) {
       return { ...input, updatedAt: new Date('2026-07-01T00:00:00Z') };
+    },
+    async listCourseAssessmentAttempts() {
+      return [];
+    },
+    async createAssessmentAttempt(input) {
+      return {
+        id: `attempt-${input.attemptNumber}`,
+        ...input,
+        createdAt: new Date('2026-07-01T00:00:00Z'),
+      };
     },
     async getDashboardSummary() {
       return {

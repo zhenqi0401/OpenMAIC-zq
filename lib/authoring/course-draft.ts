@@ -23,6 +23,12 @@ export interface GeneratedCourseDraft {
 
 export type CourseDraftFetcher = (url: string, init?: RequestInit) => Promise<Response>;
 
+export interface RegenerateCourseAssessmentRequest {
+  questionCount?: number;
+  languageDirective?: string;
+  thinkingConfig?: unknown;
+}
+
 interface ApiEnvelope {
   success?: boolean;
   error?: string;
@@ -89,6 +95,23 @@ export async function replaceGeneratedCourseDraftContent(
     body: JSON.stringify(content),
   });
   return assertAdminApiSuccess(response, 'Saving generated course content');
+}
+
+export async function regenerateGeneratedCourseAssessment(
+  fetcher: CourseDraftFetcher,
+  courseId: string,
+  body: RegenerateCourseAssessmentRequest = {},
+  headers: HeadersInit = {},
+) {
+  const response = await fetcher(
+    `/api/admin/courses/${encodeURIComponent(courseId)}/assessment/regenerate`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(body),
+    },
+  );
+  return assertAdminApiSuccess(response, 'Generating post-course assessment');
 }
 
 export async function persistGeneratedCourseDraft(

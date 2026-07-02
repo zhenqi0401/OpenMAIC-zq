@@ -211,6 +211,7 @@ describe('model-routes', () => {
         'scene-content',
         'scene-actions',
         'agent-profiles',
+        'course-assessment',
         'quiz-grade',
         'pbl-chat',
         'chat-adapter',

@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   buildGeneratedCourseDraft,
   persistGeneratedCourseDraft,
+  regenerateGeneratedCourseAssessment,
   replaceGeneratedCourseDraftContent,
   shouldShowAssessmentMismatchWarning,
 } from '@/lib/authoring/course-draft';
@@ -153,6 +154,36 @@ describe('Slice-03 authoring helpers', () => {
     expect(JSON.parse(calls[0].init?.body as string)).toEqual({
       scenes: [{ id: 'scene-1' }, { id: 'scene-2' }],
       outlines: [{ id: 'outline-1' }, { id: 'outline-2' }],
+    });
+  });
+
+  test('requests AI regeneration for post-course assessment after draft content is complete', async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    const fetcher = async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      return Response.json({ success: true, course: { id: 'course-1' } });
+    };
+
+    await regenerateGeneratedCourseAssessment(
+      fetcher,
+      'course-1',
+      { languageDirective: 'Use Simplified Chinese.' },
+      { 'x-model': 'openai:gpt-5.4-mini' },
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({
+      url: '/api/admin/courses/course-1/assessment/regenerate',
+      init: {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-model': 'openai:gpt-5.4-mini',
+        },
+      },
+    });
+    expect(JSON.parse(calls[0].init?.body as string)).toEqual({
+      languageDirective: 'Use Simplified Chinese.',
     });
   });
 });

@@ -15,7 +15,11 @@ import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { migrateScene } from '@/lib/edit/slide-schema';
 import type { Scene } from '@/lib/types/stage';
 import { canManageCourses, type CourseAuthoringIdentity } from '@/lib/authoring/course-permissions';
-import { replaceGeneratedCourseDraftContent } from '@/lib/authoring/course-draft';
+import {
+  regenerateGeneratedCourseAssessment,
+  replaceGeneratedCourseDraftContent,
+} from '@/lib/authoring/course-draft';
+import { getCurrentModelConfig } from '@/lib/utils/model-config';
 
 const log = createLogger('Classroom');
 
@@ -28,32 +32,81 @@ export default function ClassroomDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authoringIdentity, setAuthoringIdentity] = useState<CourseAuthoringIdentity | null>(null);
+  const [enterpriseCourseId, setEnterpriseCourseId] = useState<string | null>(null);
 
   const generationStartedRef = useRef(false);
   const generatedCourseIdRef = useRef<string | null>(null);
+  const assessmentGenerationStartedRef = useRef(false);
 
-  const syncGeneratedDraftContent = useCallback((courseId = generatedCourseIdRef.current) => {
+  const syncGeneratedDraftContent = useCallback(async (courseId = generatedCourseIdRef.current) => {
     if (!courseId) return;
 
     const { scenes, outlines } = useStageStore.getState();
-    replaceGeneratedCourseDraftContent(fetch, courseId, { scenes, outlines }).catch((error) => {
+    try {
+      return await replaceGeneratedCourseDraftContent(fetch, courseId, { scenes, outlines });
+    } catch (error) {
       log.warn('[Classroom] Failed to sync generated course draft content:', error);
-    });
+      return null;
+    }
+  }, []);
+
+  const generateDraftAssessment = useCallback(async (courseId = generatedCourseIdRef.current) => {
+    if (!courseId || assessmentGenerationStartedRef.current) return;
+    assessmentGenerationStartedRef.current = true;
+
+    const { stage } = useStageStore.getState();
+    const modelConfig = getCurrentModelConfig();
+    const body = {
+      languageDirective: stage?.languageDirective,
+      ...(modelConfig.thinkingConfig ? { thinkingConfig: modelConfig.thinkingConfig } : {}),
+    };
+    try {
+      await regenerateGeneratedCourseAssessment(fetch, courseId, body, {
+        'x-model': modelConfig.modelString || '',
+        'x-api-key': modelConfig.apiKey || '',
+        'x-base-url': modelConfig.baseUrl || '',
+        'x-provider-type': modelConfig.providerType || '',
+      });
+    } catch (error) {
+      log.warn('[Classroom] Failed to generate post-course assessment:', error);
+      assessmentGenerationStartedRef.current = false;
+    }
+  }, []);
+
+  const restoreGeneratedCourseId = useCallback(() => {
+    try {
+      const params = JSON.parse(sessionStorage.getItem('generationParams') ?? '{}') as {
+        generatedCourseId?: unknown;
+      };
+      const generatedCourseId =
+        typeof params.generatedCourseId === 'string' ? params.generatedCourseId : null;
+      generatedCourseIdRef.current = generatedCourseId;
+      setEnterpriseCourseId(generatedCourseId);
+      return generatedCourseId;
+    } catch {
+      generatedCourseIdRef.current = null;
+      setEnterpriseCourseId(null);
+      return null;
+    }
   }, []);
 
   const { generateRemaining, retrySingleOutline, stop } = useSceneGenerator({
     onSceneGenerated: () => {
-      syncGeneratedDraftContent();
+      void syncGeneratedDraftContent();
     },
     onComplete: () => {
       log.info('[Classroom] All scenes generated');
-      syncGeneratedDraftContent();
+      void syncGeneratedDraftContent().then((content) => {
+        if (content) void generateDraftAssessment();
+      });
     },
   });
 
   const loadClassroom = useCallback(async () => {
     try {
       try {
+        restoreGeneratedCourseId();
+
         const sessionResponse = await fetch('/api/auth/session');
         const session = sessionResponse.ok ? await sessionResponse.json() : null;
         setAuthoringIdentity(canManageCourses(session) ? { isAdmin: true } : { isAdmin: false });
@@ -147,7 +200,7 @@ export default function ClassroomDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [classroomId, loadFromStorage]);
+  }, [classroomId, loadFromStorage, restoreGeneratedCourseId]);
 
   useEffect(() => {
     // Reset loading state on course switch to unmount Stage during transition,
@@ -156,6 +209,8 @@ export default function ClassroomDetailPage() {
     setError(null);
     generationStartedRef.current = false;
     generatedCourseIdRef.current = null;
+    assessmentGenerationStartedRef.current = false;
+    setEnterpriseCourseId(null);
 
     // Clear previous classroom's media tasks to prevent cross-classroom contamination.
     // Placeholder IDs (gen_img_1, gen_vid_1) are NOT globally unique across stages,
@@ -195,8 +250,10 @@ export default function ClassroomDetailPage() {
       // Load generation params from sessionStorage (stored by generation-preview before navigating)
       const genParamsStr = sessionStorage.getItem('generationParams');
       const params = genParamsStr ? JSON.parse(genParamsStr) : {};
-      generatedCourseIdRef.current =
+      const generatedCourseId =
         typeof params.generatedCourseId === 'string' ? params.generatedCourseId : null;
+      generatedCourseIdRef.current = generatedCourseId;
+      setEnterpriseCourseId(generatedCourseId);
 
       // Reconstruct imageMapping from IndexedDB using pdfImages storageIds
       const storageIds = (params.pdfImages || [])
@@ -267,7 +324,11 @@ export default function ClassroomDetailPage() {
               </div>
             </div>
           ) : (
-            <Stage authoringIdentity={authoringIdentity} onRetryOutline={retrySingleOutline} />
+            <Stage
+              authoringIdentity={authoringIdentity}
+              enterpriseCourseId={enterpriseCourseId}
+              onRetryOutline={retrySingleOutline}
+            />
           )}
         </div>
       </MediaStageProvider>

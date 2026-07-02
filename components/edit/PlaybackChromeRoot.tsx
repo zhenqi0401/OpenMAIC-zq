@@ -56,6 +56,7 @@ export interface PlaybackChromeRootHandle {
 
 interface PlaybackChromeRootProps {
   readonly onRetryOutline?: (outlineId: string) => Promise<void>;
+  readonly enterpriseCourseId?: string | null;
   /** Whether the Pro Switch in Header should be enabled. */
   readonly canEnterProMode?: boolean;
   /** Pro Switch click handler — parent coordinates editLock + teardown. */
@@ -70,7 +71,10 @@ interface PlaybackChromeRootProps {
  * the engine wind down cleanly.
  */
 export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackChromeRootProps>(
-  function PlaybackChromeRoot({ onRetryOutline, canEnterProMode, onEnterProMode }, ref) {
+  function PlaybackChromeRoot(
+    { onRetryOutline, enterpriseCourseId, canEnterProMode, onEnterProMode },
+    ref,
+  ) {
     const { t } = useI18n();
     const {
       mode,
@@ -208,6 +212,18 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
     const autoStartRef = useRef(false);
     // Discussion buffer-level pause state (distinct from soft-pause which aborts SSE)
     const [isDiscussionPaused, setIsDiscussionPaused] = useState(false);
+    const [assessmentPassed, setAssessmentPassed] = useState(false);
+
+    useEffect(() => {
+      setAssessmentPassed(false);
+    }, [enterpriseCourseId]);
+
+    const notifyCourseCompleted = useCallback(() => {
+      setAssessmentPassed(true);
+      if (enterpriseCourseId && window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'course-completed', courseId: enterpriseCourseId }, '*');
+      }
+    }, [enterpriseCourseId]);
 
     /**
      * Resume a soft-paused topic: re-call /chat with existing session messages.
@@ -854,6 +870,20 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
       ? scenes.length
       : scenes.findIndex((s) => s.id === currentSceneId);
     const totalScenesCount = scenes.length + (canAdvanceToPendingSlot ? 1 : 0);
+    const learningProgress = useMemo(
+      () => ({
+        sceneIndex: Math.max(0, scenes.length - 1),
+        actionIndex: currentScene?.actions?.length ?? 0,
+      }),
+      [currentScene?.actions?.length, scenes.length],
+    );
+
+    const handleRestartLearning = useCallback(() => {
+      setAssessmentPassed(false);
+      if (scenes[0]) {
+        setCurrentSceneId(scenes[0].id);
+      }
+    }, [scenes, setCurrentSceneId]);
 
     // get action information
     const totalActions = currentScene?.actions?.length || 0;
@@ -1089,6 +1119,11 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
               hideToolbar={mode === 'playback' || (isPresenting && !controlsVisible)}
               isPendingScene={isPendingScene}
               isCourseComplete={isCourseComplete}
+              enterpriseCourseId={enterpriseCourseId}
+              assessmentPassed={assessmentPassed}
+              learningProgress={learningProgress}
+              onAssessmentPassed={notifyCourseCompleted}
+              onRestartLearning={handleRestartLearning}
               isGenerationFailed={
                 isPendingScene && failedOutlines.some((f) => f.id === generatingOutlines[0]?.id)
               }
