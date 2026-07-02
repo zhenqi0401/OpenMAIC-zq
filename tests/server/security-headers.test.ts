@@ -10,6 +10,7 @@ async function loadConfig(): Promise<NextConfig> {
 describe('Security response headers', () => {
   afterEach(() => {
     delete process.env.ALLOWED_FRAME_ANCESTORS;
+    delete process.env.ALLOWED_EMBED_ORIGINS;
   });
 
   describe('default (no ALLOWED_FRAME_ANCESTORS)', () => {
@@ -76,6 +77,20 @@ describe('Security response headers', () => {
       expect(allRouteGroup.headers).toContainEqual({
         key: 'Content-Security-Policy',
         value: "frame-ancestors 'self' https://a.example.com https://b.example.com",
+      });
+    });
+  });
+
+  describe('with ALLOWED_EMBED_ORIGINS', () => {
+    it('uses embed origins for frame-ancestors', async () => {
+      process.env.ALLOWED_EMBED_ORIGINS = 'https://host.example.com';
+      const config = await loadConfig();
+      const headerGroups = await config.headers!();
+      const allRouteGroup = headerGroups.find((g) => g.source === '/(.*)')!;
+
+      expect(allRouteGroup.headers).toContainEqual({
+        key: 'Content-Security-Policy',
+        value: "frame-ancestors 'self' https://host.example.com",
       });
     });
   });

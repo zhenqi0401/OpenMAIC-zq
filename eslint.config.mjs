@@ -27,6 +27,12 @@ const eslintConfig = defineConfig([
     '.claude/**',
     '.superpowers/**',
     '.worktrees/**',
+    '.codegraph/**',
+    '.hf-cache/**',
+    '.pnpm-store/**',
+    '.venv-*/**',
+    '__pycache__/**',
+    'models/**',
     // Playwright e2e tests (not React code):
     'e2e/**',
   ]),

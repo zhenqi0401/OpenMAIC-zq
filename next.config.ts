@@ -15,7 +15,9 @@ const nextConfig: NextConfig = {
     proxyClientMaxBodySize: '200mb',
   },
   async headers() {
-    const extraAncestors = process.env.ALLOWED_FRAME_ANCESTORS?.trim();
+    const extraAncestors = (
+      process.env.ALLOWED_EMBED_ORIGINS ?? process.env.ALLOWED_FRAME_ANCESTORS
+    )?.trim();
     const frameAncestors = extraAncestors ? `'self' ${extraAncestors}` : "'self'";
 
     return [
