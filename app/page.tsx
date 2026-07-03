@@ -17,6 +17,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  LogOut,
   ChevronUp,
   Upload,
   Sparkles,
@@ -63,6 +64,8 @@ import { useImportPptx } from '@/lib/import/use-import-pptx';
 import { shouldShowAdminEntry } from '@/lib/auth/route-policy';
 import type { SessionIdentity } from '@/lib/auth/types';
 import { StageExamPanel } from '@/components/assessment/StageExamPanel';
+import type { EnterpriseCategory } from '@/lib/storage/enterprise-service';
+import { logoutCurrentSession } from '@/lib/auth/logout-client';
 
 const log = createLogger('Home');
 
@@ -79,6 +82,7 @@ const PPTX_IMPORT_ENABLED = process.env.NEXT_PUBLIC_ENABLE_PPTX_IMPORT === 'true
 interface FormState {
   pdfFile: File | null;
   requirement: string;
+  categoryId: string;
   webSearch: boolean;
   interactiveMode: boolean;
   vocationalTestMode: boolean;
@@ -87,6 +91,7 @@ interface FormState {
 const initialFormState: FormState = {
   pdfFile: null,
   requirement: '',
+  categoryId: '',
   webSearch: false,
   interactiveMode: false,
   vocationalTestMode: false,
@@ -100,6 +105,7 @@ function HomePage() {
   const [form, setForm] = useState<FormState>(initialFormState);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [identity, setIdentity] = useState<SessionIdentity | null>(null);
+  const [courseCategories, setCourseCategories] = useState<EnterpriseCategory[]>([]);
   const [settingsSection, setSettingsSection] = useState<
     import('@/lib/types/settings').SettingsSection | undefined
   >(undefined);
@@ -164,6 +170,32 @@ function HomePage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!shouldShowAdminEntry(identity)) {
+      return;
+    }
+
+    let cancelled = false;
+    fetch('/api/admin/categories')
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((data: { categories?: EnterpriseCategory[] }) => {
+        if (cancelled) return;
+        const categories = Array.isArray(data.categories) ? data.categories : [];
+        setCourseCategories(categories);
+        setForm((prev) => {
+          if (prev.categoryId || categories.length === 0) return prev;
+          return { ...prev, categoryId: categories[0].id };
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setCourseCategories([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [identity]);
 
   // Restore requirement draft from localStorage on mount. The previous derived-state
   // pattern initialised `prev` from the cached value itself, so on the first client
@@ -314,6 +346,10 @@ function HomePage() {
       setError(t('upload.requirementRequired'));
       return;
     }
+    if (shouldShowAdminEntry(identity) && !form.categoryId) {
+      setError('Course category is required');
+      return;
+    }
 
     setError(null);
 
@@ -359,6 +395,7 @@ function HomePage() {
         pdfProviderId,
         pdfProviderConfig,
         sceneOutlines: null,
+        categoryId: shouldShowAdminEntry(identity) ? form.categoryId : undefined,
         currentStep: 'generating' as const,
       };
       sessionStorage.setItem('generationSession', JSON.stringify(sessionState));
@@ -382,12 +419,25 @@ function HomePage() {
     return date.toLocaleDateString();
   };
 
-  const canGenerate = !!form.requirement.trim() && hasUsableProvider;
+  const requiresCategory = shouldShowAdminEntry(identity);
+  const canGenerate =
+    !!form.requirement.trim() && hasUsableProvider && (!requiresCategory || !!form.categoryId);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
       if (canGenerate) handleGenerate();
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logoutCurrentSession();
+      setIdentity(null);
+      router.push('/login');
+    } catch (err) {
+      log.error('Failed to logout:', err);
+      toast.error('退出登录失败');
     }
   };
 
@@ -503,6 +553,20 @@ function HomePage() {
             <Settings className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
           </button>
         </div>
+
+        {identity && (
+          <>
+            <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700" />
+            <button
+              onClick={handleLogout}
+              className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all"
+              aria-label="退出登录"
+              title="退出登录"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </>
+        )}
       </div>
       <SettingsDialog
         open={settingsOpen}
@@ -586,6 +650,28 @@ function HomePage() {
               onKeyDown={handleKeyDown}
               rows={4}
             />
+
+            {requiresCategory && (
+              <div className="border-t border-border/40 px-4 py-2">
+                <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                  <Shield className="size-3.5 shrink-0" />
+                  <span className="shrink-0">Course category</span>
+                  <select
+                    aria-label="Course category"
+                    value={form.categoryId}
+                    onChange={(event) => updateForm('categoryId', event.target.value)}
+                    className="min-w-0 flex-1 rounded-md border border-border/60 bg-background/80 px-2 py-1 text-[12px] text-foreground outline-none focus:border-primary/60"
+                  >
+                    <option value="">Select category</option>
+                    {courseCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
 
             {/* Toolbar row */}
             <div className="px-3 pb-3 flex items-end gap-2">
