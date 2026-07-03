@@ -35,6 +35,8 @@ import {
   type EnterpriseCourse,
   type EnterpriseCourseContent,
   type EnterpriseCourseProgress,
+  type EnterpriseExamAttempt,
+  type EnterpriseExamAttemptInput,
   type EnterpriseExamPolicy,
   type EnterpriseInviteCode,
   type EnterpriseMediaFile,
@@ -103,6 +105,24 @@ function toAssessmentAttempt(
     threshold: attempt.threshold,
     answers: attempt.answers as EnterpriseAssessmentAttempt['answers'],
     details: attempt.details as EnterpriseAssessmentAttempt['details'],
+    createdAt: attempt.createdAt,
+  };
+}
+
+function toExamAttempt(attempt: typeof examAttempts.$inferSelect): EnterpriseExamAttempt {
+  return {
+    id: attempt.id,
+    examPolicyId: attempt.examPolicyId,
+    userId: attempt.userId,
+    roleSnapshot: attempt.roleSnapshot,
+    attemptNumber: attempt.attemptNumber,
+    score: attempt.score,
+    passed: attempt.passed,
+    threshold: attempt.threshold,
+    duration: attempt.duration,
+    answers: attempt.answers as EnterpriseExamAttempt['answers'],
+    details: attempt.details as EnterpriseExamAttempt['details'],
+    questionRefs: attempt.questionRefs as EnterpriseExamAttempt['questionRefs'],
     createdAt: attempt.createdAt,
   };
 }
@@ -627,10 +647,11 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
 
   async listExamAttempts(filters?: HostQueryFilters): Promise<EnterpriseAttemptDetail[]> {
     const rows = await getDb()
-      .select({ attempt: examAttempts, user: users, role: roles })
+      .select({ attempt: examAttempts, user: users, role: roles, policy: examPolicies })
       .from(examAttempts)
       .innerJoin(users, eq(examAttempts.userId, users.id))
-      .innerJoin(roles, eq(users.roleId, roles.id));
+      .innerJoin(roles, eq(users.roleId, roles.id))
+      .innerJoin(examPolicies, eq(examAttempts.examPolicyId, examPolicies.id));
     const allowedPolicyIds = filters?.courseId
       ? new Set(
           (
@@ -651,6 +672,7 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
         roleId: row.role.id,
         roleCode: row.role.code,
         examPolicyId: row.attempt.examPolicyId,
+        examTitle: row.policy.title,
         score: row.attempt.score,
         passed: row.attempt.passed,
         attemptNumber: row.attempt.attemptNumber,
@@ -753,6 +775,37 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
 
   async publishExamPolicy(id: string): Promise<EnterpriseExamPolicy | null> {
     return this.updateExamPolicy(id, { status: 'published' });
+  }
+
+  async listExamAttemptsForUser(
+    examPolicyId: string,
+    userId: string,
+  ): Promise<EnterpriseExamAttempt[]> {
+    const rows = await getDb()
+      .select()
+      .from(examAttempts)
+      .where(and(eq(examAttempts.examPolicyId, examPolicyId), eq(examAttempts.userId, userId)));
+    return rows.map(toExamAttempt);
+  }
+
+  async createExamAttempt(input: EnterpriseExamAttemptInput): Promise<EnterpriseExamAttempt> {
+    const [attempt] = await getDb()
+      .insert(examAttempts)
+      .values({
+        examPolicyId: input.examPolicyId,
+        userId: input.userId,
+        roleSnapshot: input.roleSnapshot,
+        attemptNumber: input.attemptNumber,
+        score: input.score,
+        passed: input.passed,
+        threshold: input.threshold,
+        duration: input.duration,
+        answers: input.answers,
+        details: input.details,
+        questionRefs: input.questionRefs,
+      })
+      .returning();
+    return toExamAttempt(attempt);
   }
 
   async findHostApiKey(keyId: string): Promise<StoredHostApiKey | null> {

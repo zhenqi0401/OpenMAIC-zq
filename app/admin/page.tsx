@@ -1,6 +1,7 @@
 import { Shield } from 'lucide-react';
 import { AdminSlice08Panel } from '@/components/admin/AdminSlice08Panel';
 import { CourseAdminPanel } from '@/components/admin/courses/CourseAdminPanel';
+import { ExamPolicyAdminPanel } from '@/components/admin/exams/ExamPolicyAdminPanel';
 
 export default function AdminPage() {
   return (
@@ -13,12 +14,13 @@ export default function AdminPage() {
           <div>
             <h1 className="text-xl font-semibold text-slate-950 dark:text-slate-50">管理后台</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              看板、角色、邀请码、用户与课程
+              看板、角色、邀请码、用户、课程与考核
             </p>
           </div>
         </div>
         <AdminSlice08Panel />
         <CourseAdminPanel />
+        <ExamPolicyAdminPanel />
       </div>
     </main>
   );

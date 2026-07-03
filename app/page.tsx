@@ -62,6 +62,7 @@ import { shouldShowVocationalTestUi } from '@/lib/config/feature-flags';
 import { useImportPptx } from '@/lib/import/use-import-pptx';
 import { shouldShowAdminEntry } from '@/lib/auth/route-policy';
 import type { SessionIdentity } from '@/lib/auth/types';
+import { StageExamPanel } from '@/components/assessment/StageExamPanel';
 
 const log = createLogger('Home');
 
@@ -749,6 +750,8 @@ function HomePage() {
           </div>
         )}
       </motion.div>
+
+      <StageExamPanel identity={identity} />
 
       {/* ═══ Recent classrooms — collapsible ═══ */}
       {classrooms.length > 0 && (

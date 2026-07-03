@@ -1,6 +1,7 @@
 import type { AuthRole, PublicUser } from '@/lib/auth/service';
 import type { DashboardSummary, HostQueryFilters } from '@/lib/host-api/types';
 import type {
+  EnterpriseExamPolicy,
   EnterpriseInviteCode,
   EnterpriseProgressDetail,
 } from '@/lib/storage/enterprise-service';
@@ -10,6 +11,21 @@ export type AdminUser = PublicUser;
 export type AdminInviteCode = Omit<EnterpriseInviteCode, 'createdAt' | 'expiresAt'> & {
   createdAt: string | Date;
   expiresAt: string | Date | null;
+};
+export type AdminExamPolicy = EnterpriseExamPolicy;
+
+export interface ExamPolicyInput {
+  title: string;
+  targetRoleId: string;
+  categoryIds: string[];
+  courseIds: string[];
+  questionCount: number;
+  passThreshold: number;
+  timeLimitMinutes?: number | null;
+}
+
+export type ExamPolicyPatch = Partial<ExamPolicyInput> & {
+  status?: AdminExamPolicy['status'];
 };
 
 export interface AdminDashboard {
@@ -140,6 +156,35 @@ export function createAdminClient(fetcher: AdminFetch = fetch) {
         jsonRequest('PATCH', { roleId }),
       );
       return readJson<{ user: AdminUser }>(response, '用户角色保存失败');
+    },
+
+    async listExamPolicies(): Promise<AdminExamPolicy[]> {
+      const response = await fetcher('/api/admin/exam-policies');
+      const data = await readJson<{ examPolicies: AdminExamPolicy[] }>(
+        response,
+        '考核策略列表加载失败',
+      );
+      return data.examPolicies;
+    },
+
+    async createExamPolicy(input: ExamPolicyInput) {
+      const response = await fetcher('/api/admin/exam-policies', jsonRequest('POST', input));
+      return readJson<{ examPolicy: AdminExamPolicy }>(response, '考核策略创建失败');
+    },
+
+    async updateExamPolicy(id: string, patch: ExamPolicyPatch) {
+      const response = await fetcher(
+        `/api/admin/exam-policies/${encodeURIComponent(id)}`,
+        jsonRequest('PATCH', patch),
+      );
+      return readJson<{ examPolicy: AdminExamPolicy }>(response, '考核策略保存失败');
+    },
+
+    async publishExamPolicy(id: string) {
+      const response = await fetcher(`/api/admin/exam-policies/${encodeURIComponent(id)}/publish`, {
+        method: 'POST',
+      });
+      return readJson<{ examPolicy: AdminExamPolicy }>(response, '考核策略发布失败');
     },
   };
 }

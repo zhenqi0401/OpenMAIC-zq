@@ -15,6 +15,16 @@ import {
   type CourseAssessmentDetail,
   type PublicCourseAssessment,
 } from '@/lib/assessment/course-assessment';
+import {
+  collectStageExamCandidates,
+  drawStageExamQuestions,
+  gradeStageExam,
+  resolveQuestionsFromRefs,
+  toPublicStageExam,
+  type PublicStageExam,
+  type StageExamAttemptDetail,
+  type StageExamQuestionRef,
+} from '@/lib/exams/stage-exam';
 
 export type CourseStatus = 'draft' | 'published' | 'archived';
 export type CourseVisibilityMode = 'all' | 'roles';
@@ -146,6 +156,39 @@ export interface EnterpriseExamPolicy {
   passThreshold: number;
   timeLimitMinutes?: number | null;
   status: 'draft' | 'published' | 'archived';
+  candidateQuestionCount?: number;
+}
+
+export interface EnterpriseExamAttempt {
+  id: string;
+  examPolicyId: string;
+  userId: string;
+  roleSnapshot: string;
+  attemptNumber: number;
+  score: number;
+  passed: boolean;
+  threshold: number;
+  duration: number | null;
+  answers: AssessmentAnswers;
+  details: StageExamAttemptDetail[];
+  questionRefs: StageExamQuestionRef[];
+  createdAt: Date;
+}
+
+export type EnterpriseExamAttemptInput = Omit<EnterpriseExamAttempt, 'id' | 'createdAt'>;
+
+export interface SubmitStageExamInput {
+  examPolicyId: string;
+  userId: string;
+  roleId: string;
+  roleSnapshot: string;
+  answers: AssessmentAnswers;
+  questionRefs: StageExamQuestionRef[];
+  durationSeconds?: number | null;
+}
+
+export interface SubmitStageExamResult {
+  attempt: EnterpriseExamAttempt;
 }
 
 export interface EnterpriseMediaFile {
@@ -285,6 +328,8 @@ export interface EnterpriseRepository {
     },
   ): Promise<EnterpriseExamPolicy | null>;
   publishExamPolicy(id: string): Promise<EnterpriseExamPolicy | null>;
+  listExamAttemptsForUser(examPolicyId: string, userId: string): Promise<EnterpriseExamAttempt[]>;
+  createExamAttempt(input: EnterpriseExamAttemptInput): Promise<EnterpriseExamAttempt>;
 
   findHostApiKey(keyId: string): Promise<StoredHostApiKey | null>;
   touchHostApiKey(keyId: string): Promise<void>;
@@ -342,6 +387,10 @@ function maxAttemptNumber(attempts: EnterpriseAssessmentAttempt[]): number {
   return attempts.reduce((max, attempt) => Math.max(max, attempt.attemptNumber), 0);
 }
 
+function maxExamAttemptNumber(attempts: EnterpriseExamAttempt[]): number {
+  return attempts.reduce((max, attempt) => Math.max(max, attempt.attemptNumber), 0);
+}
+
 function parseHostKeyId(token: string | null | undefined): string | null {
   if (!token) return null;
   const separatorIndex = token.indexOf('.');
@@ -364,6 +413,43 @@ async function assertHostAccess(
 }
 
 export function createEnterpriseStorageService(repository: EnterpriseRepository) {
+  async function getExamPolicyCandidates(policy: EnterpriseExamPolicy) {
+    const courses = await repository.listAdminCourses();
+    const eligibleCourses = courses.filter((course) => {
+      if (course.status !== 'published') return false;
+      if (!policy.categoryIds.includes(course.categoryId)) return false;
+      if (policy.courseIds.length > 0 && !policy.courseIds.includes(course.id)) return false;
+      return true;
+    });
+    const contents = (
+      await Promise.all(eligibleCourses.map((course) => repository.getCourseContent(course.id)))
+    ).filter((content): content is EnterpriseCourseContent => content !== null);
+    return collectStageExamCandidates(contents);
+  }
+
+  async function withCandidateQuestionCount(
+    policy: EnterpriseExamPolicy,
+  ): Promise<EnterpriseExamPolicy> {
+    const candidates = await getExamPolicyCandidates(policy);
+    return { ...policy, candidateQuestionCount: candidates.length };
+  }
+
+  async function getPublishedExamPolicyForRole(policyId: string, roleId: string) {
+    const policy = (await repository.listExamPolicies()).find(
+      (candidate) => candidate.id === policyId,
+    );
+    if (!policy || policy.status !== 'published') {
+      throw new EnterpriseStorageServiceError('NOT_FOUND', 'Exam policy not found');
+    }
+    if (policy.targetRoleId !== roleId) {
+      throw new EnterpriseStorageServiceError(
+        'FORBIDDEN',
+        'Exam policy is not available for this role',
+      );
+    }
+    return policy;
+  }
+
   return {
     listRoles: () => repository.listRoles(),
     createRole: (input: { code: string; name: string; isAdmin?: boolean }) =>
@@ -618,8 +704,11 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
     createOssPresignedUpload: (input: OssPresignedUploadInput) =>
       repository.createOssPresignedUpload(input),
 
-    listExamPolicies: () => repository.listExamPolicies(),
-    createExamPolicy: (input: {
+    async listExamPolicies() {
+      const policies = await repository.listExamPolicies();
+      return Promise.all(policies.map(withCandidateQuestionCount));
+    },
+    async createExamPolicy(input: {
       title: string;
       targetRoleId: string;
       categoryIds: string[];
@@ -627,7 +716,27 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
       questionCount: number;
       passThreshold: number;
       timeLimitMinutes?: number | null;
-    }) => repository.createExamPolicy(input),
+    }) {
+      if (input.categoryIds.length === 0) {
+        throw new EnterpriseStorageServiceError(
+          'INVALID_REQUEST',
+          'At least one category is required',
+        );
+      }
+      if (input.questionCount <= 0) {
+        throw new EnterpriseStorageServiceError(
+          'INVALID_REQUEST',
+          'questionCount must be positive',
+        );
+      }
+      if (input.passThreshold < 0 || input.passThreshold > 100) {
+        throw new EnterpriseStorageServiceError(
+          'INVALID_REQUEST',
+          'passThreshold must be between 0 and 100',
+        );
+      }
+      return withCandidateQuestionCount(await repository.createExamPolicy(input));
+    },
     updateExamPolicy: async (
       id: string,
       patch: {
@@ -641,14 +750,91 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
         status?: 'draft' | 'published' | 'archived';
       },
     ) => {
+      if (patch.categoryIds !== undefined && patch.categoryIds.length === 0) {
+        throw new EnterpriseStorageServiceError(
+          'INVALID_REQUEST',
+          'At least one category is required',
+        );
+      }
+      if (patch.questionCount !== undefined && patch.questionCount <= 0) {
+        throw new EnterpriseStorageServiceError(
+          'INVALID_REQUEST',
+          'questionCount must be positive',
+        );
+      }
+      if (
+        patch.passThreshold !== undefined &&
+        (patch.passThreshold < 0 || patch.passThreshold > 100)
+      ) {
+        throw new EnterpriseStorageServiceError(
+          'INVALID_REQUEST',
+          'passThreshold must be between 0 and 100',
+        );
+      }
       const policy = await repository.updateExamPolicy(id, patch);
       if (!policy) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Exam policy not found');
-      return policy;
+      return withCandidateQuestionCount(policy);
     },
     publishExamPolicy: async (id: string) => {
       const policy = await repository.publishExamPolicy(id);
       if (!policy) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Exam policy not found');
-      return policy;
+      return withCandidateQuestionCount(policy);
+    },
+    async listAvailableExams(roleId: string): Promise<EnterpriseExamPolicy[]> {
+      const policies = await repository.listExamPolicies();
+      const available = policies.filter(
+        (policy) => policy.status === 'published' && policy.targetRoleId === roleId,
+      );
+      return Promise.all(available.map(withCandidateQuestionCount));
+    },
+    async startStageExam(input: {
+      examPolicyId: string;
+      roleId: string;
+    }): Promise<PublicStageExam> {
+      const policy = await getPublishedExamPolicyForRole(input.examPolicyId, input.roleId);
+      const candidates = await getExamPolicyCandidates(policy);
+      if (candidates.length === 0) {
+        throw new EnterpriseStorageServiceError(
+          'INVALID_REQUEST',
+          'Exam policy has no choice questions',
+        );
+      }
+      const selected = drawStageExamQuestions(candidates, policy.questionCount);
+      return toPublicStageExam({ ...policy, candidateQuestionCount: candidates.length }, selected);
+    },
+    async submitStageExam(input: SubmitStageExamInput): Promise<SubmitStageExamResult> {
+      const policy = await getPublishedExamPolicyForRole(input.examPolicyId, input.roleId);
+      if (input.questionRefs.length === 0) {
+        throw new EnterpriseStorageServiceError('INVALID_REQUEST', 'questionRefs are required');
+      }
+      const candidates = await getExamPolicyCandidates(policy);
+      let questions;
+      try {
+        questions = resolveQuestionsFromRefs(candidates, input.questionRefs);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Invalid exam question reference';
+        throw new EnterpriseStorageServiceError('INVALID_REQUEST', message);
+      }
+      const grade = gradeStageExam({
+        questions,
+        answers: input.answers,
+        threshold: policy.passThreshold,
+      });
+      const attempts = await repository.listExamAttemptsForUser(input.examPolicyId, input.userId);
+      const attempt = await repository.createExamAttempt({
+        examPolicyId: input.examPolicyId,
+        userId: input.userId,
+        roleSnapshot: input.roleSnapshot,
+        attemptNumber: maxExamAttemptNumber(attempts) + 1,
+        score: grade.score,
+        passed: grade.passed,
+        threshold: grade.threshold,
+        duration: input.durationSeconds ?? null,
+        answers: grade.answers,
+        details: grade.details,
+        questionRefs: input.questionRefs,
+      });
+      return { attempt };
     },
   };
 }
