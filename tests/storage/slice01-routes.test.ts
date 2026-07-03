@@ -159,8 +159,25 @@ function makeRepository(): EnterpriseRepository {
       content.set(courseId, { scenes: input.scenes, outlines: input.outlines });
       return { courseId, scenes: input.scenes, outlines: input.outlines };
     },
+    async updateCourseAssessmentQuestions(id, questions) {
+      const course = courses.find((candidate) => candidate.id === id);
+      return course ? { ...course, assessmentQuestions: questions } : null;
+    },
+    async getCourseProgress() {
+      return null;
+    },
     async upsertCourseProgress(input) {
       return { ...input, updatedAt: new Date('2026-07-01T00:00:00Z') };
+    },
+    async listCourseAssessmentAttempts() {
+      return [];
+    },
+    async createAssessmentAttempt(input) {
+      return {
+        id: `attempt-${input.attemptNumber}`,
+        ...input,
+        createdAt: new Date('2026-07-01T00:00:00Z'),
+      };
     },
     async getDashboardSummary() {
       return {

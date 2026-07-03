@@ -174,9 +174,29 @@ function makeRepository(): EnterpriseRepository {
         outlines: input.outlines,
       };
     },
+    async updateCourseAssessmentQuestions(id, questions) {
+      const course = courses.find((candidate) => candidate.id === id);
+      return course ? { ...course, assessmentQuestions: questions } : null;
+    },
+    async getCourseProgress(userId, courseId) {
+      const saved = progress.get(`${userId}:${courseId}`);
+      return saved
+        ? { userId, courseId, ...saved, updatedAt: new Date('2026-07-01T00:00:00Z') }
+        : null;
+    },
     async upsertCourseProgress(input) {
       progress.set(`${input.userId}:${input.courseId}`, input);
       return { ...input, updatedAt: new Date('2026-07-01T00:00:00Z') };
+    },
+    async listCourseAssessmentAttempts() {
+      return [];
+    },
+    async createAssessmentAttempt(input) {
+      return {
+        id: `attempt-${input.attemptNumber}`,
+        ...input,
+        createdAt: new Date('2026-07-01T00:00:00Z'),
+      };
     },
     async getDashboardSummary() {
       return {

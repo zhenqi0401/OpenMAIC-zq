@@ -72,8 +72,19 @@ next-env.d.ts
 /data
 /logs
 
+# local caches, downloaded models, and generated indexes
+/.codegraph/
+/.hf-cache/
+/.pnpm-store/
+/models/
+__pycache__/
+*.py[cod]
+
 # docs
 /docs
+!/docs/
+!/docs/plan/
+!/docs/plan/SLICE-*.md
 # Eval results
 eval/whiteboard-layout/results/
 eval/outline-language/results/

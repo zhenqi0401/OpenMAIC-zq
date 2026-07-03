@@ -28,6 +28,8 @@ import {
   type CourseVisibilityMode,
   type CreateCourseInput,
   type CreateMediaFileInput,
+  type EnterpriseAssessmentAttempt,
+  type EnterpriseAssessmentAttemptInput,
   type EnterpriseAttemptDetail,
   type EnterpriseCategory,
   type EnterpriseCourse,
@@ -84,6 +86,24 @@ function toMediaFile(mediaFile: typeof mediaFiles.$inferSelect): EnterpriseMedia
     posterOssKey: mediaFile.posterOssKey,
     createdAt: mediaFile.createdAt,
     updatedAt: mediaFile.updatedAt,
+  };
+}
+
+function toAssessmentAttempt(
+  attempt: typeof assessmentAttempts.$inferSelect,
+): EnterpriseAssessmentAttempt {
+  return {
+    id: attempt.id,
+    userId: attempt.userId,
+    courseId: attempt.courseId,
+    roleSnapshot: attempt.roleSnapshot,
+    attemptNumber: attempt.attemptNumber,
+    score: attempt.score,
+    passed: attempt.passed,
+    threshold: attempt.threshold,
+    answers: attempt.answers as EnterpriseAssessmentAttempt['answers'],
+    details: attempt.details as EnterpriseAssessmentAttempt['details'],
+    createdAt: attempt.createdAt,
   };
 }
 
@@ -423,6 +443,32 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     return { courseId, scenes: input.scenes, outlines: input.outlines };
   }
 
+  async updateCourseAssessmentQuestions(
+    courseId: string,
+    questions: unknown[],
+  ): Promise<EnterpriseCourse | null> {
+    const [course] = await getDb()
+      .update(courses)
+      .set({ assessmentQuestions: questions, updatedAt: new Date() })
+      .where(eq(courses.id, courseId))
+      .returning();
+    if (!course) return null;
+    const roleIds = await loadVisibleRoleIds([courseId]);
+    return toCourse(course, roleIds.get(courseId) ?? []);
+  }
+
+  async getCourseProgress(
+    userId: string,
+    courseId: string,
+  ): Promise<EnterpriseCourseProgress | null> {
+    const [progress] = await getDb()
+      .select()
+      .from(courseProgress)
+      .where(and(eq(courseProgress.userId, userId), eq(courseProgress.courseId, courseId)))
+      .limit(1);
+    return progress ?? null;
+  }
+
   async upsertCourseProgress(input: EnterpriseCourseProgress): Promise<EnterpriseCourseProgress> {
     const [progress] = await getDb()
       .insert(courseProgress)
@@ -447,6 +493,37 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
       })
       .returning();
     return progress;
+  }
+
+  async listCourseAssessmentAttempts(
+    userId: string,
+    courseId: string,
+  ): Promise<EnterpriseAssessmentAttempt[]> {
+    const rows = await getDb()
+      .select()
+      .from(assessmentAttempts)
+      .where(and(eq(assessmentAttempts.userId, userId), eq(assessmentAttempts.courseId, courseId)));
+    return rows.map(toAssessmentAttempt);
+  }
+
+  async createAssessmentAttempt(
+    input: EnterpriseAssessmentAttemptInput,
+  ): Promise<EnterpriseAssessmentAttempt> {
+    const [attempt] = await getDb()
+      .insert(assessmentAttempts)
+      .values({
+        userId: input.userId,
+        courseId: input.courseId,
+        roleSnapshot: input.roleSnapshot,
+        attemptNumber: input.attemptNumber,
+        score: input.score,
+        passed: input.passed,
+        threshold: input.threshold,
+        answers: input.answers,
+        details: input.details,
+      })
+      .returning();
+    return toAssessmentAttempt(attempt);
   }
 
   async getDashboardSummary(filters?: HostQueryFilters): Promise<DashboardSummary> {

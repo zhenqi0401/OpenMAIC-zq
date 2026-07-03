@@ -2,6 +2,19 @@ import { assertHostApiAccess, type StoredHostApiKey } from '@/lib/host-api/acces
 import type { DashboardSummary, HostQueryFilters } from '@/lib/host-api/types';
 import type { AuthRole } from '@/lib/auth/service';
 import { shouldShowAssessmentMismatchWarning } from '@/lib/authoring/course-draft';
+import {
+  generateCourseAssessmentQuestions,
+  type GenerateCourseAssessmentQuestionsInput,
+} from '@/lib/assessment/course-assessment-generation';
+import {
+  buildCourseAssessment,
+  filterChoiceQuestions,
+  gradeCourseAssessment,
+  toPublicCourseAssessment,
+  type AssessmentAnswers,
+  type CourseAssessmentDetail,
+  type PublicCourseAssessment,
+} from '@/lib/assessment/course-assessment';
 
 export type CourseStatus = 'draft' | 'published' | 'archived';
 export type CourseVisibilityMode = 'all' | 'roles';
@@ -61,6 +74,40 @@ export interface EnterpriseCourseProgress {
   completed: boolean;
   updatedAt?: Date;
 }
+
+export interface EnterpriseAssessmentAttempt {
+  id: string;
+  userId: string;
+  courseId: string;
+  roleSnapshot: string;
+  attemptNumber: number;
+  score: number;
+  passed: boolean;
+  threshold: number;
+  answers: AssessmentAnswers;
+  details: CourseAssessmentDetail[];
+  createdAt: Date;
+}
+
+export type EnterpriseAssessmentAttemptInput = Omit<
+  EnterpriseAssessmentAttempt,
+  'id' | 'createdAt'
+>;
+
+export interface SubmitCourseAssessmentInput {
+  courseId: string;
+  userId: string;
+  roleId: string;
+  roleSnapshot: string;
+  answers: AssessmentAnswers;
+}
+
+export interface SubmitCourseAssessmentResult {
+  attempt: EnterpriseAssessmentAttempt;
+  requiresRelearning: boolean;
+}
+
+export type GenerateCourseAssessmentInput = Omit<GenerateCourseAssessmentQuestionsInput, 'content'>;
 
 export interface EnterpriseProgressDetail {
   userId: string;
@@ -195,7 +242,19 @@ export interface EnterpriseRepository {
     courseId: string,
     input: ReplaceCourseContentInput,
   ): Promise<EnterpriseStoredCourseContent>;
+  updateCourseAssessmentQuestions(
+    courseId: string,
+    questions: unknown[],
+  ): Promise<EnterpriseCourse | null>;
+  getCourseProgress(userId: string, courseId: string): Promise<EnterpriseCourseProgress | null>;
   upsertCourseProgress(input: EnterpriseCourseProgress): Promise<EnterpriseCourseProgress>;
+  listCourseAssessmentAttempts(
+    userId: string,
+    courseId: string,
+  ): Promise<EnterpriseAssessmentAttempt[]>;
+  createAssessmentAttempt(
+    input: EnterpriseAssessmentAttemptInput,
+  ): Promise<EnterpriseAssessmentAttempt>;
 
   getDashboardSummary(filters?: HostQueryFilters): Promise<DashboardSummary>;
   listCourseProgress(filters?: HostQueryFilters): Promise<EnterpriseProgressDetail[]>;
@@ -277,6 +336,10 @@ function assertPublishable(course: EnterpriseCourse): void {
       'At least one role is required before publishing a role-visible course',
     );
   }
+}
+
+function maxAttemptNumber(attempts: EnterpriseAssessmentAttempt[]): number {
+  return attempts.reduce((max, attempt) => Math.max(max, attempt.attemptNumber), 0);
 }
 
 function parseHostKeyId(token: string | null | undefined): string | null {
@@ -392,6 +455,111 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
           current.course.assessmentQuestions,
         ),
       };
+    },
+
+    async getCourseAssessment(input: {
+      courseId: string;
+      userId: string;
+      roleId: string;
+    }): Promise<PublicCourseAssessment> {
+      const content = await this.getVisibleCourse(input.courseId, input.roleId);
+      if (!content) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      const [progress, attempts] = await Promise.all([
+        repository.getCourseProgress(input.userId, input.courseId),
+        repository.listCourseAssessmentAttempts(input.userId, input.courseId),
+      ]);
+      return toPublicCourseAssessment(
+        buildCourseAssessment(input.courseId, content.course.assessmentQuestions),
+        {
+          completed: attempts.some((attempt) => attempt.passed),
+          canAttempt: progress?.completed === true,
+          requiresRelearning:
+            attempts.some((attempt) => !attempt.passed) && progress?.completed !== true,
+        },
+      );
+    },
+
+    async submitCourseAssessment(
+      input: SubmitCourseAssessmentInput,
+    ): Promise<SubmitCourseAssessmentResult> {
+      const content = await this.getVisibleCourse(input.courseId, input.roleId);
+      if (!content) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      const progress = await repository.getCourseProgress(input.userId, input.courseId);
+      if (progress?.completed !== true) {
+        throw new EnterpriseStorageServiceError(
+          'INVALID_REQUEST',
+          'Course learning must be completed before assessment',
+        );
+      }
+
+      const assessment = buildCourseAssessment(input.courseId, content.course.assessmentQuestions);
+      if (assessment.questions.length === 0) {
+        throw new EnterpriseStorageServiceError(
+          'INVALID_REQUEST',
+          'Course assessment has no choice questions',
+        );
+      }
+
+      const grade = gradeCourseAssessment({
+        questions: assessment.questions,
+        answers: input.answers,
+        threshold: assessment.threshold,
+      });
+      const attempts = await repository.listCourseAssessmentAttempts(input.userId, input.courseId);
+      const attempt = await repository.createAssessmentAttempt({
+        userId: input.userId,
+        courseId: input.courseId,
+        roleSnapshot: input.roleSnapshot,
+        attemptNumber: maxAttemptNumber(attempts) + 1,
+        score: grade.score,
+        passed: grade.passed,
+        threshold: grade.threshold,
+        answers: grade.answers,
+        details: grade.details,
+      });
+
+      if (!grade.passed) {
+        await repository.upsertCourseProgress({
+          userId: input.userId,
+          courseId: input.courseId,
+          sceneIndex: 0,
+          actionIndex: 0,
+          completed: false,
+        });
+      } else {
+        await repository.upsertCourseProgress({
+          userId: input.userId,
+          courseId: input.courseId,
+          sceneIndex: progress.sceneIndex,
+          actionIndex: progress.actionIndex,
+          completed: true,
+        });
+      }
+
+      return { attempt, requiresRelearning: !grade.passed };
+    },
+
+    async updateCourseAssessmentQuestions(courseId: string, questions: unknown[]) {
+      const current = await repository.getCourseContent(courseId);
+      if (!current) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      const choiceQuestions = filterChoiceQuestions(questions);
+      const course = await repository.updateCourseAssessmentQuestions(courseId, choiceQuestions);
+      if (!course) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      return course;
+    },
+
+    async regenerateCourseAssessment(courseId: string, input: GenerateCourseAssessmentInput) {
+      const current = await repository.getCourseContent(courseId);
+      if (!current) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      const choiceQuestions = await generateCourseAssessmentQuestions({
+        content: current,
+        aiCall: input.aiCall,
+        questionCount: input.questionCount,
+        languageDirective: input.languageDirective,
+      });
+      const course = await repository.updateCourseAssessmentQuestions(courseId, choiceQuestions);
+      if (!course) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      return course;
     },
 
     saveCourseProgress: (input: EnterpriseCourseProgress) => repository.upsertCourseProgress(input),
