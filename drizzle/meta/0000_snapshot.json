@@ -111,12 +111,8 @@
           "name": "assessment_attempts_user_id_users_id_fk",
           "tableFrom": "assessment_attempts",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -124,12 +120,8 @@
           "name": "assessment_attempts_course_id_courses_id_fk",
           "tableFrom": "assessment_attempts",
           "tableTo": "courses",
-          "columnsFrom": [
-            "course_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["course_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -250,12 +242,8 @@
           "name": "course_progress_user_id_users_id_fk",
           "tableFrom": "course_progress",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -263,12 +251,8 @@
           "name": "course_progress_course_id_courses_id_fk",
           "tableFrom": "course_progress",
           "tableTo": "courses",
-          "columnsFrom": [
-            "course_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["course_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -276,10 +260,7 @@
       "compositePrimaryKeys": {
         "course_progress_user_id_course_id_pk": {
           "name": "course_progress_user_id_course_id_pk",
-          "columns": [
-            "user_id",
-            "course_id"
-          ]
+          "columns": ["user_id", "course_id"]
         }
       },
       "uniqueConstraints": {},
@@ -310,12 +291,8 @@
           "name": "course_visibility_roles_course_id_courses_id_fk",
           "tableFrom": "course_visibility_roles",
           "tableTo": "courses",
-          "columnsFrom": [
-            "course_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["course_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -323,12 +300,8 @@
           "name": "course_visibility_roles_role_id_roles_id_fk",
           "tableFrom": "course_visibility_roles",
           "tableTo": "roles",
-          "columnsFrom": [
-            "role_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["role_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -336,10 +309,7 @@
       "compositePrimaryKeys": {
         "course_visibility_roles_course_id_role_id_pk": {
           "name": "course_visibility_roles_course_id_role_id_pk",
-          "columns": [
-            "course_id",
-            "role_id"
-          ]
+          "columns": ["course_id", "role_id"]
         }
       },
       "uniqueConstraints": {},
@@ -467,12 +437,8 @@
           "name": "courses_category_id_course_categories_id_fk",
           "tableFrom": "courses",
           "tableTo": "course_categories",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["category_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -480,12 +446,8 @@
           "name": "courses_created_by_users_id_fk",
           "tableFrom": "courses",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -615,12 +577,8 @@
           "name": "exam_attempts_exam_policy_id_exam_policies_id_fk",
           "tableFrom": "exam_attempts",
           "tableTo": "exam_policies",
-          "columnsFrom": [
-            "exam_policy_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["exam_policy_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -628,12 +586,8 @@
           "name": "exam_attempts_user_id_users_id_fk",
           "tableFrom": "exam_attempts",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -727,12 +681,8 @@
           "name": "exam_policies_target_role_id_roles_id_fk",
           "tableFrom": "exam_policies",
           "tableTo": "roles",
-          "columnsFrom": [
-            "target_role_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["target_role_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -766,12 +716,8 @@
           "name": "exam_policy_courses_exam_policy_id_exam_policies_id_fk",
           "tableFrom": "exam_policy_courses",
           "tableTo": "exam_policies",
-          "columnsFrom": [
-            "exam_policy_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["exam_policy_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -779,12 +725,8 @@
           "name": "exam_policy_courses_course_id_courses_id_fk",
           "tableFrom": "exam_policy_courses",
           "tableTo": "courses",
-          "columnsFrom": [
-            "course_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["course_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -792,10 +734,7 @@
       "compositePrimaryKeys": {
         "exam_policy_courses_exam_policy_id_course_id_pk": {
           "name": "exam_policy_courses_exam_policy_id_course_id_pk",
-          "columns": [
-            "exam_policy_id",
-            "course_id"
-          ]
+          "columns": ["exam_policy_id", "course_id"]
         }
       },
       "uniqueConstraints": {},
@@ -872,9 +811,7 @@
         "host_api_keys_key_id_unique": {
           "name": "host_api_keys_key_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "key_id"
-          ]
+          "columns": ["key_id"]
         }
       },
       "policies": {},
@@ -959,12 +896,8 @@
           "name": "invite_codes_role_id_roles_id_fk",
           "tableFrom": "invite_codes",
           "tableTo": "roles",
-          "columnsFrom": [
-            "role_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["role_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -972,12 +905,8 @@
           "name": "invite_codes_created_by_users_id_fk",
           "tableFrom": "invite_codes",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -987,9 +916,7 @@
         "invite_codes_code_hash_unique": {
           "name": "invite_codes_code_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code_hash"
-          ]
+          "columns": ["code_hash"]
         }
       },
       "policies": {},
@@ -1098,12 +1025,8 @@
           "name": "media_files_course_id_courses_id_fk",
           "tableFrom": "media_files",
           "tableTo": "courses",
-          "columnsFrom": [
-            "course_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["course_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1111,12 +1034,8 @@
           "name": "media_files_scene_id_scenes_id_fk",
           "tableFrom": "media_files",
           "tableTo": "scenes",
-          "columnsFrom": [
-            "scene_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["scene_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1184,12 +1103,8 @@
           "name": "outlines_course_id_courses_id_fk",
           "tableFrom": "outlines",
           "tableTo": "courses",
-          "columnsFrom": [
-            "course_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["course_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1258,9 +1173,7 @@
         "roles_code_unique": {
           "name": "roles_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code"
-          ]
+          "columns": ["code"]
         }
       },
       "policies": {},
@@ -1363,12 +1276,8 @@
           "name": "scenes_course_id_courses_id_fk",
           "tableFrom": "scenes",
           "tableTo": "courses",
-          "columnsFrom": [
-            "course_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["course_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1485,12 +1394,8 @@
           "name": "users_role_id_roles_id_fk",
           "tableFrom": "users",
           "tableTo": "roles",
-          "columnsFrom": [
-            "role_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["role_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1500,16 +1405,12 @@
         "users_phone_unique": {
           "name": "users_phone_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "phone"
-          ]
+          "columns": ["phone"]
         },
         "users_host_user_id_unique": {
           "name": "users_host_user_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "host_user_id"
-          ]
+          "columns": ["host_user_id"]
         }
       },
       "policies": {},
