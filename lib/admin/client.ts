@@ -76,6 +76,10 @@ function jsonRequest(method: 'POST' | 'PATCH', body: unknown): RequestInit {
   };
 }
 
+function deleteRequest(): RequestInit {
+  return { method: 'DELETE' };
+}
+
 function buildQuery(filters?: HostQueryFilters): string {
   if (!filters) return '';
   const query = new URLSearchParams();
@@ -114,6 +118,11 @@ export function createAdminClient(fetcher: AdminFetch = fetch) {
       return readJson<{ role: AdminRole }>(response, '角色保存失败');
     },
 
+    async deleteRole(id: string) {
+      const response = await fetcher(`/api/admin/roles/${encodeURIComponent(id)}`, deleteRequest());
+      return readJson<{ role: AdminRole }>(response, '角色删除失败');
+    },
+
     async listInviteCodes(): Promise<AdminInviteCode[]> {
       const response = await fetcher('/api/admin/invite-codes');
       const data = await readJson<{ inviteCodes: AdminInviteCode[] }>(
@@ -144,6 +153,14 @@ export function createAdminClient(fetcher: AdminFetch = fetch) {
       return readJson<{ inviteCode: AdminInviteCode }>(response, '邀请码保存失败');
     },
 
+    async deleteInviteCode(id: string) {
+      const response = await fetcher(
+        `/api/admin/invite-codes/${encodeURIComponent(id)}`,
+        deleteRequest(),
+      );
+      return readJson<{ inviteCode: AdminInviteCode }>(response, '邀请码删除失败');
+    },
+
     async listUsers(): Promise<AdminUser[]> {
       const response = await fetcher('/api/admin/users');
       const data = await readJson<{ users: AdminUser[] }>(response, '用户列表加载失败');
@@ -156,6 +173,14 @@ export function createAdminClient(fetcher: AdminFetch = fetch) {
         jsonRequest('PATCH', { roleId }),
       );
       return readJson<{ user: AdminUser }>(response, '用户角色保存失败');
+    },
+
+    async deleteUser(userId: string) {
+      const response = await fetcher(
+        `/api/admin/users/${encodeURIComponent(userId)}`,
+        deleteRequest(),
+      );
+      return readJson<{ user: AdminUser }>(response, '用户删除失败');
     },
 
     async listExamPolicies(): Promise<AdminExamPolicy[]> {

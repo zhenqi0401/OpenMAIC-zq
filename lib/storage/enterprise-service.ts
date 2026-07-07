@@ -297,6 +297,10 @@ export interface EnterpriseRepository {
     id: string,
     patch: { code?: string; name?: string; isAdmin?: boolean },
   ): Promise<AuthRole | null>;
+  getRoleUsage(
+    roleId: string,
+  ): Promise<{ users: number; inviteCodes: number; examPolicies: number }>;
+  deleteRole(id: string): Promise<AuthRole | null>;
 
   listInviteCodes(): Promise<EnterpriseInviteCode[]>;
   createInviteCode(input: {
@@ -310,6 +314,7 @@ export interface EnterpriseRepository {
     id: string,
     patch: { enabled?: boolean; expiresAt?: Date | null; roleId?: string },
   ): Promise<EnterpriseInviteCode | null>;
+  deleteInviteCode(id: string): Promise<EnterpriseInviteCode | null>;
 
   listCategories(): Promise<EnterpriseCategory[]>;
   createCategory(input: { name: string; sortOrder?: number }): Promise<EnterpriseCategory>;
@@ -395,6 +400,7 @@ export interface EnterpriseRepository {
 
 export type EnterpriseStorageServiceErrorCode =
   | 'NOT_FOUND'
+  | 'CONFLICT'
   | 'FORBIDDEN'
   | 'INVALID_REQUEST'
   | 'HOST_API_UNAUTHORIZED'
@@ -453,8 +459,9 @@ function parseHostKeyId(token: string | null | undefined): string | null {
 
 function buildMediaManifest(courseId: string, mediaFiles: EnterpriseMediaFile[]) {
   return mediaFiles
-    .filter((media): media is EnterpriseMediaFile & { mediaType: 'image' | 'video' } =>
-      media.mediaType === 'image' || media.mediaType === 'video',
+    .filter(
+      (media): media is EnterpriseMediaFile & { mediaType: 'image' | 'video' } =>
+        media.mediaType === 'image' || media.mediaType === 'video',
     )
     .map((media) => ({
       mediaId: media.mediaId,
@@ -536,6 +543,28 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
       if (!role) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Role not found');
       return role;
     },
+    deleteRole: async (id: string) => {
+      const currentRoles = await repository.listRoles();
+      const role = currentRoles.find((candidate) => candidate.id === id);
+      if (!role) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Role not found');
+      const adminRoleCount = currentRoles.filter((candidate) => candidate.isAdmin).length;
+      if (role.isAdmin && adminRoleCount <= 1) {
+        throw new EnterpriseStorageServiceError(
+          'CONFLICT',
+          'At least one administrator role must remain',
+        );
+      }
+      const usage = await repository.getRoleUsage(id);
+      if (usage.users > 0 || usage.inviteCodes > 0 || usage.examPolicies > 0) {
+        throw new EnterpriseStorageServiceError(
+          'CONFLICT',
+          'Role is still assigned to users, invite codes, or exam policies',
+        );
+      }
+      const deletedRole = await repository.deleteRole(id);
+      if (!deletedRole) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Role not found');
+      return deletedRole;
+    },
 
     listInviteCodes: () => repository.listInviteCodes(),
     createInviteCode: (input: {
@@ -550,6 +579,12 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
       patch: { enabled?: boolean; expiresAt?: Date | null; roleId?: string },
     ) => {
       const inviteCode = await repository.updateInviteCode(id, patch);
+      if (!inviteCode)
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Invite code not found');
+      return inviteCode;
+    },
+    deleteInviteCode: async (id: string) => {
+      const inviteCode = await repository.deleteInviteCode(id);
       if (!inviteCode)
         throw new EnterpriseStorageServiceError('NOT_FOUND', 'Invite code not found');
       return inviteCode;

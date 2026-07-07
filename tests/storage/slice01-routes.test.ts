@@ -92,7 +92,10 @@ function makeRepository(): EnterpriseRepository {
       posterBlob: Buffer | null;
     }
   > = [];
-  const audio = new Map<string, Awaited<ReturnType<EnterpriseRepository['createCourseAudioBlob']>>>();
+  const audio = new Map<
+    string,
+    Awaited<ReturnType<EnterpriseRepository['createCourseAudioBlob']>>
+  >();
 
   return {
     async listRoles() {
@@ -103,6 +106,13 @@ function makeRepository(): EnterpriseRepository {
     },
     async updateRole(id, patch) {
       return { ...learnerRole, id, ...patch };
+    },
+    async getRoleUsage() {
+      return { users: 0, inviteCodes: 0, examPolicies: 0 };
+    },
+    async deleteRole(id) {
+      const role = [adminRole, learnerRole].find((candidate) => candidate.id === id);
+      return role ?? null;
     },
     async listInviteCodes() {
       return [];
@@ -122,6 +132,15 @@ function makeRepository(): EnterpriseRepository {
         roleId: patch.roleId ?? learnerRole.id,
         enabled: patch.enabled ?? true,
         expiresAt: patch.expiresAt ?? null,
+        createdAt: new Date('2026-07-01T00:00:00Z'),
+      };
+    },
+    async deleteInviteCode(id) {
+      return {
+        id,
+        roleId: learnerRole.id,
+        enabled: true,
+        expiresAt: null,
         createdAt: new Date('2026-07-01T00:00:00Z'),
       };
     },
@@ -294,7 +313,9 @@ function makeRepository(): EnterpriseRepository {
       return media;
     },
     async getMediaFileBlob(courseId, mediaId) {
-      const record = media.find((candidate) => candidate.courseId === courseId && candidate.mediaId === mediaId);
+      const record = media.find(
+        (candidate) => candidate.courseId === courseId && candidate.mediaId === mediaId,
+      );
       return record
         ? {
             courseId,
@@ -393,10 +414,7 @@ async function patchRoute(
   );
 }
 
-async function deleteRouteWithContext(
-  route: string,
-  context: { params: Promise<{ id: string }> },
-) {
+async function deleteRouteWithContext(route: string, context: { params: Promise<{ id: string }> }) {
   const routeModule = (await import(route)) as {
     DELETE: (request: Request, context: { params: Promise<{ id: string }> }) => Promise<Response>;
   };

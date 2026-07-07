@@ -63,6 +63,16 @@ const courses: EnterpriseCourse[] = [
 ];
 
 function makeRepository(): EnterpriseRepository {
+  const roles = [adminRole, learnerRole, salesRole];
+  const inviteCodes = [
+    {
+      id: 'invite-learner',
+      roleId: learnerRole.id,
+      enabled: true,
+      expiresAt: null,
+      createdAt: new Date('2026-07-01T00:00:00Z'),
+    },
+  ];
   const progress = new Map<
     string,
     { sceneIndex: number; actionIndex: number; completed: boolean }
@@ -107,7 +117,7 @@ function makeRepository(): EnterpriseRepository {
 
   return {
     async listRoles() {
-      return [adminRole, learnerRole, salesRole];
+      return roles;
     },
     async createRole(input) {
       return { id: `role-${input.code}`, isAdmin: false, ...input };
@@ -115,8 +125,21 @@ function makeRepository(): EnterpriseRepository {
     async updateRole(id, patch) {
       return { ...learnerRole, id, ...patch };
     },
+    async getRoleUsage(roleId) {
+      return {
+        users: roleId === learnerRole.id ? 1 : 0,
+        inviteCodes: inviteCodes.filter((inviteCode) => inviteCode.roleId === roleId).length,
+        examPolicies: examPolicies.filter((policy) => policy.targetRoleId === roleId).length,
+      };
+    },
+    async deleteRole(id) {
+      const index = roles.findIndex((role) => role.id === id);
+      if (index === -1) return null;
+      const [role] = roles.splice(index, 1);
+      return role;
+    },
     async listInviteCodes() {
-      return [];
+      return inviteCodes;
     },
     async createInviteCode(input) {
       return {
@@ -135,6 +158,12 @@ function makeRepository(): EnterpriseRepository {
         expiresAt: patch.expiresAt ?? null,
         createdAt: new Date('2026-07-01T00:00:00Z'),
       };
+    },
+    async deleteInviteCode(id) {
+      const index = inviteCodes.findIndex((inviteCode) => inviteCode.id === id);
+      if (index === -1) return null;
+      const [inviteCode] = inviteCodes.splice(index, 1);
+      return inviteCode;
     },
     async listCategories() {
       return [{ id: 'cat-sales', name: 'Sales', sortOrder: 0 }];
@@ -319,7 +348,9 @@ function makeRepository(): EnterpriseRepository {
       return media;
     },
     async getMediaFileBlob(courseId, mediaId) {
-      const record = media.find((candidate) => candidate.courseId === courseId && candidate.mediaId === mediaId);
+      const record = media.find(
+        (candidate) => candidate.courseId === courseId && candidate.mediaId === mediaId,
+      );
       return record
         ? {
             courseId,
@@ -515,6 +546,31 @@ describe('Slice-01 enterprise storage service', () => {
     await expect(service.deleteCourse('missing-course')).rejects.toMatchObject({
       code: 'NOT_FOUND',
       message: 'Course not found',
+    });
+  });
+
+  test('deletes invite codes and protects referenced or final admin roles', async () => {
+    const service = createEnterpriseStorageService(makeRepository());
+
+    await expect(service.deleteInviteCode('invite-learner')).resolves.toMatchObject({
+      id: 'invite-learner',
+      roleId: learnerRole.id,
+    });
+    await expect(service.deleteInviteCode('missing-invite')).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      message: 'Invite code not found',
+    });
+
+    await expect(service.deleteRole(learnerRole.id)).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message: 'Role is still assigned to users, invite codes, or exam policies',
+    });
+    await expect(service.deleteRole(adminRole.id)).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message: 'At least one administrator role must remain',
+    });
+    await expect(service.deleteRole(salesRole.id)).resolves.toMatchObject({
+      id: salesRole.id,
     });
   });
 

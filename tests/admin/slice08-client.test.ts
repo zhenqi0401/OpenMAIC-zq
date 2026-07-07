@@ -144,6 +144,9 @@ describe('Slice-08 admin client helpers', () => {
       expiresAt: null,
     });
     await client.updateUserRole('user-1', 'role-sales');
+    await client.deleteRole('role-sales');
+    await client.deleteInviteCode('invite-1');
+    await client.deleteUser('user-1');
 
     expect(calls.map((call) => [call.url, call.init?.method])).toEqual([
       ['/api/admin/roles', 'POST'],
@@ -151,6 +154,9 @@ describe('Slice-08 admin client helpers', () => {
       ['/api/admin/invite-codes', 'POST'],
       ['/api/admin/invite-codes/invite-1', 'PATCH'],
       ['/api/admin/users/user-1/role', 'PATCH'],
+      ['/api/admin/roles/role-sales', 'DELETE'],
+      ['/api/admin/invite-codes/invite-1', 'DELETE'],
+      ['/api/admin/users/user-1', 'DELETE'],
     ]);
   });
 

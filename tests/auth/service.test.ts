@@ -91,6 +91,12 @@ function makeRepo(): AuthRepository & {
       user.roleId = roleId;
       return user;
     },
+    async deleteUser(userId: string) {
+      const index = repo.users.findIndex((candidate) => candidate.id === userId);
+      if (index === -1) return null;
+      const [user] = repo.users.splice(index, 1);
+      return user;
+    },
   } satisfies AuthRepository & {
     users: AuthUser[];
     roles: AuthRole[];
@@ -261,6 +267,25 @@ describe('Slice-07 auth service', () => {
       roleId: adminRole.id,
       roleCode: 'admin',
       isAdmin: true,
+    });
+  });
+
+  test('deletes users by id and reports missing users', async () => {
+    const repo = makeRepo();
+    const service = createAuthService(repo);
+    await service.registerWithPassword({
+      phone: '13800138000',
+      password: 'password-123',
+      inviteCode: 'LEARN-2026',
+    });
+
+    await expect(service.deleteUser('user-1')).resolves.toMatchObject({
+      id: 'user-1',
+      phone: '13800138000',
+    });
+    expect(repo.users).toHaveLength(0);
+    await expect(service.deleteUser('missing-user')).rejects.toMatchObject({
+      code: 'USER_NOT_FOUND',
     });
   });
 

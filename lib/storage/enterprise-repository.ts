@@ -1,4 +1,4 @@
-import { and, eq, gte, lte } from 'drizzle-orm';
+import { and, count, eq, gte, lte } from 'drizzle-orm';
 
 import { hashInviteCode, type AuthRole } from '@/lib/auth/service';
 import type { StoredHostApiKey } from '@/lib/host-api/access';
@@ -274,6 +274,31 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     return role ? toRole(role) : null;
   }
 
+  async getRoleUsage(roleId: string): Promise<{
+    users: number;
+    inviteCodes: number;
+    examPolicies: number;
+  }> {
+    const [[userUsage], [inviteCodeUsage], [examPolicyUsage]] = await Promise.all([
+      getDb().select({ value: count() }).from(users).where(eq(users.roleId, roleId)),
+      getDb().select({ value: count() }).from(inviteCodes).where(eq(inviteCodes.roleId, roleId)),
+      getDb()
+        .select({ value: count() })
+        .from(examPolicies)
+        .where(eq(examPolicies.targetRoleId, roleId)),
+    ]);
+    return {
+      users: userUsage?.value ?? 0,
+      inviteCodes: inviteCodeUsage?.value ?? 0,
+      examPolicies: examPolicyUsage?.value ?? 0,
+    };
+  }
+
+  async deleteRole(id: string): Promise<AuthRole | null> {
+    const [role] = await getDb().delete(roles).where(eq(roles.id, id)).returning();
+    return role ? toRole(role) : null;
+  }
+
   async listInviteCodes(): Promise<EnterpriseInviteCode[]> {
     const rows = await getDb().select().from(inviteCodes);
     return rows.map(toInviteCode);
@@ -306,6 +331,14 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     const [inviteCode] = await getDb()
       .update(inviteCodes)
       .set(patch)
+      .where(eq(inviteCodes.id, id))
+      .returning();
+    return inviteCode ? toInviteCode(inviteCode) : null;
+  }
+
+  async deleteInviteCode(id: string): Promise<EnterpriseInviteCode | null> {
+    const [inviteCode] = await getDb()
+      .delete(inviteCodes)
       .where(eq(inviteCodes.id, id))
       .returning();
     return inviteCode ? toInviteCode(inviteCode) : null;
@@ -452,10 +485,10 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     return {
       course,
       stage: course.stageSnapshot,
-      scenes: sceneRows
-        .sort((a, b) => a.sceneOrder - b.sceneOrder)
-        .map((row) => row.sceneData),
-      outlines: outlineRows.flatMap((row) => (Array.isArray(row.outline) ? row.outline : [row.outline])),
+      scenes: sceneRows.sort((a, b) => a.sceneOrder - b.sceneOrder).map((row) => row.sceneData),
+      outlines: outlineRows.flatMap((row) =>
+        Array.isArray(row.outline) ? row.outline : [row.outline],
+      ),
       mediaManifest: [],
       audioManifest: [],
     };
@@ -636,9 +669,8 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
         (!filters?.roleId || row.roles.id === filters.roleId) &&
         (!filters?.userId || row.users.id === filters.userId),
     );
-    const activeCourses = (filters?.courseId
-      ? courseRows.filter((row) => row.id === filters.courseId)
-      : courseRows
+    const activeCourses = (
+      filters?.courseId ? courseRows.filter((row) => row.id === filters.courseId) : courseRows
     ).filter((row) => row.status === 'published');
     const activeProgressRows = filterDashboardRowsForPublishedCourses(activeCourses, progressRows);
     const activeAssessmentRows = filterDashboardRowsForPublishedCourses(
@@ -685,15 +717,15 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
       rows
         .filter((row) => row.course.status === 'published')
         .map((row) => ({
-        userId: row.user.id,
-        displayName: row.user.displayName,
-        roleId: row.role.id,
-        roleCode: row.role.code,
-        courseId: row.course.id,
-        courseName: row.course.name,
-        completed: row.progress.completed,
-        updatedAt: row.progress.updatedAt,
-      })),
+          userId: row.user.id,
+          displayName: row.user.displayName,
+          roleId: row.role.id,
+          roleCode: row.role.code,
+          courseId: row.course.id,
+          courseName: row.course.name,
+          completed: row.progress.completed,
+          updatedAt: row.progress.updatedAt,
+        })),
       filters,
     );
   }

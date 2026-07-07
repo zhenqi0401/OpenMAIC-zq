@@ -22,7 +22,9 @@ describe('admin layout polish', () => {
   });
 
   it('puts dashboard filters and learner rows in one continuous panel', () => {
-    const markup = renderToStaticMarkup(React.createElement(AdminSlice08Panel, { view: 'dashboard' }));
+    const markup = renderToStaticMarkup(
+      React.createElement(AdminSlice08Panel, { view: 'dashboard' }),
+    );
 
     expect(markup).toContain('刷新看板');
     expect(markup).toContain('返回首页');
@@ -42,12 +44,15 @@ describe('admin layout polish', () => {
     expect(examMarkup).not.toContain('data-size="icon"');
   });
 
-  it('lays out access management as role/user left and invite right with table headers', () => {
+  it('puts roles and invites side by side, with paginated user roles below', () => {
     const markup = renderToStaticMarkup(React.createElement(AdminSlice08Panel, { view: 'access' }));
 
     expect(markup).toContain('data-admin-access-layout');
+    expect(markup).toContain('data-admin-access-top');
+    expect(markup).toContain('data-admin-access-invite-table');
     expect(markup).toContain('角色与用户');
     expect(markup).toContain('邀请码维护');
+    expect(markup).toContain('每页 10 条');
     expect(markup).toContain('角色标识');
     expect(markup).toContain('角色名称');
     expect(markup).toContain('学员');
@@ -55,5 +60,15 @@ describe('admin layout polish', () => {
     expect(markup).toContain('邀请码状态');
     expect(markup).toContain('绑定角色');
     expect(markup).not.toContain('data-size="icon"');
+
+    expect(markup.indexOf('data-admin-access-roles')).toBeLessThan(
+      markup.indexOf('data-admin-access-invites'),
+    );
+    expect(markup.indexOf('data-admin-access-invites')).toBeLessThan(
+      markup.indexOf('data-admin-access-user-roles'),
+    );
+    expect(markup).toContain('xl:grid-cols-[minmax(0,1fr)_minmax(560px,0.9fr)]');
+    expect(markup).toContain('min-w-[900px]');
+    expect(markup).toContain('whitespace-nowrap');
   });
 });

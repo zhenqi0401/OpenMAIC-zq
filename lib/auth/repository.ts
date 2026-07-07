@@ -8,7 +8,7 @@ import type {
   CreateUserInput,
   InviteCodeRecord,
 } from './service';
-import { inviteCodes, roles, users } from '@/lib/storage/schema';
+import { courses, inviteCodes, roles, users } from '@/lib/storage/schema';
 
 let sqlClient: ReturnType<typeof postgres> | null = null;
 let dbClient: ReturnType<typeof drizzle> | null = null;
@@ -136,6 +136,18 @@ export class DrizzleAuthRepository implements AuthRepository {
       .where(eq(users.id, userId))
       .returning();
     return user ? toAuthUser(user) : null;
+  }
+
+  async deleteUser(userId: string): Promise<AuthUser | null> {
+    return getDb().transaction(async (tx) => {
+      await tx
+        .update(inviteCodes)
+        .set({ createdBy: null })
+        .where(eq(inviteCodes.createdBy, userId));
+      await tx.update(courses).set({ createdBy: null }).where(eq(courses.createdBy, userId));
+      const [user] = await tx.delete(users).where(eq(users.id, userId)).returning();
+      return user ? toAuthUser(user) : null;
+    });
   }
 }
 

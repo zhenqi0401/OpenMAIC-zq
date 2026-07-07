@@ -44,6 +44,7 @@ export interface AuthRepository {
   createUser(input: CreateUserInput): Promise<AuthUser>;
   listUsersWithRoles(): Promise<Array<{ user: AuthUser; role: AuthRole }>>;
   updateUserRole(userId: string, roleId: string): Promise<AuthUser | null>;
+  deleteUser(userId: string): Promise<AuthUser | null>;
 }
 
 export type AuthServiceErrorCode =
@@ -243,6 +244,12 @@ export function createAuthService(repository: AuthRepository) {
       const user = await repository.updateUserRole(input.userId, role.id);
       if (!user) throw new AuthServiceError('USER_NOT_FOUND');
       return { user, role, identity: identityFrom(user, role, 'password') };
+    },
+
+    async deleteUser(userId: string): Promise<AuthUser> {
+      const user = await repository.deleteUser(userId);
+      if (!user) throw new AuthServiceError('USER_NOT_FOUND');
+      return user;
     },
   };
 }

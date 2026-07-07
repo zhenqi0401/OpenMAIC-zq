@@ -10,17 +10,7 @@ import {
   adminSelectClassName,
 } from '@/components/admin/AdminSurface';
 import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { AdminDeleteDialog } from '@/components/admin/AdminDeleteDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -108,40 +98,13 @@ export function CourseDeleteDialog({
   onDelete: (course: EnterpriseCourse) => void;
 }) {
   return (
-    <AlertDialog defaultOpen={defaultOpen}>
-      <AlertDialogTrigger asChild>
-        <Button
-          className="rounded-[4px] border-[#c96f54] text-[#9b4d39] hover:bg-[#fff2ea]"
-          disabled={deleting}
-          title="删除"
-          variant="outline"
-        >
-          {deleting ? '删除中' : '删除'}
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent className="max-w-[420px] rounded-[6px] border border-[#d8c8b9] bg-[#fffaf2] p-0 text-[#2b211d] shadow-[0_18px_50px_rgba(43,33,29,0.18)]">
-        <AlertDialogHeader className="place-items-start gap-2 px-5 pb-2 pt-5 text-left">
-          <AlertDialogTitle className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
-            删除课程
-          </AlertDialogTitle>
-          <AlertDialogDescription className="text-left text-sm leading-6 text-[#75665d]">
-            {courseDeleteConfirmationMessage(course)}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter className="border-t border-[#eaded1] px-5 pb-5 pt-3 sm:justify-end">
-          <AlertDialogCancel className="rounded-[4px] border-[#d8c8b9]" disabled={deleting}>
-            取消
-          </AlertDialogCancel>
-          <AlertDialogAction
-            className="rounded-[4px] bg-[#c96f54] text-[#fffaf2] hover:bg-[#b9624a]"
-            disabled={deleting}
-            onClick={() => onDelete(course)}
-          >
-            确认删除
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <AdminDeleteDialog
+      defaultOpen={defaultOpen}
+      deleting={deleting}
+      description={courseDeleteConfirmationMessage(course)}
+      onDelete={() => onDelete(course)}
+      title="删除课程"
+    />
   );
 }
 
@@ -326,7 +289,11 @@ export function CourseAdminPanel() {
         action={
           <AdminSessionActions
             leading={
-              <Button className="rounded-[4px] border-[#d8c8b9]" onClick={loadAll} variant="outline">
+              <Button
+                className="rounded-[4px] border-[#d8c8b9]"
+                onClick={loadAll}
+                variant="outline"
+              >
                 刷新
               </Button>
             }
@@ -611,7 +578,11 @@ export function CourseAdminPanel() {
               </div>
               <p className="mt-1 text-sm text-[#75665d]">帮助管理员判断今日优先处理什么。</p>
             </div>
-            <StatusBar label="已发布" value={courseStatusSummary.published} total={courses.length} />
+            <StatusBar
+              label="已发布"
+              value={courseStatusSummary.published}
+              total={courses.length}
+            />
             <StatusBar label="草稿" value={courseStatusSummary.draft} total={courses.length} />
             <StatusBar label="已归档" value={courseStatusSummary.archived} total={courses.length} />
           </AdminCard>

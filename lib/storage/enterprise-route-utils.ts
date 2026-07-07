@@ -24,11 +24,13 @@ export function enterpriseErrorResponse(error: unknown) {
         ? 404
         : error.code === 'FORBIDDEN'
           ? 403
-          : error.code === 'HOST_API_UNAUTHORIZED'
-            ? 401
-            : error.code === 'STORAGE_UNAVAILABLE'
-              ? 503
-              : 400;
+          : error.code === 'CONFLICT'
+            ? 409
+            : error.code === 'HOST_API_UNAUTHORIZED'
+              ? 401
+              : error.code === 'STORAGE_UNAVAILABLE'
+                ? 503
+                : 400;
     return apiError('INVALID_REQUEST', status, error.message);
   }
   const message = error instanceof Error ? error.message : String(error);

@@ -131,6 +131,12 @@ function makeRepository(): EnterpriseRepository {
     async updateRole() {
       throw new Error('not used');
     },
+    async getRoleUsage() {
+      return { users: 0, inviteCodes: 0, examPolicies: 0 };
+    },
+    async deleteRole() {
+      throw new Error('not used');
+    },
     async listInviteCodes() {
       return [];
     },
@@ -138,6 +144,9 @@ function makeRepository(): EnterpriseRepository {
       throw new Error('not used');
     },
     async updateInviteCode() {
+      throw new Error('not used');
+    },
+    async deleteInviteCode() {
       throw new Error('not used');
     },
     async listCategories() {

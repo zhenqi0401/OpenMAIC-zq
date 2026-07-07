@@ -100,6 +100,12 @@ function makeRepo(): AuthRepository & { users: AuthUser[] } {
       user.roleId = roleId;
       return user;
     },
+    async deleteUser(userId) {
+      const index = users.findIndex((candidate) => candidate.id === userId);
+      if (index === -1) return null;
+      const [user] = users.splice(index, 1);
+      return user;
+    },
   };
 }
 
@@ -135,6 +141,13 @@ async function patchRoute(
     }),
     context,
   );
+}
+
+async function deleteRoute(route: string, context: { params: Promise<{ id: string }> }) {
+  const routeModule = (await import(route)) as {
+    DELETE: (request: Request, context: { params: Promise<{ id: string }> }) => Promise<Response>;
+  };
+  return routeModule.DELETE(new Request('http://localhost/test', { method: 'DELETE' }), context);
 }
 
 describe('Slice-07 auth routes', () => {
@@ -255,6 +268,14 @@ describe('Slice-07 auth routes', () => {
     const updateJson = await updateResponse.json();
     expect(updateResponse.status).toBe(200);
     expect(updateJson.user.role.code).toBe('admin');
+
+    const deleteResponse = await deleteRoute('@/app/api/admin/users/[id]/route', {
+      params: Promise.resolve({ id: 'learner-1' }),
+    });
+    const deleteJson = await deleteResponse.json();
+    expect(deleteResponse.status).toBe(200);
+    expect(deleteJson.user.id).toBe('learner-1');
+    expect(repo.users.map((user) => user.id)).toEqual(['admin-1', 'learner-2']);
 
     mocks.cookieStore.get.mockReturnValue({
       value: createSessionToken(
