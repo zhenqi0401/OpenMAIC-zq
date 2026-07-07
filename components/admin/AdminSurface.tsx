@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 export const adminSelectClassName =
@@ -39,13 +39,14 @@ export function AdminSectionHeader({
   );
 }
 
-export function AdminCard({ children, className }: { children: ReactNode; className?: string }) {
+export function AdminCard({ children, className, ...props }: ComponentProps<'div'>) {
   return (
     <div
       className={cn(
         'rounded-[6px] border border-[#d8c8b9] bg-[#fffaf2] text-[#2b211d] shadow-[0_1px_0_rgba(43,33,29,0.04)]',
         className,
       )}
+      {...props}
     >
       {children}
     </div>

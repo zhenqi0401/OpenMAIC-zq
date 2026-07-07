@@ -9,6 +9,7 @@ import {
   adminInputClassName,
   adminSelectClassName,
 } from '@/components/admin/AdminSurface';
+import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -241,9 +242,13 @@ export function CourseAdminPanel() {
     <section className="scroll-mt-4 space-y-5" id="admin-courses">
       <AdminSectionHeader
         action={
-          <Button className="rounded-[4px] border-[#d8c8b9]" onClick={loadAll} variant="outline">
-            刷新
-          </Button>
+          <AdminSessionActions
+            leading={
+              <Button className="rounded-[4px] border-[#d8c8b9]" onClick={loadAll} variant="outline">
+                刷新
+              </Button>
+            }
+          />
         }
         description="维护课程从草稿到发布的全流程，并把可见范围绑定到真实角色。"
         eyebrow="Courses"
@@ -314,7 +319,7 @@ export function CourseAdminPanel() {
             </select>
             <div className="flex gap-2">
               <Button
-                className="rounded-[4px] bg-[#2b211d] text-[#fffaf2]"
+                className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
                 onClick={() => setFilters(filterDraft)}
                 type="button"
               >
@@ -492,7 +497,7 @@ export function CourseAdminPanel() {
 
           <AdminCard className="p-4">
             <div className="mb-3 text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
-              分类
+              新建分类
             </div>
             <div className="flex gap-2">
               <Input

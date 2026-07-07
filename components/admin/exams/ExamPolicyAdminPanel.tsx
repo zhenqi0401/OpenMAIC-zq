@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ClipboardList, DatabaseZap, PlayCircle, Plus, RefreshCw, Save } from 'lucide-react';
+import { ClipboardList } from 'lucide-react';
 import {
   AdminCard,
   AdminNotice,
@@ -10,6 +10,7 @@ import {
   adminInputClassName,
   adminSelectClassName,
 } from '@/components/admin/AdminSurface';
+import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { createAdminClient, type AdminExamPolicy, type ExamPolicyInput } from '@/lib/admin/client';
@@ -193,10 +194,13 @@ export function ExamPolicyAdminPanel() {
     <section className="scroll-mt-4 space-y-5" id="admin-exams">
       <AdminSectionHeader
         action={
-          <Button className="rounded-[4px] border-[#d8c8b9]" onClick={loadAll} variant="outline">
-            <RefreshCw className="size-4" />
-            刷新
-          </Button>
+          <AdminSessionActions
+            leading={
+              <Button className="rounded-[4px] border-[#d8c8b9]" onClick={loadAll} variant="outline">
+                刷新
+              </Button>
+            }
+          />
         }
         description="把阶段考核策略翻译成运营能理解的业务配置，并只使用已发布课程作为题源。"
         eyebrow="Exams"
@@ -210,14 +214,13 @@ export function ExamPolicyAdminPanel() {
 
       <div className="grid gap-4 xl:grid-cols-[1fr_0.45fr]">
         <AdminCard className="p-4">
-          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#2b211d]">
-            <Plus className="size-4 text-[#9b897d]" />
-            快速草稿
+          <div className="mb-3 text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+            新建考核
           </div>
           <div className="grid gap-2 md:grid-cols-[1.2fr_1fr_0.7fr_0.7fr_0.7fr_auto]">
             <Input
               className={adminInputClassName}
-              placeholder="策略标题"
+              placeholder="考核标题"
               value={newPolicy.title}
               onChange={(event) => updateNewPolicy({ title: event.target.value })}
             />
@@ -255,7 +258,6 @@ export function ExamPolicyAdminPanel() {
               onChange={(event) => updateNewPolicy({ timeLimitMinutes: event.target.value })}
             />
             <Button className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]" onClick={createPolicy}>
-              <Plus className="size-4" />
               新建
             </Button>
           </div>
@@ -277,8 +279,7 @@ export function ExamPolicyAdminPanel() {
         </AdminCard>
 
         <AdminCard className="p-4">
-          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#2b211d]">
-            <DatabaseZap className="size-4 text-[#9b897d]" />
+          <div className="mb-3 text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
             题库准备度
           </div>
           <div className="text-3xl font-semibold tabular-nums text-[#2b211d]">
@@ -292,7 +293,7 @@ export function ExamPolicyAdminPanel() {
 
       <AdminCard className="overflow-hidden">
         {policies.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-[#75665d]">暂无考核策略</div>
+          <div className="px-4 py-8 text-center text-sm text-[#75665d]">暂无阶段考核</div>
         ) : (
           policies.map((policy) => {
             const draft = policyDrafts[policy.id] ?? toPolicyDraft(policy);
@@ -343,25 +344,24 @@ export function ExamPolicyAdminPanel() {
                     }
                   />
                   <div className="flex items-center gap-2 text-sm text-[#75665d]">
-                    <RefreshCw className="size-4" />
                     {policy.candidateQuestionCount ?? 0} 题
                   </div>
                   <Button
+                    className="rounded-[4px]"
                     onClick={() => savePolicy(policy.id)}
-                    size="icon"
                     title="保存考核策略"
                     variant="outline"
                   >
-                    <Save className="size-4" />
+                    保存
                   </Button>
                   <Button
+                    className="rounded-[4px]"
                     disabled={policy.status === 'published'}
                     onClick={() => publishPolicy(policy.id)}
-                    size="icon"
                     title="发布考核策略"
                     variant="outline"
                   >
-                    <PlayCircle className="size-4" />
+                    发布
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs text-[#75665d]">

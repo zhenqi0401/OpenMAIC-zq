@@ -1,17 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
-import {
-  BarChart3,
-  CheckCircle2,
-  KeyRound,
-  Plus,
-  RefreshCw,
-  Save,
-  Shield,
-  Users,
-} from 'lucide-react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
+import { BarChart3, CheckCircle2, Shield } from 'lucide-react';
 import {
   AdminCard,
   AdminSectionHeader,
@@ -19,6 +10,7 @@ import {
   adminInputClassName,
   adminSelectClassName,
 } from '@/components/admin/AdminSurface';
+import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -59,6 +51,12 @@ interface InviteDraft {
   roleId: string;
   enabled: boolean;
   expiresAt: string;
+}
+
+interface DashboardFilters {
+  userId: string;
+  roleId: string;
+  courseId: string;
 }
 
 function toDatetimeLocal(value: string | Date | null | undefined): string {
@@ -105,7 +103,7 @@ export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08
     enabled: true,
     expiresAt: '',
   });
-  const [dashboardFilters, setDashboardFilters] = useState({
+  const [dashboardFilters, setDashboardFilters] = useState<DashboardFilters>({
     userId: '',
     roleId: '',
     courseId: '',
@@ -274,25 +272,24 @@ export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08
         <section className="scroll-mt-4 space-y-4" id="admin-dashboard">
           <AdminSectionHeader
             action={
-              <Button
-                className="rounded-[4px] border-[#d8c8b9]"
-                onClick={loadDashboard}
-                variant="outline"
-              >
-                <RefreshCw className="size-4" />
-                刷新看板
-              </Button>
+              <AdminSessionActions
+                leading={
+                  <Button
+                    className="rounded-[4px] border-[#d8c8b9]"
+                    onClick={loadDashboard}
+                    variant="outline"
+                  >
+                    刷新看板
+                  </Button>
+                }
+              />
             }
             description="课程完成、测评通过、阶段考核和待处理事项集中在首屏。"
             eyebrow="Dashboard"
             icon={<BarChart3 className="size-4" />}
             title="运营状态一眼看清"
           />
-          {loading && !dashboard ? (
-            <AdminCard>
-              <EmptyState text="正在加载看板数据..." />
-            </AdminCard>
-          ) : dashboard ? (
+          {dashboard ? (
             <>
               <div className="grid gap-3 md:grid-cols-4">
                 <Metric
@@ -320,46 +317,15 @@ export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08
                   note={`课程 ${dashboard.summary.courseCount} 门`}
                 />
               </div>
-              <AdminCard className="grid gap-2 p-4 md:grid-cols-[1fr_1fr_1fr_auto]">
-                <Input
-                  className={adminInputClassName}
-                  placeholder="按用户 ID 筛选"
-                  value={dashboardFilters.userId}
-                  onChange={(event) =>
-                    setDashboardFilters((filters) => ({ ...filters, userId: event.target.value }))
-                  }
-                />
-                <select
-                  className={adminSelectClassName}
-                  value={dashboardFilters.roleId}
-                  onChange={(event) =>
-                    setDashboardFilters((filters) => ({ ...filters, roleId: event.target.value }))
-                  }
-                >
-                  <option value="">全部角色</option>
-                  {roleOptions.map((role) => (
-                    <option key={role.value} value={role.value}>
-                      {role.label}
-                    </option>
-                  ))}
-                </select>
-                <Input
-                  className={adminInputClassName}
-                  placeholder="按课程 ID 筛选"
-                  value={dashboardFilters.courseId}
-                  onChange={(event) =>
-                    setDashboardFilters((filters) => ({ ...filters, courseId: event.target.value }))
-                  }
-                />
-                <Button
-                  className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
-                  onClick={loadDashboard}
-                >
-                  应用筛选
-                </Button>
-              </AdminCard>
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.7fr)]">
-                <DashboardProgressTable progress={dashboard.progress} />
+                <DashboardProgressPanel
+                  dashboardFilters={dashboardFilters}
+                  emptyText="当前筛选无学员明细"
+                  onFilterChange={setDashboardFilters}
+                  onSubmit={loadDashboard}
+                  progress={dashboard.progress}
+                  roleOptions={roleOptions}
+                />
                 <AdminCard className="p-4">
                   <div className="mb-3">
                     <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
@@ -387,6 +353,15 @@ export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08
                 </AdminCard>
               </div>
             </>
+          ) : loading ? (
+            <DashboardProgressPanel
+              dashboardFilters={dashboardFilters}
+              emptyText="正在加载看板数据..."
+              onFilterChange={setDashboardFilters}
+              onSubmit={loadDashboard}
+              progress={[]}
+              roleOptions={roleOptions}
+            />
           ) : (
             <AdminCard>
               <EmptyState text="看板暂无数据" />
@@ -399,276 +374,329 @@ export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08
 
       {showAccess && (
         <section className="scroll-mt-4 space-y-4" id="admin-access">
-        <AdminSectionHeader
-          description="集中维护角色、邀请码和用户角色，不绕过后端安全规则。"
-          eyebrow="Access"
-          icon={<Shield className="size-4" />}
-          title="访问与角色"
-        />
+          <AdminSectionHeader
+            action={
+              <AdminSessionActions
+                leading={
+                  <Button
+                    className="rounded-[4px] border-[#d8c8b9]"
+                    onClick={loadAll}
+                    variant="outline"
+                  >
+                    刷新
+                  </Button>
+                }
+              />
+            }
+            description="集中维护角色、邀请码和用户角色，不绕过后端安全规则。"
+            eyebrow="Access"
+            icon={<Shield className="size-4" />}
+            title="访问与角色"
+          />
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <AdminCard className="space-y-3 p-4">
-            <div className="text-sm font-semibold text-[#2b211d]">角色维护</div>
-            <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
-              <Input
-                className={adminInputClassName}
-                placeholder="角色标识 code"
-                value={newRole.code}
-                onChange={(event) =>
-                  setNewRole((draft) => ({ ...draft, code: event.target.value }))
-                }
-              />
-              <Input
-                className={adminInputClassName}
-                placeholder="角色名称"
-                value={newRole.name}
-                onChange={(event) =>
-                  setNewRole((draft) => ({ ...draft, name: event.target.value }))
-                }
-              />
-              <label className="inline-flex items-center gap-2 text-sm text-[#75665d]">
-                <input
-                  checked={newRole.isAdmin}
-                  onChange={(event) =>
-                    setNewRole((draft) => ({ ...draft, isAdmin: event.target.checked }))
-                  }
-                  type="checkbox"
-                />
-                管理员
-              </label>
-              <Button className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]" onClick={createRole}>
-                <Plus className="size-4" />
-                新建
-              </Button>
-            </div>
-            <div className="overflow-x-auto md:overflow-visible">
-              <div className="min-w-[680px] divide-y divide-[#eaded1] md:min-w-0">
-                {roles.length === 0 ? (
-                  <EmptyState text="暂无角色" />
-                ) : (
-                  roles.map((role) => {
-                    const draft = roleDrafts[role.id] ?? role;
-                    return (
-                      <div
-                        className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-3 py-3 text-sm"
-                        key={role.id}
-                      >
-                        <Input
-                          className={adminInputClassName}
-                          value={draft.code}
-                          onChange={(event) =>
-                            setRoleDrafts((drafts) => ({
-                              ...drafts,
-                              [role.id]: { ...draft, code: event.target.value },
-                            }))
-                          }
-                        />
-                        <Input
-                          className={adminInputClassName}
-                          value={draft.name}
-                          onChange={(event) =>
-                            setRoleDrafts((drafts) => ({
-                              ...drafts,
-                              [role.id]: { ...draft, name: event.target.value },
-                            }))
-                          }
-                        />
-                        <label className="inline-flex items-center gap-2 text-[#75665d]">
-                          <input
-                            checked={draft.isAdmin}
+          <div
+            className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]"
+            data-admin-access-layout
+          >
+            <div className="grid gap-4 content-start">
+              <AdminCard className="space-y-3 p-4">
+                <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+                  角色与用户
+                </div>
+                <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
+                  <Input
+                    className={adminInputClassName}
+                    placeholder="角色标识 code"
+                    value={newRole.code}
+                    onChange={(event) =>
+                      setNewRole((draft) => ({ ...draft, code: event.target.value }))
+                    }
+                  />
+                  <Input
+                    className={adminInputClassName}
+                    placeholder="角色名称"
+                    value={newRole.name}
+                    onChange={(event) =>
+                      setNewRole((draft) => ({ ...draft, name: event.target.value }))
+                    }
+                  />
+                  <label className="inline-flex items-center gap-2 text-sm text-[#75665d]">
+                    <input
+                      checked={newRole.isAdmin}
+                      onChange={(event) =>
+                        setNewRole((draft) => ({ ...draft, isAdmin: event.target.checked }))
+                      }
+                      type="checkbox"
+                    />
+                    管理员
+                  </label>
+                  <Button
+                    className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
+                    onClick={createRole}
+                  >
+                    新建角色
+                  </Button>
+                </div>
+                <div className="overflow-x-auto md:overflow-visible">
+                  <div className="min-w-[680px] divide-y divide-[#eaded1] md:min-w-0">
+                    <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#75665d]">
+                      <span>角色标识</span>
+                      <span>角色名称</span>
+                      <span>权限</span>
+                      <span className="text-right">操作</span>
+                    </div>
+                    {roles.length === 0 ? (
+                      <EmptyState text="暂无角色" />
+                    ) : (
+                      roles.map((role) => {
+                        const draft = roleDrafts[role.id] ?? role;
+                        return (
+                          <div
+                            className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-3 py-3 text-sm"
+                            key={role.id}
+                          >
+                            <Input
+                              className={adminInputClassName}
+                              value={draft.code}
+                              onChange={(event) =>
+                                setRoleDrafts((drafts) => ({
+                                  ...drafts,
+                                  [role.id]: { ...draft, code: event.target.value },
+                                }))
+                              }
+                            />
+                            <Input
+                              className={adminInputClassName}
+                              value={draft.name}
+                              onChange={(event) =>
+                                setRoleDrafts((drafts) => ({
+                                  ...drafts,
+                                  [role.id]: { ...draft, name: event.target.value },
+                                }))
+                              }
+                            />
+                            <label className="inline-flex items-center gap-2 text-[#75665d]">
+                              <input
+                                checked={draft.isAdmin}
+                                onChange={(event) =>
+                                  setRoleDrafts((drafts) => ({
+                                    ...drafts,
+                                    [role.id]: { ...draft, isAdmin: event.target.checked },
+                                  }))
+                                }
+                                type="checkbox"
+                              />
+                              管理员
+                            </label>
+                            <Button
+                              className="rounded-[4px]"
+                              onClick={() => saveRole(role.id)}
+                              variant="outline"
+                            >
+                              保存
+                            </Button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </AdminCard>
+
+              <AdminCard className="space-y-3 p-4">
+                <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+                  用户角色
+                </div>
+                <div className="overflow-x-auto md:overflow-visible">
+                  <div className="min-w-[720px] divide-y divide-[#eaded1] md:min-w-0">
+                    <div className="grid grid-cols-[1.2fr_1fr_1fr_1.2fr_auto] gap-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#75665d]">
+                      <span>学员</span>
+                      <span>手机号</span>
+                      <span>外部 ID</span>
+                      <span>当前角色</span>
+                      <span className="text-right">操作</span>
+                    </div>
+                    {users.length === 0 ? (
+                      <EmptyState text="暂无用户" />
+                    ) : (
+                      users.map((user) => (
+                        <div
+                          className="grid grid-cols-[1.2fr_1fr_1fr_1.2fr_auto] items-center gap-3 py-3 text-sm"
+                          key={user.id}
+                        >
+                          <span className="font-medium text-[#2b211d]">{user.displayName}</span>
+                          <span className="text-[#75665d]">{user.phone ?? '-'}</span>
+                          <span className="truncate text-[#75665d]">{user.hostUserId ?? '-'}</span>
+                          <select
+                            className={adminSelectClassName}
+                            value={userRoleDrafts[user.id] ?? user.role.id}
                             onChange={(event) =>
-                              setRoleDrafts((drafts) => ({
+                              setUserRoleDrafts((drafts) => ({
                                 ...drafts,
-                                [role.id]: { ...draft, isAdmin: event.target.checked },
+                                [user.id]: event.target.value,
                               }))
                             }
-                            type="checkbox"
+                          >
+                            {roleOptions.map((role) => (
+                              <option key={role.value} value={role.value}>
+                                {role.label}
+                              </option>
+                            ))}
+                          </select>
+                          <Button
+                            className="rounded-[4px]"
+                            onClick={() => saveUserRole(user)}
+                            variant="outline"
+                          >
+                            保存
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </AdminCard>
+            </div>
+
+            <AdminCard className="space-y-3 p-4">
+              <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+                邀请码维护
+              </div>
+              <div className="grid gap-2 md:grid-cols-[1fr_1fr]">
+                <Input
+                  className={adminInputClassName}
+                  placeholder="新邀请码明文"
+                  value={newInvite.code}
+                  onChange={(event) =>
+                    setNewInvite((draft) => ({ ...draft, code: event.target.value }))
+                  }
+                />
+                <select
+                  className={adminSelectClassName}
+                  value={newInvite.roleId}
+                  onChange={(event) =>
+                    setNewInvite((draft) => ({ ...draft, roleId: event.target.value }))
+                  }
+                >
+                  <option value="">绑定角色</option>
+                  {roleOptions.map((role) => (
+                    <option key={role.value} value={role.value}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  className={adminInputClassName}
+                  type="datetime-local"
+                  value={newInvite.expiresAt}
+                  onChange={(event) =>
+                    setNewInvite((draft) => ({ ...draft, expiresAt: event.target.value }))
+                  }
+                />
+                <label className="inline-flex items-center gap-2 text-sm text-[#75665d]">
+                  <input
+                    checked={newInvite.enabled}
+                    onChange={(event) =>
+                      setNewInvite((draft) => ({ ...draft, enabled: event.target.checked }))
+                    }
+                    type="checkbox"
+                  />
+                  启用
+                </label>
+                <Button
+                  className="rounded-[4px] bg-[#c96f54] text-[#fffaf2] md:col-span-2"
+                  onClick={createInviteCode}
+                >
+                  新建邀请码
+                </Button>
+              </div>
+              <div className="overflow-x-auto md:overflow-visible">
+                <div className="min-w-[760px] divide-y divide-[#eaded1] md:min-w-0">
+                  <div className="grid grid-cols-[0.8fr_1.2fr_1fr_1fr_auto_auto] gap-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#75665d]">
+                    <span>邀请码状态</span>
+                    <span>绑定角色</span>
+                    <span>角色选择</span>
+                    <span>过期时间</span>
+                    <span>启用</span>
+                    <span className="text-right">操作</span>
+                  </div>
+                  {inviteCodes.length === 0 ? (
+                    <EmptyState text="暂无邀请码" />
+                  ) : (
+                    inviteCodes.map((inviteCode) => {
+                      const view = getInviteCodeView(inviteCode, roles);
+                      const draft = inviteDrafts[inviteCode.id] ?? {
+                        roleId: inviteCode.roleId,
+                        enabled: inviteCode.enabled,
+                        expiresAt: toDatetimeLocal(inviteCode.expiresAt),
+                      };
+                      return (
+                        <div
+                          className="grid grid-cols-[0.8fr_1.2fr_1fr_1fr_auto_auto] items-center gap-3 py-3 text-sm"
+                          key={inviteCode.id}
+                        >
+                          <StatusBadge status={view.status} />
+                          <div>
+                            <div className="font-medium text-[#2b211d]">{view.roleLabel}</div>
+                            <div className="text-xs text-[#75665d]">
+                              
+                            </div>
+                          </div>
+                          <select
+                            className={adminSelectClassName}
+                            value={draft.roleId}
+                            onChange={(event) =>
+                              setInviteDrafts((drafts) => ({
+                                ...drafts,
+                                [inviteCode.id]: { ...draft, roleId: event.target.value },
+                              }))
+                            }
+                          >
+                            {roleOptions.map((role) => (
+                              <option key={role.value} value={role.value}>
+                                {role.label}
+                              </option>
+                            ))}
+                          </select>
+                          <Input
+                            className={adminInputClassName}
+                            type="datetime-local"
+                            value={draft.expiresAt}
+                            onChange={(event) =>
+                              setInviteDrafts((drafts) => ({
+                                ...drafts,
+                                [inviteCode.id]: { ...draft, expiresAt: event.target.value },
+                              }))
+                            }
                           />
-                          管理员
-                        </label>
-                        <Button onClick={() => saveRole(role.id)} size="icon" title="保存角色">
-                          <Save className="size-4" />
-                        </Button>
-                      </div>
-                    );
-                  })
-                )}
+                          <label className="inline-flex items-center gap-2 text-[#75665d]">
+                            <input
+                              checked={draft.enabled}
+                              onChange={(event) =>
+                                setInviteDrafts((drafts) => ({
+                                  ...drafts,
+                                  [inviteCode.id]: { ...draft, enabled: event.target.checked },
+                                }))
+                              }
+                              type="checkbox"
+                            />
+                            启用
+                          </label>
+                          <Button
+                            className="rounded-[4px]"
+                            onClick={() => saveInviteCode(inviteCode.id)}
+                            variant="outline"
+                          >
+                            保存
+                          </Button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
-            </div>
-          </AdminCard>
-
-          <AdminCard className="space-y-3 p-4">
-            <div className="text-sm font-semibold text-[#2b211d]">用户角色</div>
-            <div className="overflow-x-auto md:overflow-visible">
-              <div className="min-w-[720px] divide-y divide-[#eaded1] md:min-w-0">
-                {users.length === 0 ? (
-                  <EmptyState text="暂无用户" />
-                ) : (
-                  users.map((user) => (
-                    <div
-                      className="grid grid-cols-[1.2fr_1fr_1fr_1.2fr_auto] items-center gap-3 py-3 text-sm"
-                      key={user.id}
-                    >
-                      <span className="flex items-center gap-2 font-medium text-[#2b211d]">
-                        <Users className="size-4 text-[#9b897d]" />
-                        {user.displayName}
-                      </span>
-                      <span className="text-[#75665d]">{user.phone ?? '-'}</span>
-                      <span className="truncate text-[#75665d]">{user.hostUserId ?? '-'}</span>
-                      <select
-                        className={adminSelectClassName}
-                        value={userRoleDrafts[user.id] ?? user.role.id}
-                        onChange={(event) =>
-                          setUserRoleDrafts((drafts) => ({
-                            ...drafts,
-                            [user.id]: event.target.value,
-                          }))
-                        }
-                      >
-                        {roleOptions.map((role) => (
-                          <option key={role.value} value={role.value}>
-                            {role.label}
-                          </option>
-                        ))}
-                      </select>
-                      <Button onClick={() => saveUserRole(user)} variant="outline">
-                        <Save className="size-4" />
-                        保存
-                      </Button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </AdminCard>
-        </div>
-
-        <AdminCard className="space-y-3 p-4">
-          <div className="flex items-center gap-2 text-sm font-semibold text-[#2b211d]">
-            <KeyRound className="size-4 text-[#9b897d]" />
-            邀请码维护
+            </AdminCard>
           </div>
-          <div className="grid gap-2 md:grid-cols-[1fr_1fr_1fr_auto_auto]">
-            <Input
-              className={adminInputClassName}
-              placeholder="新邀请码明文"
-              value={newInvite.code}
-              onChange={(event) =>
-                setNewInvite((draft) => ({ ...draft, code: event.target.value }))
-              }
-            />
-            <select
-              className={adminSelectClassName}
-              value={newInvite.roleId}
-              onChange={(event) =>
-                setNewInvite((draft) => ({ ...draft, roleId: event.target.value }))
-              }
-            >
-              <option value="">绑定角色</option>
-              {roleOptions.map((role) => (
-                <option key={role.value} value={role.value}>
-                  {role.label}
-                </option>
-              ))}
-            </select>
-            <Input
-              className={adminInputClassName}
-              type="datetime-local"
-              value={newInvite.expiresAt}
-              onChange={(event) =>
-                setNewInvite((draft) => ({ ...draft, expiresAt: event.target.value }))
-              }
-            />
-            <label className="inline-flex items-center gap-2 text-sm text-[#75665d]">
-              <input
-                checked={newInvite.enabled}
-                onChange={(event) =>
-                  setNewInvite((draft) => ({ ...draft, enabled: event.target.checked }))
-                }
-                type="checkbox"
-              />
-              启用
-            </label>
-            <Button
-              className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
-              onClick={createInviteCode}
-            >
-              <Plus className="size-4" />
-              新建
-            </Button>
-          </div>
-          <div className="overflow-x-auto md:overflow-visible">
-            <div className="min-w-[840px] divide-y divide-[#eaded1] md:min-w-0">
-              {inviteCodes.length === 0 ? (
-                <EmptyState text="暂无邀请码" />
-              ) : (
-                inviteCodes.map((inviteCode) => {
-                  const view = getInviteCodeView(inviteCode, roles);
-                  const draft = inviteDrafts[inviteCode.id] ?? {
-                    roleId: inviteCode.roleId,
-                    enabled: inviteCode.enabled,
-                    expiresAt: toDatetimeLocal(inviteCode.expiresAt),
-                  };
-                  return (
-                    <div
-                      className="grid grid-cols-[0.8fr_1.2fr_1fr_1fr_auto_auto] items-center gap-3 py-3 text-sm"
-                      key={inviteCode.id}
-                    >
-                      <StatusBadge status={view.status} />
-                      <div>
-                        <div className="font-medium text-[#2b211d]">{view.roleLabel}</div>
-                        <div className="text-xs text-[#75665d]">明文仅创建时输入，不在列表展示</div>
-                      </div>
-                      <select
-                        className={adminSelectClassName}
-                        value={draft.roleId}
-                        onChange={(event) =>
-                          setInviteDrafts((drafts) => ({
-                            ...drafts,
-                            [inviteCode.id]: { ...draft, roleId: event.target.value },
-                          }))
-                        }
-                      >
-                        {roleOptions.map((role) => (
-                          <option key={role.value} value={role.value}>
-                            {role.label}
-                          </option>
-                        ))}
-                      </select>
-                      <Input
-                        className={adminInputClassName}
-                        type="datetime-local"
-                        value={draft.expiresAt}
-                        onChange={(event) =>
-                          setInviteDrafts((drafts) => ({
-                            ...drafts,
-                            [inviteCode.id]: { ...draft, expiresAt: event.target.value },
-                          }))
-                        }
-                      />
-                      <label className="inline-flex items-center gap-2 text-[#75665d]">
-                        <input
-                          checked={draft.enabled}
-                          onChange={(event) =>
-                            setInviteDrafts((drafts) => ({
-                              ...drafts,
-                              [inviteCode.id]: { ...draft, enabled: event.target.checked },
-                            }))
-                          }
-                          type="checkbox"
-                        />
-                        启用
-                      </label>
-                      <Button onClick={() => saveInviteCode(inviteCode.id)} size="icon">
-                        <Save className="size-4" />
-                      </Button>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </AdminCard>
         </section>
       )}
     </div>
@@ -708,17 +736,64 @@ function EmptyState({ text }: { text: string }) {
   return <div className="px-4 py-8 text-center text-sm text-[#75665d]">{text}</div>;
 }
 
-function DashboardProgressTable({ progress }: { progress: AdminDashboard['progress'] }) {
-  if (progress.length === 0) {
-    return (
-      <AdminCard>
-        <EmptyState text="当前筛选无学员明细" />
-      </AdminCard>
-    );
-  }
-
+function DashboardProgressPanel({
+  progress,
+  emptyText,
+  dashboardFilters,
+  roleOptions,
+  onFilterChange,
+  onSubmit,
+}: {
+  progress: AdminDashboard['progress'];
+  emptyText: string;
+  dashboardFilters: DashboardFilters;
+  roleOptions: ReturnType<typeof buildRoleOptions>;
+  onFilterChange: Dispatch<SetStateAction<DashboardFilters>>;
+  onSubmit: () => void;
+}) {
   return (
-    <AdminCard className="overflow-hidden">
+    <AdminCard className="overflow-hidden" data-admin-dashboard-progress-panel="true">
+      <div className="border-b border-[#d8c8b9] px-4 py-4">
+        <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+          学员列表
+        </div>
+        <p className="mt-1 text-sm text-[#75665d]">先筛选学员、角色或课程，再查看学习明细。</p>
+      </div>
+      <div className="grid gap-2 border-b border-[#eaded1] p-4 md:grid-cols-[1fr_1fr_1fr_auto]">
+        <Input
+          className={adminInputClassName}
+          placeholder="按用户 ID 筛选"
+          value={dashboardFilters.userId}
+          onChange={(event) =>
+            onFilterChange((filters) => ({ ...filters, userId: event.target.value }))
+          }
+        />
+        <select
+          className={adminSelectClassName}
+          value={dashboardFilters.roleId}
+          onChange={(event) =>
+            onFilterChange((filters) => ({ ...filters, roleId: event.target.value }))
+          }
+        >
+          <option value="">全部角色</option>
+          {roleOptions.map((role) => (
+            <option key={role.value} value={role.value}>
+              {role.label}
+            </option>
+          ))}
+        </select>
+        <Input
+          className={adminInputClassName}
+          placeholder="按课程 ID 筛选"
+          value={dashboardFilters.courseId}
+          onChange={(event) =>
+            onFilterChange((filters) => ({ ...filters, courseId: event.target.value }))
+          }
+        />
+        <Button className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]" onClick={onSubmit}>
+          应用筛选
+        </Button>
+      </div>
       <div className="overflow-x-auto md:overflow-visible">
         <div className="min-w-[760px] md:min-w-0">
           <div className="grid grid-cols-[1fr_0.8fr_1fr_0.7fr_1fr] gap-3 border-b border-[#d8c8b9] px-4 py-3 text-xs font-semibold uppercase text-[#75665d]">
@@ -728,18 +803,22 @@ function DashboardProgressTable({ progress }: { progress: AdminDashboard['progre
             <span>状态</span>
             <span>最近活动</span>
           </div>
-          {progress.map((row) => (
-            <div
-              className="grid grid-cols-[1fr_0.8fr_1fr_0.7fr_1fr] gap-3 border-b border-[#eaded1] px-4 py-3 text-sm last:border-b-0"
-              key={`${row.userId}-${row.courseId}`}
-            >
-              <span className="font-medium text-[#2b211d]">{row.displayName}</span>
-              <span className="text-[#75665d]">{row.roleCode}</span>
-              <span className="text-[#75665d]">{row.courseName}</span>
-              <span className="text-[#75665d]">{row.completed ? '已完成' : '未完成'}</span>
-              <span className="text-[#75665d]">{new Date(row.updatedAt).toLocaleString()}</span>
-            </div>
-          ))}
+          {progress.length === 0 ? (
+            <EmptyState text={emptyText} />
+          ) : (
+            progress.map((row) => (
+              <div
+                className="grid grid-cols-[1fr_0.8fr_1fr_0.7fr_1fr] gap-3 border-b border-[#eaded1] px-4 py-3 text-sm last:border-b-0"
+                key={`${row.userId}-${row.courseId}`}
+              >
+                <span className="font-medium text-[#2b211d]">{row.displayName}</span>
+                <span className="text-[#75665d]">{row.roleCode}</span>
+                <span className="text-[#75665d]">{row.courseName}</span>
+                <span className="text-[#75665d]">{row.completed ? '已完成' : '未完成'}</span>
+                <span className="text-[#75665d]">{new Date(row.updatedAt).toLocaleString()}</span>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </AdminCard>

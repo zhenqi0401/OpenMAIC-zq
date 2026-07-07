@@ -44,7 +44,7 @@ describe('AdminShell', () => {
     expect(markup).not.toContain('运营状态一屏处理');
   });
 
-  it('shows admin session actions for returning home and logging out', () => {
+  it('leaves module-level actions to each admin page header', () => {
     const markup = renderToStaticMarkup(
       React.createElement(
         AdminShell,
@@ -53,8 +53,8 @@ describe('AdminShell', () => {
       ),
     );
 
-    expect(markup).toContain('href="/"');
-    expect(markup).toContain('返回首页');
-    expect(markup).toContain('退出登录');
+    expect(markup).toContain('course content');
+    expect(markup).not.toContain('返回首页');
+    expect(markup).not.toContain('退出登录');
   });
 });

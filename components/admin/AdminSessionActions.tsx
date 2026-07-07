@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { Home, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { logoutCurrentSession } from '@/lib/auth/logout-client';
 
-export function AdminSessionActions() {
+export function AdminSessionActions({ leading }: { leading?: ReactNode }) {
   const [loggingOut, setLoggingOut] = useState(false);
 
   async function handleLogout() {
@@ -22,11 +22,11 @@ export function AdminSessionActions() {
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
+      {leading}
       <Link
         className="inline-flex h-9 items-center gap-1.5 rounded-[4px] border border-[#d8c8b9] bg-[#fffaf2] px-3 text-sm font-medium text-[#2b211d] transition-colors hover:border-[#c96f54]/70 hover:bg-[#f1e2d0]"
         href="/"
       >
-        <Home className="size-4" />
         返回首页
       </Link>
       <button
@@ -35,7 +35,6 @@ export function AdminSessionActions() {
         onClick={handleLogout}
         type="button"
       >
-        <LogOut className="size-4" />
         {loggingOut ? '退出中' : '退出登录'}
       </button>
     </div>
