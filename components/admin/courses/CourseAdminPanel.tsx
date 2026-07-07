@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Archive, BookOpen, Filter, Plus, Save, Tags, Upload } from 'lucide-react';
+import { AlertTriangle, BookOpen } from 'lucide-react';
 import {
   AdminCard,
   AdminSectionHeader,
@@ -252,8 +252,15 @@ export function CourseAdminPanel() {
       />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.55fr)]">
-        <div className="grid gap-3">
-          <AdminCard className="grid gap-2 p-3 md:grid-cols-[minmax(180px,1fr)_140px_140px_140px_auto]">
+        <AdminCard className="overflow-hidden">
+          <div className="border-b border-[#d8c8b9] px-4 py-4">
+            <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+              课程分类
+            </div>
+            <p className="mt-1 text-sm text-[#75665d]">先按分类和条件收窄，再维护课程列表。</p>
+          </div>
+
+          <div className="grid gap-2 border-b border-[#eaded1] p-3 md:grid-cols-[minmax(180px,1fr)_140px_140px_140px_auto]">
             <Input
               className={adminInputClassName}
               placeholder="搜索课程、描述或分类"
@@ -311,7 +318,6 @@ export function CourseAdminPanel() {
                 onClick={() => setFilters(filterDraft)}
                 type="button"
               >
-                <Filter className="size-4" />
                 筛选
               </Button>
               {shouldApplyCourseAdminFilters(filterDraft) && (
@@ -328,9 +334,9 @@ export function CourseAdminPanel() {
                 </Button>
               )}
             </div>
-          </AdminCard>
+          </div>
 
-          <AdminCard className="overflow-hidden">
+          <div className="overflow-hidden">
             <div className="overflow-x-auto md:overflow-visible">
               <div className="min-w-[980px] md:min-w-0">
                 <div className="grid grid-cols-[1.1fr_0.7fr_0.7fr_1.4fr_auto] gap-3 border-b border-[#d8c8b9] px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[#75665d]">
@@ -338,10 +344,7 @@ export function CourseAdminPanel() {
                   <span>分类</span>
                   <span>状态</span>
                   <span>可见范围</span>
-                  <span className="flex items-center justify-end gap-1">
-                    <Filter className="size-3.5" />
-                    操作
-                  </span>
+                  <span className="text-right">操作</span>
                 </div>
                 {filteredCourses.length === 0 ? (
                   <EmptyState text="当前筛选无课程" />
@@ -412,28 +415,28 @@ export function CourseAdminPanel() {
                         </div>
                         <div className="flex justify-end gap-2">
                           <Button
+                            className="rounded-[4px]"
                             onClick={() => saveVisibility(course.id)}
-                            size="icon"
                             title="保存可见范围"
                             variant="outline"
                           >
-                            <Save className="size-4" />
+                            保存
                           </Button>
                           <Button
+                            className="rounded-[4px]"
                             onClick={() => changeStatus(course.id, 'publish')}
-                            size="icon"
                             title="发布"
                             variant="outline"
                           >
-                            <Upload className="size-4" />
+                            发布
                           </Button>
                           <Button
+                            className="rounded-[4px]"
                             onClick={() => changeStatus(course.id, 'archive')}
-                            size="icon"
                             title="下架"
                             variant="outline"
                           >
-                            <Archive className="size-4" />
+                            下架
                           </Button>
                         </div>
                       </div>
@@ -442,13 +445,12 @@ export function CourseAdminPanel() {
                 )}
               </div>
             </div>
-          </AdminCard>
-        </div>
+          </div>
+        </AdminCard>
 
         <aside className="grid gap-4 content-start">
           <AdminCard className="p-4">
-            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#2b211d]">
-              <BookOpen className="size-4 text-[#9b897d]" />
+            <div className="mb-3 text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
               新建课程草稿
             </div>
             <div className="grid gap-2">
@@ -483,15 +485,13 @@ export function CourseAdminPanel() {
                 ))}
               </select>
               <Button className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]" onClick={createCourse}>
-                <Plus className="size-4" />
-                新建课程
+                创建草稿
               </Button>
             </div>
           </AdminCard>
 
           <AdminCard className="p-4">
-            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#2b211d]">
-              <Tags className="size-4 text-[#9b897d]" />
+            <div className="mb-3 text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
               分类
             </div>
             <div className="flex gap-2">
@@ -501,8 +501,8 @@ export function CourseAdminPanel() {
                 onChange={(event) => setCategoryName(event.target.value)}
                 placeholder="分类名称"
               />
-              <Button onClick={createCategory} size="icon" title="新建分类" variant="outline">
-                <Plus className="size-4" />
+              <Button className="rounded-[4px]" onClick={createCategory} variant="outline">
+                创建
               </Button>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">

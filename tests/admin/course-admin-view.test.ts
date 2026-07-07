@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import {
+  CourseAdminPanel,
   DEFAULT_COURSE_ADMIN_FILTERS,
   courseGenerationStatusLabel,
   filterAdminCourses,
@@ -84,5 +87,15 @@ describe('filterAdminCourses', () => {
         status: 'draft',
       }),
     ).toBe(true);
+  });
+
+  it('renders the streamlined course layout with text buttons', () => {
+    const markup = renderToStaticMarkup(createElement(CourseAdminPanel));
+
+    expect(markup).toContain('课程分类');
+    expect(markup).toContain('新建课程草稿');
+    expect(markup).toContain('发布结构');
+    expect(markup).toContain('创建草稿');
+    expect(markup).not.toContain('data-size="icon"');
   });
 });
