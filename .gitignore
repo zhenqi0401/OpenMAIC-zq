@@ -24,6 +24,7 @@ CLAUDE.local.md
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+/output/
 
 # next.js
 /.next/
@@ -80,11 +81,12 @@ next-env.d.ts
 __pycache__/
 *.py[cod]
 
+# Python virtual environment
+.venv-voxcpm/
+
 # docs
 /docs
-!/docs/
-!/docs/plan/
-!/docs/plan/SLICE-*.md
+
 # Eval results
 eval/whiteboard-layout/results/
 eval/outline-language/results/
@@ -104,10 +106,6 @@ e2e/__screenshots-619/
 # Reasonix agent configuration (local only)
 .reasonix/
 
-# local caches, downloaded models, and generated indexes
-/.codegraph/
-/.hf-cache/
-/.pnpm-store/
-/models/
-__pycache__/
-*.py[cod]
+# Codex / Agent CLI local config (local only)
+.codex/
+.agents/
