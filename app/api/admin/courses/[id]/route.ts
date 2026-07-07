@@ -33,3 +33,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return enterpriseErrorResponse(error);
   }
 }
+
+export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const admin = await requireCurrentAdmin();
+  if (admin instanceof Response) return admin;
+
+  try {
+    const { id } = await context.params;
+    const course = await getEnterpriseService().deleteCourse(id);
+    return apiSuccess({ course });
+  } catch (error) {
+    return enterpriseErrorResponse(error);
+  }
+}

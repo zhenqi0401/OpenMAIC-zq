@@ -330,6 +330,7 @@ export interface EnterpriseRepository {
   ): Promise<EnterpriseCourse | null>;
   publishCourse(id: string): Promise<EnterpriseCourse | null>;
   archiveCourse(id: string): Promise<EnterpriseCourse | null>;
+  deleteCourse(id: string): Promise<EnterpriseCourse | null>;
   getCourseContent(id: string): Promise<EnterpriseCourseContent | null>;
   replaceCourseContent(
     courseId: string,
@@ -592,6 +593,11 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
     },
     archiveCourse: async (id: string) => {
       const course = await repository.archiveCourse(id);
+      if (!course) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      return course;
+    },
+    deleteCourse: async (id: string) => {
+      const course = await repository.deleteCourse(id);
       if (!course) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       return course;
     },

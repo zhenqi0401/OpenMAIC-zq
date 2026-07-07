@@ -10,6 +10,17 @@ import {
   adminSelectClassName,
 } from '@/components/admin/AdminSurface';
 import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -81,6 +92,59 @@ export function courseGenerationStatusLabel(course: EnterpriseCourse): string | 
   return '内容未完成';
 }
 
+export function courseDeleteConfirmationMessage(course: Pick<EnterpriseCourse, 'name'>): string {
+  return `确认删除课程「${course.name}」？该操作会同时删除这门课程在数据库中的内容、学习进度和测评记录，且不可恢复。`;
+}
+
+export function CourseDeleteDialog({
+  course,
+  deleting,
+  defaultOpen,
+  onDelete,
+}: {
+  course: EnterpriseCourse;
+  deleting: boolean;
+  defaultOpen?: boolean;
+  onDelete: (course: EnterpriseCourse) => void;
+}) {
+  return (
+    <AlertDialog defaultOpen={defaultOpen}>
+      <AlertDialogTrigger asChild>
+        <Button
+          className="rounded-[4px] border-[#c96f54] text-[#9b4d39] hover:bg-[#fff2ea]"
+          disabled={deleting}
+          title="删除"
+          variant="outline"
+        >
+          {deleting ? '删除中' : '删除'}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent className="max-w-[420px] rounded-[6px] border border-[#d8c8b9] bg-[#fffaf2] p-0 text-[#2b211d] shadow-[0_18px_50px_rgba(43,33,29,0.18)]">
+        <AlertDialogHeader className="place-items-start gap-2 px-5 pb-2 pt-5 text-left">
+          <AlertDialogTitle className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+            删除课程
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-left text-sm leading-6 text-[#75665d]">
+            {courseDeleteConfirmationMessage(course)}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="border-t border-[#eaded1] px-5 pb-5 pt-3 sm:justify-end">
+          <AlertDialogCancel className="rounded-[4px] border-[#d8c8b9]" disabled={deleting}>
+            取消
+          </AlertDialogCancel>
+          <AlertDialogAction
+            className="rounded-[4px] bg-[#c96f54] text-[#fffaf2] hover:bg-[#b9624a]"
+            disabled={deleting}
+            onClick={() => onDelete(course)}
+          >
+            确认删除
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export function CourseAdminPanel() {
   const [roles, setRoles] = useState<AuthRole[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -94,6 +158,7 @@ export function CourseAdminPanel() {
   const [visibilityDrafts, setVisibilityDrafts] = useState<
     Record<string, { visibilityMode: CourseVisibilityMode; visibleRoleIds: string[] }>
   >({});
+  const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null);
   const [filters, setFilters] = useState<CourseAdminFilters>(DEFAULT_COURSE_ADMIN_FILTERS);
   const [filterDraft, setFilterDraft] = useState<CourseAdminFilters>(DEFAULT_COURSE_ADMIN_FILTERS);
 
@@ -210,6 +275,23 @@ export function CourseAdminPanel() {
     }
     toast.success(action === 'publish' ? '课程已发布' : '课程已下架');
     await loadAll();
+  }
+
+  async function deleteCourse(course: EnterpriseCourse) {
+    setDeletingCourseId(course.id);
+    try {
+      const response = await fetch(`/api/admin/courses/${encodeURIComponent(course.id)}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        toast.error('课程删除失败');
+        return;
+      }
+      toast.success('课程已删除');
+      await loadAll();
+    } finally {
+      setDeletingCourseId(null);
+    }
   }
 
   function setVisibilityMode(courseId: string, visibilityMode: CourseVisibilityMode) {
@@ -443,6 +525,11 @@ export function CourseAdminPanel() {
                           >
                             下架
                           </Button>
+                          <CourseDeleteDialog
+                            course={course}
+                            deleting={deletingCourseId === course.id}
+                            onDelete={deleteCourse}
+                          />
                         </div>
                       </div>
                     );

@@ -167,6 +167,9 @@ function makeRepository(): EnterpriseRepository {
     async archiveCourse() {
       throw new Error('not used');
     },
+    async deleteCourse() {
+      throw new Error('not used');
+    },
     async getCourseContent(id) {
       if (id !== course.id) return null;
       return {

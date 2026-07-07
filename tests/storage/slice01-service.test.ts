@@ -179,6 +179,9 @@ function makeRepository(): EnterpriseRepository {
       const course = courses.find((candidate) => candidate.id === id)!;
       return { ...course, status: 'archived' };
     },
+    async deleteCourse(id) {
+      return courses.find((candidate) => candidate.id === id) ?? null;
+    },
     async getCourseContent(id) {
       const course = courses.find((candidate) => candidate.id === id);
       if (!course) return null;
@@ -499,6 +502,19 @@ describe('Slice-01 enterprise storage service', () => {
       description: 'Updated description',
       status: 'published',
       visibilityMode: 'all',
+    });
+  });
+
+  test('deletes courses through the enterprise storage service', async () => {
+    const service = createEnterpriseStorageService(makeRepository());
+
+    await expect(service.deleteCourse('course-all')).resolves.toMatchObject({
+      id: 'course-all',
+      name: 'All Hands',
+    });
+    await expect(service.deleteCourse('missing-course')).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      message: 'Course not found',
     });
   });
 

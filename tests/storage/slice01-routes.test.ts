@@ -156,6 +156,19 @@ function makeRepository(): EnterpriseRepository {
       const course = courses.find((candidate) => candidate.id === id);
       return course ? { ...course, status: 'archived' } : null;
     },
+    async deleteCourse(id) {
+      const courseIndex = courses.findIndex((candidate) => candidate.id === id);
+      if (courseIndex < 0) return null;
+      const [course] = courses.splice(courseIndex, 1);
+      content.delete(id);
+      for (let index = media.length - 1; index >= 0; index -= 1) {
+        if (media[index].courseId === id) media.splice(index, 1);
+      }
+      for (const key of [...audio.keys()]) {
+        if (key.startsWith(`${id}:`)) audio.delete(key);
+      }
+      return course;
+    },
     async getCourseContent(id) {
       const course = courses.find((candidate) => candidate.id === id);
       const stored = content.get(id) ?? { scenes: [], outlines: [] };
@@ -380,6 +393,16 @@ async function patchRoute(
   );
 }
 
+async function deleteRouteWithContext(
+  route: string,
+  context: { params: Promise<{ id: string }> },
+) {
+  const routeModule = (await import(route)) as {
+    DELETE: (request: Request, context: { params: Promise<{ id: string }> }) => Promise<Response>;
+  };
+  return routeModule.DELETE(new Request('http://localhost/test', { method: 'DELETE' }), context);
+}
+
 describe('Slice-01 API routes', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -454,6 +477,18 @@ describe('Slice-01 API routes', () => {
     );
     await expect(updated.json()).resolves.toMatchObject({
       course: { id: 'course-published', name: 'Updated Course', status: 'published' },
+    });
+
+    const deleted = await deleteRouteWithContext('@/app/api/admin/courses/[id]/route', {
+      params: Promise.resolve({ id: 'course-draft' }),
+    });
+    await expect(deleted.json()).resolves.toMatchObject({
+      course: { id: 'course-draft' },
+    });
+
+    const deletedList = await getRoute('@/app/api/admin/courses/route');
+    await expect(deletedList.json()).resolves.toMatchObject({
+      courses: [{ id: 'course-published' }],
     });
   });
 

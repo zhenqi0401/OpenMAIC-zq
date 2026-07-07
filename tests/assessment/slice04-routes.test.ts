@@ -156,6 +156,9 @@ function makeRepository(): EnterpriseRepository {
     async archiveCourse(id) {
       return id === course.id ? { ...course, status: 'archived' as const } : null;
     },
+    async deleteCourse(id) {
+      return id === course.id ? course : null;
+    },
     async getCourseContent(id) {
       return id === course.id ? { course, scenes: [], outlines: [] } : null;
     },

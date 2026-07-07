@@ -420,6 +420,27 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     return toCourse(course, roleIds.get(id) ?? []);
   }
 
+  async deleteCourse(id: string): Promise<EnterpriseCourse | null> {
+    const deletedCourse = await runDbTransaction<typeof courses.$inferSelect | null>(async (tx) => {
+      const [course] = await tx.select().from(courses).where(eq(courses.id, id)).limit(1);
+      if (!course) return null;
+
+      await tx.delete(mediaFiles).where(eq(mediaFiles.courseId, id));
+      await tx.delete(assessmentAttempts).where(eq(assessmentAttempts.courseId, id));
+      await tx.delete(courseProgress).where(eq(courseProgress.courseId, id));
+      await tx.delete(examPolicyCourses).where(eq(examPolicyCourses.courseId, id));
+      await tx.delete(courseVisibilityRoles).where(eq(courseVisibilityRoles.courseId, id));
+      await tx.delete(courseAudioBlobs).where(eq(courseAudioBlobs.courseId, id));
+      await tx.delete(outlines).where(eq(outlines.courseId, id));
+      await tx.delete(scenes).where(eq(scenes.courseId, id));
+      await tx.delete(courses).where(eq(courses.id, id));
+
+      return course;
+    });
+
+    return deletedCourse ? toCourse(deletedCourse, []) : null;
+  }
+
   async getCourseContent(id: string): Promise<EnterpriseCourseContent | null> {
     const allCourses = await this.listAdminCourses();
     const course = allCourses.find((candidate) => candidate.id === id);

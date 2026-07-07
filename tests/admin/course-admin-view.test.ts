@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
+  CourseDeleteDialog,
   CourseAdminPanel,
   DEFAULT_COURSE_ADMIN_FILTERS,
+  courseDeleteConfirmationMessage,
   courseGenerationStatusLabel,
   filterAdminCourses,
   shouldApplyCourseAdminFilters,
@@ -87,6 +89,27 @@ describe('filterAdminCourses', () => {
         status: 'draft',
       }),
     ).toBe(true);
+  });
+
+  it('warns admins that course deletion removes PostgreSQL-backed related data', () => {
+    expect(courseDeleteConfirmationMessage(baseCourse)).toBe(
+      '确认删除课程「销售入门」？该操作会同时删除这门课程在数据库中的内容、学习进度和测评记录，且不可恢复。',
+    );
+  });
+
+  it('renders course deletion as an alert dialog instead of a browser confirm', () => {
+    const markup = renderToStaticMarkup(
+      createElement(CourseDeleteDialog, {
+        course: baseCourse,
+        deleting: false,
+        defaultOpen: true,
+        onDelete: () => {},
+      }),
+    );
+
+    expect(markup).toContain('data-slot="alert-dialog-trigger"');
+    expect(markup).toContain('aria-haspopup="dialog"');
+    expect(markup).toContain('删除');
   });
 
   it('renders the streamlined course layout with text buttons', () => {

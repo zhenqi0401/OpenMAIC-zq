@@ -233,6 +233,9 @@ function makeRepository(): EnterpriseRepository {
     async archiveCourse() {
       throw new Error('not used');
     },
+    async deleteCourse() {
+      throw new Error('not used');
+    },
     async getCourseContent(id) {
       const found = courses.find((candidate) => candidate.id === id);
       if (!found) return null;
