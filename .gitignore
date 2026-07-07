@@ -3,6 +3,7 @@
 CLAUDE.local.md
 .claude
 .superpowers
+AGENTS.md
 
 # dependencies
 /node_modules
@@ -78,21 +79,18 @@ next-env.d.ts
 /.hf-cache/
 /.pnpm-store/
 /models/
-__pycache__/
+/__pycache__/
 *.py[cod]
 
 # Python virtual environment
 .venv-voxcpm/
 
 # docs
-/docs
+/docs/
 
 # Eval results
-eval/whiteboard-layout/results/
-eval/outline-language/results/
-eval/orchestration/results/
-eval/orchestration/results-answering/
-eval/orchestration/results-answer-content/
+/eval/
+vitest.eval.config.ts
 
 # e2e screenshot artifacts
 e2e/screenshots/
@@ -105,7 +103,18 @@ e2e/__screenshots-619/
 
 # Reasonix agent configuration (local only)
 .reasonix/
+reasonix.toml
 
 # Codex / Agent CLI local config (local only)
 .codex/
 .agents/
+
+# root-local artifacts
+.cache/
+.turbo/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log
