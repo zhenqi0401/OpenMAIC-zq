@@ -26,7 +26,16 @@ COPY . .
 
 RUN pnpm build
 
-# ---- Stage 4: Runner ----
+# ---- Stage 4: Database migration ----
+FROM base AS migration
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages ./packages
+COPY . .
+
+CMD ["sh", "-c", "pnpm exec drizzle-kit migrate && node scripts/seed-roles.mjs"]
+
+# ---- Stage 5: Runner ----
 FROM node:22-alpine AS runner
 
 WORKDIR /app

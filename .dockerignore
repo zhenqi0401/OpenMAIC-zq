@@ -32,4 +32,12 @@ coverage
 logs
 data
 docs
+eval
+__pycache__
+.venv-voxcpm
+models
+reasonix.toml
+AGENTS.md
+voxcpm_python_api_server.py
+vitest.eval.config.ts
 .claude

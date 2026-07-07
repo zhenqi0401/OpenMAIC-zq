@@ -79,7 +79,7 @@ next-env.d.ts
 /.hf-cache/
 /.pnpm-store/
 /models/
-/__pycache__/
+__pycache__/
 *.py[cod]
 
 # Python virtual environment
