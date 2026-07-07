@@ -10,11 +10,18 @@ import {
   RefreshCw,
   Save,
   Shield,
-  UserCog,
   Users,
 } from 'lucide-react';
+import {
+  AdminCard,
+  AdminSectionHeader,
+  AdminStatusBadge,
+  adminInputClassName,
+  adminSelectClassName,
+} from '@/components/admin/AdminSurface';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 import {
   buildRoleOptions,
   createAdminClient,
@@ -25,6 +32,22 @@ import {
   type AdminRole,
   type AdminUser,
 } from '@/lib/admin/client';
+
+interface AdminSlice08PanelProps {
+  view?: 'all' | 'dashboard' | 'access';
+  afterDashboard?: ReactNode;
+}
+
+type AdminSlice08View = NonNullable<AdminSlice08PanelProps['view']>;
+
+export function getAdminSlice08LoadPlan(view: AdminSlice08View) {
+  return {
+    dashboard: view === 'all' || view === 'dashboard',
+    roles: true,
+    inviteCodes: view === 'all' || view === 'access',
+    users: view === 'all' || view === 'access',
+  };
+}
 
 interface RoleDraft {
   code: string;
@@ -38,9 +61,6 @@ interface InviteDraft {
   expiresAt: string;
 }
 
-const selectClassName =
-  'h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100';
-
 function toDatetimeLocal(value: string | Date | null | undefined): string {
   if (!value) return '';
   const date = new Date(value);
@@ -48,15 +68,28 @@ function toDatetimeLocal(value: string | Date | null | undefined): string {
   return date.toISOString().slice(0, 16);
 }
 
-function percent(value: number): string {
-  return `${Math.round(value * 100)}%`;
+function clampDashboardPercent(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(Math.round(value), 100));
+}
+
+export function formatDashboardPercent(value: number): string {
+  return `${clampDashboardPercent(value)}%`;
+}
+
+export function toDashboardProgressRatio(value: number): number {
+  return clampDashboardPercent(value) / 100;
 }
 
 function normalizeExpiresAt(value: string): string | null {
   return value ? new Date(value).toISOString() : null;
 }
 
-export function AdminSlice08Panel() {
+function notifyAdminError(error: unknown, fallback: string) {
+  toast.error(error instanceof Error ? error.message : fallback);
+}
+
+export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08PanelProps) {
   const client = useMemo(() => createAdminClient(), []);
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
   const [roles, setRoles] = useState<AdminRole[]>([]);
@@ -78,20 +111,22 @@ export function AdminSlice08Panel() {
     courseId: '',
   });
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const roleOptions = useMemo(() => buildRoleOptions(roles), [roles]);
+  const loadPlan = useMemo(() => getAdminSlice08LoadPlan(view), [view]);
+  const pendingItems = useMemo(
+    () => buildDashboardPendingItems(dashboard, roles, inviteCodes, users),
+    [dashboard, roles, inviteCodes, users],
+  );
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       const [dashboardData, roleData, inviteData, userData] = await Promise.all([
-        client.getDashboard(),
+        loadPlan.dashboard ? client.getDashboard() : Promise.resolve<AdminDashboard | null>(null),
         client.listRoles(),
-        client.listInviteCodes(),
-        client.listUsers(),
+        loadPlan.inviteCodes ? client.listInviteCodes() : Promise.resolve<AdminInviteCode[]>([]),
+        loadPlan.users ? client.listUsers() : Promise.resolve<AdminUser[]>([]),
       ]);
       setDashboard(dashboardData);
       setRoles(roleData);
@@ -120,18 +155,17 @@ export function AdminSlice08Panel() {
       setUserRoleDrafts(createUserRoleDrafts(userData));
       setNewInvite((draft) => ({ ...draft, roleId: draft.roleId || roleData[0]?.id || '' }));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : '后台数据加载失败');
+      notifyAdminError(loadError, '后台数据加载失败');
     } finally {
       setLoading(false);
     }
-  }, [client]);
+  }, [client, loadPlan]);
 
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
 
   async function loadDashboard() {
-    setError(null);
     try {
       setDashboard(
         await client.getDashboard({
@@ -140,15 +174,15 @@ export function AdminSlice08Panel() {
           courseId: dashboardFilters.courseId,
         }),
       );
-      setMessage('看板已刷新');
+      toast.success('看板已刷新');
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : '看板刷新失败');
+      notifyAdminError(loadError, '看板刷新失败');
     }
   }
 
   async function createRole() {
     if (!newRole.code.trim() || !newRole.name.trim()) {
-      setMessage('角色标识和名称必填');
+      toast.error('角色标识和名称必填');
       return;
     }
     try {
@@ -158,10 +192,10 @@ export function AdminSlice08Panel() {
         isAdmin: newRole.isAdmin,
       });
       setNewRole({ code: '', name: '', isAdmin: false });
-      setMessage('角色已创建');
+      toast.success('角色已创建');
       await loadAll();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : '角色创建失败');
+      notifyAdminError(saveError, '角色创建失败');
     }
   }
 
@@ -170,16 +204,16 @@ export function AdminSlice08Panel() {
     if (!draft) return;
     try {
       await client.updateRole(roleId, draft);
-      setMessage('角色已保存');
+      toast.success('角色已保存');
       await loadAll();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : '角色保存失败');
+      notifyAdminError(saveError, '角色保存失败');
     }
   }
 
   async function createInviteCode() {
     if (!newInvite.code.trim() || !newInvite.roleId) {
-      setMessage('邀请码明文和绑定角色必填');
+      toast.error('邀请码明文和绑定角色必填');
       return;
     }
     try {
@@ -195,10 +229,10 @@ export function AdminSlice08Panel() {
         enabled: true,
         expiresAt: '',
       });
-      setMessage('邀请码已创建，列表按后端安全规则不展示明文');
+      toast.success('邀请码已创建。列表按后端安全规则不展示明文。');
       await loadAll();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : '邀请码创建失败');
+      notifyAdminError(saveError, '邀请码创建失败');
     }
   }
 
@@ -211,10 +245,10 @@ export function AdminSlice08Panel() {
         enabled: draft.enabled,
         expiresAt: normalizeExpiresAt(draft.expiresAt),
       });
-      setMessage('邀请码已保存');
+      toast.success('邀请码已保存');
       await loadAll();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : '邀请码保存失败');
+      notifyAdminError(saveError, '邀请码保存失败');
     }
   }
 
@@ -223,420 +257,511 @@ export function AdminSlice08Panel() {
     if (!roleId) return;
     try {
       await client.updateUserRole(user.id, roleId);
-      setMessage('用户角色已更新');
+      toast.success('用户角色已更新');
       await loadAll();
     } catch (saveError) {
       setUserRoleDrafts((drafts) => ({ ...drafts, [user.id]: user.role.id }));
-      setError(saveError instanceof Error ? saveError.message : '用户角色更新失败');
+      notifyAdminError(saveError, '用户角色更新失败');
     }
   }
 
+  const showDashboard = view === 'all' || view === 'dashboard';
+  const showAccess = view === 'all' || view === 'access';
+
   return (
-    <div className="space-y-8">
-      {(message || error) && (
-        <div
-          className={`rounded-md border px-4 py-3 text-sm ${
-            error
-              ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300'
-              : 'border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'
-          }`}
-        >
-          {error ?? message}
-        </div>
-      )}
-
-      <section className="space-y-4">
-        <SectionTitle
-          icon={<BarChart3 className="size-4" />}
-          subtitle="课程完成、测评通过和阶段考核概览"
-          title="看板"
-        />
-        {loading && !dashboard ? (
-          <EmptyState text="正在加载看板数据..." />
-        ) : dashboard ? (
-          <>
-            <div className="grid gap-3 md:grid-cols-3">
-              <Metric label="课程完成率" value={percent(dashboard.summary.courseCompletionRate)} />
-              <Metric label="测评通过率" value={percent(dashboard.summary.assessmentPassRate)} />
-              <Metric label="阶段考核通过率" value={percent(dashboard.summary.examPassRate)} />
-            </div>
-            <div className="grid gap-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-[1fr_1fr_1fr_auto]">
-              <Input
-                placeholder="按用户 ID 筛选"
-                value={dashboardFilters.userId}
-                onChange={(event) =>
-                  setDashboardFilters((filters) => ({ ...filters, userId: event.target.value }))
-                }
-              />
-              <select
-                className={selectClassName}
-                value={dashboardFilters.roleId}
-                onChange={(event) =>
-                  setDashboardFilters((filters) => ({ ...filters, roleId: event.target.value }))
-                }
+    <div className="space-y-6">
+      {showDashboard && (
+        <section className="scroll-mt-4 space-y-4" id="admin-dashboard">
+          <AdminSectionHeader
+            action={
+              <Button
+                className="rounded-[4px] border-[#d8c8b9]"
+                onClick={loadDashboard}
+                variant="outline"
               >
-                <option value="">全部角色</option>
-                {roleOptions.map((role) => (
-                  <option key={role.value} value={role.value}>
-                    {role.label}
-                  </option>
-                ))}
-              </select>
-              <Input
-                placeholder="按课程 ID 筛选"
-                value={dashboardFilters.courseId}
-                onChange={(event) =>
-                  setDashboardFilters((filters) => ({ ...filters, courseId: event.target.value }))
-                }
-              />
-              <Button onClick={loadDashboard} variant="outline">
                 <RefreshCw className="size-4" />
-                刷新
+                刷新看板
               </Button>
-            </div>
-            <DashboardProgressTable progress={dashboard.progress} />
-          </>
-        ) : (
-          <EmptyState text="看板暂无数据" />
-        )}
-      </section>
-
-      <section className="space-y-4">
-        <SectionTitle
-          icon={<Shield className="size-4" />}
-          subtitle="维护角色标识、名称和管理员权限"
-          title="角色"
-        />
-        <div className="grid gap-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-[1fr_1fr_auto_auto]">
-          <Input
-            placeholder="角色标识 code"
-            value={newRole.code}
-            onChange={(event) => setNewRole((draft) => ({ ...draft, code: event.target.value }))}
-          />
-          <Input
-            placeholder="角色名称"
-            value={newRole.name}
-            onChange={(event) => setNewRole((draft) => ({ ...draft, name: event.target.value }))}
-          />
-          <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-            <input
-              checked={newRole.isAdmin}
-              onChange={(event) =>
-                setNewRole((draft) => ({ ...draft, isAdmin: event.target.checked }))
-              }
-              type="checkbox"
-            />
-            管理员
-          </label>
-          <Button onClick={createRole}>
-            <Plus className="size-4" />
-            新建
-          </Button>
-        </div>
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-          {roles.length === 0 ? (
-            <EmptyState text="暂无角色" />
-          ) : (
-            roles.map((role) => {
-              const draft = roleDrafts[role.id] ?? role;
-              return (
-                <div
-                  className="grid gap-3 border-b border-slate-100 px-4 py-3 text-sm last:border-b-0 dark:border-slate-800 md:grid-cols-[1fr_1fr_auto_auto]"
-                  key={role.id}
-                >
-                  <Input
-                    value={draft.code}
-                    onChange={(event) =>
-                      setRoleDrafts((drafts) => ({
-                        ...drafts,
-                        [role.id]: { ...draft, code: event.target.value },
-                      }))
-                    }
-                  />
-                  <Input
-                    value={draft.name}
-                    onChange={(event) =>
-                      setRoleDrafts((drafts) => ({
-                        ...drafts,
-                        [role.id]: { ...draft, name: event.target.value },
-                      }))
-                    }
-                  />
-                  <label className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                    <input
-                      checked={draft.isAdmin}
-                      onChange={(event) =>
-                        setRoleDrafts((drafts) => ({
-                          ...drafts,
-                          [role.id]: { ...draft, isAdmin: event.target.checked },
-                        }))
-                      }
-                      type="checkbox"
-                    />
-                    管理员
-                  </label>
-                  <Button onClick={() => saveRole(role.id)} size="icon" title="保存角色">
-                    <Save className="size-4" />
-                  </Button>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </section>
-
-      <section className="space-y-4">
-        <SectionTitle
-          icon={<KeyRound className="size-4" />}
-          subtitle="创建、启停并绑定角色；列表不假设保存明文邀请码"
-          title="邀请码"
-        />
-        <div className="grid gap-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 md:grid-cols-[1fr_1fr_1fr_auto_auto]">
-          <Input
-            placeholder="新邀请码明文"
-            value={newInvite.code}
-            onChange={(event) => setNewInvite((draft) => ({ ...draft, code: event.target.value }))}
-          />
-          <select
-            className={selectClassName}
-            value={newInvite.roleId}
-            onChange={(event) =>
-              setNewInvite((draft) => ({ ...draft, roleId: event.target.value }))
             }
-          >
-            <option value="">绑定角色</option>
-            {roleOptions.map((role) => (
-              <option key={role.value} value={role.value}>
-                {role.label}
-              </option>
-            ))}
-          </select>
-          <Input
-            type="datetime-local"
-            value={newInvite.expiresAt}
-            onChange={(event) =>
-              setNewInvite((draft) => ({ ...draft, expiresAt: event.target.value }))
-            }
+            description="课程完成、测评通过、阶段考核和待处理事项集中在首屏。"
+            eyebrow="Dashboard"
+            icon={<BarChart3 className="size-4" />}
+            title="运营状态一眼看清"
           />
-          <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-            <input
-              checked={newInvite.enabled}
-              onChange={(event) =>
-                setNewInvite((draft) => ({ ...draft, enabled: event.target.checked }))
-              }
-              type="checkbox"
-            />
-            启用
-          </label>
-          <Button onClick={createInviteCode}>
-            <Plus className="size-4" />
-            新建
-          </Button>
-        </div>
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-          {inviteCodes.length === 0 ? (
-            <EmptyState text="暂无邀请码" />
-          ) : (
-            inviteCodes.map((inviteCode) => {
-              const view = getInviteCodeView(inviteCode, roles);
-              const draft = inviteDrafts[inviteCode.id] ?? {
-                roleId: inviteCode.roleId,
-                enabled: inviteCode.enabled,
-                expiresAt: toDatetimeLocal(inviteCode.expiresAt),
-              };
-              return (
-                <div
-                  className="grid gap-3 border-b border-slate-100 px-4 py-3 text-sm last:border-b-0 dark:border-slate-800 md:grid-cols-[0.8fr_1.2fr_1fr_1fr_auto_auto]"
-                  key={inviteCode.id}
-                >
-                  <StatusBadge status={view.status} />
-                  <div>
-                    <div className="font-medium text-slate-900 dark:text-slate-100">
-                      {view.roleLabel}
-                    </div>
-                    <div className="text-xs text-slate-500">明文仅创建时输入，不在列表展示</div>
-                  </div>
-                  <select
-                    className={selectClassName}
-                    value={draft.roleId}
-                    onChange={(event) =>
-                      setInviteDrafts((drafts) => ({
-                        ...drafts,
-                        [inviteCode.id]: { ...draft, roleId: event.target.value },
-                      }))
-                    }
-                  >
-                    {roleOptions.map((role) => (
-                      <option key={role.value} value={role.value}>
-                        {role.label}
-                      </option>
-                    ))}
-                  </select>
-                  <Input
-                    type="datetime-local"
-                    value={draft.expiresAt}
-                    onChange={(event) =>
-                      setInviteDrafts((drafts) => ({
-                        ...drafts,
-                        [inviteCode.id]: { ...draft, expiresAt: event.target.value },
-                      }))
-                    }
-                  />
-                  <label className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                    <input
-                      checked={draft.enabled}
-                      onChange={(event) =>
-                        setInviteDrafts((drafts) => ({
-                          ...drafts,
-                          [inviteCode.id]: { ...draft, enabled: event.target.checked },
-                        }))
-                      }
-                      type="checkbox"
-                    />
-                    启用
-                  </label>
-                  <Button
-                    onClick={() => saveInviteCode(inviteCode.id)}
-                    size="icon"
-                    title="保存邀请码"
-                  >
-                    <Save className="size-4" />
-                  </Button>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </section>
-
-      <section className="space-y-4">
-        <SectionTitle
-          icon={<UserCog className="size-4" />}
-          subtitle="用户当前角色通过角色列表下拉修改"
-          title="用户"
-        />
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-          {users.length === 0 ? (
-            <EmptyState text="暂无用户" />
-          ) : (
-            users.map((user) => (
-              <div
-                className="grid gap-3 border-b border-slate-100 px-4 py-3 text-sm last:border-b-0 dark:border-slate-800 md:grid-cols-[1.2fr_1fr_1fr_1.2fr_auto]"
-                key={user.id}
-              >
-                <span className="flex items-center gap-2 font-medium text-slate-900 dark:text-slate-100">
-                  <Users className="size-4 text-slate-400" />
-                  {user.displayName}
-                </span>
-                <span className="text-slate-500">{user.phone ?? '-'}</span>
-                <span className="truncate text-slate-500">{user.hostUserId ?? '-'}</span>
-                <select
-                  className={selectClassName}
-                  value={userRoleDrafts[user.id] ?? user.role.id}
+          {loading && !dashboard ? (
+            <AdminCard>
+              <EmptyState text="正在加载看板数据..." />
+            </AdminCard>
+          ) : dashboard ? (
+            <>
+              <div className="grid gap-3 md:grid-cols-4">
+                <Metric
+                  label="课程完成率"
+                  value={formatDashboardPercent(dashboard.summary.courseCompletionRate)}
+                  progress={toDashboardProgressRatio(dashboard.summary.courseCompletionRate)}
+                  note={`学员 ${dashboard.summary.learnerCount} 人`}
+                />
+                <Metric
+                  label="测评通过率"
+                  value={formatDashboardPercent(dashboard.summary.assessmentPassRate)}
+                  progress={toDashboardProgressRatio(dashboard.summary.assessmentPassRate)}
+                  note={`测评 ${dashboard.summary.assessmentAttemptCount} 次`}
+                />
+                <Metric
+                  label="阶段考核通过率"
+                  value={formatDashboardPercent(dashboard.summary.examPassRate)}
+                  progress={toDashboardProgressRatio(dashboard.summary.examPassRate)}
+                  note={`考核 ${dashboard.summary.examAttemptCount} 次`}
+                />
+                <Metric
+                  label="待处理事项"
+                  value={String(pendingItems.length)}
+                  progress={pendingItems.length === 0 ? 0 : Math.min(pendingItems.length / 8, 1)}
+                  note={`课程 ${dashboard.summary.courseCount} 门`}
+                />
+              </div>
+              <AdminCard className="grid gap-2 p-4 md:grid-cols-[1fr_1fr_1fr_auto]">
+                <Input
+                  className={adminInputClassName}
+                  placeholder="按用户 ID 筛选"
+                  value={dashboardFilters.userId}
                   onChange={(event) =>
-                    setUserRoleDrafts((drafts) => ({
-                      ...drafts,
-                      [user.id]: event.target.value,
-                    }))
+                    setDashboardFilters((filters) => ({ ...filters, userId: event.target.value }))
+                  }
+                />
+                <select
+                  className={adminSelectClassName}
+                  value={dashboardFilters.roleId}
+                  onChange={(event) =>
+                    setDashboardFilters((filters) => ({ ...filters, roleId: event.target.value }))
                   }
                 >
+                  <option value="">全部角色</option>
                   {roleOptions.map((role) => (
                     <option key={role.value} value={role.value}>
                       {role.label}
                     </option>
                   ))}
                 </select>
-                <Button onClick={() => saveUserRole(user)} variant="outline">
-                  <Save className="size-4" />
-                  保存
+                <Input
+                  className={adminInputClassName}
+                  placeholder="按课程 ID 筛选"
+                  value={dashboardFilters.courseId}
+                  onChange={(event) =>
+                    setDashboardFilters((filters) => ({ ...filters, courseId: event.target.value }))
+                  }
+                />
+                <Button
+                  className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
+                  onClick={loadDashboard}
+                >
+                  应用筛选
                 </Button>
+              </AdminCard>
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.7fr)]">
+                <DashboardProgressTable progress={dashboard.progress} />
+                <AdminCard className="p-4">
+                  <div className="mb-3">
+                    <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+                      需要处理
+                    </div>
+                    <p className="mt-1 text-sm text-[#75665d]">
+                      不把筛选做成主角，优先呈现下一步。
+                    </p>
+                  </div>
+                  {pendingItems.length === 0 ? (
+                    <EmptyState text="暂无待处理事项" />
+                  ) : (
+                    <div className="grid gap-3">
+                      {pendingItems.map((item) => (
+                        <div
+                          className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 border-b border-[#eaded1] pb-3 text-sm last:border-b-0 last:pb-0"
+                          key={item}
+                        >
+                          <span className="mt-1.5 size-2.5 rounded-full border border-[#9b5b47] bg-[#c96f54]" />
+                          <span>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </AdminCard>
               </div>
-            ))
+            </>
+          ) : (
+            <AdminCard>
+              <EmptyState text="看板暂无数据" />
+            </AdminCard>
           )}
+        </section>
+      )}
+
+      {afterDashboard}
+
+      {showAccess && (
+        <section className="scroll-mt-4 space-y-4" id="admin-access">
+        <AdminSectionHeader
+          description="集中维护角色、邀请码和用户角色，不绕过后端安全规则。"
+          eyebrow="Access"
+          icon={<Shield className="size-4" />}
+          title="访问与角色"
+        />
+
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <AdminCard className="space-y-3 p-4">
+            <div className="text-sm font-semibold text-[#2b211d]">角色维护</div>
+            <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
+              <Input
+                className={adminInputClassName}
+                placeholder="角色标识 code"
+                value={newRole.code}
+                onChange={(event) =>
+                  setNewRole((draft) => ({ ...draft, code: event.target.value }))
+                }
+              />
+              <Input
+                className={adminInputClassName}
+                placeholder="角色名称"
+                value={newRole.name}
+                onChange={(event) =>
+                  setNewRole((draft) => ({ ...draft, name: event.target.value }))
+                }
+              />
+              <label className="inline-flex items-center gap-2 text-sm text-[#75665d]">
+                <input
+                  checked={newRole.isAdmin}
+                  onChange={(event) =>
+                    setNewRole((draft) => ({ ...draft, isAdmin: event.target.checked }))
+                  }
+                  type="checkbox"
+                />
+                管理员
+              </label>
+              <Button className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]" onClick={createRole}>
+                <Plus className="size-4" />
+                新建
+              </Button>
+            </div>
+            <div className="overflow-x-auto md:overflow-visible">
+              <div className="min-w-[680px] divide-y divide-[#eaded1] md:min-w-0">
+                {roles.length === 0 ? (
+                  <EmptyState text="暂无角色" />
+                ) : (
+                  roles.map((role) => {
+                    const draft = roleDrafts[role.id] ?? role;
+                    return (
+                      <div
+                        className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-3 py-3 text-sm"
+                        key={role.id}
+                      >
+                        <Input
+                          className={adminInputClassName}
+                          value={draft.code}
+                          onChange={(event) =>
+                            setRoleDrafts((drafts) => ({
+                              ...drafts,
+                              [role.id]: { ...draft, code: event.target.value },
+                            }))
+                          }
+                        />
+                        <Input
+                          className={adminInputClassName}
+                          value={draft.name}
+                          onChange={(event) =>
+                            setRoleDrafts((drafts) => ({
+                              ...drafts,
+                              [role.id]: { ...draft, name: event.target.value },
+                            }))
+                          }
+                        />
+                        <label className="inline-flex items-center gap-2 text-[#75665d]">
+                          <input
+                            checked={draft.isAdmin}
+                            onChange={(event) =>
+                              setRoleDrafts((drafts) => ({
+                                ...drafts,
+                                [role.id]: { ...draft, isAdmin: event.target.checked },
+                              }))
+                            }
+                            type="checkbox"
+                          />
+                          管理员
+                        </label>
+                        <Button onClick={() => saveRole(role.id)} size="icon" title="保存角色">
+                          <Save className="size-4" />
+                        </Button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </AdminCard>
+
+          <AdminCard className="space-y-3 p-4">
+            <div className="text-sm font-semibold text-[#2b211d]">用户角色</div>
+            <div className="overflow-x-auto md:overflow-visible">
+              <div className="min-w-[720px] divide-y divide-[#eaded1] md:min-w-0">
+                {users.length === 0 ? (
+                  <EmptyState text="暂无用户" />
+                ) : (
+                  users.map((user) => (
+                    <div
+                      className="grid grid-cols-[1.2fr_1fr_1fr_1.2fr_auto] items-center gap-3 py-3 text-sm"
+                      key={user.id}
+                    >
+                      <span className="flex items-center gap-2 font-medium text-[#2b211d]">
+                        <Users className="size-4 text-[#9b897d]" />
+                        {user.displayName}
+                      </span>
+                      <span className="text-[#75665d]">{user.phone ?? '-'}</span>
+                      <span className="truncate text-[#75665d]">{user.hostUserId ?? '-'}</span>
+                      <select
+                        className={adminSelectClassName}
+                        value={userRoleDrafts[user.id] ?? user.role.id}
+                        onChange={(event) =>
+                          setUserRoleDrafts((drafts) => ({
+                            ...drafts,
+                            [user.id]: event.target.value,
+                          }))
+                        }
+                      >
+                        {roleOptions.map((role) => (
+                          <option key={role.value} value={role.value}>
+                            {role.label}
+                          </option>
+                        ))}
+                      </select>
+                      <Button onClick={() => saveUserRole(user)} variant="outline">
+                        <Save className="size-4" />
+                        保存
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </AdminCard>
         </div>
-      </section>
+
+        <AdminCard className="space-y-3 p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[#2b211d]">
+            <KeyRound className="size-4 text-[#9b897d]" />
+            邀请码维护
+          </div>
+          <div className="grid gap-2 md:grid-cols-[1fr_1fr_1fr_auto_auto]">
+            <Input
+              className={adminInputClassName}
+              placeholder="新邀请码明文"
+              value={newInvite.code}
+              onChange={(event) =>
+                setNewInvite((draft) => ({ ...draft, code: event.target.value }))
+              }
+            />
+            <select
+              className={adminSelectClassName}
+              value={newInvite.roleId}
+              onChange={(event) =>
+                setNewInvite((draft) => ({ ...draft, roleId: event.target.value }))
+              }
+            >
+              <option value="">绑定角色</option>
+              {roleOptions.map((role) => (
+                <option key={role.value} value={role.value}>
+                  {role.label}
+                </option>
+              ))}
+            </select>
+            <Input
+              className={adminInputClassName}
+              type="datetime-local"
+              value={newInvite.expiresAt}
+              onChange={(event) =>
+                setNewInvite((draft) => ({ ...draft, expiresAt: event.target.value }))
+              }
+            />
+            <label className="inline-flex items-center gap-2 text-sm text-[#75665d]">
+              <input
+                checked={newInvite.enabled}
+                onChange={(event) =>
+                  setNewInvite((draft) => ({ ...draft, enabled: event.target.checked }))
+                }
+                type="checkbox"
+              />
+              启用
+            </label>
+            <Button
+              className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
+              onClick={createInviteCode}
+            >
+              <Plus className="size-4" />
+              新建
+            </Button>
+          </div>
+          <div className="overflow-x-auto md:overflow-visible">
+            <div className="min-w-[840px] divide-y divide-[#eaded1] md:min-w-0">
+              {inviteCodes.length === 0 ? (
+                <EmptyState text="暂无邀请码" />
+              ) : (
+                inviteCodes.map((inviteCode) => {
+                  const view = getInviteCodeView(inviteCode, roles);
+                  const draft = inviteDrafts[inviteCode.id] ?? {
+                    roleId: inviteCode.roleId,
+                    enabled: inviteCode.enabled,
+                    expiresAt: toDatetimeLocal(inviteCode.expiresAt),
+                  };
+                  return (
+                    <div
+                      className="grid grid-cols-[0.8fr_1.2fr_1fr_1fr_auto_auto] items-center gap-3 py-3 text-sm"
+                      key={inviteCode.id}
+                    >
+                      <StatusBadge status={view.status} />
+                      <div>
+                        <div className="font-medium text-[#2b211d]">{view.roleLabel}</div>
+                        <div className="text-xs text-[#75665d]">明文仅创建时输入，不在列表展示</div>
+                      </div>
+                      <select
+                        className={adminSelectClassName}
+                        value={draft.roleId}
+                        onChange={(event) =>
+                          setInviteDrafts((drafts) => ({
+                            ...drafts,
+                            [inviteCode.id]: { ...draft, roleId: event.target.value },
+                          }))
+                        }
+                      >
+                        {roleOptions.map((role) => (
+                          <option key={role.value} value={role.value}>
+                            {role.label}
+                          </option>
+                        ))}
+                      </select>
+                      <Input
+                        className={adminInputClassName}
+                        type="datetime-local"
+                        value={draft.expiresAt}
+                        onChange={(event) =>
+                          setInviteDrafts((drafts) => ({
+                            ...drafts,
+                            [inviteCode.id]: { ...draft, expiresAt: event.target.value },
+                          }))
+                        }
+                      />
+                      <label className="inline-flex items-center gap-2 text-[#75665d]">
+                        <input
+                          checked={draft.enabled}
+                          onChange={(event) =>
+                            setInviteDrafts((drafts) => ({
+                              ...drafts,
+                              [inviteCode.id]: { ...draft, enabled: event.target.checked },
+                            }))
+                          }
+                          type="checkbox"
+                        />
+                        启用
+                      </label>
+                      <Button onClick={() => saveInviteCode(inviteCode.id)} size="icon">
+                        <Save className="size-4" />
+                      </Button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </AdminCard>
+        </section>
+      )}
     </div>
   );
 }
 
-function SectionTitle({
-  icon,
-  title,
-  subtitle,
+function Metric({
+  label,
+  value,
+  progress,
+  note,
 }: {
-  icon: ReactNode;
-  title: string;
-  subtitle: string;
+  label: string;
+  value: string;
+  progress: number;
+  note: string;
 }) {
+  const width = `${Math.max(0, Math.min(progress, 1)) * 100}%`;
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex size-9 items-center justify-center rounded-md bg-slate-900 text-white dark:bg-white dark:text-slate-950">
-        {icon}
+    <AdminCard className="grid gap-3 p-4">
+      <div className="flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#75665d]">
+        <span>{label}</span>
+        <CheckCircle2 className="size-4 text-[#6f8068]" aria-hidden="true" />
       </div>
-      <div>
-        <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">{title}</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>
+      <div className="text-[32px] font-semibold leading-none tabular-nums tracking-[-0.02em] text-[#2b211d]">
+        {value}
       </div>
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-      <div className="mb-2 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-        <CheckCircle2 className="size-4" />
-        {label}
+      <div className="h-2 overflow-hidden rounded-full bg-[#eaded1]">
+        <span className="block h-full rounded-full bg-[#c96f54]" style={{ width }} />
       </div>
-      <div className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{value}</div>
-    </div>
+      <p className="text-sm text-[#75665d]">{note}</p>
+    </AdminCard>
   );
 }
 
 function EmptyState({ text }: { text: string }) {
-  return <div className="px-4 py-8 text-center text-sm text-slate-500">{text}</div>;
+  return <div className="px-4 py-8 text-center text-sm text-[#75665d]">{text}</div>;
 }
 
 function DashboardProgressTable({ progress }: { progress: AdminDashboard['progress'] }) {
-  if (progress.length === 0) return <EmptyState text="暂无学员明细" />;
+  if (progress.length === 0) {
+    return (
+      <AdminCard>
+        <EmptyState text="当前筛选无学员明细" />
+      </AdminCard>
+    );
+  }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <div className="grid grid-cols-[1fr_1fr_1fr_0.8fr_1fr] gap-3 border-b border-slate-200 px-4 py-3 text-xs font-medium uppercase text-slate-500 dark:border-slate-800">
-        <span>学员</span>
-        <span>角色</span>
-        <span>课程</span>
-        <span>完成</span>
-        <span>更新时间</span>
-      </div>
-      {progress.map((row) => (
-        <div
-          className="grid grid-cols-[1fr_1fr_1fr_0.8fr_1fr] gap-3 border-b border-slate-100 px-4 py-3 text-sm last:border-b-0 dark:border-slate-800"
-          key={`${row.userId}-${row.courseId}`}
-        >
-          <span className="font-medium text-slate-900 dark:text-slate-100">{row.displayName}</span>
-          <span className="text-slate-500">{row.roleCode}</span>
-          <span className="text-slate-500">{row.courseName}</span>
-          <span className="text-slate-500">{row.completed ? '已完成' : '未完成'}</span>
-          <span className="text-slate-500">{new Date(row.updatedAt).toLocaleString()}</span>
+    <AdminCard className="overflow-hidden">
+      <div className="overflow-x-auto md:overflow-visible">
+        <div className="min-w-[760px] md:min-w-0">
+          <div className="grid grid-cols-[1fr_0.8fr_1fr_0.7fr_1fr] gap-3 border-b border-[#d8c8b9] px-4 py-3 text-xs font-semibold uppercase text-[#75665d]">
+            <span>学员</span>
+            <span>角色</span>
+            <span>课程</span>
+            <span>状态</span>
+            <span>最近活动</span>
+          </div>
+          {progress.map((row) => (
+            <div
+              className="grid grid-cols-[1fr_0.8fr_1fr_0.7fr_1fr] gap-3 border-b border-[#eaded1] px-4 py-3 text-sm last:border-b-0"
+              key={`${row.userId}-${row.courseId}`}
+            >
+              <span className="font-medium text-[#2b211d]">{row.displayName}</span>
+              <span className="text-[#75665d]">{row.roleCode}</span>
+              <span className="text-[#75665d]">{row.courseName}</span>
+              <span className="text-[#75665d]">{row.completed ? '已完成' : '未完成'}</span>
+              <span className="text-[#75665d]">{new Date(row.updatedAt).toLocaleString()}</span>
+            </div>
+          ))}
         </div>
-      ))}
-    </div>
+      </div>
+    </AdminCard>
   );
 }
 
 function StatusBadge({ status }: { status: 'active' | 'disabled' | 'expired' }) {
   const label = status === 'active' ? '启用中' : status === 'disabled' ? '已停用' : '已过期';
-  const className =
-    status === 'active'
-      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300'
-      : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300';
+  const tone = status === 'active' ? 'success' : status === 'expired' ? 'warning' : 'neutral';
+  return <AdminStatusBadge tone={tone}>{label}</AdminStatusBadge>;
+}
 
-  return (
-    <span
-      className={`inline-flex h-7 w-fit items-center rounded-md border px-2 text-xs font-medium ${className}`}
-    >
-      {label}
-    </span>
-  );
+function buildDashboardPendingItems(
+  dashboard: AdminDashboard | null,
+  roles: readonly AdminRole[],
+  inviteCodes: readonly AdminInviteCode[],
+  users: readonly AdminUser[],
+): string[] {
+  const items: string[] = [];
+  if (roles.length === 0) items.push('还没有可分配角色，请先创建角色。');
+  if (inviteCodes.length === 0) items.push('还没有可用邀请码，学员注册入口不可闭环。');
+  if (users.length === 0) items.push('还没有学员或管理员用户记录。');
+  if (dashboard && dashboard.progress.length === 0) items.push('当前筛选条件下没有学习进度明细。');
+  return items;
 }

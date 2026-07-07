@@ -32,6 +32,7 @@ export async function generateMediaForOutlines(
   outlines: SceneOutline[],
   stageId: string,
   abortSignal?: AbortSignal,
+  storageTarget?: { courseId: string },
 ): Promise<void> {
   const settings = useSettingsStore.getState();
   const store = useMediaGenerationStore.getState();
@@ -59,7 +60,7 @@ export async function generateMediaForOutlines(
   // Process requests serially — image/video APIs have limited concurrency
   for (const req of allRequests) {
     if (abortSignal?.aborted) break;
-    await generateSingleMedia(req, stageId, abortSignal);
+    await generateSingleMedia(req, stageId, abortSignal, storageTarget);
   }
 }
 
@@ -105,6 +106,7 @@ async function generateSingleMedia(
   req: MediaGenerationRequest,
   stageId: string,
   abortSignal?: AbortSignal,
+  storageTarget?: { courseId: string },
 ): Promise<void> {
   const store = useMediaGenerationStore.getState();
   store.markGenerating(req.elementId);
@@ -148,6 +150,10 @@ async function generateSingleMedia(
       createdAt: Date.now(),
     });
 
+    if (storageTarget?.courseId) {
+      await saveMediaToPostgres(req, blob, mimeType, posterBlob, storageTarget.courseId, abortSignal);
+    }
+
     // Update store with object URL
     const objectUrl = URL.createObjectURL(blob);
     const posterObjectUrl = posterBlob ? URL.createObjectURL(posterBlob) : undefined;
@@ -181,6 +187,50 @@ async function generateSingleMedia(
         .catch(() => {}); // best-effort
     }
   }
+}
+
+async function saveMediaToPostgres(
+  req: MediaGenerationRequest,
+  blob: Blob,
+  mimeType: string,
+  posterBlob: Blob | undefined,
+  courseId: string,
+  abortSignal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/storage/media', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      courseId,
+      sceneKey: null,
+      mediaId: req.elementId,
+      mediaType: req.type,
+      mimeType,
+      sizeBytes: blob.size,
+      prompt: req.prompt,
+      params: {
+        aspectRatio: req.aspectRatio,
+        style: req.style,
+      },
+      base64: await blobToBase64(blob),
+      posterBase64: posterBlob ? await blobToBase64(posterBlob) : null,
+    }),
+    signal: abortSignal,
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || `Media storage failed: ${response.status}`);
+  }
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
 }
 
 async function callImageApi(

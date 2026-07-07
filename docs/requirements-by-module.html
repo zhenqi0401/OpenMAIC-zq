@@ -1,0 +1,1040 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenMAIC 企业二开 PRD 会议评审版</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --text: #172033;
+        --muted: #5f6b7a;
+        --line: #d8dde8;
+        --head: #eef3f8;
+        --soft: #f7f9fc;
+        --ok: #0f766e;
+        --blue: #2563eb;
+        --warn: #a15c07;
+        --risk: #b42318;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--text);
+        background: #fff;
+        font:
+          14px/1.65 -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          'Microsoft YaHei',
+          'PingFang SC',
+          sans-serif;
+      }
+
+      main {
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 32px 28px 52px;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        line-height: 1.25;
+      }
+
+      h1 {
+        font-size: 30px;
+      }
+
+      h2 {
+        margin-top: 34px;
+        font-size: 22px;
+      }
+
+      h3 {
+        margin-top: 22px;
+        font-size: 17px;
+      }
+
+      p {
+        margin: 8px 0 0;
+      }
+
+      a {
+        color: var(--blue);
+      }
+
+      table {
+        width: 100%;
+        margin-top: 14px;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 10px 11px;
+        vertical-align: top;
+      }
+
+      th {
+        background: var(--head);
+        text-align: left;
+        font-weight: 700;
+      }
+
+      tbody tr:nth-child(even) td {
+        background: #fbfcfe;
+      }
+
+      ul,
+      ol {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      li + li {
+        margin-top: 4px;
+      }
+
+      code {
+        font-family: 'JetBrains Mono', Consolas, monospace;
+        font-size: 12px;
+      }
+
+      .meta {
+        margin-top: 12px;
+        color: var(--muted);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 20px;
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--soft);
+        padding: 14px;
+      }
+
+      .card strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .card span {
+        color: var(--muted);
+      }
+
+      .note {
+        border-left: 4px solid var(--ok);
+        margin-top: 18px;
+        padding: 10px 14px;
+        background: #f0fdfa;
+      }
+
+      .warning {
+        border-left-color: var(--warn);
+        background: #fff7ed;
+      }
+
+      .tag {
+        display: inline-block;
+        margin: 0 4px 4px 0;
+        padding: 1px 7px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #fff;
+        color: var(--muted);
+        white-space: nowrap;
+        font-size: 12px;
+      }
+
+      .tag.new {
+        color: var(--blue);
+        border-color: #bfdbfe;
+        background: #eff6ff;
+      }
+
+      .tag.reuse {
+        color: var(--ok);
+        border-color: #99f6e4;
+        background: #f0fdfa;
+      }
+
+      .tag.risk {
+        color: var(--risk);
+        border-color: #fecaca;
+        background: #fff1f2;
+      }
+
+      .tag.out {
+        background: #f5f5f5;
+      }
+
+      .small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      @media print {
+        main {
+          max-width: none;
+          padding: 18mm 12mm;
+        }
+
+        tr {
+          page-break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>OpenMAIC 企业二开 PRD 会议评审版</h1>
+      <p class="meta">
+        文档版本：v0.1 · 会议讨论稿 · 2026-07-01<br />
+        来源文档：<code>docs/PRD.md</code> v0.4、<code>docs/technical-design.md</code> v0.4、<code
+          >docs/plan/</code
+        >
+        切片计划。本文用于评审讨论，不替代正式主人文档。
+      </p>
+
+      <section class="grid">
+        <div class="card">
+          <strong>产品定位</strong>
+          <span>企业课程生成、发布、学习、测评、阶段考核和数据看板平台。</span>
+        </div>
+        <div class="card">
+          <strong>目标用户</strong>
+          <span>企业管理员、企业学员、宿主系统后端/前端。</span>
+        </div>
+        <div class="card">
+          <strong>核心原则</strong>
+          <span>OpenMAIC 后端为权威数据源；宿主只提供入口和查询。</span>
+        </div>
+        <div class="card">
+          <strong>开发起点</strong>
+          <span>从 SLICE-00 基础设施开始，再进入账号、后端 API 和课程发布。</span>
+        </div>
+      </section>
+
+      <div class="note">
+        本文按常见 PRD
+        模板重组：先说明背景、目标、用户、范围、假设依赖，再进入需求表、验收标准、风险和开放问题。正式需求编号仍沿用
+        <code>REQ-ID</code>，便于和技术设计、开发计划追踪。
+      </div>
+
+      <h2>1. 文档控制</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 16%">字段</th>
+            <th>内容</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>文档目的</td>
+            <td>
+              用于会议评审，帮助业务、产品、研发、测试和宿主系统团队对齐二开范围、优先级、风险和待确认事项。
+            </td>
+          </tr>
+          <tr>
+            <td>文档状态</td>
+            <td>
+              讨论稿。评审通过后的变更需要回写 <code>docs/PRD.md</code>、<code
+                >docs/technical-design.md</code
+              >
+              和 <code>docs/plan/</code>。
+            </td>
+          </tr>
+          <tr>
+            <td>产品负责人</td>
+            <td>待确认。</td>
+          </tr>
+          <tr>
+            <td>研发负责人</td>
+            <td>待确认。</td>
+          </tr>
+          <tr>
+            <td>评审参与方</td>
+            <td>企业业务方、OpenMAIC 二开研发、测试、运维、宿主系统研发。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>2. 背景与问题</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 18%">问题</th>
+            <th style="width: 43%">现状</th>
+            <th>影响</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>数据不共享</td>
+            <td>课程、媒体、作答和学习进度主要存在浏览器 IndexedDB。</td>
+            <td>换账号、浏览器或设备后无法形成企业级学习记录和看板。</td>
+          </tr>
+          <tr>
+            <td>企业管理能力缺失</td>
+            <td>缺少自有账号、角色、邀请码、课程可见范围、发布状态和后台管理。</td>
+            <td>无法按岗位分发课程，也无法管理学员和课程生命周期。</td>
+          </tr>
+          <tr>
+            <td>培训闭环不足</td>
+            <td>缺少强制课后测评、测评失败重学和阶段综合考核。</td>
+            <td>无法证明学习完成质量，培训结果难以量化。</td>
+          </tr>
+          <tr>
+            <td>宿主集成边界不清</td>
+            <td>宿主需要统一入口和看板，但不应直接依赖 OpenMAIC 数据库结构。</td>
+            <td>如果直接耦合数据库或前端消息，后续维护风险高。</td>
+          </tr>
+          <tr>
+            <td>编辑能力不应重复建设</td>
+            <td>OpenMAIC 已有大纲确认、Pro Mode、AI 编辑助手和 quiz 能力。</td>
+            <td>如果新增平行编辑器，会增加研发成本和一致性风险。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>3. 目标与非目标</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 16%">类型</th>
+            <th style="width: 38%">内容</th>
+            <th>判断标准</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>目标</strong></td>
+            <td>OpenMAIC 自带轻量企业后台和账号体系。</td>
+            <td>管理员可管理角色、邀请码、用户角色、分类、课程、考核策略和看板。</td>
+          </tr>
+          <tr>
+            <td><strong>目标</strong></td>
+            <td>课程从生成到发布、学习、测评、考核形成闭环。</td>
+            <td>学员只能看到已发布且对自己角色可见的课程；完成课程后必须测评。</td>
+          </tr>
+          <tr>
+            <td><strong>目标</strong></td>
+            <td>正式数据以后端为权威。</td>
+            <td>课程、进度、测评、考核和看板数据来自 PostgreSQL/OSS，而不是浏览器缓存。</td>
+          </tr>
+          <tr>
+            <td><strong>目标</strong></td>
+            <td>宿主系统可安全嵌入和查询。</td>
+            <td>宿主通过 SSO 进入管理员入口，通过服务端 API Key 查询看板数据。</td>
+          </tr>
+          <tr>
+            <td><strong>非目标</strong></td>
+            <td>多租户、组织树、部门可见、指定用户可见。</td>
+            <td>首版只做单租户、单角色、全体可见或按角色可见。</td>
+          </tr>
+          <tr>
+            <td><strong>非目标</strong></td>
+            <td>短信验证码、找回密码、复杂账号风控。</td>
+            <td>首版只做手机号、密码、邀请码注册登录。</td>
+          </tr>
+          <tr>
+            <td><strong>非目标</strong></td>
+            <td>自研内容编辑器、逐页媒体手动生成、PBL v2、ZIP 导入导出主流程。</td>
+            <td>课程编辑复用 OpenMAIC 原生能力。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>4. 用户与核心场景</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 14%">用户</th>
+            <th style="width: 26%">目标</th>
+            <th style="width: 34%">典型场景</th>
+            <th>成功标准</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>企业管理员</td>
+            <td>创建和管理企业课程、用户、测评、考核和看板。</td>
+            <td>
+              通过宿主入口进入
+              OpenMAIC，生成课程，确认大纲，编辑课程，设置分类和可见范围，发布课程。
+            </td>
+            <td>课程可被目标角色学员看到，学习和测评数据进入看板。</td>
+          </tr>
+          <tr>
+            <td>企业学员</td>
+            <td>注册、学习课程、完成课后测评和阶段考核。</td>
+            <td>用手机号、密码、邀请码注册，进入课程列表，学习课程，完成测评；不通过则重学。</td>
+            <td>学员只看到自己可学课程，测评/考核结果被准确记录。</td>
+          </tr>
+          <tr>
+            <td>宿主系统</td>
+            <td>提供统一入口，并在宿主侧展示培训数据。</td>
+            <td>前端 iframe 嵌入 OpenMAIC；后端用 API Key 查询课程完成率、测评和考核结果。</td>
+            <td>宿主不直连数据库、不暴露密钥，也能展示权威数据。</td>
+          </tr>
+          <tr>
+            <td>测试/运维</td>
+            <td>验证权限、数据一致性、接口安全和部署配置。</td>
+            <td>验证管理员/学员权限隔离、弱网缓存、OSS 上传、Host API 鉴权和 CSP/origin 配置。</td>
+            <td>核心链路可回归，异常情况有明确错误信息。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>5. 假设、依赖与约束</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 16%">类别</th>
+            <th style="width: 42%">内容</th>
+            <th>影响</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>产品假设</td>
+            <td>首版企业内部只有一个租户，每个用户只有一个当前角色。</td>
+            <td>简化权限、课程可见范围和考核策略设计。</td>
+          </tr>
+          <tr>
+            <td>技术依赖</td>
+            <td>PostgreSQL、Drizzle ORM、Aliyun OSS、签名 session cookie、Host API Key/Secret。</td>
+            <td>需要先完成 SLICE-00 地基，否则后续功能会大量 mock。</td>
+          </tr>
+          <tr>
+            <td>复用依赖</td>
+            <td>
+              现有大纲预览/编辑、Pro Mode / AI 编辑助手、quiz
+              surface、<code>gradeChoiceQuestions()</code>、课堂播放 UI。
+            </td>
+            <td>减少新编辑器建设，但需要加管理员权限门控。</td>
+          </tr>
+          <tr>
+            <td>安全约束</td>
+            <td>
+              postMessage 必须验证 origin；Host API 密钥只允许宿主后端保存；管理 API
+              必须校验管理员权限。
+            </td>
+            <td>影响 iframe、Host API、后台 API 的验收。</td>
+          </tr>
+          <tr>
+            <td>性能/载荷约束</td>
+            <td>课程内容 API 单次请求不超过 10MB；媒体走分片上传或预签名 URL 直传 OSS。</td>
+            <td>影响课程内容保存、媒体存储和弱网体验。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>6. 功能需求总表</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 11%">模块</th>
+            <th style="width: 12%">目标</th>
+            <th style="width: 15%">需求范围</th>
+            <th style="width: 20%">验收标准</th>
+            <th style="width: 13%">复用 / 新增</th>
+            <th style="width: 13%">关联需求</th>
+            <th style="width: 8%">优先级</th>
+            <th style="width: 8%">切片</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>账号与权限</strong></td>
+            <td>建立 OpenMAIC 自有账号体系。</td>
+            <td>
+              <ul>
+                <li>学员手机号 + 密码 + 邀请码注册登录。</li>
+                <li>邀请码绑定角色，可启停和设置有效期。</li>
+                <li>宿主 SSO 通过 <code>hostUserId</code> 创建/绑定管理员。</li>
+                <li>管理员功能只对管理员可见可用。</li>
+              </ul>
+            </td>
+            <td>
+              <ul>
+                <li>无邀请码不能注册学员。</li>
+                <li>同一 <code>hostUserId</code> 始终登录同一管理员。</li>
+                <li>普通学员无法访问后台和课程编辑接口。</li>
+              </ul>
+            </td>
+            <td><span class="tag new">新增</span><span class="tag risk">替换 ACCESS_CODE</span></td>
+            <td>REQ-026, 027, 033, 034, 035, 036, 023</td>
+            <td>P0</td>
+            <td>00, 07</td>
+          </tr>
+
+          <tr>
+            <td><strong>管理员后台</strong></td>
+            <td>提供企业管理入口。</td>
+            <td>
+              <ul>
+                <li>维护角色、邀请码、用户角色、课程分类。</li>
+                <li>维护课程发布、可见范围、阶段考核策略。</li>
+                <li>后台首页展示精简数据看板。</li>
+              </ul>
+            </td>
+            <td>
+              <ul>
+                <li>管理员登录后能看到后台入口。</li>
+                <li>学员看不到后台入口，直接访问返回无权限。</li>
+                <li>后台范围不超过首版定义。</li>
+              </ul>
+            </td>
+            <td><span class="tag new">新增</span><span class="tag">轻量后台</span></td>
+            <td>REQ-035, 036, 037, 040, 044</td>
+            <td>P0</td>
+            <td>07, 01</td>
+          </tr>
+
+          <tr>
+            <td><strong>课程生成与编辑</strong></td>
+            <td>复用现有编辑能力，避免重复建设。</td>
+            <td>
+              <ul>
+                <li>AI 生成大纲后默认进入大纲预览/编辑。</li>
+                <li>确认前不自动生成完整课程。</li>
+                <li>生成后复用 Pro Mode / AI 编辑助手。</li>
+                <li>保存、编辑、发布入口仅管理员可用。</li>
+              </ul>
+            </td>
+            <td>
+              <ul>
+                <li>用户不点击确认时不会继续生成。</li>
+                <li>管理员可用 AI 编辑助手修改课程。</li>
+                <li>学员课堂中不出现编辑入口。</li>
+              </ul>
+            </td>
+            <td>
+              <span class="tag reuse">复用大纲编辑</span
+              ><span class="tag reuse">复用 AI 编辑助手</span>
+            </td>
+            <td>REQ-001, 002, 003, 005</td>
+            <td>P0</td>
+            <td>03</td>
+          </tr>
+
+          <tr>
+            <td><strong>课程分类、发布与可见范围</strong></td>
+            <td>按角色控制课程分发。</td>
+            <td>
+              <ul>
+                <li>课程必须选择分类。</li>
+                <li>课程默认草稿，发布后学员可见。</li>
+                <li>可见范围支持全体和按角色。</li>
+                <li>管理员可调整可见范围、下架或继续编辑。</li>
+              </ul>
+            </td>
+            <td>
+              <ul>
+                <li>草稿课程不进入学员列表。</li>
+                <li>角色不匹配的学员看不到课程。</li>
+                <li>已发布课程跨浏览器/设备可加载。</li>
+              </ul>
+            </td>
+            <td>
+              <span class="tag new">新增发布流</span><span class="tag new">新增可见范围</span>
+            </td>
+            <td>REQ-037, 038, 039, 040, 041</td>
+            <td>P0</td>
+            <td>03</td>
+          </tr>
+
+          <tr>
+            <td><strong>后端权威存储</strong></td>
+            <td>正式业务数据服务端化。</td>
+            <td>
+              <ul>
+                <li>PostgreSQL 保存用户、角色、课程、进度、测评、考核等数据。</li>
+                <li>OSS 保存媒体文件，数据库保存媒体元数据。</li>
+                <li>提供 RESTful API。</li>
+              </ul>
+            </td>
+            <td>
+              <ul>
+                <li>课程和进度不依赖浏览器本地才能跨设备访问。</li>
+                <li>媒体文件不进入数据库 Blob。</li>
+                <li>正式保存、发布、提交失败时有明确错误。</li>
+              </ul>
+            </td>
+            <td>
+              <span class="tag new">PostgreSQL</span><span class="tag new">OSS</span
+              ><span class="tag risk">迁移风险</span>
+            </td>
+            <td>REQ-017, 018, 019, 020, 030</td>
+            <td>P0</td>
+            <td>00, 01</td>
+          </tr>
+
+          <tr>
+            <td><strong>学习进度</strong></td>
+            <td>支撑测评门控和看板统计。</td>
+            <td>
+              <ul>
+                <li>服务端保存课程播放位置和完成状态。</li>
+                <li>完成学习部分后才能测评。</li>
+                <li>测评失败后重置完成状态。</li>
+              </ul>
+            </td>
+            <td>
+              <ul>
+                <li>刷新或换设备后能恢复服务端进度。</li>
+                <li>未完成学习不能提交课后测评。</li>
+                <li>测评失败后必须重新完成学习。</li>
+              </ul>
+            </td>
+            <td>
+              <span class="tag new">后端进度</span><span class="tag reuse">复用课堂播放</span>
+            </td>
+            <td>REQ-006, 008, 009, 030, 041</td>
+            <td>P0</td>
+            <td>01, 04</td>
+          </tr>
+
+          <tr>
+            <td><strong>课后测评</strong></td>
+            <td>形成课程学习后的强制测评闭环。</td>
+            <td>
+              <ul>
+                <li>课程完成后强制进入课后测评。</li>
+                <li>默认 80% 通过。</li>
+                <li>每次提交记录分数、答题详情、尝试次数和角色快照。</li>
+                <li>只支持单选/多选题。</li>
+                <li>课程内容变更后提示测评题可能不匹配。</li>
+              </ul>
+            </td>
+            <td>
+              <ul>
+                <li>低于阈值判定不通过并展示解析。</li>
+                <li>每次提交均产生后端记录。</li>
+                <li>管理员可编辑或重生成测评题，系统不自动覆盖人工编辑。</li>
+              </ul>
+            </td>
+            <td>
+              <span class="tag reuse">复用 quiz</span><span class="tag new">新增尝试记录</span>
+            </td>
+            <td>REQ-004, 006, 007, 008, 009, 042, 043</td>
+            <td>P0</td>
+            <td>04</td>
+          </tr>
+
+          <tr>
+            <td><strong>阶段综合考核</strong></td>
+            <td>从课程题库抽题形成阶段考试。</td>
+            <td>
+              <ul>
+                <li>题源来自课内 quiz 和课后测评题。</li>
+                <li>管理员按角色、分类、课程范围、题量、阈值配置策略。</li>
+                <li>只抽单选/多选，过滤简答题。</li>
+                <li>记录考试分数、详情、用时、尝试次数和角色快照。</li>
+              </ul>
+            </td>
+            <td>
+              <ul>
+                <li>发布前能看到候选题量。</li>
+                <li>学员只看到符合自己角色的考核。</li>
+                <li>考核结果进入后台和 Host API。</li>
+              </ul>
+            </td>
+            <td>
+              <span class="tag reuse">复用题库</span><span class="tag new">新增策略</span
+              ><span class="tag risk">题量风险</span>
+            </td>
+            <td>REQ-010, 011, 012, 028, 029, 031, 032</td>
+            <td>P1</td>
+            <td>05</td>
+          </tr>
+
+          <tr>
+            <td><strong>数据看板与 Host API</strong></td>
+            <td>提供 OpenMAIC 和宿主侧数据查询。</td>
+            <td>
+              <ul>
+                <li>后台展示课程完成率、测评通过率、阶段考核通过率。</li>
+                <li>支持查看学员明细。</li>
+                <li>宿主后端通过 API Key 查询汇总和明细。</li>
+              </ul>
+            </td>
+            <td>
+              <ul>
+                <li>看板数据来自后端权威表。</li>
+                <li>Host API 不允许前端密钥调用。</li>
+                <li>首版不需要 OpenMAIC 回调宿主。</li>
+              </ul>
+            </td>
+            <td><span class="tag new">新增看板</span><span class="tag new">新增 Host API</span></td>
+            <td>REQ-030, 044, 045, 046</td>
+            <td>P1</td>
+            <td>01</td>
+          </tr>
+
+          <tr>
+            <td><strong>iframe 嵌入与通信</strong></td>
+            <td>支持宿主嵌入 OpenMAIC。</td>
+            <td>
+              <ul>
+                <li>支持独立访问和 iframe 嵌入。</li>
+                <li>嵌入时隐藏不必要外框 UI。</li>
+                <li>postMessage 只保留最小即时通知。</li>
+              </ul>
+            </td>
+            <td>
+              <ul>
+                <li>origin 白名单校验有效。</li>
+                <li>postMessage 不作为登录凭证。</li>
+                <li>数据看板不依赖 postMessage。</li>
+              </ul>
+            </td>
+            <td><span class="tag new">嵌入壳</span><span class="tag">最小通信</span></td>
+            <td>REQ-013, 014, 015, 016, 021, 022</td>
+            <td>P1</td>
+            <td>02</td>
+          </tr>
+
+          <tr>
+            <td><strong>弱网缓存与草稿</strong></td>
+            <td>保留本地体验但不影响权威数据。</td>
+            <td>
+              <ul>
+                <li>已加载课程、编辑草稿和媒体副本可缓存。</li>
+                <li>恢复网络后以服务端数据同步。</li>
+                <li>保存、发布、提交必须写后端。</li>
+              </ul>
+            </td>
+            <td>
+              <ul>
+                <li>本地缓存只用于恢复，不覆盖服务端已更新数据。</li>
+                <li>界面展示同步状态和失败原因。</li>
+              </ul>
+            </td>
+            <td>
+              <span class="tag reuse">复用 IndexedDB</span><span class="tag new">降级为缓存</span>
+            </td>
+            <td>REQ-025</td>
+            <td>P2</td>
+            <td>06</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>7. 关键流程</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 18%">流程</th>
+            <th style="width: 48%">步骤</th>
+            <th>完成标准</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>管理员建课发布</td>
+            <td>
+              宿主 SSO 进入 OpenMAIC → 生成课程大纲 → 管理员确认/编辑大纲 → 生成完整课程 → Pro Mode
+              / AI 编辑助手修改 → 设置分类和可见范围 → 发布。
+            </td>
+            <td>目标角色学员课程列表可见，非目标角色不可见。</td>
+          </tr>
+          <tr>
+            <td>学员学习测评</td>
+            <td>
+              手机号 + 密码 + 邀请码注册 → 进入课程列表 → 学习课程 → 完成后进入课后测评 →
+              通过则课程完成，不通过则查看解析并重学。
+            </td>
+            <td>学习进度和每次测评尝试均写入后端。</td>
+          </tr>
+          <tr>
+            <td>阶段考核</td>
+            <td>
+              管理员配置角色、分类、课程范围、题量和阈值 → 发布考核 → 学员参加 → 服务端抽题评分 →
+              结果落库。
+            </td>
+            <td>只抽单选/多选，结果进入后台和 Host API。</td>
+          </tr>
+          <tr>
+            <td>宿主看板查询</td>
+            <td>
+              宿主后端保存 API Key/Secret → 调用 OpenMAIC Host API →
+              查询汇总、课程进度、测评和考核结果 → 宿主前端展示。
+            </td>
+            <td>宿主前端不暴露密钥，宿主不直连数据库。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>8. 切片计划映射</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 12%">切片</th>
+            <th style="width: 20%">目标</th>
+            <th style="width: 30%">覆盖模块</th>
+            <th style="width: 24%">验收检查点</th>
+            <th style="width: 14%">依赖</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>SLICE-00</strong></td>
+            <td>类型、schema、安全和配置地基。</td>
+            <td>账号权限基础、后端存储基础、安全与约束。</td>
+            <td>schema、迁移、session、API Key、origin/CSP、环境变量校验可编译并有测试。</td>
+            <td>无</td>
+          </tr>
+          <tr>
+            <td><strong>SLICE-07</strong></td>
+            <td>账号、角色、管理员入口。</td>
+            <td>账号与权限、后台入口。</td>
+            <td>学员可注册登录；hostUserId 可绑定管理员；管理员看到后台入口。</td>
+            <td>SLICE-00</td>
+          </tr>
+          <tr>
+            <td><strong>SLICE-01</strong></td>
+            <td>后端存储与查询 API。</td>
+            <td>权威存储、后台 API、看板、Host API。</td>
+            <td>后端 CRUD、课程可见过滤、后台首页看板和宿主查询 API 可用。</td>
+            <td>SLICE-00, SLICE-07</td>
+          </tr>
+          <tr>
+            <td><strong>SLICE-03</strong></td>
+            <td>课程生成、编辑、发布与可见范围。</td>
+            <td>课程生成编辑、分类、发布、角色可见。</td>
+            <td>默认大纲确认；管理员可发布；学员课程列表过滤正确。</td>
+            <td>SLICE-00, SLICE-01, SLICE-07</td>
+          </tr>
+          <tr>
+            <td><strong>SLICE-04</strong></td>
+            <td>课后测评与重学。</td>
+            <td>学习进度、测评、重学机制。</td>
+            <td>课程完成后测评；失败重学；每次测评尝试落库。</td>
+            <td>SLICE-00, SLICE-01, SLICE-03</td>
+          </tr>
+          <tr>
+            <td><strong>SLICE-05</strong></td>
+            <td>阶段综合考核。</td>
+            <td>题库抽题、考核策略、考试结果。</td>
+            <td>管理员发布考核；学员参加；只抽单选/多选并记录结果。</td>
+            <td>SLICE-00, SLICE-01, SLICE-04</td>
+          </tr>
+          <tr>
+            <td><strong>SLICE-06</strong></td>
+            <td>前端缓存与弱网恢复。</td>
+            <td>IndexedDB 缓存、草稿、同步状态。</td>
+            <td>本地缓存不破坏后端权威流程。</td>
+            <td>SLICE-00, SLICE-01</td>
+          </tr>
+          <tr>
+            <td><strong>SLICE-02</strong></td>
+            <td>iframe 嵌入与即时消息。</td>
+            <td>嵌入布局、origin 校验、postMessage。</td>
+            <td>嵌入可用；postMessage 不承担认证和权威数据。</td>
+            <td>SLICE-00, SLICE-07</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>9. 成功指标</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 22%">指标</th>
+            <th style="width: 36%">定义</th>
+            <th>首版验收方式</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>课程发布闭环完成</td>
+            <td>管理员可从生成课程到发布可见课程。</td>
+            <td>完整跑通管理员建课发布流程，学员列表可见性正确。</td>
+          </tr>
+          <tr>
+            <td>学习测评闭环完成</td>
+            <td>学员完成课程后必须测评，不通过必须重学。</td>
+            <td>通过/不通过两条路径均有后端记录。</td>
+          </tr>
+          <tr>
+            <td>考核结果可查询</td>
+            <td>阶段考核和课后测评结果能进入 OpenMAIC 后台和 Host API。</td>
+            <td>后台看板与 Host API 返回一致数据。</td>
+          </tr>
+          <tr>
+            <td>权限隔离正确</td>
+            <td>管理员和学员能力严格区分。</td>
+            <td>前端入口隐藏 + 后端 API 权限校验均通过测试。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>10. 风险与缓解</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 22%">风险</th>
+            <th style="width: 26%">影响</th>
+            <th style="width: 34%">缓解方案</th>
+            <th>关联切片</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>账号体系比原 ACCESS_CODE 重</td>
+            <td>开发量上升，权限改造影响面大。</td>
+            <td>首版只做手机号密码、邀请码、单角色、单租户，不做验证码和组织树。</td>
+            <td>00, 07</td>
+          </tr>
+          <tr>
+            <td>IndexedDB 与后端权威冲突</td>
+            <td>可能出现本地旧数据覆盖服务端新数据。</td>
+            <td>保存/发布/提交以服务端为准，本地只做草稿和缓存，冲突以服务端 updatedAt 为准。</td>
+            <td>01, 06</td>
+          </tr>
+          <tr>
+            <td>阶段考核题量不足</td>
+            <td>无法按策略组卷，影响考试发布。</td>
+            <td>管理端保存/发布策略时展示候选单选/多选题量，不足时阻断或提示调整。</td>
+            <td>05</td>
+          </tr>
+          <tr>
+            <td>Host API 密钥泄露</td>
+            <td>培训数据泄露。</td>
+            <td>密钥只允许宿主后端保存；服务端保存 hash；支持停用轮换；必要时加签名和 nonce。</td>
+            <td>00, 01</td>
+          </tr>
+          <tr>
+            <td>管理员后台范围膨胀</td>
+            <td>偏离首版目标，拖慢主链路。</td>
+            <td>后台仅保留看板、课程、分类、角色、邀请码、用户角色、考核策略。</td>
+            <td>07, 01, 05</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>11. 开放问题</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 22%">问题</th>
+            <th style="width: 44%">待确认点</th>
+            <th>建议</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>管理员后台 UI 归属</td>
+            <td>后台壳、菜单、首页看板、各管理页分别放入哪个 slice。</td>
+            <td>
+              后台入口和壳放 SLICE-07；后台 API 和首页看板放 SLICE-01；考核策略页放 SLICE-05。
+            </td>
+          </tr>
+          <tr>
+            <td>课程内容变更后的测评提示</td>
+            <td>提示出现在保存课程、发布课程，还是测评题编辑页。</td>
+            <td>发布课程时强提示；测评题编辑页常驻提示；不自动覆盖人工题。</td>
+          </tr>
+          <tr>
+            <td>考核题量不足是否阻断</td>
+            <td>候选题量不足时允许发布还是禁止发布。</td>
+            <td>建议强阻断发布，避免学员开始考试时报错。</td>
+          </tr>
+          <tr>
+            <td>host SSO 是否默认管理员</td>
+            <td>所有 <code>hostUserId</code> 是否都创建管理员，还是宿主需要额外传权限声明。</td>
+            <td>首版按当前 PRD 默认管理员；如宿主有多角色入口，再增加签名权限声明。</td>
+          </tr>
+          <tr>
+            <td>Host API 鉴权强度</td>
+            <td>Bearer API Key 是否足够，是否需要时间戳、签名、nonce。</td>
+            <td>涉及企业数据，建议采用 KeyId + HMAC 签名 + 时间戳，后续再评估 nonce。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>12. 明确范围外</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 28%">范围外事项</th>
+            <th>原因</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <span class="tag out">多租户</span><span class="tag out">组织树</span
+              ><span class="tag out">部门可见</span><span class="tag out">指定用户可见</span>
+            </td>
+            <td>首版先满足单租户、单角色、按角色可见的企业培训闭环。</td>
+          </tr>
+          <tr>
+            <td>
+              <span class="tag out">短信验证码</span><span class="tag out">找回密码</span
+              ><span class="tag out">复杂账号风控</span>
+            </td>
+            <td>避免账号体系过重，降低首版交付风险。</td>
+          </tr>
+          <tr>
+            <td>
+              <span class="tag out">宿主直连数据库</span
+              ><span class="tag out">OpenMAIC 主动回调宿主</span>
+            </td>
+            <td>宿主集成首版只走查询 API，保持系统边界清晰。</td>
+          </tr>
+          <tr>
+            <td>
+              <span class="tag out">PBL v2 扩展</span
+              ><span class="tag out">ZIP 导入导出主流程</span>
+            </td>
+            <td>本次二开聚焦企业课程发布、学习、测评、考核和看板。</td>
+          </tr>
+          <tr>
+            <td>
+              <span class="tag out">自研内容编辑器</span
+              ><span class="tag out">逐页媒体手动生成</span>
+            </td>
+            <td>课程编辑复用 OpenMAIC 原生大纲确认、Pro Mode 和 AI 编辑助手。</td>
+          </tr>
+          <tr>
+            <td>
+              <span class="tag out">主观题评分</span><span class="tag out">简答题阶段考核</span>
+            </td>
+            <td>首版只使用单选/多选，确保稳定评分和结果可追溯。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="note warning">
+        会议建议先确认：管理员后台首版范围、host SSO
+        是否默认管理员、阶段考核题量不足是否强阻断、Host API 是否采用签名鉴权。 这些决策会直接影响
+        SLICE-00、SLICE-07、SLICE-01 和 SLICE-05 的实现边界。
+      </div>
+
+      <p class="small">
+        模板参考：Atlassian PRD 建议覆盖目标、假设、用户故事、设计和范围；Aha!
+        强调概览、目标、用户和需求追踪；Jama
+        强调用户故事、用例、UI/UX、技术要求与验收标准。本文已按上述结构改写为适合本项目会议评审的版本。
+      </p>
+    </main>
+  </body>
+</html>

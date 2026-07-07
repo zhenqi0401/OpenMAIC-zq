@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-CN"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>看板 - 管理后台</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" data-od-id="sidebar">
+      <div class="brand" data-od-id="brand">
+        <h1>管理后台</h1>
+        <p>企业培训运营台</p>
+      </div>
+      <nav class="nav-list" aria-label="后台导航" data-od-id="module-nav">
+        <a class="nav-item active" href="dashboard.html" data-od-id="nav-dashboard" style="font-size: 16px;">看板</a>
+        <a class="nav-item" href="courses.html" data-od-id="nav-courses" style="font-size: 16px;">课程管理</a>
+        <a class="nav-item" href="exams.html" data-od-id="nav-exams" style="font-size: 16px;">阶段考核</a>
+        <a class="nav-item" href="access.html" data-od-id="nav-access" style="font-size: 16px;">访问与角色</a>
+      </nav>
+      <div class="sidebar-foot" data-od-id="sidebar-foot">
+        <span>当前身份：企业管理员</span>
+        <span>数据来源：后台 API 只读映射</span>
+      </div>
+    </aside>
+
+    <main class="main" data-od-id="dashboard-main">
+      <header class="topbar" data-od-id="dashboard-topbar">
+        <div class="page-title">
+          <p class="eyebrow">Dashboard</p>
+          <h1 data-od-id="dashboard-title">运营状态一眼看清</h1>
+          <p>课程完成、测评通过、阶段考核和待处理事项放在首屏。</p>
+        </div>
+        <div class="actions" data-od-id="dashboard-actions">
+          <button class="btn ghost" type="button" data-toast-action="看板已刷新" data-od-id="refresh-dashboard">刷新看板</button>
+          <a class="btn primary" href="courses.html" data-od-id="goto-courses">处理课程</a>
+        </div>
+      </header>
+
+      <section class="kpi-grid" aria-label="运营指标" data-od-id="dashboard-kpis">
+        <article class="card metric" data-od-id="metric-course-completion">
+          <span class="eyebrow">课程完成率</span>
+          <strong>78%</strong>
+          <div class="spark"><span style="width:78%"></span></div>
+          <p class="muted">本周新增完成 46 人次</p>
+        </article>
+        <article class="card metric" data-od-id="metric-assessment-pass">
+          <span class="eyebrow">测评通过率</span>
+          <strong>84%</strong>
+          <div class="spark"><span style="width:84%"></span></div>
+          <p class="muted">低于阈值课程 2 门</p>
+        </article>
+        <article class="card metric" data-od-id="metric-exam-pass">
+          <span class="eyebrow">阶段考核通过率</span>
+          <strong>69%</strong>
+          <div class="spark"><span style="width:69%"></span></div>
+          <p class="muted">销售新人组需复查</p>
+        </article>
+        <article class="card metric" data-od-id="metric-pending">
+          <span class="eyebrow">待处理事项</span>
+          <strong>7</strong>
+          <div class="spark"><span style="width:58%"></span></div>
+          <p class="muted">课程、考核、邀请码合计</p>
+        </article>
+      </section>
+
+      <section class="module-grid" data-od-id="dashboard-content-grid">
+        <div class="panel" data-od-id="learner-progress-panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <h2>学员明细</h2>
+              <p class="muted">按用户、角色或课程快速定位进度记录。</p>
+            </div>
+          </div>
+          <div class="panel-body section-grid">
+            <div class="toolbar" data-od-id="progress-filter-toolbar">
+              <input class="input" type="search" placeholder="搜索学员、角色或课程" data-filter="progress" data-od-id="progress-search">
+              <select class="select" data-od-id="progress-role-select">
+                <option>全部角色</option>
+                <option>销售新人</option>
+                <option>区域经理</option>
+              </select>
+              <select class="select" data-od-id="progress-course-select">
+                <option>全部课程</option>
+                <option>产品演示基础</option>
+                <option>客户异议处理</option>
+              </select>
+              <button class="btn ghost" type="button" data-toast-action="筛选已应用" data-od-id="apply-progress-filter">应用</button>
+            </div>
+            <div class="table-shell" data-od-id="progress-table">
+              <div class="table-head cols-progress">
+                <span>学员</span><span>角色</span><span>课程</span><span>完成</span><span>测评</span><span>更新时间</span>
+              </div>
+              <div class="table-row cols-progress" data-filter-row="progress" data-od-id="progress-row-chen">
+                <div class="cell-title"><strong>陈思远</strong><span class="muted">u_1027</span></div>
+                <span>销售新人</span><span>产品演示基础</span><span class="status success">已完成</span><span>92%</span><span>今天 10:24</span>
+              </div>
+              <div class="table-row cols-progress" data-filter-row="progress" data-od-id="progress-row-lin">
+                <div class="cell-title"><strong>林嘉</strong><span class="muted">u_1041</span></div>
+                <span>区域经理</span><span>客户异议处理</span><span class="status warn">进行中</span><span>—</span><span>昨天 17:12</span>
+              </div>
+              <div class="table-row cols-progress" data-filter-row="progress" data-od-id="progress-row-zhou">
+                <div class="cell-title"><strong>周敏</strong><span class="muted">u_1060</span></div>
+                <span>销售新人</span><span>合规沟通训练</span><span class="status danger">未完成</span><span>58%</span><span>周二 09:40</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="panel" data-od-id="pending-work-panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <h2>需要处理</h2>
+              <p class="muted">不把筛选做成主角，优先呈现下一步。</p>
+            </div>
+          </div>
+          <div class="panel-body split-list">
+            <div class="work-item" data-od-id="work-course-review">
+              <span class="dot filled"></span>
+              <div><strong>2 门课程待发布</strong><p class="muted">草稿已生成，需检查课后测评题。</p></div>
+              <a class="btn icon" title="查看课程" href="courses.html">›</a>
+            </div>
+            <div class="work-item" data-od-id="work-exam-review">
+              <span class="dot"></span>
+              <div><strong>1 个阶段考核需复查</strong><p class="muted">题量不足，候选题少于策略要求。</p></div>
+              <a class="btn icon" title="查看考核" href="exams.html">›</a>
+            </div>
+            <div class="work-item" data-od-id="work-invite-review">
+              <span class="dot"></span>
+              <div><strong>4 个邀请码即将过期</strong><p class="muted">到期前确认是否继续开放注册。</p></div>
+              <a class="btn icon" title="查看邀请码" href="access.html">›</a>
+            </div>
+          </div>
+        </aside>
+      </section>
+    </main>
+  </div>
+  <div class="toast" data-toast=""></div>
+  <script src="app.js"></script>
+
+
+
+</body></html>

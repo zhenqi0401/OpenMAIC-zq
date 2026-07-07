@@ -277,8 +277,17 @@ function makeRepository(): EnterpriseRepository {
     async listMediaFiles() {
       return [];
     },
-    async createOssPresignedUpload() {
+    async getMediaFileBlob() {
+      return null;
+    },
+    async createCourseAudioBlob() {
       throw new Error('not used');
+    },
+    async listCourseAudioBlobs() {
+      return [];
+    },
+    async getCourseAudioBlob() {
+      return null;
     },
   };
 }

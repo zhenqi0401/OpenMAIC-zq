@@ -2,6 +2,11 @@ import { describe, expect, test } from 'vitest';
 
 import {
   buildGeneratedCourseDraft,
+  classifyCourseStorageFailure,
+  createGeneratedCourseDraft,
+  generatedCourseClassroomPath,
+  applyCourseTitleToGeneratedStage,
+  persistImportedClassroomToEnterprise,
   persistGeneratedCourseDraft,
   regenerateGeneratedCourseAssessment,
   replaceGeneratedCourseDraftContent,
@@ -72,12 +77,27 @@ describe('Slice-03 authoring helpers', () => {
         name: 'Sales Enablement',
         description: 'Train sales reps',
         categoryId: 'cat-sales',
+        stageSnapshot: {
+          id: 'stage-1',
+          name: 'Sales Enablement',
+          description: 'Train sales reps',
+        },
+        generationStatus: 'generating',
+        generationComplete: false,
       },
       content: {
         scenes: [{ id: 'scene-1', type: 'slide', title: 'Intro' }],
         outlines: [{ id: 'outline-1', title: 'Intro' }],
       },
     });
+  });
+
+  test('applies the LLM course title before creating the PostgreSQL draft', () => {
+    const stage = { id: 'stage-1', name: '请帮我做一个销售课', description: null };
+
+    applyCourseTitleToGeneratedStage(stage, '销售入门');
+
+    expect(stage.name).toBe('销售入门');
   });
 
   test('warns when saved course content may no longer match existing assessment questions', () => {
@@ -123,6 +143,13 @@ describe('Slice-03 authoring helpers', () => {
       name: 'Sales Enablement',
       description: 'Train sales reps',
       categoryId: 'cat-sales',
+      stageSnapshot: {
+        id: 'stage-1',
+        name: 'Sales Enablement',
+        description: 'Train sales reps',
+      },
+      generationStatus: 'generating',
+      generationComplete: false,
     });
     expect(calls[1]).toMatchObject({
       url: '/api/admin/courses/course-1/content',
@@ -135,6 +162,90 @@ describe('Slice-03 authoring helpers', () => {
       scenes: [{ id: 'scene-1' }],
       outlines: [{ id: 'outline-1' }],
     });
+  });
+
+  test('creates a generated course draft before scene content exists', async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    const fetcher = async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      return Response.json({ success: true, course: { id: 'course-early', status: 'draft' } });
+    };
+
+    await expect(
+      createGeneratedCourseDraft(fetcher, {
+        stage: { id: 'stage-1', name: 'Two-Factor Theory', description: null },
+        categoryId: 'cat-management',
+      }),
+    ).resolves.toMatchObject({ course: { id: 'course-early', status: 'draft' } });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({
+      url: '/api/admin/courses',
+      init: {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      },
+    });
+    expect(JSON.parse(calls[0].init?.body as string)).toEqual({
+      name: 'Two-Factor Theory',
+      description: null,
+      categoryId: 'cat-management',
+      stageSnapshot: {
+        id: 'stage-1',
+        name: 'Two-Factor Theory',
+        description: null,
+      },
+      generationStatus: 'generating',
+      generationComplete: false,
+    });
+  });
+
+  test('persists an imported classroom as a complete PostgreSQL course for admins', async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    const fetcher = async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      if (url === '/api/admin/courses') {
+        return Response.json({ success: true, course: { id: 'course-imported' } });
+      }
+      return Response.json({ success: true, content: { courseId: 'course-imported' } });
+    };
+
+    await expect(
+      persistImportedClassroomToEnterprise(fetcher, {
+        stage: { id: 'stage-imported', name: 'Imported Classroom', description: null },
+        categoryId: 'cat-sales',
+        scenes: [{ id: 'scene-1', title: 'Intro' }],
+      }),
+    ).resolves.toMatchObject({ course: { id: 'course-imported' } });
+
+    expect(JSON.parse(calls[1].init?.body as string)).toEqual({
+      scenes: [{ id: 'scene-1', title: 'Intro' }],
+      outlines: [{ id: 'scene-1', title: 'Intro', order: 0, type: 'slide' }],
+      stage: { id: 'stage-imported', name: 'Imported Classroom', description: null },
+      generationStatus: 'ready',
+      generationComplete: true,
+    });
+  });
+
+  test('surfaces enterprise storage details when draft creation fails', async () => {
+    const fetcher = async () =>
+      Response.json(
+        {
+          success: false,
+          error: 'Enterprise storage operation failed',
+          details: 'column "stage_snapshot" of relation "courses" does not exist',
+        },
+        { status: 500 },
+      );
+
+    await expect(
+      createGeneratedCourseDraft(fetcher, {
+        stage: { id: 'stage-1', name: 'Two-Factor Theory' },
+        categoryId: 'cat-management',
+      }),
+    ).rejects.toThrow(
+      'Enterprise storage operation failed: column "stage_snapshot" of relation "courses" does not exist',
+    );
   });
 
   test('replaces generated draft content without recreating the course', async () => {
@@ -185,5 +296,26 @@ describe('Slice-03 authoring helpers', () => {
     expect(JSON.parse(calls[0].init?.body as string)).toEqual({
       languageDirective: 'Use Simplified Chinese.',
     });
+  });
+
+  test('routes generated enterprise courses by PostgreSQL course id', () => {
+    expect(generatedCourseClassroomPath('stage-local', 'course-postgres')).toBe(
+      '/classroom/course-postgres',
+    );
+    expect(generatedCourseClassroomPath('stage-local')).toBe('/classroom/stage-local');
+  });
+
+  test('classifies generated course storage failures for observability', () => {
+    expect(classifyCourseStorageFailure(new Error('categoryId is required'))).toBe(
+      'missing-category',
+    );
+    expect(classifyCourseStorageFailure(new Error('OpenMAIC session required'))).toBe(
+      'unauthenticated',
+    );
+    expect(classifyCourseStorageFailure(new Error('Admin access required'))).toBe('forbidden');
+    expect(classifyCourseStorageFailure(new Error('Saving generated audio failed'))).toBe(
+      'audio-storage',
+    );
+    expect(classifyCourseStorageFailure(new Error('connection refused'))).toBe('database-write');
   });
 });

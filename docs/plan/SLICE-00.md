@@ -1,70 +1,69 @@
-# SLICE-00：地基 — 共享类型与安全基础
+# SLICE-00：地基 — 类型、Schema 与安全基础
 
 ## 声明
-- **实现需求**：REQ-014, REQ-021, REQ-022, REQ-023, REQ-026~030
-- **实现架构**：ARCH-010~018, ARCH-047
-- **拥有路径**：`lib/embed/message-types.ts`, `lib/security/`, `lib/storage/schema/`, `drizzle.config.ts`, `lib/auth/types.ts`
-- **产出接口**：postMessage 类型（含 ExamPolicy）、`validateSessionToken()`、Drizzle schema（含 exam_results、courses.category）、会话/角色/题库类型、环境变量配置
-- **消费接口**：无（地基切片）
+- **实现需求**：REQ-017~025, REQ-026~046
+- **实现架构**：ARCH-003, ARCH-004, ARCH-010~021, ARCH-044
+- **拥有路径**：`lib/storage/schema/`, `lib/security/`, `lib/auth/types.ts`, `lib/host-api/types.ts`, `drizzle.config.ts`, `.env.example`
+- **产出接口**：数据库 schema、会话 token、宿主 API Key 校验、权限类型、环境变量配置
 - **依赖切片**：无
 
 ## 任务
 
-### Task 1：postMessage 协议类型定义
-- 创建 `lib/embed/message-types.ts`
-- 定义 `OpenMAICMessage`、`HostMessage` 信封类型（ARCH-016）
-- 定义所有消息类型的 payload 接口：`InitPayload`（仅上下文，无 token/userId）, `LoadCoursePayload`, `StartExamPayload`(= `ExamPolicy`), `QuizResultPayload`, `CourseCompletedPayload`, `ExamResultPayload`, `CoursePublishedPayload`, `RetakePayload`（ARCH-020~027）
-- 定义 `ExamPolicy`、`QuestionRef` 类型（ARCH-018）
-- 定义消息类型常量枚举
-- 导出类型供 embed-bridge、assessment、content-preview、auth 消费
+### Task 1：数据库 Schema
+- 创建 Drizzle schema：`users`, `roles`, `invite_codes`, `course_categories`, `courses`, `course_visibility_roles`, `scenes`, `outlines`, `media_files`, `course_progress`, `assessment_attempts`, `exam_policies`, `exam_policy_courses`, `exam_attempts`, `host_api_keys`。
+- 首版按单租户实现；可预留 `tenant_id` 但 UI/API 不暴露租户切换。
+- 媒体表只存 metadata 和 `ossKey`，不存 Blob。
 
-### Task 2：会话 Token 签发与校验（含角色）
-- 创建 `lib/security/session-token.ts`
-- 实现 `createSessionToken({ userId, role, tenantId })` — 在 HMAC payload 中编码 userId + role + tenantId
-- 实现 `validateSessionToken(token)` — 返回 `{ valid, userId, role, tenantId, expiresAt }`（ARCH-047）
-- Token 格式：`timestamp.tenantId.userId.role.signature`（HMAC-SHA256）
-- 复用现有 `middleware.ts` 的 Web Crypto 模式（Edge 兼容），从「单一全局 ACCESS_CODE」演进为「带身份载荷的会话 token」
+### Task 2：共享类型
+- 定义 `SessionIdentity`：`userId`, `roleId`, `roleCode`, `isAdmin`, `authSource`。
+- 定义 `CourseVisibility`：`{ mode: 'all' | 'roles'; roleIds: string[] }`。
+- 定义 `InviteCodeStatus`、`ExamPolicy`、`QuestionRef`、`DashboardSummary`、`HostQueryFilters`。
+- 题目相关类型复用现有 `QuizQuestion`，但 assessment/exam 侧只接受 `single` / `multiple`。
 
-### Task 3：会话鉴权 Middleware 扩展
-- 创建 `lib/security/embed-auth-middleware.ts`
-- 扩展现有 middleware 逻辑：从会话 cookie 或 `Authorization: Bearer` header（嵌入模式）提取并校验会话 token
-- 校验通过后将 `x-user-id` / `x-role` / `x-tenant-id` 注入 request headers（供 API route 读取）
-- `/api/auth/*` 路径加入白名单（登录本身不需要已有会话）
-- 更新 `middleware.ts` 引入此扩展
+### Task 3：会话与密码安全
+- 实现密码 hash/verify 工具，使用强 hash 算法。
+- 实现 OpenMAIC 会话 token 签发/校验，替代原单一 `ACCESS_CODE` 作为企业版主鉴权。
+- API middleware 注入当前用户和管理员权限。
 
-### Task 4：数据库 Schema 定义（Drizzle ORM）
-- 安装 `drizzle-orm` 和 `drizzle-kit`、`pg` 依赖
-- 创建 `lib/storage/schema/courses.ts` — courses 表（ARCH-010）含 `assessment_questions` JSONB 与 `category` 字段
-- 创建 `lib/storage/schema/scenes.ts` — scenes 表（ARCH-011）
-- 创建 `lib/storage/schema/media-files.ts` — media_files 表（ARCH-012）
-- 创建 `lib/storage/schema/outlines.ts` — outlines 表（ARCH-013）
-- 创建 `lib/storage/schema/exam-results.ts` — exam_results 表（ARCH-017）
-- 创建 `lib/storage/schema/index.ts` — 统一导出
-- 创建 `drizzle.config.ts` — Drizzle Kit 配置
-- 生成初始迁移文件
+### Task 4：宿主 API Key
+- 定义宿主查询 API Key/Secret 生成、hash 存储、校验和停用能力。
+- 校验通过后只允许访问 `/api/host/*` 查询接口。
+- 明确这些 Key 只供宿主后端使用，不能放到浏览器。
 
-### Task 5：环境变量与配置
-- 在 `.env.example` 中追加新环境变量：
-  - `DATABASE_URL` — PostgreSQL 连接串
-  - `OSS_REGION`, `OSS_BUCKET`, `OSS_ACCESS_KEY_ID`, `OSS_ACCESS_KEY_SECRET` — 阿里云 OSS
-  - `OSS_STS_ROLE_ARN` — STS 角色 ARN
-  - `ALLOWED_EMBED_ORIGINS` — 允许的宿主 origin（逗号分隔）
-  - `QUIZ_PASS_THRESHOLD` — 课后测评通过阈值（默认 0.8）
-  - `HOST_ACCOUNT_SERVICE_URL` — 宿主账号服务校验地址（联合登录，ARCH-056）
-- 创建 `lib/security/origin-validator.ts` — 从 env 读取 origin 白名单，提供 `isOriginAllowed(origin)` 函数
+### Task 5：环境变量
+- `.env.example` 增加 `DATABASE_URL`、OSS 配置、`SESSION_SECRET`、`HOST_SSO_SECRET`、`HOST_API_KEY_*` 管理说明、`ALLOWED_EMBED_ORIGINS`、`QUIZ_PASS_THRESHOLD`。
 
-### Task 6：CSP 配置更新
-- 更新 `next.config.ts` 的 `headers()` 函数
-- 将 `ALLOWED_EMBED_ORIGINS` 同步到 `frame-ancestors`（与现有 `ALLOWED_FRAME_ANCESTORS` 合并或替代）
-- 确保嵌入模式下 CSP 允许目标宿主域名
+### Task 6：CSP 与 origin
+- 复用/扩展现有 frame-ancestors 配置。
+- postMessage origin 白名单从 env 读取。
 
-### Task 7：客户端新增类型定义
-- 在 `app/generation-preview/types.ts` 扩展 `PreviewPhase` 类型，新增 `'content-review'` 和 `'generating-media'`（ARCH-014）
-- 创建 `lib/assessment/types.ts`，定义 `CourseCompletionGate`（ARCH-015）、`ExamResult`/`ExamResultRecord`、`BankStats` 接口
-- 创建 `lib/embed/types.ts`，定义 `SceneMediaStatus` 接口（ARCH-014）
-- 创建 `lib/auth/types.ts`，定义 `SessionIdentity` 接口（ARCH-018）
+### Task 7：迁移与种子
+- 提供初始迁移。
+- 提供默认管理员角色、默认学员角色和必要的系统配置种子。
 
-### Task 8：docker-compose 扩展
-- 在 `docker-compose.yml` 中追加 PostgreSQL 服务
-- 配置数据卷持久化
-- 添加环境变量引用
+
+
+• Slice-00 已完成。
+
+  改了什么：
+
+  - 新增 Drizzle/PostgreSQL 地基：drizzle.config.ts、lib/storage/schema/index.ts、drizzle/0000_slice_00_foundation.sql、
+    drizzle/meta/*、drizzle/seed.sql。
+
+  - 新增企业鉴权/权限基础：lib/auth/types.ts、lib/auth/session-guard.ts。
+  - 新增安全工具：密码 scrypt hash/verify、session token、Host API Key、embed origin allow-list。
+  - 新增 Host API 类型与访问守卫：lib/host-api/types.ts、lib/host-api/access.ts。
+  验证结果：
+
+  - pnpm.cmd test：通过，221 passed / 1771 tests passed
+  - pnpm.cmd lint：通过，0 errors，15 个既有 warnings
+  - pnpm.cmd build：通过
+  - .\node_modules\.bin\drizzle-kit.CMD check --config drizzle.config.ts：通过
+  - 本次 touched TS/JS 文件 Prettier check：通过
+
+  遗留问题：
+
+  - pnpm.cmd check 全仓 Prettier 仍失败，原因是仓库已有大量非本次格式差异（1085 files）。我没有为 Slice-00 格式化全仓，
+    避免越界。
+
+  - 工作区里 AGENTS.md、docs/* 等文档已有改动未处理；我没有回滚这些非本次实现改动。

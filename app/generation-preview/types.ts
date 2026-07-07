@@ -31,7 +31,7 @@ export interface GenerationSessionState {
   // Concise course title inferred from outline generation (used as the stage name)
   courseTitle?: string;
   // Enterprise course category selected before generation. Admin-generated courses
-  // use it to create the server draft after the first scene is materialized.
+  // use it to create the server draft before scene generation starts.
   categoryId?: string;
   // Server-effective vocational mode from the outline generation done event.
   taskEngineMode?: boolean;

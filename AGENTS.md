@@ -14,32 +14,33 @@
 
 ---
 
-## 1. 项目概览〈每个项目填〉
+## 1. 项目概览
 
-- **这是什么**：〈一句话说明产品/项目做什么、给谁用〉
-- **技术栈**：〈语言 / 框架 / 数据库 / 关键依赖〉
-- **关键文档**：〈如 `docs/PRD.md`、`docs/technical-design.md`、`docs/development-plan.md`；没有就删本行〉
-- **当前阶段**：〈如「MVP 开发中，正在做 X」〉
+- **这是什么**：基于 OpenMAIC 二开的企业课程与考核平台，面向企业管理员和学员，提供 AI 课程生成/编辑、课程发布、学习、课后测评、阶段考试和数据看板。
+- **技术栈**：TypeScript / Next.js App Router / React / Zustand / Dexie；计划新增 PostgreSQL、Drizzle ORM、Aliyun OSS、签名 session cookie、Host API Key/Secret；课程 DSL、导入与渲染复用 `@openmaic/*` workspace 包。
+- **关键文档**：`docs/PRD.md`、`docs/technical-design.md`、`docs/plan/SLICE-OVERVIEW.md`、`docs/plan/SLICE-00.md` 至 `docs/plan/SLICE-08.md`。
+- **当前阶段**：二开需求与技术方案已完成 v0.5 梳理，建议从 `SLICE-00` 基础设施开始，再按 `SLICE-07 -> SLICE-01 -> SLICE-08 -> SLICE-03 -> SLICE-04 -> SLICE-05` 推进主链路。
 
 ---
 
-## 2. 环境与常用命令〈每个项目填〉
+## 2. 环境与常用命令
 
-```bash
+```powershell
 # 安装依赖
-〈如 npm install〉
+pnpm.cmd install
 
 # 本地运行
-〈如 npm run dev〉
+pnpm.cmd dev
 
 # 构建
-〈如 npm run build〉
+pnpm.cmd build
 
 # 跑测试
-〈如 npm test〉
+pnpm.cmd test
 
 # 代码检查 / 格式化
-〈如 npm run lint〉
+pnpm.cmd lint
+pnpm.cmd check
 ```
 
 > 提交前必须能跑通的命令：**测试** 与 **lint**。

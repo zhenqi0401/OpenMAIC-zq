@@ -10,6 +10,11 @@ const migrationSql = readFileSync(
   'utf8',
 );
 
+const change01MigrationSql = readFileSync(
+  resolve(__dirname, '../../drizzle/0001_change_01_course_storage.sql'),
+  'utf8',
+);
+
 const seedSql = readFileSync(resolve(__dirname, '../../drizzle/seed.sql'), 'utf8');
 
 describe('Slice-00 database foundation SQL', () => {
@@ -20,9 +25,10 @@ describe('Slice-00 database foundation SQL', () => {
     expect(getTableName(schema.courseCategories)).toBe('course_categories');
     expect(getTableName(schema.courses)).toBe('courses');
     expect(getTableName(schema.courseVisibilityRoles)).toBe('course_visibility_roles');
-    expect(getTableName(schema.scenes)).toBe('scenes');
-    expect(getTableName(schema.outlines)).toBe('outlines');
+    expect(getTableName(schema.courseScenes)).toBe('course_scenes');
+    expect(getTableName(schema.courseOutlines)).toBe('course_outlines');
     expect(getTableName(schema.mediaFiles)).toBe('media_files');
+    expect(getTableName(schema.courseAudioBlobs)).toBe('course_audio_blobs');
     expect(getTableName(schema.courseProgress)).toBe('course_progress');
     expect(getTableName(schema.assessmentAttempts)).toBe('assessment_attempts');
     expect(getTableName(schema.examPolicies)).toBe('exam_policies');
@@ -37,10 +43,40 @@ describe('Slice-00 database foundation SQL', () => {
     }
   });
 
-  test('keeps media blobs out of PostgreSQL', () => {
-    expect(migrationSql).toContain('"oss_key" text NOT NULL');
+  test('stores course media blobs in PostgreSQL without OSS columns', () => {
+    expect(migrationSql).toContain('"stage_snapshot" jsonb');
+    expect(migrationSql).toContain('"generation_status" varchar(32) DEFAULT \'draft\' NOT NULL');
+    expect(migrationSql).toContain('"generation_complete" boolean DEFAULT false NOT NULL');
+    expect(migrationSql).toContain('CREATE TABLE "course_scenes"');
+    expect(migrationSql).toContain('CREATE TABLE "course_outlines"');
+    expect(migrationSql).toContain('CREATE TABLE "course_audio_blobs"');
+    expect(migrationSql).toContain('"media_id" varchar(128) NOT NULL');
+    expect(migrationSql).toContain('"blob" bytea NOT NULL');
+    expect(migrationSql).toContain('"poster_blob" bytea');
+    expect(migrationSql).toContain('"audio_id" varchar(128) NOT NULL');
+    expect(migrationSql).not.toContain('"oss_key"');
+    expect(migrationSql).not.toContain('"poster_oss_key"');
     expect(migrationSql).toContain('"size_bytes" integer');
-    expect(migrationSql).not.toMatch(/\bBLOB\b|\bBYTEA\b/i);
+  });
+
+  test('ships an incremental migration for existing PostgreSQL databases', () => {
+    expect(change01MigrationSql).toContain(
+      'ALTER TABLE "courses" ADD COLUMN IF NOT EXISTS "stage_snapshot"',
+    );
+    expect(change01MigrationSql).toContain('CREATE TABLE IF NOT EXISTS "course_scenes"');
+    expect(change01MigrationSql).toContain('CREATE TABLE IF NOT EXISTS "course_outlines"');
+    expect(change01MigrationSql).toContain('CREATE TABLE IF NOT EXISTS "course_audio_blobs"');
+    expect(change01MigrationSql).toContain(
+      'ALTER TABLE "media_files" ADD COLUMN IF NOT EXISTS "blob" bytea',
+    );
+    expect(change01MigrationSql).toContain(
+      'ALTER TABLE "media_files" ALTER COLUMN "oss_key" DROP NOT NULL',
+    );
+    expect(change01MigrationSql).toContain(
+      'ALTER TABLE "media_files" ALTER COLUMN "poster_oss_key" DROP NOT NULL',
+    );
+    expect(change01MigrationSql).not.toContain('ADD COLUMN IF NOT EXISTS "oss_key"');
+    expect(change01MigrationSql).not.toContain('ADD COLUMN IF NOT EXISTS "poster_oss_key"');
   });
 
   test('seeds default administrator and learner roles idempotently', () => {

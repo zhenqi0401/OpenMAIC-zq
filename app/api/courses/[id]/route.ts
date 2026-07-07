@@ -18,8 +18,11 @@ export async function GET(request: Request, context?: { params: Promise<{ id: st
     if (!course) return apiError('INVALID_REQUEST', 404, 'Course not found');
     return apiSuccess({
       course: course.course,
+      stage: course.stage,
       scenes: course.scenes,
       outlines: course.outlines,
+      mediaManifest: course.mediaManifest,
+      audioManifest: course.audioManifest,
     });
   } catch (error) {
     return enterpriseErrorResponse(error);

@@ -1,4 +1,3 @@
-import { createHmac } from 'crypto';
 import { and, eq, gte, lte } from 'drizzle-orm';
 
 import { hashInviteCode, type AuthRole } from '@/lib/auth/service';
@@ -10,6 +9,7 @@ import {
   courseCategories,
   courseProgress,
   courses,
+  courseAudioBlobs,
   courseVisibilityRoles,
   examAttempts,
   examPolicies,
@@ -23,7 +23,6 @@ import {
   users,
 } from './schema';
 import {
-  EnterpriseStorageServiceError,
   type CourseStatus,
   type CourseVisibilityMode,
   type CreateCourseInput,
@@ -31,6 +30,7 @@ import {
   type EnterpriseAssessmentAttempt,
   type EnterpriseAssessmentAttemptInput,
   type EnterpriseAttemptDetail,
+  type EnterpriseAudioBlob,
   type EnterpriseCategory,
   type EnterpriseCourse,
   type EnterpriseCourseContent,
@@ -39,11 +39,10 @@ import {
   type EnterpriseExamAttemptInput,
   type EnterpriseExamPolicy,
   type EnterpriseInviteCode,
+  type EnterpriseMediaBlob,
   type EnterpriseMediaFile,
   type EnterpriseProgressDetail,
   type EnterpriseRepository,
-  type OssPresignedUpload,
-  type OssPresignedUploadInput,
   type ReplaceCourseContentInput,
 } from './enterprise-service';
 
@@ -64,6 +63,12 @@ function toCategory(category: typeof courseCategories.$inferSelect): EnterpriseC
   };
 }
 
+function recordOrEmpty(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
 function toInviteCode(inviteCode: typeof inviteCodes.$inferSelect): EnterpriseInviteCode {
   return {
     id: inviteCode.id,
@@ -79,15 +84,29 @@ function toMediaFile(mediaFile: typeof mediaFiles.$inferSelect): EnterpriseMedia
     id: mediaFile.id,
     courseId: mediaFile.courseId,
     sceneId: mediaFile.sceneId,
+    sceneKey: mediaFile.sceneKey,
+    mediaId: mediaFile.mediaId,
     mediaType: mediaFile.mediaType,
     mimeType: mediaFile.mimeType,
     sizeBytes: mediaFile.sizeBytes,
     prompt: mediaFile.prompt,
     params: mediaFile.params,
-    ossKey: mediaFile.ossKey,
-    posterOssKey: mediaFile.posterOssKey,
     createdAt: mediaFile.createdAt,
     updatedAt: mediaFile.updatedAt,
+  };
+}
+
+function toAudioBlob(audio: typeof courseAudioBlobs.$inferSelect): EnterpriseAudioBlob {
+  return {
+    courseId: audio.courseId,
+    sceneKey: audio.sceneKey,
+    audioId: audio.audioId,
+    mimeType: audio.mimeType,
+    sizeBytes: audio.sizeBytes,
+    text: audio.text,
+    voice: audio.voice,
+    blob: audio.blob,
+    createdAt: audio.createdAt,
   };
 }
 
@@ -125,30 +144,6 @@ function toExamAttempt(attempt: typeof examAttempts.$inferSelect): EnterpriseExa
     questionRefs: attempt.questionRefs as EnterpriseExamAttempt['questionRefs'],
     createdAt: attempt.createdAt,
   };
-}
-
-function getOssConfig() {
-  const bucket = process.env.OSS_BUCKET;
-  const endpoint = process.env.OSS_ENDPOINT;
-  const accessKeyId = process.env.OSS_ACCESS_KEY_ID;
-  const accessKeySecret = process.env.OSS_ACCESS_KEY_SECRET;
-  if (!bucket || !endpoint || !accessKeyId || !accessKeySecret) {
-    throw new EnterpriseStorageServiceError('STORAGE_UNAVAILABLE', 'OSS storage is not configured');
-  }
-  return { bucket, endpoint, accessKeyId, accessKeySecret };
-}
-
-function buildOssObjectUrl(endpoint: string, bucket: string, ossKey: string): string {
-  const url = new URL(endpoint);
-  if (!url.hostname.startsWith(`${bucket}.`)) {
-    url.hostname = `${bucket}.${url.hostname}`;
-  }
-  url.pathname = ossKey
-    .split('/')
-    .map((segment) => encodeURIComponent(segment))
-    .join('/');
-  url.search = '';
-  return url.toString();
 }
 
 function toExamPolicy(
@@ -193,6 +188,9 @@ function toCourse(row: CourseRow, visibleRoleIds: string[]): EnterpriseCourse {
     status: row.status as CourseStatus,
     visibilityMode: row.visibilityMode as CourseVisibilityMode,
     visibleRoleIds,
+    stageSnapshot: row.stageSnapshot,
+    generationStatus: row.generationStatus,
+    generationComplete: row.generationComplete,
     assessmentQuestions: row.assessmentQuestions,
     publishedAt: row.publishedAt,
     createdAt: row.createdAt,
@@ -238,6 +236,16 @@ export function filterHostRowsForQuery<T extends HostFilterableRow>(
     if (to !== null && timestamp > to) return false;
     return true;
   });
+}
+
+export function filterDashboardRowsForPublishedCourses<
+  T extends { courseId?: string | null },
+  C extends { id: string; status: string },
+>(courseRows: C[], rows: T[]): T[] {
+  const publishedCourseIds = new Set(
+    courseRows.filter((course) => course.status === 'published').map((course) => course.id),
+  );
+  return rows.filter((row) => !!row.courseId && publishedCourseIds.has(row.courseId));
 }
 
 export class DrizzleEnterpriseRepository implements EnterpriseRepository {
@@ -348,6 +356,9 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
         categoryId: input.categoryId,
         createdBy: input.createdBy ?? null,
         assessmentQuestions: input.assessmentQuestions ?? [],
+        stageSnapshot: recordOrEmpty(input.stageSnapshot),
+        generationStatus: input.generationStatus ?? 'draft',
+        generationComplete: input.generationComplete ?? false,
       })
       .returning();
     return toCourse(course, []);
@@ -417,14 +428,48 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
       getDb().select().from(scenes).where(eq(scenes.courseId, id)),
       getDb().select().from(outlines).where(eq(outlines.courseId, id)),
     ]);
-    return { course, scenes: sceneRows, outlines: outlineRows };
+    return {
+      course,
+      stage: course.stageSnapshot,
+      scenes: sceneRows
+        .sort((a, b) => a.sceneOrder - b.sceneOrder)
+        .map((row) => row.sceneData),
+      outlines: outlineRows.flatMap((row) => (Array.isArray(row.outline) ? row.outline : [row.outline])),
+      mediaManifest: [],
+      audioManifest: [],
+    };
   }
 
   async replaceCourseContent(
     courseId: string,
     input: ReplaceCourseContentInput,
-  ): Promise<{ courseId: string; scenes: unknown[]; outlines: unknown[] }> {
+  ): Promise<{
+    courseId: string;
+    scenes: unknown[];
+    outlines: unknown[];
+    stage?: unknown;
+    generationStatus?: string;
+    generationComplete?: boolean;
+  }> {
     await runDbTransaction(async (tx) => {
+      const courseUpdate: Partial<typeof courses.$inferInsert> = { updatedAt: new Date() };
+      let shouldUpdateCourse = false;
+      if (input.stage !== undefined) {
+        courseUpdate.stageSnapshot = recordOrEmpty(input.stage);
+        shouldUpdateCourse = true;
+      }
+      if (input.generationStatus !== undefined) {
+        courseUpdate.generationStatus = input.generationStatus;
+        shouldUpdateCourse = true;
+      }
+      if (input.generationComplete !== undefined) {
+        courseUpdate.generationComplete = input.generationComplete;
+        shouldUpdateCourse = true;
+      }
+      if (shouldUpdateCourse) {
+        await tx.update(courses).set(courseUpdate).where(eq(courses.id, courseId));
+      }
+
       await tx.delete(scenes).where(eq(scenes.courseId, courseId));
       await tx.delete(outlines).where(eq(outlines.courseId, courseId));
 
@@ -435,9 +480,11 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
               scene && typeof scene === 'object' ? (scene as Record<string, unknown>) : {};
             return {
               courseId,
+              sceneKey: typeof record.id === 'string' ? record.id : `scene-${index + 1}`,
               type: typeof record.type === 'string' ? record.type : 'slide',
               title: typeof record.title === 'string' ? record.title : `Scene ${index + 1}`,
               sceneOrder: index,
+              sceneData: scene,
               content: record.agents
                 ? {
                     ...(record.content && typeof record.content === 'object' ? record.content : {}),
@@ -455,12 +502,20 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
         await tx.insert(outlines).values({
           courseId,
           outline: input.outlines,
-          generationStatus: 'draft',
+          generationStatus: input.generationStatus ?? 'draft',
+          generationComplete: input.generationComplete ?? false,
         });
       }
     });
 
-    return { courseId, scenes: input.scenes, outlines: input.outlines };
+    return {
+      courseId,
+      scenes: input.scenes,
+      outlines: input.outlines,
+      stage: input.stage,
+      generationStatus: input.generationStatus,
+      generationComplete: input.generationComplete,
+    };
   }
 
   async updateCourseAssessmentQuestions(
@@ -560,23 +615,29 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
         (!filters?.roleId || row.roles.id === filters.roleId) &&
         (!filters?.userId || row.users.id === filters.userId),
     );
-    const filteredCourses = filters?.courseId
+    const activeCourses = (filters?.courseId
       ? courseRows.filter((row) => row.id === filters.courseId)
-      : courseRows;
-    const completed = progressRows.filter((row) => row.completed).length;
-    const assessmentPassed = assessmentRows.filter((row) => row.passed).length;
+      : courseRows
+    ).filter((row) => row.status === 'published');
+    const activeProgressRows = filterDashboardRowsForPublishedCourses(activeCourses, progressRows);
+    const activeAssessmentRows = filterDashboardRowsForPublishedCourses(
+      activeCourses,
+      assessmentRows,
+    );
+    const completed = activeProgressRows.filter((row) => row.completed).length;
+    const assessmentPassed = activeAssessmentRows.filter((row) => row.passed).length;
     const examPassed = examRows.filter((row) => row.passed).length;
     return {
-      courseCompletionRate: progressRows.length
-        ? Math.round((completed / progressRows.length) * 100)
+      courseCompletionRate: activeProgressRows.length
+        ? Math.round((completed / activeProgressRows.length) * 100)
         : 0,
-      assessmentPassRate: assessmentRows.length
-        ? Math.round((assessmentPassed / assessmentRows.length) * 100)
+      assessmentPassRate: activeAssessmentRows.length
+        ? Math.round((assessmentPassed / activeAssessmentRows.length) * 100)
         : 0,
       examPassRate: examRows.length ? Math.round((examPassed / examRows.length) * 100) : 0,
       learnerCount: learners.length,
-      courseCount: filteredCourses.length,
-      assessmentAttemptCount: assessmentRows.length,
+      courseCount: activeCourses.length,
+      assessmentAttemptCount: activeAssessmentRows.length,
       examAttemptCount: examRows.length,
     };
   }
@@ -600,7 +661,9 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
       .innerJoin(courses, eq(courseProgress.courseId, courses.id))
       .where(clauses.length ? and(...clauses) : undefined);
     return filterHostRowsForQuery(
-      rows.map((row) => ({
+      rows
+        .filter((row) => row.course.status === 'published')
+        .map((row) => ({
         userId: row.user.id,
         displayName: row.user.displayName,
         roleId: row.role.id,
@@ -830,13 +893,15 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
       .values({
         courseId: input.courseId ?? null,
         sceneId: input.sceneId ?? null,
+        sceneKey: input.sceneKey ?? null,
+        mediaId: input.mediaId,
         mediaType: input.mediaType,
         mimeType: input.mimeType ?? null,
         sizeBytes: input.sizeBytes ?? null,
         prompt: input.prompt ?? null,
         params: input.params ?? null,
-        ossKey: input.ossKey,
-        posterOssKey: input.posterOssKey ?? null,
+        blob: input.blob,
+        posterBlob: input.posterBlob ?? null,
       })
       .returning();
     return toMediaFile(mediaFile);
@@ -857,24 +922,65 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     return rows.map(toMediaFile);
   }
 
-  async createOssPresignedUpload(input: OssPresignedUploadInput): Promise<OssPresignedUpload> {
-    const { bucket, endpoint, accessKeyId, accessKeySecret } = getOssConfig();
-    const expiresInSeconds = input.expiresInSeconds ?? 900;
-    const expires = Math.floor(Date.now() / 1000) + expiresInSeconds;
-    const canonicalResource = `/${bucket}/${input.ossKey}`;
-    const stringToSign = ['PUT', '', input.mimeType, String(expires), canonicalResource].join('\n');
-    const signature = createHmac('sha1', accessKeySecret).update(stringToSign).digest('base64');
-    const uploadUrl = new URL(buildOssObjectUrl(endpoint, bucket, input.ossKey));
-    uploadUrl.searchParams.set('OSSAccessKeyId', accessKeyId);
-    uploadUrl.searchParams.set('Expires', String(expires));
-    uploadUrl.searchParams.set('Signature', signature);
-    return {
-      method: 'PUT',
-      uploadUrl: uploadUrl.toString(),
-      ossKey: input.ossKey,
-      expiresAt: new Date(expires * 1000),
-      headers: { 'Content-Type': input.mimeType },
-    };
+  async getMediaFileBlob(courseId: string, mediaId: string): Promise<EnterpriseMediaBlob | null> {
+    const [mediaFile] = await getDb()
+      .select()
+      .from(mediaFiles)
+      .where(and(eq(mediaFiles.courseId, courseId), eq(mediaFiles.mediaId, mediaId)))
+      .limit(1);
+    return mediaFile
+      ? {
+          courseId,
+          mediaId,
+          mediaType: mediaFile.mediaType,
+          mimeType: mediaFile.mimeType,
+          sizeBytes: mediaFile.sizeBytes,
+          blob: mediaFile.blob,
+        }
+      : null;
+  }
+
+  async createCourseAudioBlob(input: {
+    courseId: string;
+    sceneKey?: string | null;
+    audioId: string;
+    mimeType?: string | null;
+    sizeBytes?: number;
+    text?: string | null;
+    voice?: string | null;
+    blob: Buffer;
+  }): Promise<EnterpriseAudioBlob> {
+    const [audio] = await getDb()
+      .insert(courseAudioBlobs)
+      .values({
+        courseId: input.courseId,
+        sceneKey: input.sceneKey ?? null,
+        audioId: input.audioId,
+        mimeType: input.mimeType ?? null,
+        sizeBytes: input.sizeBytes ?? input.blob.byteLength,
+        text: input.text ?? null,
+        voice: input.voice ?? null,
+        blob: input.blob,
+      })
+      .returning();
+    return toAudioBlob(audio);
+  }
+
+  async listCourseAudioBlobs(courseId: string): Promise<EnterpriseAudioBlob[]> {
+    const rows = await getDb()
+      .select()
+      .from(courseAudioBlobs)
+      .where(eq(courseAudioBlobs.courseId, courseId));
+    return rows.map(toAudioBlob);
+  }
+
+  async getCourseAudioBlob(courseId: string, audioId: string): Promise<EnterpriseAudioBlob | null> {
+    const [audio] = await getDb()
+      .select()
+      .from(courseAudioBlobs)
+      .where(and(eq(courseAudioBlobs.courseId, courseId), eq(courseAudioBlobs.audioId, audioId)))
+      .limit(1);
+    return audio ? toAudioBlob(audio) : null;
   }
 }
 

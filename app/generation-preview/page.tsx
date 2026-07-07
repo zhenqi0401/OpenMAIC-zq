@@ -17,6 +17,7 @@ import { isTTSProviderEnabled } from '@/lib/audio/provider-enablement';
 import { useVoxCPMVoiceProfiles } from '@/lib/audio/voxcpm-voices';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import {
+  buildSceneTtsAudioId,
   fetchSceneActions,
   fetchSceneContent,
   generateAndStoreTTS,
@@ -41,7 +42,13 @@ import { type GenerationSessionState, ALL_STEPS, getActiveSteps } from './types'
 import { StepVisualizer } from './components/visualizers';
 import { resolveTaskEngineModeFromOutlineDoneEvent } from './vocational-mode';
 import { shouldPauseForOutlineConfirmation } from '@/lib/authoring/outline-confirmation';
-import { persistGeneratedCourseDraft } from '@/lib/authoring/course-draft';
+import {
+  applyCourseTitleToGeneratedStage,
+  classifyCourseStorageFailure,
+  createGeneratedCourseDraft,
+  generatedCourseClassroomPath,
+  replaceGeneratedCourseDraftContent,
+} from '@/lib/authoring/course-draft';
 
 const log = createLogger('GenerationPreview');
 
@@ -456,7 +463,7 @@ function GenerationPreviewContent() {
         taskEngineMode: currentSession.taskEngineMode === true,
       };
 
-      // ── Generate outlines first (infers languageDirective) ──
+      let generatedCourseId: string | undefined;
       let outlines = currentSession.sceneOutlines;
       let languageDirective = currentSession.languageDirective;
       let courseTitle = currentSession.courseTitle;
@@ -643,8 +650,20 @@ function GenerationPreviewContent() {
 
       // Adopt the LLM-inferred course title as the stage name when available,
       // replacing the raw-requirement placeholder set at stage creation time.
-      if (courseTitle) {
-        stage.name = courseTitle;
+      applyCourseTitleToGeneratedStage(stage, courseTitle);
+
+      if (currentSession.categoryId) {
+        const persisted = await createGeneratedCourseDraft(fetch, {
+          stage,
+          categoryId: currentSession.categoryId,
+        });
+        if (persisted.course && typeof persisted.course === 'object' && 'id' in persisted.course) {
+          const id = persisted.course.id;
+          generatedCourseId = typeof id === 'string' ? id : undefined;
+          if (generatedCourseId) {
+            (stage as Stage & { serverCourseId: string }).serverCourseId = generatedCourseId;
+          }
+        }
       }
 
       // ── Agent generation (after outlines — uses languageDirective + outlines) ──
@@ -916,7 +935,7 @@ function GenerationPreviewContent() {
 
         let ttsFailCount = 0;
         for (const action of speechActions) {
-          const audioId = `tts_${action.id}`;
+          const audioId = buildSceneTtsAudioId(firstScene.order, action.id);
           action.audioId = audioId;
           try {
             await generateAndStoreTTS(
@@ -925,6 +944,7 @@ function GenerationPreviewContent() {
               languageDirective,
               signal,
               FOREGROUND_SCENE_RETRY_OPTIONS,
+              generatedCourseId ? { courseId: generatedCourseId, sceneKey: firstScene.id } : undefined,
             );
           } catch (err) {
             if (isAbortError(err)) throw err;
@@ -947,18 +967,14 @@ function GenerationPreviewContent() {
       const remaining = outlines.filter((o) => o.order !== firstScene.order);
       store.setGeneratingOutlines(remaining);
 
-      let generatedCourseId: string | undefined;
-      if (currentSession.categoryId) {
-        const persisted = await persistGeneratedCourseDraft(fetch, {
+      if (generatedCourseId) {
+        await replaceGeneratedCourseDraftContent(fetch, generatedCourseId, {
           stage,
-          categoryId: currentSession.categoryId,
+          generationStatus: 'generating',
+          generationComplete: false,
           scenes: useStageStore.getState().scenes,
           outlines,
         });
-        if (persisted.course && typeof persisted.course === 'object' && 'id' in persisted.course) {
-          const id = persisted.course.id;
-          generatedCourseId = typeof id === 'string' ? id : undefined;
-        }
       }
 
       // Store generation params for classroom to continue generation
@@ -974,8 +990,10 @@ function GenerationPreviewContent() {
       );
 
       sessionStorage.removeItem('generationSession');
-      await store.saveToStorage();
-      router.push(`/classroom/${stage.id}`);
+      if (!generatedCourseId) {
+        await store.saveToStorage();
+      }
+      router.push(generatedCourseClassroomPath(stage.id, generatedCourseId));
     } catch (err) {
       setIsOutlineStreaming(false);
       // AbortError is expected when navigating away — don't show as error
@@ -984,6 +1002,10 @@ function GenerationPreviewContent() {
         return;
       }
       sessionStorage.removeItem('generationSession');
+      log.error('[CourseStorage] Generated course storage failed:', {
+        reason: classifyCourseStorageFailure(err),
+        error: err,
+      });
       setError(err instanceof Error ? err.message : String(err));
     }
   };

@@ -14,6 +14,9 @@ interface CourseBody {
   description?: string | null;
   categoryId?: string;
   assessmentQuestions?: unknown[];
+  stageSnapshot?: unknown;
+  generationStatus?: string;
+  generationComplete?: boolean;
 }
 
 export async function GET() {
@@ -44,6 +47,9 @@ export async function POST(request: Request) {
       description: body.description ?? null,
       categoryId: body.categoryId,
       assessmentQuestions: body.assessmentQuestions,
+      stageSnapshot: body.stageSnapshot,
+      generationStatus: body.generationStatus,
+      generationComplete: body.generationComplete,
       createdBy: admin.user.id,
     });
     return apiSuccess({ course }, 201);

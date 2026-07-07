@@ -45,12 +45,14 @@ import { hasUsableLLMProvider } from '@/lib/store/settings-validation';
 import { useUserProfileStore, AVATAR_OPTIONS } from '@/lib/store/user-profile';
 import {
   StageListItem,
-  listStages,
   deleteStageData,
   renameStage,
-  getFirstSlideByStages,
   revokeThumbnailSlideMediaUrls,
 } from '@/lib/utils/stage-storage';
+import {
+  loadHomeCourses,
+  type HomeCourse,
+} from '@/lib/home/enterprise-course-list';
 import { SlideThumbnail } from '@/components/slide-renderer/SlideThumbnail';
 import type { Slide } from '@openmaic/dsl';
 import { useMediaGenerationStore } from '@/lib/store/media-generation';
@@ -66,6 +68,7 @@ import type { SessionIdentity } from '@/lib/auth/types';
 import { StageExamPanel } from '@/components/assessment/StageExamPanel';
 import type { EnterpriseCategory } from '@/lib/storage/enterprise-service';
 import { logoutCurrentSession } from '@/lib/auth/logout-client';
+import { persistImportedClassroomToEnterprise } from '@/lib/authoring/course-draft';
 
 const log = createLogger('Home');
 
@@ -213,7 +216,7 @@ function HomePage() {
 
   const [themeOpen, setThemeOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [classrooms, setClassrooms] = useState<StageListItem[]>([]);
+  const [classrooms, setClassrooms] = useState<HomeCourse[]>([]);
   const [thumbnails, setThumbnails] = useState<Record<string, Slide>>({});
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -245,25 +248,29 @@ function HomePage() {
 
   const loadClassrooms = async () => {
     try {
-      const list = await listStages();
-      setClassrooms(list);
-      // Load first slide thumbnails
-      if (list.length > 0) {
-        const slides = await getFirstSlideByStages(list.map((c) => c.id));
-        replaceThumbnails(slides);
-      } else {
-        replaceThumbnails({});
-      }
+      const result = await loadHomeCourses();
+      setClassrooms(result.courses);
+      replaceThumbnails(result.thumbnails);
     } catch (err) {
       log.error('Failed to load classrooms:', err);
     }
   };
 
-  const { importing, fileInputRef, triggerFileSelect, handleFileChange } = useImportClassroom(
-    () => {
+  const { importing, fileInputRef, triggerFileSelect, handleFileChange } = useImportClassroom({
+    onImported:
+      shouldShowAdminEntry(identity) && form.categoryId
+        ? async (payload) => {
+            await persistImportedClassroomToEnterprise(fetch, {
+              stage: payload.stage,
+              scenes: payload.scenes,
+              categoryId: form.categoryId,
+            });
+          }
+        : undefined,
+    onSuccess: () => {
       loadClassrooms();
     },
-  );
+  });
 
   const {
     importing: pptxImporting,
@@ -1011,6 +1018,9 @@ function HomePage() {
                           onConfirmDelete={() => confirmDelete(classroom.id)}
                           onCancelDelete={() => setPendingDeleteId(null)}
                           onClick={() => router.push(`/classroom/${classroom.id}`)}
+                          allowLocalManagement={
+                            !('source' in classroom && classroom.source === 'enterprise')
+                          }
                         />
                       </motion.div>
                     ))}
@@ -1326,6 +1336,7 @@ function ClassroomCard({
   onConfirmDelete,
   onCancelDelete,
   onClick,
+  allowLocalManagement = true,
 }: {
   classroom: StageListItem;
   slide?: Slide;
@@ -1336,6 +1347,7 @@ function ClassroomCard({
   onConfirmDelete: () => void;
   onCancelDelete: () => void;
   onClick: () => void;
+  allowLocalManagement?: boolean;
 }) {
   const { t } = useI18n();
   const thumbRef = useRef<HTMLDivElement>(null);
@@ -1432,7 +1444,7 @@ function ClassroomCard({
 
         {/* Delete — top-right, only on hover */}
         <AnimatePresence>
-          {!confirmingDelete && (
+          {!confirmingDelete && allowLocalManagement && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -1500,7 +1512,7 @@ function ClassroomCard({
         <span className="shrink-0 inline-flex items-center rounded-full bg-violet-100 dark:bg-violet-900/30 px-2 py-0.5 text-[11px] font-medium text-violet-600 dark:text-violet-400">
           {classroom.sceneCount} {t('classroom.slides')} · {formatDate(classroom.updatedAt)}
         </span>
-        {editing ? (
+        {editing && allowLocalManagement ? (
           <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
             <input
               ref={nameInputRef}
@@ -1521,7 +1533,7 @@ function ClassroomCard({
             <TooltipTrigger asChild>
               <p
                 className="font-medium text-[15px] truncate text-foreground/90 min-w-0 cursor-text"
-                onDoubleClick={startRename}
+                onDoubleClick={allowLocalManagement ? startRename : undefined}
               >
                 {classroom.name}
               </p>

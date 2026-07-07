@@ -38,6 +38,9 @@ export interface EnterpriseCourse {
   status: CourseStatus;
   visibilityMode: CourseVisibilityMode;
   visibleRoleIds: string[];
+  stageSnapshot?: unknown;
+  generationStatus?: string;
+  generationComplete?: boolean;
   assessmentQuestions: unknown[];
   publishedAt: Date | null;
   createdAt: Date;
@@ -60,19 +63,28 @@ export interface EnterpriseInviteCode {
 
 export interface EnterpriseCourseContent {
   course: EnterpriseCourse;
+  stage?: unknown;
   scenes: unknown[];
   outlines: unknown[];
+  mediaManifest?: EnterpriseMediaManifestItem[];
+  audioManifest?: EnterpriseAudioManifestItem[];
 }
 
 export interface ReplaceCourseContentInput {
   scenes: unknown[];
   outlines: unknown[];
+  stage?: unknown;
+  generationStatus?: string;
+  generationComplete?: boolean;
 }
 
 export interface EnterpriseStoredCourseContent {
   courseId: string;
   scenes: unknown[];
   outlines: unknown[];
+  stage?: unknown;
+  generationStatus?: string;
+  generationComplete?: boolean;
   assessmentMismatchWarning?: boolean;
 }
 
@@ -195,15 +207,51 @@ export interface EnterpriseMediaFile {
   id: string;
   courseId: string | null;
   sceneId: string | null;
+  sceneKey?: string | null;
+  mediaId: string;
   mediaType: string;
   mimeType: string | null;
   sizeBytes: number | null;
   prompt: string | null;
   params: unknown;
-  ossKey: string;
-  posterOssKey: string | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface EnterpriseMediaBlob {
+  courseId: string;
+  mediaId: string;
+  mediaType: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  blob: Buffer;
+}
+
+export interface EnterpriseAudioBlob {
+  courseId: string;
+  sceneKey: string | null;
+  audioId: string;
+  mimeType: string | null;
+  sizeBytes: number;
+  text: string | null;
+  voice: string | null;
+  blob: Buffer;
+  createdAt: Date;
+}
+
+export interface EnterpriseMediaManifestItem {
+  mediaId: string;
+  url: string;
+  type: 'image' | 'video';
+  mimeType: string | null;
+  sizeBytes: number | null;
+}
+
+export interface EnterpriseAudioManifestItem {
+  audioId: string;
+  url: string;
+  mimeType: string | null;
+  sizeBytes: number;
 }
 
 export interface CreateCourseInput {
@@ -212,32 +260,34 @@ export interface CreateCourseInput {
   categoryId: string;
   createdBy?: string | null;
   assessmentQuestions?: unknown[];
+  stageSnapshot?: unknown;
+  generationStatus?: string;
+  generationComplete?: boolean;
 }
 
 export interface CreateMediaFileInput {
   courseId?: string | null;
   sceneId?: string | null;
+  sceneKey?: string | null;
+  mediaId: string;
   mediaType: string;
   mimeType?: string | null;
   sizeBytes?: number | null;
   prompt?: string | null;
   params?: unknown;
-  ossKey: string;
-  posterOssKey?: string | null;
+  blob: Buffer;
+  posterBlob?: Buffer | null;
 }
 
-export interface OssPresignedUploadInput {
-  ossKey: string;
-  mimeType: string;
-  expiresInSeconds?: number;
-}
-
-export interface OssPresignedUpload {
-  method: 'PUT';
-  uploadUrl: string;
-  ossKey: string;
-  expiresAt: Date;
-  headers: Record<string, string>;
+export interface CreateCourseAudioBlobInput {
+  courseId: string;
+  sceneKey?: string | null;
+  audioId: string;
+  mimeType?: string | null;
+  sizeBytes?: number;
+  text?: string | null;
+  voice?: string | null;
+  blob: Buffer;
 }
 
 export interface EnterpriseRepository {
@@ -336,7 +386,10 @@ export interface EnterpriseRepository {
 
   createMediaFile(input: CreateMediaFileInput): Promise<EnterpriseMediaFile>;
   listMediaFiles(filters?: { courseId?: string; sceneId?: string }): Promise<EnterpriseMediaFile[]>;
-  createOssPresignedUpload(input: OssPresignedUploadInput): Promise<OssPresignedUpload>;
+  getMediaFileBlob(courseId: string, mediaId: string): Promise<EnterpriseMediaBlob | null>;
+  createCourseAudioBlob(input: CreateCourseAudioBlobInput): Promise<EnterpriseAudioBlob>;
+  listCourseAudioBlobs(courseId: string): Promise<EnterpriseAudioBlob[]>;
+  getCourseAudioBlob(courseId: string, audioId: string): Promise<EnterpriseAudioBlob | null>;
 }
 
 export type EnterpriseStorageServiceErrorCode =
@@ -395,6 +448,29 @@ function parseHostKeyId(token: string | null | undefined): string | null {
   if (!token) return null;
   const separatorIndex = token.indexOf('.');
   return separatorIndex > 0 ? token.slice(0, separatorIndex) : null;
+}
+
+function buildMediaManifest(courseId: string, mediaFiles: EnterpriseMediaFile[]) {
+  return mediaFiles
+    .filter((media): media is EnterpriseMediaFile & { mediaType: 'image' | 'video' } =>
+      media.mediaType === 'image' || media.mediaType === 'video',
+    )
+    .map((media) => ({
+      mediaId: media.mediaId,
+      url: `/api/courses/${courseId}/media/${encodeURIComponent(media.mediaId)}`,
+      type: media.mediaType,
+      mimeType: media.mimeType,
+      sizeBytes: media.sizeBytes,
+    }));
+}
+
+function buildAudioManifest(courseId: string, audioBlobs: EnterpriseAudioBlob[]) {
+  return audioBlobs.map((audio) => ({
+    audioId: audio.audioId,
+    url: `/api/courses/${courseId}/audio/${encodeURIComponent(audio.audioId)}`,
+    mimeType: audio.mimeType,
+    sizeBytes: audio.sizeBytes,
+  }));
 }
 
 async function assertHostAccess(
@@ -528,7 +604,32 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
     async getVisibleCourse(id: string, roleId: string) {
       const content = await repository.getCourseContent(id);
       if (!content) return null;
-      return isCourseVisibleToRole(content.course, roleId) ? content : null;
+      if (!isCourseVisibleToRole(content.course, roleId)) return null;
+      const [mediaFiles, audioBlobs] = await Promise.all([
+        repository.listMediaFiles({ courseId: id }),
+        repository.listCourseAudioBlobs(id),
+      ]);
+      return {
+        ...content,
+        stage: content.stage ?? content.course.stageSnapshot,
+        mediaManifest: buildMediaManifest(id, mediaFiles),
+        audioManifest: buildAudioManifest(id, audioBlobs),
+      };
+    },
+
+    async getCourseContent(id: string) {
+      const content = await repository.getCourseContent(id);
+      if (!content) return null;
+      const [mediaFiles, audioBlobs] = await Promise.all([
+        repository.listMediaFiles({ courseId: id }),
+        repository.listCourseAudioBlobs(id),
+      ]);
+      return {
+        ...content,
+        stage: content.stage ?? content.course.stageSnapshot,
+        mediaManifest: buildMediaManifest(id, mediaFiles),
+        audioManifest: buildAudioManifest(id, audioBlobs),
+      };
     },
 
     replaceCourseContent: async (courseId: string, input: ReplaceCourseContentInput) => {
@@ -701,8 +802,13 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
     createMediaFile: (input: CreateMediaFileInput) => repository.createMediaFile(input),
     listMediaFiles: (filters?: { courseId?: string; sceneId?: string }) =>
       repository.listMediaFiles(filters),
-    createOssPresignedUpload: (input: OssPresignedUploadInput) =>
-      repository.createOssPresignedUpload(input),
+    getMediaFileBlob: (courseId: string, mediaId: string) =>
+      repository.getMediaFileBlob(courseId, mediaId),
+    createCourseAudioBlob: (input: CreateCourseAudioBlobInput) =>
+      repository.createCourseAudioBlob(input),
+    listCourseAudioBlobs: (courseId: string) => repository.listCourseAudioBlobs(courseId),
+    getCourseAudioBlob: (courseId: string, audioId: string) =>
+      repository.getCourseAudioBlob(courseId, audioId),
 
     async listExamPolicies() {
       const policies = await repository.listExamPolicies();

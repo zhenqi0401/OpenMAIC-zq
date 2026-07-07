@@ -81,7 +81,6 @@ export interface AudioFileRecord {
   text?: string; // Corresponding text content
   voice?: string; // Voice used
   createdAt: number;
-  ossKey?: string; // Full CDN URL for this audio blob
 }
 
 /**
@@ -155,8 +154,6 @@ export interface MediaFileRecord {
   params: string; // JSON-serialized generation params
   error?: string; // If set, this is a failed task (blob is empty placeholder)
   errorCode?: string; // Structured error code (e.g. 'CONTENT_SENSITIVE')
-  ossKey?: string; // Full CDN URL for this media blob
-  posterOssKey?: string; // Full CDN URL for the poster blob
   createdAt: number;
 }
 
@@ -322,7 +319,7 @@ class MAICDatabase extends Dexie {
         }
       });
 
-    // Version 7: Add ossKey fields to mediaFiles and audioFiles for OSS storage plugin
+    // Version 7: keep generated media/audio as browser runtime cache only.
     // Non-indexed optional fields — Dexie handles these transparently.
     this.version(7).stores({
       stages: 'id, updatedAt',

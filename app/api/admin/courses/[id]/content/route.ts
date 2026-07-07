@@ -11,6 +11,23 @@ export const dynamic = 'force-dynamic';
 interface CourseContentBody {
   scenes?: unknown[];
   outlines?: unknown[];
+  stage?: unknown;
+  generationStatus?: string;
+  generationComplete?: boolean;
+}
+
+export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const admin = await requireCurrentAdmin();
+  if (admin instanceof Response) return admin;
+
+  try {
+    const { id } = await context.params;
+    const content = await getEnterpriseService().getCourseContent(id);
+    if (!content) return apiError('INVALID_REQUEST', 404, 'Course not found');
+    return apiSuccess({ content });
+  } catch (error) {
+    return enterpriseErrorResponse(error);
+  }
 }
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -28,6 +45,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const content = await getEnterpriseService().replaceCourseContent(id, {
       scenes: body.scenes,
       outlines: body.outlines,
+      stage: body.stage,
+      generationStatus: body.generationStatus,
+      generationComplete: body.generationComplete,
     });
     return apiSuccess({ content });
   } catch (error) {

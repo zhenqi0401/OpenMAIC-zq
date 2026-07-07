@@ -6,7 +6,10 @@ import {
   type EnterpriseExamPolicy,
   type EnterpriseRepository,
 } from '@/lib/storage/enterprise-service';
-import { filterHostRowsForQuery } from '@/lib/storage/enterprise-repository';
+import {
+  filterDashboardRowsForPublishedCourses,
+  filterHostRowsForQuery,
+} from '@/lib/storage/enterprise-repository';
 import type { StoredHostApiKey } from '@/lib/host-api/access';
 import { hashHostApiSecret } from '@/lib/security/host-api-key';
 
@@ -70,16 +73,32 @@ function makeRepository(): EnterpriseRepository {
     id: string;
     courseId: string | null;
     sceneId: string | null;
+    sceneKey: string | null;
     mediaType: string;
     mimeType: string | null;
     prompt: string | null;
     params: unknown;
-    ossKey: string;
-    posterOssKey: string | null;
+    mediaId: string;
+    blob: Buffer;
+    posterBlob: Buffer | null;
     sizeBytes: number | null;
     createdAt: Date;
     updatedAt: Date;
   }> = [];
+  const audio = new Map<
+    string,
+    {
+      courseId: string;
+      sceneKey: string | null;
+      audioId: string;
+      mimeType: string | null;
+      sizeBytes: number;
+      text: string | null;
+      voice: string | null;
+      blob: Buffer;
+      createdAt: Date;
+    }
+  >();
   const hostKey: StoredHostApiKey = {
     keyId: 'host_demo',
     secretHash: hashHostApiSecret('sk_demo'),
@@ -259,6 +278,16 @@ function makeRepository(): EnterpriseRepository {
       existing.status = 'published';
       return existing;
     },
+    async listExamAttemptsForUser() {
+      return [];
+    },
+    async createExamAttempt(input) {
+      return {
+        id: `exam-attempt-${input.attemptNumber}`,
+        ...input,
+        createdAt: new Date('2026-07-01T00:00:00Z'),
+      };
+    },
     async findHostApiKey(keyId) {
       return keyId === hostKey.keyId ? hostKey : null;
     },
@@ -268,12 +297,14 @@ function makeRepository(): EnterpriseRepository {
         id: 'media-1',
         courseId: input.courseId ?? null,
         sceneId: input.sceneId ?? null,
+        sceneKey: input.sceneKey ?? null,
+        mediaId: input.mediaId,
         mediaType: input.mediaType,
         mimeType: input.mimeType ?? null,
         prompt: input.prompt ?? null,
         params: input.params ?? null,
-        ossKey: input.ossKey,
-        posterOssKey: input.posterOssKey ?? null,
+        blob: input.blob,
+        posterBlob: input.posterBlob ?? null,
         sizeBytes: input.sizeBytes ?? null,
         createdAt: new Date('2026-07-01T00:00:00Z'),
         updatedAt: new Date('2026-07-01T00:00:00Z'),
@@ -284,14 +315,39 @@ function makeRepository(): EnterpriseRepository {
     async listMediaFiles() {
       return media;
     },
-    async createOssPresignedUpload(input) {
-      return {
-        method: 'PUT',
-        uploadUrl: `https://openmaic-enterprise.oss-cn-hangzhou.aliyuncs.com/${input.ossKey}?OSSAccessKeyId=test-id&Expires=1780000000&Signature=sig`,
-        ossKey: input.ossKey,
-        expiresAt: new Date('2026-07-01T01:00:00Z'),
-        headers: { 'Content-Type': input.mimeType },
+    async getMediaFileBlob(courseId, mediaId) {
+      const record = media.find((candidate) => candidate.courseId === courseId && candidate.mediaId === mediaId);
+      return record
+        ? {
+            courseId,
+            mediaId,
+            mediaType: record.mediaType,
+            mimeType: record.mimeType,
+            sizeBytes: record.sizeBytes,
+            blob: record.blob,
+          }
+        : null;
+    },
+    async createCourseAudioBlob(input) {
+      const record = {
+        courseId: input.courseId,
+        sceneKey: input.sceneKey ?? null,
+        audioId: input.audioId,
+        mimeType: input.mimeType ?? null,
+        sizeBytes: input.sizeBytes ?? input.blob.byteLength,
+        text: input.text ?? null,
+        voice: input.voice ?? null,
+        blob: input.blob,
+        createdAt: new Date('2026-07-01T00:00:00Z'),
       };
+      audio.set(`${input.courseId}:${input.audioId}`, record);
+      return record;
+    },
+    async listCourseAudioBlobs(courseId) {
+      return [...audio.values()].filter((record) => record.courseId === courseId);
+    },
+    async getCourseAudioBlob(courseId, audioId) {
+      return audio.get(`${courseId}:${audioId}`) ?? null;
     },
   };
 }
@@ -328,6 +384,32 @@ describe('Slice-01 enterprise storage service', () => {
         to: '2026-07-02T00:00:00Z',
       }),
     ).toEqual([rows[0]]);
+  });
+
+  test('excludes archived and draft courses from dashboard completion math', () => {
+    const activeCourses = filterDashboardRowsForPublishedCourses(
+      [
+        { id: 'course-published', status: 'published' },
+        { id: 'course-archived', status: 'archived' },
+        { id: 'course-draft', status: 'draft' },
+      ],
+      [
+        { courseId: 'course-published', completed: false },
+        { courseId: 'course-archived', completed: true },
+        { courseId: 'course-draft', completed: true },
+      ],
+    );
+
+    expect(activeCourses).toEqual([{ courseId: 'course-published', completed: false }]);
+  });
+
+  test('returns no dashboard completion rows when every course is archived', () => {
+    expect(
+      filterDashboardRowsForPublishedCourses(
+        [{ id: 'course-archived', status: 'archived' }],
+        [{ courseId: 'course-archived', completed: true }],
+      ),
+    ).toEqual([]);
   });
 
   test('filters learner course lists by published status and current role visibility', async () => {
@@ -476,45 +558,72 @@ describe('Slice-01 enterprise storage service', () => {
     ).rejects.toMatchObject({ code: 'HOST_API_UNAUTHORIZED' });
   });
 
-  test('stores and lists OSS media metadata without storing media blobs in PostgreSQL', async () => {
+  test('stores and lists PostgreSQL media blobs without OSS keys', async () => {
     const service = createEnterpriseStorageService(makeRepository());
 
     await expect(
       service.createMediaFile({
         courseId: 'course-all',
-        sceneId: 'scene-1',
+        sceneKey: 'scene-1',
+        mediaId: 'video-1',
         mediaType: 'video',
         mimeType: 'video/mp4',
         prompt: 'sales intro',
         params: { model: 'demo' },
-        ossKey: 'courses/course-all/scene-1/video.mp4',
+        blob: Buffer.from('video-data'),
         sizeBytes: 2048,
       }),
     ).resolves.toMatchObject({
       id: 'media-1',
-      ossKey: 'courses/course-all/scene-1/video.mp4',
+      mediaId: 'video-1',
       prompt: 'sales intro',
       sizeBytes: 2048,
     });
 
     await expect(service.listMediaFiles({ courseId: 'course-all' })).resolves.toMatchObject([
-      { id: 'media-1', ossKey: 'courses/course-all/scene-1/video.mp4' },
+      { id: 'media-1', mediaId: 'video-1' },
     ]);
   });
 
-  test('creates OSS pre-signed upload URLs without accepting media blobs', async () => {
+  test('returns media and audio manifests with visible course content', async () => {
     const service = createEnterpriseStorageService(makeRepository());
 
-    await expect(
-      service.createOssPresignedUpload({
-        ossKey: 'courses/course-all/scene-1/video.mp4',
-        mimeType: 'video/mp4',
-        expiresInSeconds: 900,
-      }),
-    ).resolves.toMatchObject({
-      method: 'PUT',
-      ossKey: 'courses/course-all/scene-1/video.mp4',
-      headers: { 'Content-Type': 'video/mp4' },
+    await service.createMediaFile({
+      courseId: 'course-all',
+      sceneKey: 'scene-1',
+      mediaId: 'image-1',
+      mediaType: 'image',
+      mimeType: 'image/png',
+      blob: Buffer.from('image-data'),
+      sizeBytes: 10,
+    });
+    await service.createCourseAudioBlob({
+      courseId: 'course-all',
+      sceneKey: 'scene-1',
+      audioId: 'tts-1',
+      mimeType: 'audio/mpeg',
+      blob: Buffer.from('audio-data'),
+      sizeBytes: 10,
+    });
+
+    await expect(service.getVisibleCourse('course-all', learnerRole.id)).resolves.toMatchObject({
+      mediaManifest: [
+        {
+          mediaId: 'image-1',
+          url: '/api/courses/course-all/media/image-1',
+          type: 'image',
+          mimeType: 'image/png',
+          sizeBytes: 10,
+        },
+      ],
+      audioManifest: [
+        {
+          audioId: 'tts-1',
+          url: '/api/courses/course-all/audio/tts-1',
+          mimeType: 'audio/mpeg',
+          sizeBytes: 10,
+        },
+      ],
     });
   });
 });

@@ -1,75 +1,65 @@
 # SLICE-04：课后测评与重学
 
 ## 声明
-- **实现需求**：REQ-006, REQ-007, REQ-008, REQ-009, REQ-030
-- **实现架构**：ARCH-005, ARCH-015, ARCH-023, ARCH-024, ARCH-036, ARCH-043, ARCH-052
-- **拥有路径**：`components/assessment/course-assessment.tsx`, `components/assessment/assessment-result.tsx`, `components/assessment/retake-prompt.tsx`, `lib/assessment/`
-- **产出接口**：`CourseAssessment` 组件（ARCH-043）
-- **消费接口**：postMessage 类型定义（SLICE-00）、`useEmbedBridge()`（SLICE-02，可选）、`ExamBankAPI.saveExamResult()`（SLICE-01）、`QuizQuestion` 类型（现有）、`gradeChoiceQuestions()`（现有）
-- **依赖切片**：SLICE-00, SLICE-01（结果持久化）, SLICE-03（课后测评题目生成集成在内容预览中）
+- **实现需求**：REQ-006~009, REQ-030, REQ-042, REQ-043
+- **实现架构**：ARCH-006, ARCH-018, ARCH-034, ARCH-043
+- **拥有路径**：`components/assessment/`, `lib/assessment/`, `app/api/courses/[id]/assessment/`
+- **产出接口**：CourseAssessment、测评提交 API、重学门控
+- **依赖切片**：SLICE-00, SLICE-01, SLICE-03
 
 ## 任务
 
-### Task 1：课后测评题目自动生成
-- 修改课程内容生成流程（`/api/generate/scene-content` 或 pipeline 层面）
-- 在生成所有场景内容完成后，额外生成一组课后测评题目：
-  - prompt 基于课程所有场景的 keyPoints 和 teachingObjective
-  - 仅生成选择题（单选 + 多选），数量为场景数 × 2（上限 20 题）
-  - 输出格式为 `QuizQuestion[]`（`type: 'single' | 'multiple'`，不含 `'short_answer'`）
-- 生成的题目存入 `GenerationSessionState` 的新字段 `assessmentQuestions`
-- 最终写入 IndexedDB 的 stage 记录（`assessmentQuestions` 扩展字段）
+### Task 1：课后测评题生成
+- 课程生成后额外生成课后测评题。
+- 首版只生成并接受单选/多选题。
+- 管理员可手动重生成或编辑题目。
 
-### Task 2：课后测评门控逻辑
-- 创建 `lib/assessment/course-gate.ts`
-- 实现 `evaluateAssessment(questions, answers)` — 使用 `gradeChoiceQuestions()` 评分
-- 返回 `CourseCompletionGate` 结构（ARCH-015）
-- 通过阈值从 env `QUIZ_PASS_THRESHOLD` 读取（默认 0.8）
-- 如果课程没有 `assessmentQuestions`（旧课程或无测评题），返回 `{ requiresAssessment: false, passed: true }`
+### Task 2：测评渲染与评分
+- 复用现有 quiz UI/逻辑中适合单选/多选的部分。
+- 使用 `gradeChoiceQuestions()` 本地评分。
+- 不调用 `/api/quiz-grade`，不支持简答题。
 
-### Task 3：CourseAssessment 组件
-- 创建 `components/assessment/course-assessment.tsx`（ARCH-043）
-- 复用现有 `quiz-view.tsx` 的答题 UI 模式（但独立于课内 quiz 场景）：
-  - 展示所有课后测评题目
-  - 支持单选/多选作答
-  - 提交后本地评分（`gradeChoiceQuestions()`）
-  - 显示结果：分数、通过/不通过、错题解析
-- Props：`{ courseId, questions, threshold?, onPass, onRetake }`
-- 答题数据使用独立的 localStorage key：`assessmentDraft:{courseId}`, `assessmentAnswers:{courseId}`, `assessmentResults:{courseId}`（不与课内 quiz 的 `quizDraft:{sceneId}` 冲突）
+### Task 3：提交记录
+- 每次提交都创建 `assessment_attempts`。
+- 记录 `attemptNumber`、score、passed、answers、details、roleSnapshot、createdAt。
 
-### Task 4：测评结果展示
-- 创建 `components/assessment/assessment-result.tsx`
-- 通过时：显示通过动画 + 分数 + 「完成课程」按钮
-- 不通过时：显示分数 + 错题列表（含正确答案和解析） + 「重新学习」按钮（REQ-008）
-- 错题解析来自 `QuizQuestion.analysis` 字段
+### Task 4：不通过重学
+- 不通过时展示错题解析。
+- 重置课程完成状态和播放进度。
+- 学员必须重新完成课程后才能再次测评。
 
-### Task 5：重学流程
-- 创建 `components/assessment/retake-prompt.tsx`
-- 不通过时显示重学提示组件（REQ-008）
-- 「重新学习」按钮点击后：
-  - 清除课后测评的答题记录（`assessmentAnswers`, `assessmentResults`）
-  - 课内 quiz 答题记录保留不变（ARCH-052）
-  - 重置 `PlaybackStateRecord`（播放进度归零）
-  - 导航回课程首场景
-- 重学后需再次完成所有场景 + 再次通过课后测评
+### Task 5：课程完成
+- 测评通过后才标记课程完成。
+- 触发 iframe 即时 `course-completed` 消息，但权威结果以后端记录为准。
 
-### Task 6：Classroom 页面集成
-- 修改 `components/scene-renderers/classroom-complete.tsx`
-- 在渲染完成页面之前检查课后测评状态：
-  - 有测评题目且未通过 → 渲染 `CourseAssessment` 组件
-  - 有测评题目且已通过 → 渲染现有完成页面 + 通过标记
-  - 无测评题目 → 保持现有完成页面行为
-- 测评通过后才发送 `course-completed` postMessage（REQ-009）
+### Task 6：测试
+- 单选/多选评分正确。
+- 简答题不会进入测评。
+- 失败后不能直接重测。
+- 多次提交 attemptNumber 递增。
 
-### Task 7：测评结果两边记录
-- 在 `CourseAssessment` 评分完成时（REQ-030）：
-  - **先**调用 `ExamBankAPI.saveExamResult({ kind: 'course_quiz', courseId, score, passed, threshold, details, attemptNumber })` 持久化到 OpenMAIC 后端（ARCH-036）
-  - **再**通过 `useEmbedBridge().sendToHost()` 发送 `quiz-result` 消息回传宿主（ARCH-023）
-  - payload 包含 `courseId, passed, score, threshold, totalQuestions, correctCount, details, attemptNumber`
-- 测评通过后：
-  - 发送 `course-completed` 消息（ARCH-024）
-- 非嵌入模式下回传调用为空操作（`isEmbedded: false` 时 `sendToHost` 是 no-op）；持久化在配置了 `DATABASE_URL` 时生效，否则跳过
 
-### Task 8：StageRecord 扩展
-- 在 `lib/utils/database.ts` 的 `StageRecord` 接口中添加 `assessmentQuestions?: QuizQuestion[]` 字段
-- Dexie schema 不需要索引此字段（非查询条件）
-- 无需数据库版本升级（Dexie 对非索引字段透明处理）
+• 已完成 SLICE-04，目标已标记完成。用时约 21 分 21 秒，累计 token 用量 460380。
+
+  改了什么
+
+  - 新增课后测评领域逻辑：从课程 quiz 场景抽取单选/多选题、过滤主观题、评分、公开题面隐藏答案。
+  - 新增学习端测评 API：获取测评、提交作答、记录尝试、失败后重置学习进度。
+  - 新增管理端测评 API：手动更新测评题、从现有 quiz 场景重新生成测评题。
+  - 接入播放完成页：企业课程完成后先进入课后测评；通过后才触发课程完成；未通过展示解析并要求重新学习。
+  - 补充 Slice-04 单元/服务/路由测试，并更新受影响的 storage mock。
+
+  验证结果
+
+  - pnpm.cmd test 通过：1824 个测试全绿。
+  - pnpm.cmd lint 通过：0 error，15 个既有 warning。
+  - pnpm.cmd build 通过。
+  - pnpm.cmd check 未通过：仓库已有大范围 Prettier 风格问题，报告 1068 files；我只对本次触及文件运行了 Prettier，避免把
+    全仓格式化混进 Slice-04。
+
+  遗留问题
+
+  - 全仓 pnpm.cmd check 的格式化债务仍在，建议单独开一个格式化 slice 或维护任务处理。
+  - 工作区开始时已有多处未提交改动，我没有回滚或覆盖这些用户/既有变更。
+  - Slice-04 的播放端接入已完成；如果后续要把“已发布企业课程列表 -> 播放页”的入口做完整，需要依赖/继续前后相邻 slice 的
+    learner course UI 工作。

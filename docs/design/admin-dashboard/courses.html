@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-CN"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>课程管理 - 管理后台</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" data-od-id="sidebar">
+      <div class="brand" data-od-id="brand">
+        <h1>管理后台</h1>
+        <p>企业培训运营台</p>
+      </div>
+      <nav class="nav-list" aria-label="后台导航" data-od-id="module-nav">
+        <a class="nav-item" href="dashboard.html" data-od-id="nav-dashboard" style="font-size: 16px;">看板</a>
+        <a class="nav-item active" href="courses.html" data-od-id="nav-courses" aria-current="page" style="font-size: 16px;">课程管理</a>
+        <a class="nav-item" href="exams.html" data-od-id="nav-exams" style="font-size: 16px;">阶段考核</a>
+        <a class="nav-item" href="access.html" data-od-id="nav-access" style="font-size: 16px;">访问与角色</a>
+      </nav>
+      <div class="sidebar-foot" data-od-id="sidebar-foot">
+        <span>保留现有发布与下架触发</span>
+        <span>可见范围按角色保存</span>
+      </div>
+    </aside>
+
+    <main class="main" data-od-id="courses-main">
+      <header class="topbar" data-od-id="courses-topbar">
+        <div class="page-title">
+          <p class="eyebrow">Courses</p>
+          <h1 data-od-id="courses-title">课程从草稿到发布</h1>
+          <p>分类、新建课程草稿、发布状态、可见范围和测评提示组成连续工作流。</p>
+        </div>
+        <div class="actions" data-od-id="courses-actions">
+          <button class="btn ghost" type="button" data-toast-action="课程列表已刷新" data-loading-target="course" data-loading-label="刷新中" data-od-id="refresh-courses">刷新</button>
+          <button class="btn primary" type="button" data-open-drawer="course" data-title="新建课程草稿" data-od-id="create-course">新建课程</button>
+        </div>
+      </header>
+
+      <section class="module-grid" data-od-id="courses-layout">
+        <div class="panel" data-od-id="course-list-panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <h2>课程列表</h2>
+              <p class="muted">稳定列宽保留名称、分类、状态、可见范围和操作列。</p>
+            </div>
+          </div>
+          <div class="panel-body section-grid">
+            <div class="toolbar" data-od-id="course-filter-toolbar">
+              <div class="field compact">
+                <label class="sr-only" for="course-search">搜索课程或分类</label>
+                <input class="input" id="course-search" type="search" placeholder="搜索课程或分类" data-filter="course" data-od-id="course-search" aria-controls="course-table-body">
+              </div>
+              <div class="field compact">
+                <label class="sr-only" for="course-status-select">课程状态</label>
+                <select class="select" id="course-status-select" data-filter-select="course" data-od-id="course-status-select">
+                  <option>全部状态</option><option>已发布</option><option>草稿</option><option>已下架</option>
+                </select>
+              </div>
+              <div class="field compact">
+                <label class="sr-only" for="course-role-select">可见范围</label>
+                <select class="select" id="course-role-select" data-filter-select="course" data-od-id="course-role-select">
+                  <option>全部范围</option><option>全体可见</option><option>按角色可见</option>
+                </select>
+              </div>
+              <button class="btn ghost" type="button" data-apply-filter="course" data-toast-action="课程筛选已应用" data-loading-target="course" data-loading-label="应用中" data-od-id="apply-course-filter">应用</button>
+            </div>
+            <div class="state-panel subtle" data-loading-state="course" role="status" aria-live="polite" hidden="">
+              <span class="mini-label">正在处理</span>
+              <strong>正在更新课程列表</strong>
+            </div>
+            <div class="table-shell" data-od-id="course-table">
+              <div class="table-head cols-course">
+                <span>课程</span><span>分类</span><span>状态</span><span>可见范围</span><span>操作</span>
+              </div>
+              <div id="course-table-body">
+                <div class="table-row cols-course" data-filter-row="course" data-status="已发布" data-range="销售新人 区域经理" data-od-id="course-row-demo">
+                  <div class="cell-title"><strong>产品演示基础</strong><span class="muted">内容更新后请检查课后测评题</span></div>
+                  <span>销售入门</span><span class="status success">已发布</span>
+                  <div class="chip-list"><span class="chip">销售新人</span><span class="chip">区域经理</span></div>
+                  <div class="actions"><button class="btn icon" type="button" title="保存可见范围" aria-label="保存产品演示基础的可见范围" data-toast-action="可见范围已保存">✓</button><button class="btn icon" type="button" title="下架" aria-label="下架产品演示基础" data-status-toggle="">↧</button></div>
+                </div>
+                <div class="table-row cols-course" data-filter-row="course" data-status="草稿" data-range="全体可见" data-od-id="course-row-objection">
+                  <div class="cell-title"><strong>客户异议处理</strong><span class="muted">待补充发布说明</span></div>
+                  <span>销售进阶</span><span class="status warn">草稿</span>
+                  <div class="chip-list"><span class="chip">全体可见</span></div>
+                  <div class="actions"><button class="btn icon" type="button" title="保存可见范围" aria-label="保存客户异议处理的可见范围" data-toast-action="可见范围已保存">✓</button><button class="btn icon" type="button" title="发布" aria-label="发布客户异议处理" data-status-toggle="">↥</button></div>
+                </div>
+                <div class="table-row cols-course" data-filter-row="course" data-status="已下架" data-range="销售新人" data-od-id="course-row-compliance">
+                  <div class="cell-title"><strong>合规沟通训练</strong><span class="muted">已下架，学员端不可见</span></div>
+                  <span>合规必修</span><span class="status">已下架</span>
+                  <div class="chip-list"><span class="chip">销售新人</span></div>
+                  <div class="actions"><button class="btn icon" type="button" title="保存可见范围" aria-label="保存合规沟通训练的可见范围" data-toast-action="可见范围已保存">✓</button><button class="btn icon" type="button" title="发布" aria-label="发布合规沟通训练" data-status-toggle="">↥</button></div>
+                </div>
+                <div class="state-panel table-empty" data-empty-state="course" role="status" aria-live="polite" hidden="">
+                  <span class="mini-label">暂无匹配</span>
+                  <strong>没有找到符合搜索条件的课程</strong>
+                  <p class="muted">请清空搜索词，或调整状态和可见范围后再试。</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="section-grid" data-od-id="course-side-panels">
+          <section class="card" data-od-id="category-panel">
+            <div class="panel-title">
+              <h3>分类</h3>
+              <p class="muted">分类是生成课程前的必填上下文。</p>
+            </div>
+            <div class="field" style="margin-top: var(--space-4)">
+              <label for="category-name">新分类名称</label>
+              <div style="display:flex; gap: var(--space-2)">
+                <input class="input" id="category-name" placeholder="例如：销售进阶" data-od-id="category-input">
+                <button class="btn ghost" type="button" data-toast-action="分类已创建" data-od-id="create-category">创建</button>
+              </div>
+            </div>
+            <div class="chip-list" style="margin-top: var(--space-4)" data-od-id="category-chips">
+              <span class="chip">销售入门</span><span class="chip">销售进阶</span><span class="chip">合规必修</span>
+            </div>
+          </section>
+          <section class="card chart" data-od-id="course-status-chart">
+            <div class="panel-title">
+              <h3>发布结构</h3>
+              <p class="muted">帮助管理员判断今日优先处理什么。</p>
+            </div>
+            <div class="bar-row"><span>已发布</span><div class="bar"><span style="width:64%"></span></div><strong>8</strong></div>
+            <div class="bar-row"><span>草稿</span><div class="bar"><span style="width:28%"></span></div><strong>3</strong></div>
+            <div class="bar-row"><span>已下架</span><div class="bar"><span style="width:18%"></span></div><strong>2</strong></div>
+          </section>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <div class="drawer-backdrop" data-backdrop="" data-close-drawer=""></div>
+  <aside class="drawer" data-drawer="" role="dialog" aria-modal="true" aria-hidden="true" inert="" aria-label="课程编辑抽屉" data-od-id="course-drawer">
+    <header><h2 data-drawer-title="">新建课程草稿</h2><p class="muted">不改变现有保存流程，仅整理字段顺序。</p></header>
+    <main>
+      <input type="hidden" data-drawer-mode="">
+      <div class="field"><label for="course-name">课程名称</label><input class="input" id="course-name" placeholder="例如：门店成交话术训练" required="" aria-describedby="course-name-error"><span class="form-error" id="course-name-error" role="alert" hidden="">请先填写课程名称。</span></div>
+      <div class="field"><label for="course-desc">描述</label><textarea class="textarea" id="course-desc" placeholder="说明适用场景和管理员备注"></textarea></div>
+      <div class="field"><label for="course-category">分类</label><select class="select" id="course-category"><option>销售入门</option><option>销售进阶</option><option>合规必修</option></select></div>
+      <div class="field"><label>可见范围</label><div class="chip-list"><label class="chip"><input type="checkbox" checked=""> 销售新人</label><label class="chip"><input type="checkbox"> 区域经理</label></div></div>
+    </main>
+    <footer><button class="btn ghost" data-close-drawer="" type="button">取消</button><button class="btn primary" data-submit-drawer="course" type="button">创建草稿</button></footer>
+  </aside>
+  <div class="toast" data-toast=""></div>
+  <script src="app.js"></script>
+
+
+
+
+</body></html>

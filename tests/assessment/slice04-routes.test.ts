@@ -216,6 +216,12 @@ function makeRepository(): EnterpriseRepository {
     async publishExamPolicy() {
       throw new Error('not used');
     },
+    async listExamAttemptsForUser() {
+      return [];
+    },
+    async createExamAttempt() {
+      throw new Error('not used');
+    },
     async findHostApiKey(keyId) {
       return keyId === 'host_demo'
         ? { keyId, secretHash: hashHostApiSecret('sk_demo'), enabled: true }
@@ -228,8 +234,17 @@ function makeRepository(): EnterpriseRepository {
     async listMediaFiles() {
       return [];
     },
-    async createOssPresignedUpload() {
+    async getMediaFileBlob() {
+      return null;
+    },
+    async createCourseAudioBlob() {
       throw new Error('not used');
+    },
+    async listCourseAudioBlobs() {
+      return [];
+    },
+    async getCourseAudioBlob() {
+      return null;
     },
   };
 }

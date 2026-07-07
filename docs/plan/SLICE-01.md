@@ -1,84 +1,73 @@
-# SLICE-01：后端存储服务
+# SLICE-01：后端存储与查询 API
 
 ## 声明
-- **实现需求**：REQ-017, REQ-018, REQ-019, REQ-020, REQ-024, REQ-028, REQ-029, REQ-030, REQ-032
-- **实现架构**：ARCH-003, ARCH-008, ARCH-017, ARCH-030~036, ARCH-045, ARCH-049, ARCH-053, ARCH-055
-- **拥有路径**：`app/api/storage/`, `lib/storage/api-client.ts`, `lib/storage/exam-bank-client.ts`, `lib/storage/db.ts`, `lib/assessment/exam-assembler.ts`
-- **产出接口**：课程 CRUD API、媒体上传 API、同步 API、题库统计/抽题 API、考核结果记录 API、`StorageAPI` 与 `ExamBankAPI` 客户端（ARCH-045, ARCH-049）
-- **消费接口**：Drizzle schema（SLICE-00）、`validateSessionToken()`（SLICE-00）
-- **依赖切片**：SLICE-00
+- **实现需求**：REQ-017~020, REQ-034~046
+- **实现架构**：ARCH-003, ARCH-013~021, ARCH-032, ARCH-033, ARCH-036, ARCH-044
+- **拥有路径**：`app/api/admin/`, `app/api/courses/`, `app/api/host/`, `app/api/storage/`, `lib/storage/`, `lib/host-api/`
+- **产出接口**：后台 CRUD API、学员课程 API、宿主查询 API、OSS 上传元数据 API
+- **依赖切片**：SLICE-00, SLICE-07
 
 ## 任务
 
-### Task 1：数据库连接池
-- 创建 `lib/storage/db.ts`
-- 使用 `drizzle-orm/node-postgres` 适配器
-- 连接池配置：`max: 10`，从 `DATABASE_URL` 环境变量读取
-- 导出 `db` 实例供 API routes 使用
-- 开发环境下支持连接池热重载（避免 `next dev` 重复创建连接）
+### Task 1：数据库访问层
+- 封装 Drizzle DB 实例和事务工具。
+- 所有读写走服务端权威数据；IndexedDB 不作为后端数据来源。
 
-### Task 2：课程 CRUD API
-- 创建 `app/api/storage/courses/route.ts` — POST 创建课程、GET 列出租户课程（ARCH-030）
-- 创建 `app/api/storage/courses/[id]/route.ts` — GET 获取单课程（含 scenes + outlines）、PUT 更新、DELETE 删除
-- 所有路由从 request headers 读取 `x-tenant-id`（middleware 注入）
-- 查询自动附加 `tenant_id` 过滤条件（ARCH-053）
-- 分页支持：`page`（默认 1）、`pageSize`（默认 20，上限 100）
-- 创建课程时同步写入 `outlines` 表和 `scenes` 表
+### Task 2：课程与内容存储 API
+- 课程 CRUD：草稿、发布、下架、分类、可见范围。
+- 场景、outlines、agents、actions、whiteboard 写入 PostgreSQL。
+- 媒体上传走 OSS 预签名 URL，数据库保存 `ossKey`、mime、size、prompt、params。
 
-### Task 3：场景 CRUD API
-- 创建 `app/api/storage/courses/[id]/scenes/route.ts` — PUT 批量更新场景（ARCH-031）
-- 创建 `app/api/storage/courses/[id]/scenes/[sceneId]/route.ts` — PATCH 单场景更新
-- 批量更新为事务操作：先删除旧场景，再插入新场景
-- 单场景更新：仅更新 `content`、`actions`、`whiteboard`、`title` 字段
-- 校验 `course_id` 归属当前租户
+### Task 3：管理员后台 API
+- 角色、邀请码、用户角色、课程分类、课程可见范围、阶段考核策略 CRUD。
+- 所有 `/api/admin/*` 必须校验管理员权限。
 
-### Task 4：阿里云 OSS 集成
-- 安装 `ali-oss` 依赖
-- 创建 `lib/storage/oss-client.ts`
-- 实现 STS 临时凭证获取（通过 `@alicloud/sts20150401` 或直接调用 AssumeRole API）
-- 实现 `getSTSCredentials(tenantId, courseId)` — 限定 policy 仅允许写入 `{tenantId}/{courseId}/*` 路径
-- 存储路径规范：`{tenantId}/{courseId}/{elementId}.{ext}`
+### Task 4：学员课程 API
+- `GET /api/courses` 只返回已发布且当前角色可见课程。
+- `GET /api/courses/:id` 校验可见范围后返回完整课程数据。
+- `PATCH /api/courses/:id/progress` 保存播放进度。
 
-### Task 5：媒体上传 API
-- 创建 `app/api/storage/media/presign/route.ts` — POST 返回 STS 临时凭证 + storageKey（ARCH-032）
-- 创建 `app/api/storage/media/confirm/route.ts` — POST 确认上传，校验 OSS 文件存在，写入 `media_files` 表
-- 创建 `app/api/storage/media/[id]/route.ts` — GET 生成签名 URL 并 302 重定向
-- 文件大小校验：单次请求 ≤ 10MB（REQ-024），超大文件走 OSS 分片上传（前端处理）
+### Task 5：OpenMAIC 管理后台看板 API
+- `GET /api/admin/dashboard` 返回课程完成率、测评通过率、阶段考核通过率和学员明细入口数据。
+- 支持按课程、角色、时间范围过滤。
 
-### Task 6：课程同步 API
-- 创建 `app/api/storage/courses/[id]/sync/route.ts`（ARCH-033）
-- GET：返回服务端最新课程数据 + `serverUpdatedAt` 时间戳
-- POST：接收客户端变更数据 + `clientUpdatedAt`
-  - 如果 `clientUpdatedAt >= serverUpdatedAt`：接受客户端数据，更新服务端
-  - 如果 `clientUpdatedAt < serverUpdatedAt`：返回 409 CONFLICT + 服务端数据，让客户端决策
-- 同步范围：课程元数据 + 全量场景 + 大纲
+### Task 6：宿主查询 API
+- `GET /api/host/summary`
+- `GET /api/host/courses/:id/progress`
+- `GET /api/host/assessments`
+- `GET /api/host/exams`
+- 使用 API Key/Secret 鉴权；不要求宿主接收回调，不允许宿主直连数据库。
 
-### Task 7：存储 API 客户端
-- 创建 `lib/storage/api-client.ts`（ARCH-045）
-- 实现 `StorageAPI` 接口的所有方法
-- 所有请求自动携带 `Authorization: Bearer` header
-- 统一错误处理：HTTP 错误 → `StorageError`
-- 导出单例实例 `storageAPI`
+### Task 7：降级与兼容
+- 开发环境未配置后端时可提示不可用或进入本地演示模式，但企业正式流程以后端为准。
+- 老 IndexedDB 课程不自动迁移；可继续通过原 ZIP 功能人工搬运，但不作为企业主流程。
 
-### Task 8：错误码与响应格式
-- 复用 `lib/server/api-response.ts` 的 `apiError` / `apiSuccess`
-- 新增错误码：`INVALID_TOKEN`, `FORBIDDEN`, `PAYLOAD_TOO_LARGE`, `CONFLICT`, `STORAGE_ERROR`
-- 确保所有存储 API 返回一致的响应格式
+### Task 8：测试
+- 课程可见范围过滤。
+- 管理员/学员 API 权限。
+- 宿主 API Key 成功/失败。
+- OSS 元数据写入和读取。
 
-### Task 9：题库统计与抽题组卷
-- 创建 `lib/assessment/exam-assembler.ts` — 服务端抽题逻辑（ARCH-055）
-- 创建 `app/api/storage/question-bank/route.ts` — GET 列出题库分类与题量统计（按 `tenant_id` 聚合 courses.category + scenes 的 quiz 题 + courses.assessment_questions）（ARCH-035, REQ-032）
-- 创建 `app/api/storage/exams/assemble/route.ts` — POST 接收 `ExamPolicy`，按分类/课程范围过滤候选题、随机/加权抽 `questionCount` 题，返回 `{ examId, questions, questionRefs }`（ARCH-035, REQ-028, REQ-029）
-- 抽题只读题源、不复制题目所有权；`questionRefs` 记录每题来源（courseId/sceneId/questionId）
-- 题量不足时返回实际题量并标记（供前端/宿主提示）
 
-### Task 10：考核结果记录 API
-- 创建 `app/api/storage/exam-results/route.ts`（ARCH-036, REQ-030）
-- POST：写入 `exam_results`，`kind` 区分 `course_quiz`/`stage_exam`；`user_id`/`role`/`tenant_id` 从 middleware 注入的 headers 读取（不信任前端传入）
-- GET：按 `tenant_id` + `user_id` 查询当前学员结果，支持 `kind`/`courseId` 过滤
-- 校验资源租户归属（ARCH-053）
+• 完成情况
+  Slice-01 已完成，并已把 /goal 标记为完成。主要改动：
 
-### Task 11：题库/考核客户端
-- 创建 `lib/storage/exam-bank-client.ts`（ARCH-049）
-- 实现 `ExamBankAPI`：`listQuestionBank()`、`assembleExam(policy)`、`saveExamResult(record)`
-- 所有请求自动携带会话鉴权；统一错误处理 → `StorageError`
+  - 新增企业后端存储层：lib/storage/enterprise-service.ts、lib/storage/enterprise-repository.ts、lib/storage/db.ts
+  - 新增 Slice-01 API：/api/admin/*、/api/courses/*、/api/host/*、/api/storage/*
+  - 数据库结构补齐媒体元数据 size_bytes：lib/storage/schema/index.ts、drizzle/0000_slice_00_foundation.sql
+  - 权限模型按 Slice-01 落地：管理员 API 走 requireCurrentAdmin()；学员课程 API 走当前会话角色可见性；宿主查询 API 走
+    Bearer API Key/Secret
+
+  - 补了看板/宿主查询的 courseId、roleId、userId、时间范围过滤，并用 TDD 先看到失败再实现
+  - 新增测试：tests/storage/slice01-service.test.ts、tests/storage/slice01-routes.test.ts
+
+  验证结果
+
+  - pnpm.cmd test 通过：226 files，1799 tests
+  - pnpm.cmd lint 通过：0 errors，15 warnings；这些 warning 在既有文件里，非本次 Slice-01 引入
+  - pnpm.cmd build 通过
+  - 目标文件 Prettier check 通过
+
+  遗留问题
+  Slice-01 功能侧没有已知遗留。工作区里仍有本次任务外的既有脏改动/未跟踪目录，例如 docs/*、缓存、模型目录等，我没有回滚
+  或整理它们。

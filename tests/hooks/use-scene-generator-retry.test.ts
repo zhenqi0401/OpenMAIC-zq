@@ -205,4 +205,46 @@ describe('browser scene generation retry wrappers', () => {
       }),
     );
   });
+
+  it('uploads generated TTS audio to PostgreSQL when a course target is provided', async () => {
+    const { generateAndStoreTTS } = await import('@/lib/hooks/use-scene-generator');
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          success: true,
+          base64: btoa('audio-data'),
+          format: 'mp3',
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(200, { success: true, audio: { audioId: 'tts-1' } }));
+
+    await generateAndStoreTTS('tts-1', 'Hello class', 'English', undefined, retryOptions, {
+      courseId: 'course-1',
+      sceneKey: 'scene-1',
+    });
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      '/api/storage/audio',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courseId: 'course-1',
+          sceneKey: 'scene-1',
+          audioId: 'tts-1',
+          base64: btoa('audio-data'),
+          format: 'mp3',
+          mimeType: 'audio/mp3',
+        }),
+      }),
+    );
+  });
+
+  it('builds stable scene-scoped TTS ids for first and later generated scenes', async () => {
+    const { buildSceneTtsAudioId } = await import('@/lib/hooks/use-scene-generator');
+
+    expect(buildSceneTtsAudioId(0, 'action_1')).toBe('tts_s0_action_1');
+    expect(buildSceneTtsAudioId(3, 'action_1')).toBe('tts_s3_action_1');
+  });
 });

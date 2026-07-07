@@ -22,8 +22,11 @@ export interface ExamPolicy {
 }
 
 export interface DashboardSummary {
+  /** 0-100 integer percent. */
   courseCompletionRate: number;
+  /** 0-100 integer percent. */
   assessmentPassRate: number;
+  /** 0-100 integer percent. */
   examPassRate: number;
   learnerCount: number;
   courseCount: number;

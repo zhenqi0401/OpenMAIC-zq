@@ -220,6 +220,12 @@ function makeRepository(
     async publishExamPolicy() {
       throw new Error('not used');
     },
+    async listExamAttemptsForUser() {
+      return [];
+    },
+    async createExamAttempt() {
+      throw new Error('not used');
+    },
     async findHostApiKey(): Promise<StoredHostApiKey | null> {
       return null;
     },
@@ -230,8 +236,17 @@ function makeRepository(
     async listMediaFiles() {
       return [];
     },
-    async createOssPresignedUpload() {
+    async getMediaFileBlob() {
+      return null;
+    },
+    async createCourseAudioBlob() {
       throw new Error('not used');
+    },
+    async listCourseAudioBlobs() {
+      return [];
+    },
+    async getCourseAudioBlob() {
+      return null;
     },
   };
 }

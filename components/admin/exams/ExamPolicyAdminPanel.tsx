@@ -1,7 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ClipboardList, PlayCircle, Plus, RefreshCw, Save } from 'lucide-react';
+import { ClipboardList, DatabaseZap, PlayCircle, Plus, RefreshCw, Save } from 'lucide-react';
+import {
+  AdminCard,
+  AdminNotice,
+  AdminSectionHeader,
+  AdminStatusBadge,
+  adminInputClassName,
+  adminSelectClassName,
+} from '@/components/admin/AdminSurface';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { createAdminClient, type AdminExamPolicy, type ExamPolicyInput } from '@/lib/admin/client';
@@ -23,9 +31,6 @@ interface PolicyDraft {
   passThreshold: number;
   timeLimitMinutes: string;
 }
-
-const selectClassName =
-  'h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100';
 
 function toPolicyDraft(policy: AdminExamPolicy): PolicyDraft {
   return {
@@ -82,6 +87,10 @@ export function ExamPolicyAdminPanel() {
   const categoryNameById = useMemo(
     () => new Map(categories.map((category) => [category.id, category.name] as const)),
     [categories],
+  );
+  const readyCourseCount = useMemo(
+    () => publishedCourses.filter((course) => course.assessmentQuestions.length > 0).length,
+    [publishedCourses],
   );
 
   const loadAll = useCallback(async () => {
@@ -181,107 +190,127 @@ export function ExamPolicyAdminPanel() {
   }
 
   return (
-    <section className="mt-8 space-y-5">
-      <div className="flex items-center gap-3">
-        <div className="flex size-9 items-center justify-center rounded-md bg-slate-900 text-white dark:bg-white dark:text-slate-950">
-          <ClipboardList className="size-4" />
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">阶段考核</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">策略、题量与发布状态</p>
-        </div>
-      </div>
+    <section className="scroll-mt-4 space-y-5" id="admin-exams">
+      <AdminSectionHeader
+        action={
+          <Button className="rounded-[4px] border-[#d8c8b9]" onClick={loadAll} variant="outline">
+            <RefreshCw className="size-4" />
+            刷新
+          </Button>
+        }
+        description="把阶段考核策略翻译成运营能理解的业务配置，并只使用已发布课程作为题源。"
+        eyebrow="Exams"
+        icon={<ClipboardList className="size-4" />}
+        title="阶段考核"
+      />
 
       {(message || error) && (
-        <p className={error ? 'text-sm text-red-600' : 'text-sm text-slate-600'}>
-          {error ?? message}
-        </p>
+        <AdminNotice tone={error ? 'error' : 'success'}>{error ?? message}</AdminNotice>
       )}
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
-          <Plus className="size-4 text-slate-400" />
-          新建策略
-        </div>
-        <div className="grid gap-2 md:grid-cols-[1.2fr_1fr_0.7fr_0.7fr_0.7fr_auto]">
-          <Input
-            placeholder="策略标题"
-            value={newPolicy.title}
-            onChange={(event) => updateNewPolicy({ title: event.target.value })}
+      <div className="grid gap-4 xl:grid-cols-[1fr_0.45fr]">
+        <AdminCard className="p-4">
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#2b211d]">
+            <Plus className="size-4 text-[#9b897d]" />
+            快速草稿
+          </div>
+          <div className="grid gap-2 md:grid-cols-[1.2fr_1fr_0.7fr_0.7fr_0.7fr_auto]">
+            <Input
+              className={adminInputClassName}
+              placeholder="策略标题"
+              value={newPolicy.title}
+              onChange={(event) => updateNewPolicy({ title: event.target.value })}
+            />
+            <select
+              className={adminSelectClassName}
+              value={newPolicy.targetRoleId}
+              onChange={(event) => updateNewPolicy({ targetRoleId: event.target.value })}
+            >
+              <option value="">目标角色</option>
+              {learnerRoles.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.name} ({role.code})
+                </option>
+              ))}
+            </select>
+            <NumberInput
+              min={1}
+              value={newPolicy.questionCount}
+              onChange={(questionCount) => updateNewPolicy({ questionCount })}
+              placeholder="题量"
+            />
+            <NumberInput
+              min={0}
+              max={100}
+              value={newPolicy.passThreshold}
+              onChange={(passThreshold) => updateNewPolicy({ passThreshold })}
+              placeholder="通过线"
+            />
+            <Input
+              className={adminInputClassName}
+              min={1}
+              type="number"
+              placeholder="分钟"
+              value={newPolicy.timeLimitMinutes}
+              onChange={(event) => updateNewPolicy({ timeLimitMinutes: event.target.value })}
+            />
+            <Button className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]" onClick={createPolicy}>
+              <Plus className="size-4" />
+              新建
+            </Button>
+          </div>
+          <ScopePicker
+            categories={categories}
+            categoryIds={newPolicy.categoryIds}
+            courses={eligibleCourses(newPolicy.categoryIds)}
+            courseIds={newPolicy.courseIds}
+            onCategoryToggle={(categoryId) =>
+              updateNewPolicy({
+                categoryIds: toggleValue(newPolicy.categoryIds, categoryId),
+                courseIds: [],
+              })
+            }
+            onCourseToggle={(courseId) =>
+              updateNewPolicy({ courseIds: toggleValue(newPolicy.courseIds, courseId) })
+            }
           />
-          <select
-            className={selectClassName}
-            value={newPolicy.targetRoleId}
-            onChange={(event) => updateNewPolicy({ targetRoleId: event.target.value })}
-          >
-            <option value="">目标角色</option>
-            {learnerRoles.map((role) => (
-              <option key={role.id} value={role.id}>
-                {role.name} ({role.code})
-              </option>
-            ))}
-          </select>
-          <NumberInput
-            min={1}
-            value={newPolicy.questionCount}
-            onChange={(questionCount) => updateNewPolicy({ questionCount })}
-            placeholder="题量"
-          />
-          <NumberInput
-            min={0}
-            max={100}
-            value={newPolicy.passThreshold}
-            onChange={(passThreshold) => updateNewPolicy({ passThreshold })}
-            placeholder="阈值"
-          />
-          <Input
-            min={1}
-            type="number"
-            placeholder="分钟"
-            value={newPolicy.timeLimitMinutes}
-            onChange={(event) => updateNewPolicy({ timeLimitMinutes: event.target.value })}
-          />
-          <Button onClick={createPolicy} size="icon" title="新建考核策略">
-            <Plus className="size-4" />
-          </Button>
-        </div>
-        <ScopePicker
-          categories={categories}
-          categoryIds={newPolicy.categoryIds}
-          courses={eligibleCourses(newPolicy.categoryIds)}
-          courseIds={newPolicy.courseIds}
-          onCategoryToggle={(categoryId) =>
-            updateNewPolicy({
-              categoryIds: toggleValue(newPolicy.categoryIds, categoryId),
-              courseIds: [],
-            })
-          }
-          onCourseToggle={(courseId) =>
-            updateNewPolicy({ courseIds: toggleValue(newPolicy.courseIds, courseId) })
-          }
-        />
+        </AdminCard>
+
+        <AdminCard className="p-4">
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#2b211d]">
+            <DatabaseZap className="size-4 text-[#9b897d]" />
+            题库准备度
+          </div>
+          <div className="text-3xl font-semibold tabular-nums text-[#2b211d]">
+            {readyCourseCount}/{publishedCourses.length}
+          </div>
+          <p className="mt-2 text-sm leading-5 text-[#75665d]">
+            仅统计已发布且已有课后测评题的课程；没有后端字段时不编造题库数量。
+          </p>
+        </AdminCard>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <AdminCard className="overflow-hidden">
         {policies.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-slate-500">暂无考核策略</div>
+          <div className="px-4 py-8 text-center text-sm text-[#75665d]">暂无考核策略</div>
         ) : (
           policies.map((policy) => {
             const draft = policyDrafts[policy.id] ?? toPolicyDraft(policy);
             return (
               <div
                 key={policy.id}
-                className="space-y-3 border-b border-slate-100 px-4 py-4 last:border-b-0 dark:border-slate-800"
+                className="space-y-3 border-b border-[#eaded1] px-4 py-4 last:border-b-0"
               >
                 <div className="grid gap-2 md:grid-cols-[1.2fr_1fr_0.7fr_0.7fr_0.7fr_0.8fr_auto_auto]">
                   <Input
+                    className={adminInputClassName}
                     value={draft.title}
                     onChange={(event) =>
                       updatePolicyDraft(policy.id, { title: event.target.value })
                     }
                   />
                   <select
-                    className={selectClassName}
+                    className={adminSelectClassName}
                     value={draft.targetRoleId}
                     onChange={(event) =>
                       updatePolicyDraft(policy.id, { targetRoleId: event.target.value })
@@ -305,6 +334,7 @@ export function ExamPolicyAdminPanel() {
                     onChange={(passThreshold) => updatePolicyDraft(policy.id, { passThreshold })}
                   />
                   <Input
+                    className={adminInputClassName}
                     min={1}
                     type="number"
                     value={draft.timeLimitMinutes}
@@ -312,7 +342,7 @@ export function ExamPolicyAdminPanel() {
                       updatePolicyDraft(policy.id, { timeLimitMinutes: event.target.value })
                     }
                   />
-                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <div className="flex items-center gap-2 text-sm text-[#75665d]">
                     <RefreshCw className="size-4" />
                     {policy.candidateQuestionCount ?? 0} 题
                   </div>
@@ -334,17 +364,12 @@ export function ExamPolicyAdminPanel() {
                     <PlayCircle className="size-4" />
                   </Button>
                 </div>
-                <div className="flex flex-wrap gap-2 text-xs text-slate-500">
-                  <span className="rounded-md border border-slate-200 px-2 py-1 dark:border-slate-700">
-                    {policy.status}
-                  </span>
+                <div className="flex flex-wrap gap-2 text-xs text-[#75665d]">
+                  <PolicyStatusBadge status={policy.status} />
                   {draft.categoryIds.map((categoryId) => (
-                    <span
-                      key={categoryId}
-                      className="rounded-md border border-slate-200 px-2 py-1 dark:border-slate-700"
-                    >
+                    <AdminStatusBadge key={categoryId}>
                       {categoryNameById.get(categoryId) ?? categoryId}
-                    </span>
+                    </AdminStatusBadge>
                   ))}
                 </div>
                 <ScopePicker
@@ -368,7 +393,7 @@ export function ExamPolicyAdminPanel() {
             );
           })
         )}
-      </div>
+      </AdminCard>
     </section>
   );
 }
@@ -388,6 +413,7 @@ function NumberInput({
 }) {
   return (
     <Input
+      className={adminInputClassName}
       max={max}
       min={min}
       placeholder={placeholder}
@@ -419,7 +445,7 @@ function ScopePicker({
         {categories.map((category) => (
           <label
             key={category.id}
-            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2 py-1 text-xs dark:border-slate-700"
+            className="inline-flex items-center gap-1.5 rounded-[4px] border border-[#d8c8b9] px-2 py-1 text-xs"
           >
             <input
               checked={categoryIds.includes(category.id)}
@@ -431,13 +457,13 @@ function ScopePicker({
         ))}
       </div>
       <div className="flex flex-wrap gap-2">
-        <span className="inline-flex items-center rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-500 dark:border-slate-700">
+        <AdminStatusBadge>
           {courseIds.length === 0 ? '全部课程' : `${courseIds.length} 门课程`}
-        </span>
+        </AdminStatusBadge>
         {courses.map((course) => (
           <label
             key={course.id}
-            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2 py-1 text-xs dark:border-slate-700"
+            className="inline-flex items-center gap-1.5 rounded-[4px] border border-[#d8c8b9] px-2 py-1 text-xs"
           >
             <input
               checked={courseIds.includes(course.id)}
@@ -450,4 +476,14 @@ function ScopePicker({
       </div>
     </div>
   );
+}
+
+function PolicyStatusBadge({ status }: { status: AdminExamPolicy['status'] }) {
+  const map = {
+    draft: { label: '草稿', tone: 'warning' },
+    published: { label: '已发布', tone: 'success' },
+    archived: { label: '已归档', tone: 'neutral' },
+  } as const;
+  const view = map[status];
+  return <AdminStatusBadge tone={view.tone}>{view.label}</AdminStatusBadge>;
 }

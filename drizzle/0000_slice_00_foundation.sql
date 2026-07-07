@@ -47,6 +47,9 @@ CREATE TABLE "courses" (
 	"category_id" uuid NOT NULL,
 	"status" varchar(16) DEFAULT 'draft' NOT NULL,
 	"visibility_mode" varchar(16) DEFAULT 'all' NOT NULL,
+	"stage_snapshot" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"generation_status" varchar(32) DEFAULT 'draft' NOT NULL,
+	"generation_complete" boolean DEFAULT false NOT NULL,
 	"assessment_questions" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"created_by" uuid,
 	"published_at" timestamp with time zone,
@@ -121,23 +124,40 @@ CREATE TABLE "media_files" (
 	"tenant_id" uuid,
 	"course_id" uuid,
 	"scene_id" uuid,
+	"scene_key" varchar(128),
+	"media_id" varchar(128) NOT NULL,
 	"media_type" varchar(32) NOT NULL,
 	"mime_type" varchar(128),
 	"size_bytes" integer,
 	"prompt" text,
 	"params" jsonb,
-	"oss_key" text NOT NULL,
-	"poster_oss_key" text,
+	"blob" bytea NOT NULL,
+	"poster_blob" bytea,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "outlines" (
+CREATE TABLE "course_audio_blobs" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"tenant_id" uuid,
+	"course_id" uuid NOT NULL,
+	"scene_key" varchar(128),
+	"audio_id" varchar(128) NOT NULL,
+	"mime_type" varchar(128),
+	"size_bytes" integer NOT NULL,
+	"text" text,
+	"voice" varchar(128),
+	"blob" bytea NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "course_outlines" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"tenant_id" uuid,
 	"course_id" uuid NOT NULL,
 	"outline" jsonb NOT NULL,
 	"generation_status" varchar(32) DEFAULT 'draft' NOT NULL,
+	"generation_complete" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -153,13 +173,15 @@ CREATE TABLE "roles" (
 	CONSTRAINT "roles_code_unique" UNIQUE("code")
 );
 --> statement-breakpoint
-CREATE TABLE "scenes" (
+CREATE TABLE "course_scenes" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"tenant_id" uuid,
 	"course_id" uuid NOT NULL,
+	"scene_key" varchar(128) NOT NULL,
 	"type" varchar(32) NOT NULL,
 	"title" text NOT NULL,
 	"scene_order" integer NOT NULL,
+	"scene_data" jsonb NOT NULL,
 	"content" jsonb NOT NULL,
 	"actions" jsonb,
 	"whiteboards" jsonb,
@@ -198,16 +220,21 @@ ALTER TABLE "exam_policy_courses" ADD CONSTRAINT "exam_policy_courses_course_id_
 ALTER TABLE "invite_codes" ADD CONSTRAINT "invite_codes_role_id_roles_id_fk" FOREIGN KEY ("role_id") REFERENCES "public"."roles"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "invite_codes" ADD CONSTRAINT "invite_codes_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "media_files" ADD CONSTRAINT "media_files_course_id_courses_id_fk" FOREIGN KEY ("course_id") REFERENCES "public"."courses"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "media_files" ADD CONSTRAINT "media_files_scene_id_scenes_id_fk" FOREIGN KEY ("scene_id") REFERENCES "public"."scenes"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "outlines" ADD CONSTRAINT "outlines_course_id_courses_id_fk" FOREIGN KEY ("course_id") REFERENCES "public"."courses"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "scenes" ADD CONSTRAINT "scenes_course_id_courses_id_fk" FOREIGN KEY ("course_id") REFERENCES "public"."courses"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "media_files" ADD CONSTRAINT "media_files_scene_id_course_scenes_id_fk" FOREIGN KEY ("scene_id") REFERENCES "public"."course_scenes"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "course_audio_blobs" ADD CONSTRAINT "course_audio_blobs_course_id_courses_id_fk" FOREIGN KEY ("course_id") REFERENCES "public"."courses"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "course_outlines" ADD CONSTRAINT "course_outlines_course_id_courses_id_fk" FOREIGN KEY ("course_id") REFERENCES "public"."courses"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "course_scenes" ADD CONSTRAINT "course_scenes_course_id_courses_id_fk" FOREIGN KEY ("course_id") REFERENCES "public"."courses"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "users" ADD CONSTRAINT "users_role_id_roles_id_fk" FOREIGN KEY ("role_id") REFERENCES "public"."roles"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "assessment_attempts_user_course_idx" ON "assessment_attempts" USING btree ("user_id","course_id");--> statement-breakpoint
+CREATE INDEX "course_audio_blobs_course_id_idx" ON "course_audio_blobs" USING btree ("course_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "course_audio_blobs_course_audio_id_idx" ON "course_audio_blobs" USING btree ("course_id","audio_id");--> statement-breakpoint
 CREATE INDEX "courses_category_id_idx" ON "courses" USING btree ("category_id");--> statement-breakpoint
 CREATE INDEX "courses_status_idx" ON "courses" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "exam_attempts_policy_user_idx" ON "exam_attempts" USING btree ("exam_policy_id","user_id");--> statement-breakpoint
 CREATE INDEX "invite_codes_role_id_idx" ON "invite_codes" USING btree ("role_id");--> statement-breakpoint
 CREATE INDEX "media_files_course_id_idx" ON "media_files" USING btree ("course_id");--> statement-breakpoint
-CREATE INDEX "scenes_course_id_idx" ON "scenes" USING btree ("course_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "media_files_course_media_id_idx" ON "media_files" USING btree ("course_id","media_id");--> statement-breakpoint
+CREATE INDEX "course_scenes_course_id_idx" ON "course_scenes" USING btree ("course_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "course_scenes_course_scene_key_idx" ON "course_scenes" USING btree ("course_id","scene_key");--> statement-breakpoint
 CREATE INDEX "users_role_id_idx" ON "users" USING btree ("role_id");--> statement-breakpoint
 CREATE INDEX "users_host_user_id_idx" ON "users" USING btree ("host_user_id");

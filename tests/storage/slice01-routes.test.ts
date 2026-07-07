@@ -86,7 +86,13 @@ function makeRepository(): EnterpriseRepository {
   ];
   const content = new Map<string, { scenes: unknown[]; outlines: unknown[] }>();
   const examPolicies: Awaited<ReturnType<EnterpriseRepository['listExamPolicies']>> = [];
-  const media: Awaited<ReturnType<EnterpriseRepository['listMediaFiles']>> = [];
+  const media: Array<
+    Awaited<ReturnType<EnterpriseRepository['listMediaFiles']>>[number] & {
+      blob: Buffer;
+      posterBlob: Buffer | null;
+    }
+  > = [];
+  const audio = new Map<string, Awaited<ReturnType<EnterpriseRepository['createCourseAudioBlob']>>>();
 
   return {
     async listRoles() {
@@ -153,11 +159,27 @@ function makeRepository(): EnterpriseRepository {
     async getCourseContent(id) {
       const course = courses.find((candidate) => candidate.id === id);
       const stored = content.get(id) ?? { scenes: [], outlines: [] };
-      return course ? { course, scenes: stored.scenes, outlines: stored.outlines } : null;
+      return course
+        ? {
+            course,
+            stage: course.stageSnapshot,
+            scenes: stored.scenes,
+            outlines: stored.outlines,
+            mediaManifest: [],
+            audioManifest: [],
+          }
+        : null;
     },
     async replaceCourseContent(courseId, input) {
       content.set(courseId, { scenes: input.scenes, outlines: input.outlines });
-      return { courseId, scenes: input.scenes, outlines: input.outlines };
+      return {
+        courseId,
+        scenes: input.scenes,
+        outlines: input.outlines,
+        stage: input.stage,
+        generationStatus: input.generationStatus,
+        generationComplete: input.generationComplete,
+      };
     },
     async updateCourseAssessmentQuestions(id, questions) {
       const course = courses.find((candidate) => candidate.id === id);
@@ -219,6 +241,16 @@ function makeRepository(): EnterpriseRepository {
       policy.status = 'published';
       return policy;
     },
+    async listExamAttemptsForUser() {
+      return [];
+    },
+    async createExamAttempt(input) {
+      return {
+        id: `exam-attempt-${input.attemptNumber}`,
+        ...input,
+        createdAt: new Date('2026-07-01T00:00:00Z'),
+      };
+    },
     async findHostApiKey(keyId) {
       return keyId === 'host_demo'
         ? { keyId, secretHash: hashHostApiSecret('sk_demo'), enabled: true }
@@ -230,12 +262,14 @@ function makeRepository(): EnterpriseRepository {
         id: 'media-1',
         courseId: input.courseId ?? null,
         sceneId: input.sceneId ?? null,
+        sceneKey: input.sceneKey ?? null,
+        mediaId: input.mediaId,
         mediaType: input.mediaType,
         mimeType: input.mimeType ?? null,
         prompt: input.prompt ?? null,
         params: input.params ?? null,
-        ossKey: input.ossKey,
-        posterOssKey: input.posterOssKey ?? null,
+        blob: input.blob,
+        posterBlob: input.posterBlob ?? null,
         sizeBytes: input.sizeBytes ?? null,
         createdAt: new Date('2026-07-01T00:00:00Z'),
         updatedAt: new Date('2026-07-01T00:00:00Z'),
@@ -246,14 +280,39 @@ function makeRepository(): EnterpriseRepository {
     async listMediaFiles() {
       return media;
     },
-    async createOssPresignedUpload(input) {
-      return {
-        method: 'PUT',
-        uploadUrl: `https://openmaic-enterprise.oss-cn-hangzhou.aliyuncs.com/${input.ossKey}?OSSAccessKeyId=test-id&Expires=1780000000&Signature=sig`,
-        ossKey: input.ossKey,
-        expiresAt: new Date('2026-07-01T01:00:00Z'),
-        headers: { 'Content-Type': input.mimeType },
+    async getMediaFileBlob(courseId, mediaId) {
+      const record = media.find((candidate) => candidate.courseId === courseId && candidate.mediaId === mediaId);
+      return record
+        ? {
+            courseId,
+            mediaId,
+            mediaType: record.mediaType,
+            mimeType: record.mimeType,
+            sizeBytes: record.sizeBytes,
+            blob: record.blob,
+          }
+        : null;
+    },
+    async createCourseAudioBlob(input) {
+      const record = {
+        courseId: input.courseId,
+        sceneKey: input.sceneKey ?? null,
+        audioId: input.audioId,
+        mimeType: input.mimeType ?? null,
+        sizeBytes: input.sizeBytes ?? input.blob.byteLength,
+        text: input.text ?? null,
+        voice: input.voice ?? null,
+        blob: input.blob,
+        createdAt: new Date('2026-07-01T00:00:00Z'),
       };
+      audio.set(`${input.courseId}:${input.audioId}`, record);
+      return record;
+    },
+    async listCourseAudioBlobs(courseId) {
+      return [...audio.values()].filter((record) => record.courseId === courseId);
+    },
+    async getCourseAudioBlob(courseId, audioId) {
+      return audio.get(`${courseId}:${audioId}`) ?? null;
     },
   };
 }
@@ -261,6 +320,17 @@ function makeRepository(): EnterpriseRepository {
 async function getRoute(route: string, url = 'http://localhost/test', headers?: HeadersInit) {
   const routeModule = (await import(route)) as { GET: (request: Request) => Promise<Response> };
   return routeModule.GET(new Request(url, { headers }));
+}
+
+async function getRouteWithContext(
+  route: string,
+  context: { params: Promise<{ id: string }> },
+  url = 'http://localhost/test',
+) {
+  const routeModule = (await import(route)) as {
+    GET: (request: Request, context: { params: Promise<{ id: string }> }) => Promise<Response>;
+  };
+  return routeModule.GET(new Request(url), context);
 }
 
 async function postRoute(route: string, body: Record<string, unknown>, headers?: HeadersInit) {
@@ -341,6 +411,24 @@ describe('Slice-01 API routes', () => {
       courses: [{ id: 'course-draft' }, { id: 'course-published' }],
     });
 
+    const created = await postRoute('@/app/api/admin/courses/route', {
+      name: 'Two-Factor Theory',
+      description: 'Motivation training',
+      categoryId: 'cat-1',
+      stageSnapshot: { id: 'stage-1', name: 'Two-Factor Theory' },
+      generationStatus: 'generating',
+      generationComplete: false,
+    });
+    expect(created.status).toBe(201);
+    await expect(created.json()).resolves.toMatchObject({
+      course: {
+        id: 'course-new',
+        stageSnapshot: { id: 'stage-1', name: 'Two-Factor Theory' },
+        generationStatus: 'generating',
+        generationComplete: false,
+      },
+    });
+
     const visibility = await patchRoute(
       '@/app/api/admin/courses/[id]/visibility/route',
       { visibilityMode: 'roles', visibleRoleIds: [learnerRole.id] },
@@ -381,6 +469,18 @@ describe('Slice-01 API routes', () => {
     );
     expect(draft.status).toBe(404);
 
+    const detail = await getRoute(
+      '@/app/api/courses/[id]/route',
+      'http://localhost/api/courses/course-published',
+    );
+    await expect(detail.json()).resolves.toMatchObject({
+      course: { id: 'course-published' },
+      scenes: [],
+      outlines: [],
+      mediaManifest: [],
+      audioManifest: [],
+    });
+
     const progress = await patchRoute(
       '@/app/api/courses/[id]/progress/route',
       { sceneIndex: 1, actionIndex: 2, completed: true },
@@ -395,13 +495,34 @@ describe('Slice-01 API routes', () => {
     const contentResponse = await patchRoute(
       '@/app/api/admin/courses/[id]/content/route',
       {
+        stage: { id: 'stage-1', name: 'Intro course' },
         scenes: [{ id: 'scene-1', type: 'slide', title: 'Intro', content: {}, actions: [] }],
         outlines: [{ id: 'outline-1', title: 'Intro' }],
+        generationStatus: 'ready',
+        generationComplete: true,
       },
       { params: Promise.resolve({ id: 'course-published' }) },
     );
     await expect(contentResponse.json()).resolves.toMatchObject({
-      content: { courseId: 'course-published', scenes: [{ id: 'scene-1' }] },
+      content: {
+        courseId: 'course-published',
+        scenes: [{ id: 'scene-1' }],
+        stage: { id: 'stage-1', name: 'Intro course' },
+        generationStatus: 'ready',
+        generationComplete: true,
+      },
+    });
+
+    const readContentResponse = await getRouteWithContext(
+      '@/app/api/admin/courses/[id]/content/route',
+      { params: Promise.resolve({ id: 'course-published' }) },
+    );
+    await expect(readContentResponse.json()).resolves.toMatchObject({
+      content: {
+        course: { id: 'course-published' },
+        scenes: [{ id: 'scene-1' }],
+        outlines: [{ id: 'outline-1' }],
+      },
     });
 
     const examPolicyResponse = await postRoute('@/app/api/admin/exam-policies/route', {
@@ -427,7 +548,7 @@ describe('Slice-01 API routes', () => {
     });
   });
 
-  test('host and storage APIs use API-key auth and metadata-only media records', async () => {
+  test('host and storage APIs use API-key auth and PostgreSQL media blobs', async () => {
     const rejected = await getRoute(
       '@/app/api/host/summary/route',
       'http://localhost/api/host/summary',
@@ -447,31 +568,65 @@ describe('Slice-01 API routes', () => {
 
     const created = await postRoute('@/app/api/storage/media/route', {
       courseId: 'course-published',
+      sceneKey: 'scene-1',
+      mediaId: 'video-1',
       mediaType: 'video',
       mimeType: 'video/mp4',
-      ossKey: 'courses/course-published/video.mp4',
+      base64: Buffer.from('video-data').toString('base64'),
       sizeBytes: 4096,
     });
     await expect(created.json()).resolves.toMatchObject({
-      mediaFile: { id: 'media-1', ossKey: 'courses/course-published/video.mp4', sizeBytes: 4096 },
+      mediaFile: { id: 'media-1', mediaId: 'video-1', sizeBytes: 4096 },
     });
 
     const listed = await getRoute('@/app/api/storage/media/route');
     await expect(listed.json()).resolves.toMatchObject({
-      mediaFiles: [{ id: 'media-1', ossKey: 'courses/course-published/video.mp4' }],
+      mediaFiles: [{ id: 'media-1', mediaId: 'video-1' }],
     });
 
-    const presign = await postRoute('@/app/api/storage/presign/route', {
-      ossKey: 'courses/course-published/video.mp4',
-      mimeType: 'video/mp4',
-      expiresInSeconds: 900,
+    const mediaResponse = await getRoute(
+      '@/app/api/courses/[id]/media/[mediaId]/route',
+      'http://localhost/api/courses/course-published/media/video-1',
+    );
+    expect(mediaResponse.status).toBe(200);
+    expect(mediaResponse.headers.get('content-type')).toBe('video/mp4');
+    expect(Buffer.from(await mediaResponse.arrayBuffer()).toString('utf8')).toBe('video-data');
+
+    const createdAudio = await postRoute('@/app/api/storage/audio/route', {
+      courseId: 'course-published',
+      sceneKey: 'scene-1',
+      audioId: 'tts-1',
+      mimeType: 'audio/mpeg',
+      base64: Buffer.from('audio-data').toString('base64'),
+      sizeBytes: 1024,
     });
-    await expect(presign.json()).resolves.toMatchObject({
-      presignedUpload: {
-        method: 'PUT',
-        ossKey: 'courses/course-published/video.mp4',
-        headers: { 'Content-Type': 'video/mp4' },
-      },
+    await expect(createdAudio.json()).resolves.toMatchObject({
+      audio: { audioId: 'tts-1', mimeType: 'audio/mpeg', sizeBytes: 1024 },
     });
+    const audioResponse = await getRoute(
+      '@/app/api/courses/[id]/audio/[audioId]/route',
+      'http://localhost/api/courses/course-published/audio/tts-1',
+    );
+    expect(audioResponse.status).toBe(200);
+    expect(audioResponse.headers.get('content-type')).toBe('audio/mpeg');
+    expect(Buffer.from(await audioResponse.arrayBuffer()).toString('utf8')).toBe('audio-data');
+
+    mocks.current = adminAuth;
+    await postRoute('@/app/api/storage/media/route', {
+      courseId: 'course-draft',
+      sceneKey: 'scene-1',
+      mediaId: 'draft-image-1',
+      mediaType: 'image',
+      mimeType: 'image/png',
+      base64: Buffer.from('draft-image').toString('base64'),
+    });
+    const draftMediaResponse = await getRoute(
+      '@/app/api/courses/[id]/media/[mediaId]/route',
+      'http://localhost/api/courses/course-draft/media/draft-image-1',
+    );
+    expect(draftMediaResponse.status).toBe(200);
+    expect(Buffer.from(await draftMediaResponse.arrayBuffer()).toString('utf8')).toBe(
+      'draft-image',
+    );
   });
 });

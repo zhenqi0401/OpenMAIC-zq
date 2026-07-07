@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   boolean,
+  customType,
   index,
   integer,
   jsonb,
@@ -8,9 +9,16 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return 'bytea';
+  },
+});
 
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -84,6 +92,12 @@ export const courses = pgTable(
       .references(() => courseCategories.id),
     status: varchar('status', { length: 16 }).notNull().default('draft'),
     visibilityMode: varchar('visibility_mode', { length: 16 }).notNull().default('all'),
+    stageSnapshot: jsonb('stage_snapshot')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    generationStatus: varchar('generation_status', { length: 32 }).notNull().default('draft'),
+    generationComplete: boolean('generation_complete').notNull().default(false),
     assessmentQuestions: jsonb('assessment_questions')
       .$type<unknown[]>()
       .notNull()
@@ -111,26 +125,33 @@ export const courseVisibilityRoles = pgTable(
   (table) => [primaryKey({ columns: [table.courseId, table.roleId] })],
 );
 
-export const scenes = pgTable(
-  'scenes',
+export const courseScenes = pgTable(
+  'course_scenes',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     tenantId: uuid('tenant_id'),
     courseId: uuid('course_id')
       .notNull()
       .references(() => courses.id, { onDelete: 'cascade' }),
+    sceneKey: varchar('scene_key', { length: 128 }).notNull(),
     type: varchar('type', { length: 32 }).notNull(),
     title: text('title').notNull(),
     sceneOrder: integer('scene_order').notNull(),
+    sceneData: jsonb('scene_data').notNull(),
     content: jsonb('content').notNull(),
     actions: jsonb('actions'),
     whiteboards: jsonb('whiteboards'),
     ...timestamps,
   },
-  (table) => [index('scenes_course_id_idx').on(table.courseId)],
+  (table) => [
+    index('course_scenes_course_id_idx').on(table.courseId),
+    uniqueIndex('course_scenes_course_scene_key_idx').on(table.courseId, table.sceneKey),
+  ],
 );
 
-export const outlines = pgTable('outlines', {
+export const scenes = courseScenes;
+
+export const courseOutlines = pgTable('course_outlines', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id'),
   courseId: uuid('course_id')
@@ -138,8 +159,11 @@ export const outlines = pgTable('outlines', {
     .references(() => courses.id, { onDelete: 'cascade' }),
   outline: jsonb('outline').notNull(),
   generationStatus: varchar('generation_status', { length: 32 }).notNull().default('draft'),
+  generationComplete: boolean('generation_complete').notNull().default(false),
   ...timestamps,
 });
+
+export const outlines = courseOutlines;
 
 export const mediaFiles = pgTable(
   'media_files',
@@ -148,16 +172,44 @@ export const mediaFiles = pgTable(
     tenantId: uuid('tenant_id'),
     courseId: uuid('course_id').references(() => courses.id, { onDelete: 'set null' }),
     sceneId: uuid('scene_id').references(() => scenes.id, { onDelete: 'set null' }),
+    sceneKey: varchar('scene_key', { length: 128 }),
+    mediaId: varchar('media_id', { length: 128 }).notNull(),
     mediaType: varchar('media_type', { length: 32 }).notNull(),
     mimeType: varchar('mime_type', { length: 128 }),
     sizeBytes: integer('size_bytes'),
     prompt: text('prompt'),
     params: jsonb('params'),
-    ossKey: text('oss_key').notNull(),
-    posterOssKey: text('poster_oss_key'),
+    blob: bytea('blob').notNull(),
+    posterBlob: bytea('poster_blob'),
     ...timestamps,
   },
-  (table) => [index('media_files_course_id_idx').on(table.courseId)],
+  (table) => [
+    index('media_files_course_id_idx').on(table.courseId),
+    uniqueIndex('media_files_course_media_id_idx').on(table.courseId, table.mediaId),
+  ],
+);
+
+export const courseAudioBlobs = pgTable(
+  'course_audio_blobs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id'),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'cascade' }),
+    sceneKey: varchar('scene_key', { length: 128 }),
+    audioId: varchar('audio_id', { length: 128 }).notNull(),
+    mimeType: varchar('mime_type', { length: 128 }),
+    sizeBytes: integer('size_bytes').notNull(),
+    text: text('text'),
+    voice: varchar('voice', { length: 128 }),
+    blob: bytea('blob').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('course_audio_blobs_course_id_idx').on(table.courseId),
+    uniqueIndex('course_audio_blobs_course_audio_id_idx').on(table.courseId, table.audioId),
+  ],
 );
 
 export const courseProgress = pgTable(
@@ -276,9 +328,10 @@ export const enterpriseTableNames = [
   'course_categories',
   'courses',
   'course_visibility_roles',
-  'scenes',
-  'outlines',
+  'course_scenes',
+  'course_outlines',
   'media_files',
+  'course_audio_blobs',
   'course_progress',
   'assessment_attempts',
   'exam_policies',

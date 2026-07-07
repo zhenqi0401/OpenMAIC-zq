@@ -8,6 +8,10 @@ import {
   getInviteCodeView,
   getRoleLabel,
 } from '@/lib/admin/client';
+import {
+  formatDashboardPercent,
+  toDashboardProgressRatio,
+} from '@/components/admin/AdminSlice08Panel';
 
 const roles = [
   { id: 'role-admin', code: 'admin', name: '管理员', isAdmin: true },
@@ -20,9 +24,9 @@ describe('Slice-08 admin client helpers', () => {
       if (url === '/api/admin/dashboard') {
         return Response.json({
           summary: {
-            courseCompletionRate: 0.75,
-            assessmentPassRate: 0.8,
-            examPassRate: 0.6,
+            courseCompletionRate: 75,
+            assessmentPassRate: 80,
+            examPassRate: 60,
             learnerCount: 2,
             courseCount: 3,
             assessmentAttemptCount: 4,
@@ -37,9 +41,9 @@ describe('Slice-08 admin client helpers', () => {
 
     await expect(client.getDashboard()).resolves.toMatchObject({
       summary: {
-        courseCompletionRate: 0.75,
-        assessmentPassRate: 0.8,
-        examPassRate: 0.6,
+        courseCompletionRate: 75,
+        assessmentPassRate: 80,
+        examPassRate: 60,
       },
       progress: [],
     });
@@ -148,5 +152,18 @@ describe('Slice-08 admin client helpers', () => {
       ['/api/admin/invite-codes/invite-1', 'PATCH'],
       ['/api/admin/users/user-1/role', 'PATCH'],
     ]);
+  });
+
+  test('formats dashboard rates as 0-100 integer percents', () => {
+    expect(formatDashboardPercent(100)).toBe('100%');
+    expect(formatDashboardPercent(33)).toBe('33%');
+  });
+
+  test('clamps dashboard rate display and progress bars defensively', () => {
+    expect(formatDashboardPercent(125)).toBe('100%');
+    expect(formatDashboardPercent(-10)).toBe('0%');
+    expect(toDashboardProgressRatio(125)).toBe(1);
+    expect(toDashboardProgressRatio(-10)).toBe(0);
+    expect(toDashboardProgressRatio(75)).toBe(0.75);
   });
 });

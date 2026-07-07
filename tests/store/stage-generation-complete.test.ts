@@ -80,6 +80,19 @@ describe('generationComplete', () => {
     expect(useStageStore.getState().generationComplete).toBe(false);
   });
 
+  it('does not persist server-backed enterprise course content to IndexedDB', async () => {
+    useStageStore.getState().setStage({
+      ...makeStage(),
+      serverCourseId: 'course-postgres-1',
+    } as Stage & { serverCourseId: string });
+
+    await expect(useStageStore.getState().saveToStorage()).resolves.toBe(false);
+    useStageStore.getState().setOutlines([makeOutline(1)]);
+    useStageStore.getState().setGenerationComplete(true);
+    expect(saveStageDataMock).not.toHaveBeenCalled();
+    expect(stageOutlinesPut).not.toHaveBeenCalled();
+  });
+
   it('setGenerationComplete(true) flips the flag and persists it alongside outlines', async () => {
     useStageStore.setState({ stage: makeStage(), outlines: [makeOutline(1), makeOutline(2)] });
     useStageStore.getState().setGenerationComplete(true);

@@ -9,6 +9,15 @@ import { migrateScene } from '@/lib/edit/slide-schema';
 
 const log = createLogger('StageStore');
 
+function isServerBackedStage(stage: Stage | null): boolean {
+  const record = stage as unknown as Record<string, unknown> | null;
+  return !!(
+    record &&
+    typeof record.serverCourseId === 'string' &&
+    record.serverCourseId
+  );
+}
+
 /** Virtual scene ID used when the user navigates to a page still being generated */
 export const PENDING_SCENE_ID = '__pending__';
 
@@ -278,6 +287,7 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
 
   setOutlines: (outlines) => {
     set({ outlines });
+    if (isServerBackedStage(get().stage)) return;
     // Persist outlines to IndexedDB. Carry generationComplete so writing
     // outlines never clobbers a previously-recorded completion flag.
     const stageId = get().stage?.id;
@@ -297,6 +307,7 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
 
   setGenerationComplete: (generationComplete) => {
     set({ generationComplete });
+    if (isServerBackedStage(get().stage)) return;
     // Persist alongside the outlines record so resume-on-mount can read it.
     const stageId = get().stage?.id;
     if (stageId) {
@@ -376,6 +387,10 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
     const { stage, scenes, currentSceneId, chats } = get();
     if (!stage?.id) {
       log.warn('Cannot save: stage.id is required');
+      return false;
+    }
+    if (isServerBackedStage(stage)) {
+      log.info('Skipping IndexedDB save for server-backed course:', stage.id);
       return false;
     }
 

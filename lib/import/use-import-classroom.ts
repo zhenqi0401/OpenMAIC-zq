@@ -20,11 +20,28 @@ export type ImportPhase =
   | 'writingCourse'
   | 'done';
 
-export function useImportClassroom(onSuccess?: () => void) {
+export interface ImportedClassroomPayload {
+  stage: {
+    id: string;
+    name: string;
+    description?: string | null;
+  };
+  scenes: unknown[];
+}
+
+export interface UseImportClassroomOptions {
+  onSuccess?: () => void;
+  onImported?: (payload: ImportedClassroomPayload) => Promise<void> | void;
+}
+
+export function useImportClassroom(options: UseImportClassroomOptions | (() => void) = {}) {
+  const normalizedOptions =
+    typeof options === 'function' ? { onSuccess: options } : options;
   const [importing, setImporting] = useState(false);
   const [phase, setPhase] = useState<ImportPhase>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { t } = useI18n();
+  const { onSuccess, onImported } = normalizedOptions;
 
   const triggerFileSelect = useCallback(() => {
     fileInputRef.current?.click();
@@ -232,6 +249,17 @@ export function useImportClassroom(onSuccess?: () => void) {
         });
         await db.scenes.bulkPut(sceneRecords);
 
+        if (onImported) {
+          await onImported({
+            stage: {
+              id: newStageId,
+              name: manifest.stage.name || 'Imported Classroom',
+              description: manifest.stage.description ?? null,
+            },
+            scenes: sceneRecords,
+          });
+        }
+
         // 6. Done
         setPhase('done');
         toast.success(t('import.success'), { id: toastId });
@@ -247,7 +275,7 @@ export function useImportClassroom(onSuccess?: () => void) {
         setPhase('idle');
       }
     },
-    [t, onSuccess],
+    [t, onSuccess, onImported],
   );
 
   return {

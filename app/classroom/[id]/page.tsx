@@ -16,10 +16,12 @@ import { migrateScene } from '@/lib/edit/slide-schema';
 import type { Scene } from '@/lib/types/stage';
 import { canManageCourses, type CourseAuthoringIdentity } from '@/lib/authoring/course-permissions';
 import {
+  classifyCourseStorageFailure,
   regenerateGeneratedCourseAssessment,
   replaceGeneratedCourseDraftContent,
 } from '@/lib/authoring/course-draft';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
+import { loadEnterpriseClassroom } from '@/lib/classroom/enterprise-course-loader';
 
 const log = createLogger('Classroom');
 
@@ -38,17 +40,30 @@ export default function ClassroomDetailPage() {
   const generatedCourseIdRef = useRef<string | null>(null);
   const assessmentGenerationStartedRef = useRef(false);
 
-  const syncGeneratedDraftContent = useCallback(async (courseId = generatedCourseIdRef.current) => {
-    if (!courseId) return;
+  const syncGeneratedDraftContent = useCallback(
+    async (
+      courseId = generatedCourseIdRef.current,
+      options: { generationComplete?: boolean } = {},
+    ) => {
+      if (!courseId) return;
 
-    const { scenes, outlines } = useStageStore.getState();
-    try {
-      return await replaceGeneratedCourseDraftContent(fetch, courseId, { scenes, outlines });
-    } catch (error) {
-      log.warn('[Classroom] Failed to sync generated course draft content:', error);
-      return null;
-    }
-  }, []);
+      const { scenes, outlines, stage, generationComplete } = useStageStore.getState();
+      const isComplete = options.generationComplete ?? generationComplete;
+      try {
+        return await replaceGeneratedCourseDraftContent(fetch, courseId, {
+          stage,
+          scenes,
+          outlines,
+          generationStatus: isComplete ? 'ready' : 'generating',
+          generationComplete: isComplete,
+        });
+      } catch (error) {
+        log.warn('[Classroom] Failed to sync generated course draft content:', error);
+        return null;
+      }
+    },
+    [],
+  );
 
   const generateDraftAssessment = useCallback(async (courseId = generatedCourseIdRef.current) => {
     if (!courseId || assessmentGenerationStartedRef.current) return;
@@ -96,7 +111,7 @@ export default function ClassroomDetailPage() {
     },
     onComplete: () => {
       log.info('[Classroom] All scenes generated');
-      void syncGeneratedDraftContent().then((content) => {
+      void syncGeneratedDraftContent(generatedCourseIdRef.current, { generationComplete: true }).then((content) => {
         if (content) void generateDraftAssessment();
       });
     },
@@ -114,10 +129,28 @@ export default function ClassroomDetailPage() {
         setAuthoringIdentity({ isAdmin: false });
       }
 
-      await loadFromStorage(classroomId);
+      const enterpriseClassroom = await loadEnterpriseClassroom(classroomId);
+      const loadedEnterpriseClassroom = enterpriseClassroom !== null;
+      if (enterpriseClassroom) {
+        const migrated = enterpriseClassroom.scenes.map(migrateScene);
+        useStageStore.setState({
+          stage: enterpriseClassroom.stage,
+          scenes: migrated,
+          currentSceneId: enterpriseClassroom.currentSceneId,
+          chats: [],
+          outlines: enterpriseClassroom.outlines,
+          generationComplete: enterpriseClassroom.generationComplete,
+          generatingOutlines: [],
+          mode: 'playback',
+        });
+        setEnterpriseCourseId(classroomId);
+        log.info('Loaded enterprise course from PostgreSQL:', classroomId);
+      } else {
+        await loadFromStorage(classroomId);
+      }
 
       // If IndexedDB had no data, try server-side storage (API-generated classrooms)
-      if (!useStageStore.getState().stage) {
+      if (!loadedEnterpriseClassroom && !useStageStore.getState().stage) {
         log.info('No IndexedDB data, trying server-side storage for:', classroomId);
         try {
           const res = await fetch(`/api/classroom?id=${encodeURIComponent(classroomId)}`);
@@ -156,8 +189,11 @@ export default function ClassroomDetailPage() {
         }
       }
 
-      // Restore completed media generation tasks from IndexedDB
-      await useMediaGenerationStore.getState().restoreFromDB(classroomId);
+      // Restore completed media generation tasks from IndexedDB only for local/API-generated classrooms.
+      // Enterprise course media comes from PostgreSQL manifests and authenticated media endpoints.
+      if (!loadedEnterpriseClassroom) {
+        await useMediaGenerationStore.getState().restoreFromDB(classroomId);
+      }
       // Restore agents for this stage
       const { loadGeneratedAgentsForStage, useAgentRegistry } =
         await import('@/lib/orchestration/registry/store');
@@ -272,6 +308,7 @@ export default function ClassroomDetailPage() {
           agents: params.agents,
           userProfile: params.userProfile,
           languageDirective: params.languageDirective || stage.languageDirective,
+          courseStorage: generatedCourseId ? { courseId: generatedCourseId } : undefined,
         });
       });
     } else if (outlines.length > 0 && stage) {
@@ -291,8 +328,16 @@ export default function ClassroomDetailPage() {
       // generating its media would waste API calls on a slide that is gone.
       const materializedOrders = new Set(scenes.map((s) => s.order));
       const materializedOutlines = outlines.filter((o) => materializedOrders.has(o.order));
-      generateMediaForOutlines(materializedOutlines, stage.id).catch((err) => {
-        log.warn('[Classroom] Media generation resume error:', err);
+      generateMediaForOutlines(
+        materializedOutlines,
+        stage.id,
+        undefined,
+        generatedCourseIdRef.current ? { courseId: generatedCourseIdRef.current } : undefined,
+      ).catch((err) => {
+        log.warn('[Classroom] Media generation resume error:', {
+          reason: classifyCourseStorageFailure(err),
+          error: err,
+        });
       });
     }
   }, [loading, error, generateRemaining]);

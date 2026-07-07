@@ -1,27 +1,40 @@
-import { Shield } from 'lucide-react';
+import { AdminShell } from '@/components/admin/AdminShell';
+import { AdminAccessGate } from '@/components/admin/AdminAccessGate';
 import { AdminSlice08Panel } from '@/components/admin/AdminSlice08Panel';
+import type { AdminModuleId } from '@/components/admin/AdminShell';
 import { CourseAdminPanel } from '@/components/admin/courses/CourseAdminPanel';
 import { ExamPolicyAdminPanel } from '@/components/admin/exams/ExamPolicyAdminPanel';
 
-export default function AdminPage() {
+type AdminSearchParams = Record<string, string | string[] | undefined>;
+
+const adminModuleIds = new Set<AdminModuleId>(['dashboard', 'courses', 'exams', 'access']);
+
+export function resolveAdminModuleId(searchParams: AdminSearchParams | undefined): AdminModuleId {
+  const moduleIdParam = searchParams?.module;
+  return typeof moduleIdParam === 'string' && adminModuleIds.has(moduleIdParam as AdminModuleId)
+    ? (moduleIdParam as AdminModuleId)
+    : 'dashboard';
+}
+
+function AdminModuleView({ activeModuleId }: { activeModuleId: AdminModuleId }) {
+  if (activeModuleId === 'courses') return <CourseAdminPanel />;
+  if (activeModuleId === 'exams') return <ExamPolicyAdminPanel />;
+  if (activeModuleId === 'access') return <AdminSlice08Panel view="access" />;
+  return <AdminSlice08Panel view="dashboard" />;
+}
+
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams?: Promise<AdminSearchParams>;
+}) {
+  const activeModuleId = resolveAdminModuleId(await searchParams);
+
   return (
-    <main className="min-h-[100dvh] bg-slate-50 px-4 py-8 dark:bg-slate-950">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-md bg-slate-900 text-white dark:bg-white dark:text-slate-950">
-            <Shield className="size-5" />
-          </div>
-          <div>
-            <h1 className="text-xl font-semibold text-slate-950 dark:text-slate-50">管理后台</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              看板、角色、邀请码、用户、课程与考核
-            </p>
-          </div>
-        </div>
-        <AdminSlice08Panel />
-        <CourseAdminPanel />
-        <ExamPolicyAdminPanel />
-      </div>
-    </main>
+    <AdminShell activeModuleId={activeModuleId}>
+      <AdminAccessGate>
+        <AdminModuleView activeModuleId={activeModuleId} />
+      </AdminAccessGate>
+    </AdminShell>
   );
 }
