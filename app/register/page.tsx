@@ -50,13 +50,15 @@ export default function RegisterPage() {
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="phone">手机号</Label>
-            <Input id="phone" value={phone} onChange={(event) => setPhone(event.target.value)} />
+            <Input id="phone" placeholder="请输入手机号" value={phone} onChange={(event) => setPhone(event.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">密码</Label>
             <Input
               id="password"
               type="password"
+              placeholder="至少6位密码"
+              minLength={6}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
@@ -65,6 +67,7 @@ export default function RegisterPage() {
             <Label htmlFor="inviteCode">邀请码</Label>
             <Input
               id="inviteCode"
+              placeholder="请输入邀请码"
               value={inviteCode}
               onChange={(event) => setInviteCode(event.target.value)}
             />

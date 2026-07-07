@@ -95,7 +95,7 @@ function assertValidPhone(phone: string): void {
 }
 
 function assertStrongEnoughPassword(password: string): void {
-  if (password.length < 8) {
+  if (password.length < 6) {
     throw new AuthServiceError('WEAK_PASSWORD');
   }
 }
