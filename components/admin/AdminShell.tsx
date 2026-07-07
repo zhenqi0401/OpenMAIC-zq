@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { BarChart3, BookOpen, ClipboardList, KeyRound, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
 
 export type AdminModuleId = 'dashboard' | 'courses' | 'exams' | 'access';
 
@@ -63,6 +64,10 @@ export function AdminShell({ activeModuleId = 'dashboard', children }: AdminShel
 
         <main data-admin-shell="prototype-workbench" className="min-w-0">
           <div className="grid w-full gap-6 px-3 py-4 sm:px-4 lg:px-6 lg:py-6">
+            <div className="flex justify-end">
+              <AdminSessionActions />
+            </div>
+
             <div className="lg:hidden">
               <AdminBrand compact />
               <div className="mt-4 overflow-x-auto pb-1">

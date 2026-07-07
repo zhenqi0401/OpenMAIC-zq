@@ -43,4 +43,18 @@ describe('AdminShell', () => {
     expect(markup).not.toContain('max-w-[1280px]');
     expect(markup).not.toContain('运营状态一屏处理');
   });
+
+  it('shows admin session actions for returning home and logging out', () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(
+        AdminShell,
+        { activeModuleId: 'courses' },
+        React.createElement('div', null, 'course content'),
+      ),
+    );
+
+    expect(markup).toContain('href="/"');
+    expect(markup).toContain('返回首页');
+    expect(markup).toContain('退出登录');
+  });
 });
