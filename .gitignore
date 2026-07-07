@@ -4,6 +4,7 @@ CLAUDE.local.md
 .claude
 .superpowers
 AGENTS.md
+voxcpm_python_api_server.py
 
 # dependencies
 /node_modules
