@@ -354,7 +354,7 @@ function HomePage() {
       return;
     }
     if (shouldShowAdminEntry(identity) && !form.categoryId) {
-      setError('Course category is required');
+      setError('请选择课程分类');
       return;
     }
 
@@ -659,17 +659,16 @@ function HomePage() {
             />
 
             {requiresCategory && (
-              <div className="border-t border-border/40 px-4 py-2">
-                <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
-                  <Shield className="size-3.5 shrink-0" />
-                  <span className="shrink-0">Course category</span>
+              <div className="px-4 pb-2 pt-1">
+                <label className="flex items-center gap-2 rounded-lg bg-slate-50/70 px-2.5 py-1.5 text-[12px] text-muted-foreground dark:bg-slate-800/50">
+                  <span className="shrink-0">课程分类选择</span>
                   <select
-                    aria-label="Course category"
+                    aria-label="课程分类选择"
                     value={form.categoryId}
                     onChange={(event) => updateForm('categoryId', event.target.value)}
-                    className="min-w-0 flex-1 rounded-md border border-border/60 bg-background/80 px-2 py-1 text-[12px] text-foreground outline-none focus:border-primary/60"
+                    className="min-w-0 flex-1 rounded-md border-0 bg-transparent px-1 py-0.5 text-[12px] text-foreground outline-none transition-colors focus:bg-background/70"
                   >
-                    <option value="">Select category</option>
+                    <option value="">请选择课程分类</option>
                     {courseCategories.map((category) => (
                       <option key={category.id} value={category.id}>
                         {category.name}
