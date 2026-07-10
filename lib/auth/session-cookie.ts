@@ -26,7 +26,7 @@ export function sessionCookieOptions(): Partial<ResponseCookie> {
     sameSite: 'lax',
     path: '/',
     maxAge: SESSION_MAX_AGE_SECONDS,
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production' && process.env.SESSION_COOKIE_SECURE !== 'false',
   };
 }
 
