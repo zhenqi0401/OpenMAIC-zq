@@ -236,3 +236,29 @@ test('keeps the learner home and exam dialog within a phone viewport', async ({ 
   expect(dialogBox?.height).toBeLessThanOrEqual(844);
   await page.screenshot({ path: 'output/playwright/learner-home-exam-mobile-production.png' });
 });
+
+test('keeps learner exam tasks off the administrator workbench', async ({ page }) => {
+  await page.unroute('**/api/auth/session');
+  await page.route('**/api/auth/session', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        authenticated: true,
+        identity: {
+          ...learnerIdentity,
+          userId: 'admin-e2e',
+          roleId: 'role-admin',
+          roleCode: 'admin',
+          isAdmin: true,
+          authSource: 'host-sso',
+        },
+      }),
+    }),
+  );
+
+  await page.reload();
+  await expect(page.locator('textarea')).toBeVisible();
+  await expect(page.getByRole('button', { name: /进入考核/ })).toHaveCount(0);
+  await expect(page.getByText('暂无待完成考核')).toHaveCount(0);
+});

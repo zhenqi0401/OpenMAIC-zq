@@ -66,7 +66,6 @@ import { shouldShowVocationalTestUi } from '@/lib/config/feature-flags';
 import { useImportPptx } from '@/lib/import/use-import-pptx';
 import { shouldShowAdminEntry } from '@/lib/auth/route-policy';
 import type { SessionIdentity } from '@/lib/auth/types';
-import { StageExamPanel } from '@/components/assessment/StageExamPanel';
 import type { EnterpriseCategory } from '@/lib/storage/enterprise-service';
 import { logoutCurrentSession } from '@/lib/auth/logout-client';
 import { persistImportedClassroomToEnterprise } from '@/lib/authoring/course-draft';
@@ -922,8 +921,6 @@ function HomePage() {
           </div>
         )}
       </motion.div>
-
-      <StageExamPanel identity={identity} />
 
       {/* ═══ Recent classrooms — collapsible ═══ */}
       {classrooms.length > 0 && (
