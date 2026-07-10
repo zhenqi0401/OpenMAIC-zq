@@ -13,5 +13,6 @@ export function getAuthRedirect(pathname: string, identity: SessionIdentity | nu
 
   if (PUBLIC_PATHS.has(pathname)) return '/';
   if (pathname.startsWith('/admin') && !identity.isAdmin) return '/';
+  if (pathname.startsWith('/generation-preview') && !identity.isAdmin) return '/';
   return null;
 }

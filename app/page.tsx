@@ -51,6 +51,7 @@ import {
 } from '@/lib/utils/stage-storage';
 import {
   loadHomeCourses,
+  shouldPersistImportedClassroom,
   type HomeCourse,
 } from '@/lib/home/enterprise-course-list';
 import { SlideThumbnail } from '@/components/slide-renderer/SlideThumbnail';
@@ -69,6 +70,7 @@ import { StageExamPanel } from '@/components/assessment/StageExamPanel';
 import type { EnterpriseCategory } from '@/lib/storage/enterprise-service';
 import { logoutCurrentSession } from '@/lib/auth/logout-client';
 import { persistImportedClassroomToEnterprise } from '@/lib/authoring/course-draft';
+import { LearnerHome } from '@/components/home/LearnerHome';
 
 const log = createLogger('Home');
 
@@ -108,6 +110,7 @@ function HomePage() {
   const [form, setForm] = useState<FormState>(initialFormState);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [identity, setIdentity] = useState<SessionIdentity | null>(null);
+  const [sessionState, setSessionState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [courseCategories, setCourseCategories] = useState<EnterpriseCategory[]>([]);
   const [settingsSection, setSettingsSection] = useState<
     import('@/lib/types/settings').SettingsSection | undefined
@@ -164,10 +167,14 @@ function HomePage() {
           response.json() as Promise<{ authenticated: boolean; identity?: SessionIdentity }>,
       )
       .then((session) => {
-        if (!cancelled) setIdentity(session.authenticated ? (session.identity ?? null) : null);
+        if (cancelled) return;
+        setIdentity(session.authenticated ? (session.identity ?? null) : null);
+        setSessionState('ready');
       })
       .catch(() => {
-        if (!cancelled) setIdentity(null);
+        if (cancelled) return;
+        setIdentity(null);
+        setSessionState('error');
       });
     return () => {
       cancelled = true;
@@ -218,6 +225,8 @@ function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [classrooms, setClassrooms] = useState<HomeCourse[]>([]);
   const [thumbnails, setThumbnails] = useState<Record<string, Slide>>({});
+  const [coursesLoading, setCoursesLoading] = useState(true);
+  const [coursesError, setCoursesError] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -247,26 +256,30 @@ function HomePage() {
   }, [themeOpen]);
 
   const loadClassrooms = async () => {
+    setCoursesLoading(true);
+    setCoursesError(null);
     try {
       const result = await loadHomeCourses();
       setClassrooms(result.courses);
       replaceThumbnails(result.thumbnails);
     } catch (err) {
       log.error('Failed to load classrooms:', err);
+      setCoursesError(err instanceof Error ? err.message : '课程加载失败');
+    } finally {
+      setCoursesLoading(false);
     }
   };
 
   const { importing, fileInputRef, triggerFileSelect, handleFileChange } = useImportClassroom({
-    onImported:
-      shouldShowAdminEntry(identity) && form.categoryId
-        ? async (payload) => {
-            await persistImportedClassroomToEnterprise(fetch, {
-              stage: payload.stage,
-              scenes: payload.scenes,
-              categoryId: form.categoryId,
-            });
-          }
-        : undefined,
+    onImported: shouldPersistImportedClassroom(identity, form.categoryId)
+      ? async (payload) => {
+          await persistImportedClassroomToEnterprise(fetch, {
+            stage: payload.stage,
+            scenes: payload.scenes,
+            categoryId: form.categoryId,
+          });
+        }
+      : undefined,
     onSuccess: () => {
       loadClassrooms();
     },
@@ -447,6 +460,73 @@ function HomePage() {
       toast.error('退出登录失败');
     }
   };
+
+  if (sessionState === 'loading') {
+    return (
+      <div
+        className="min-h-[100dvh] bg-[#f4f5f7] px-4 pt-16 dark:bg-[#12141a]"
+        aria-busy="true"
+        aria-label="正在加载首页"
+      >
+        <div className="mx-auto w-full max-w-6xl animate-pulse">
+          <div className="h-8 w-36 rounded bg-slate-200 dark:bg-slate-800" />
+          <div className="mt-16 h-9 w-64 rounded bg-slate-200 dark:bg-slate-800" />
+          <div className="mt-12 grid gap-8 lg:grid-cols-[244px_minmax(0,1fr)]">
+            <div className="h-56 rounded bg-amber-100 dark:bg-amber-950/50" />
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 6 }, (_, index) => (
+                <div key={index} className="h-64 rounded-lg bg-slate-200 dark:bg-slate-800" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (sessionState === 'error' || !identity) {
+    return (
+      <main className="grid min-h-[100dvh] place-items-center bg-[#f4f5f7] p-6 dark:bg-[#12141a]">
+        <div className="max-w-sm text-center">
+          <h1 className="text-xl font-semibold">会话加载失败</h1>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            无法确认当前登录身份，请重新加载页面。
+          </p>
+          <Button className="mt-5" onClick={() => window.location.reload()}>
+            重新加载
+          </Button>
+        </div>
+      </main>
+    );
+  }
+
+  if (!identity.isAdmin) {
+    return (
+      <>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".zip"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+        <LearnerHome
+          identity={identity}
+          courses={classrooms}
+          thumbnails={thumbnails}
+          loading={coursesLoading}
+          error={coursesError}
+          importing={importing}
+          onImport={triggerFileSelect}
+          onRetry={loadClassrooms}
+          onOpenCourse={(id) => router.push(`/classroom/${id}`)}
+          onRenameCourse={handleRename}
+          onDeleteCourse={confirmDelete}
+          onLogout={handleLogout}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] w-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex flex-col items-center p-4 pt-16 md:p-8 md:pt-16 overflow-x-hidden">

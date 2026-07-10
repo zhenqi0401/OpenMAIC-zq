@@ -1,16 +1,20 @@
 import type { Slide } from '@openmaic/dsl';
-import {
-  getFirstSlideByStages,
-  listStages,
-  type StageListItem,
-} from '@/lib/utils/stage-storage';
+import { getFirstSlideByStages, listStages, type StageListItem } from '@/lib/utils/stage-storage';
+import type { SessionIdentity } from '@/lib/auth/types';
+
+export type HomeCourseSource = 'enterprise' | 'local';
+export type HomeCourseFilter = 'all' | HomeCourseSource;
+
+export type LocalHomeCourse = StageListItem & {
+  source: 'local';
+};
 
 export type EnterpriseHomeCourse = StageListItem & {
   source: 'enterprise';
   generationComplete?: boolean;
 };
 
-export type HomeCourse = StageListItem | EnterpriseHomeCourse;
+export type HomeCourse = LocalHomeCourse | EnterpriseHomeCourse;
 
 export interface HomeCourseLoadResult {
   courses: HomeCourse[];
@@ -27,6 +31,7 @@ export interface HomeCourseLoaders {
 type FetchLike = (url: string) => Promise<Response>;
 
 interface EnterpriseCourseListResponse {
+  error?: unknown;
   courses?: Array<{
     id?: unknown;
     name?: unknown;
@@ -60,9 +65,11 @@ export async function loadEnterpriseHomeCourses(
   fetcher: FetchLike = (url) => fetch(url),
 ): Promise<EnterpriseHomeCourse[]> {
   const response = await fetcher('/api/courses');
-  if (!response.ok) return [];
-
   const data = (await response.json().catch(() => ({}))) as EnterpriseCourseListResponse;
+  if (!response.ok) {
+    const message = typeof data.error === 'string' ? data.error : '课程加载失败';
+    throw new Error(message.includes('课程') ? message : '课程加载失败');
+  }
   const courses = Array.isArray(data.courses) ? data.courses : [];
 
   return courses
@@ -78,6 +85,32 @@ export async function loadEnterpriseHomeCourses(
       generationComplete:
         typeof course.generationComplete === 'boolean' ? course.generationComplete : undefined,
     }));
+}
+
+export function isLocalHomeCourse(course: HomeCourse): course is LocalHomeCourse {
+  return course.source === 'local';
+}
+
+export function filterHomeCourses(
+  courses: HomeCourse[],
+  source: HomeCourseFilter,
+  query: string,
+): HomeCourse[] {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  return courses.filter((course) => {
+    if (source !== 'all' && course.source !== source) return false;
+    if (!normalizedQuery) return true;
+    return [course.name, course.description]
+      .filter((value): value is string => typeof value === 'string')
+      .some((value) => value.toLocaleLowerCase().includes(normalizedQuery));
+  });
+}
+
+export function shouldPersistImportedClassroom(
+  identity: SessionIdentity | null,
+  categoryId: string,
+): boolean {
+  return identity?.isAdmin === true && categoryId.trim().length > 0;
 }
 
 export async function loadEnterpriseHomeCourseThumbnails(
@@ -112,19 +145,23 @@ export async function loadHomeCourses(
     loaders.listLocalStages(),
     loaders.loadEnterpriseCourses(),
   ]);
+  const sourcedLocalCourses: LocalHomeCourse[] = localCourses.map((course) => ({
+    ...course,
+    source: 'local',
+  }));
   const [localThumbnails, enterpriseThumbnails] = await Promise.all([
     localCourses.length > 0
       ? loaders.getFirstSlides(localCourses.map((course) => course.id))
       : Promise.resolve({}),
     enterpriseCourses.length > 0
-      ? (loaders.loadEnterpriseFirstSlides ?? loadEnterpriseHomeCourseThumbnails)(
-          enterpriseCourses,
-        )
+      ? (loaders.loadEnterpriseFirstSlides ?? loadEnterpriseHomeCourseThumbnails)(enterpriseCourses)
       : Promise.resolve({}),
   ]);
 
   return {
-    courses: [...localCourses, ...enterpriseCourses].sort((a, b) => b.updatedAt - a.updatedAt),
+    courses: [...sourcedLocalCourses, ...enterpriseCourses].sort(
+      (a, b) => b.updatedAt - a.updatedAt,
+    ),
     thumbnails: { ...localThumbnails, ...enterpriseThumbnails },
   };
 }

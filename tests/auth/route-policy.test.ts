@@ -32,6 +32,8 @@ describe('Slice-07 auth route policy', () => {
     expect(getAuthRedirect('/register', learner)).toBe('/');
     expect(getAuthRedirect('/admin', learner)).toBe('/');
     expect(getAuthRedirect('/admin', admin)).toBeNull();
+    expect(getAuthRedirect('/generation-preview', learner)).toBe('/');
+    expect(getAuthRedirect('/generation-preview', admin)).toBeNull();
   });
 
   test('shows the admin entry only to admin identities', () => {
