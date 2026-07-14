@@ -273,6 +273,14 @@ function makeRepository(): EnterpriseRepository {
       policy.status = 'published';
       return policy;
     },
+    async deleteExamPolicy(id) {
+      const index = examPolicies.findIndex((policy) => policy.id === id);
+      if (index === -1) return { outcome: 'not_found' as const };
+      const policy = examPolicies[index];
+      if (policy.status !== 'draft') return { outcome: 'not_draft' as const, policy };
+      examPolicies.splice(index, 1);
+      return { outcome: 'deleted' as const, policy };
+    },
     async listExamAttemptsForUser() {
       return [];
     },
@@ -628,6 +636,59 @@ describe('Slice-01 API routes', () => {
     await expect(publishResponse.json()).resolves.toMatchObject({
       examPolicy: { id: 'exam-policy-1', status: 'published' },
     });
+  });
+
+  test('admin exam policy deletion returns 200 for drafts, 409 for published, and 404 when missing', async () => {
+    const draft = await postRoute('@/app/api/admin/exam-policies/route', {
+      title: 'Draft Exam',
+      targetRoleId: learnerRole.id,
+      categoryIds: ['cat-1'],
+      courseIds: [],
+      questionCount: 10,
+      passThreshold: 80,
+      timeLimitMinutes: 30,
+    });
+    const draftData = (await draft.json()) as { examPolicy: { id: string } };
+    const deleted = await deleteRouteWithContext('@/app/api/admin/exam-policies/[id]/route', {
+      params: Promise.resolve({ id: draftData.examPolicy.id }),
+    });
+    expect(deleted.status).toBe(200);
+    await expect(deleted.json()).resolves.toMatchObject({
+      examPolicy: { id: draftData.examPolicy.id, status: 'draft' },
+    });
+
+    const publishedDraft = await postRoute('@/app/api/admin/exam-policies/route', {
+      title: 'Published Exam',
+      targetRoleId: learnerRole.id,
+      categoryIds: ['cat-1'],
+      courseIds: [],
+      questionCount: 10,
+      passThreshold: 80,
+      timeLimitMinutes: 30,
+    });
+    const publishedData = (await publishedDraft.json()) as { examPolicy: { id: string } };
+    await postRouteWithContext(
+      '@/app/api/admin/exam-policies/[id]/publish/route',
+      {},
+      { params: Promise.resolve({ id: publishedData.examPolicy.id }) },
+    );
+    const archived = await patchRoute(
+      '@/app/api/admin/exam-policies/[id]/route',
+      { status: 'archived' },
+      { params: Promise.resolve({ id: publishedData.examPolicy.id }) },
+    );
+    await expect(archived.json()).resolves.toMatchObject({
+      examPolicy: { id: publishedData.examPolicy.id, status: 'archived' },
+    });
+    const conflict = await deleteRouteWithContext('@/app/api/admin/exam-policies/[id]/route', {
+      params: Promise.resolve({ id: publishedData.examPolicy.id }),
+    });
+    expect(conflict.status).toBe(409);
+
+    const missing = await deleteRouteWithContext('@/app/api/admin/exam-policies/[id]/route', {
+      params: Promise.resolve({ id: '00000000-0000-0000-0000-000000000000' }),
+    });
+    expect(missing.status).toBe(404);
   });
 
   test('host and storage APIs use API-key auth and PostgreSQL media blobs', async () => {

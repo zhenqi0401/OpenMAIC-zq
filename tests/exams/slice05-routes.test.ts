@@ -265,6 +265,9 @@ function makeRepository(): EnterpriseRepository {
     async publishExamPolicy() {
       throw new Error('not used');
     },
+    async deleteExamPolicy() {
+      throw new Error('not used');
+    },
     async listExamAttemptsForUser(examPolicyId, userId) {
       return examAttempts.filter(
         (attempt) => attempt.examPolicyId === examPolicyId && attempt.userId === userId,

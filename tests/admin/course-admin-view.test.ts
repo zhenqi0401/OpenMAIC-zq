@@ -115,10 +115,13 @@ describe('filterAdminCourses', () => {
   it('renders the streamlined course layout with text buttons', () => {
     const markup = renderToStaticMarkup(createElement(CourseAdminPanel));
 
-    expect(markup).toContain('课程分类');
-    expect(markup).toContain('新建课程草稿');
+    expect(markup).toContain('课程列表');
+    expect(markup).toContain('课程由首页生成，此处负责筛选、分类、发布、可见范围和删除。');
+    expect(markup).not.toContain('新建课程草稿');
     expect(markup).toContain('发布结构');
-    expect(markup).toContain('创建草稿');
+    expect(markup).not.toContain('创建草稿');
+    expect(markup).toContain('上一页');
+    expect(markup).toContain('下一页');
     expect(markup).not.toContain('data-size="icon"');
   });
 });

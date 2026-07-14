@@ -31,6 +31,9 @@ describe('admin layout polish', () => {
     expect(markup).toContain('data-admin-dashboard-progress-panel');
     expect(markup).toContain('学员列表');
     expect(markup).toContain('按用户 ID 筛选');
+    expect(markup).toContain('显示 0 条，共 0 条');
+    expect(markup).toContain('上一页');
+    expect(markup).toContain('下一页');
   });
 
   it('keeps course and exam module action buttons textual', () => {
@@ -39,6 +42,11 @@ describe('admin layout polish', () => {
 
     expect(courseMarkup).toContain('返回首页');
     expect(courseMarkup).toContain('刷新');
+    expect(courseMarkup).toContain('课程列表');
+    expect(courseMarkup).toContain('上一页');
+    expect(courseMarkup).toContain('下一页');
+    expect(courseMarkup).not.toContain('新建课程草稿');
+    expect(courseMarkup).not.toContain('创建草稿');
     expect(courseMarkup).not.toContain('data-size="icon"');
     expect(examMarkup).toContain('返回首页');
     expect(examMarkup).not.toContain('data-size="icon"');

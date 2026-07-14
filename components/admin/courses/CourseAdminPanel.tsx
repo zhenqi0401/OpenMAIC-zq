@@ -20,17 +20,12 @@ import type {
   EnterpriseCourse,
 } from '@/lib/storage/enterprise-service';
 import type { AuthRole } from '@/lib/auth/service';
+import { paginateAdminRows } from '@/lib/admin/pagination';
 
 interface Category {
   id: string;
   name: string;
   sortOrder: number;
-}
-
-interface CourseDraft {
-  name: string;
-  description: string;
-  categoryId: string;
 }
 
 export interface CourseAdminFilters {
@@ -112,11 +107,6 @@ export function CourseAdminPanel() {
   const [roles, setRoles] = useState<AuthRole[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [courses, setCourses] = useState<EnterpriseCourse[]>([]);
-  const [courseDraft, setCourseDraft] = useState<CourseDraft>({
-    name: '',
-    description: '',
-    categoryId: '',
-  });
   const [categoryName, setCategoryName] = useState('');
   const [visibilityDrafts, setVisibilityDrafts] = useState<
     Record<string, { visibilityMode: CourseVisibilityMode; visibleRoleIds: string[] }>
@@ -124,9 +114,14 @@ export function CourseAdminPanel() {
   const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null);
   const [filters, setFilters] = useState<CourseAdminFilters>(DEFAULT_COURSE_ADMIN_FILTERS);
   const [filterDraft, setFilterDraft] = useState<CourseAdminFilters>(DEFAULT_COURSE_ADMIN_FILTERS);
+  const [coursePage, setCoursePage] = useState(1);
 
   const learnerRoles = useMemo(() => roles.filter((role) => !role.isAdmin), [roles]);
   const filteredCourses = useMemo(() => filterAdminCourses(courses, filters), [courses, filters]);
+  const coursePagination = useMemo(
+    () => paginateAdminRows(filteredCourses, coursePage),
+    [coursePage, filteredCourses],
+  );
   const courseStatusSummary = useMemo(
     () => ({
       published: courses.filter((course) => course.status === 'published').length,
@@ -163,10 +158,6 @@ export function CourseAdminPanel() {
         ]),
       ),
     );
-    setCourseDraft((draft) => ({
-      ...draft,
-      categoryId: draft.categoryId || categoriesData.categories[0]?.id || '',
-    }));
   }
 
   useEffect(() => {
@@ -188,29 +179,6 @@ export function CourseAdminPanel() {
     }
     setCategoryName('');
     toast.success('分类已创建');
-    await loadAll();
-  }
-
-  async function createCourse() {
-    if (!courseDraft.name.trim() || !courseDraft.categoryId) {
-      toast.error('课程名称和分类必填');
-      return;
-    }
-    const response = await fetch('/api/admin/courses', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: courseDraft.name.trim(),
-        description: courseDraft.description.trim() || null,
-        categoryId: courseDraft.categoryId,
-      }),
-    });
-    if (!response.ok) {
-      toast.error('课程草稿创建失败');
-      return;
-    }
-    setCourseDraft({ name: '', description: '', categoryId: categories[0]?.id || '' });
-    toast.success('课程草稿已创建');
     await loadAll();
   }
 
@@ -305,13 +273,15 @@ export function CourseAdminPanel() {
         title="课程管理"
       />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.55fr)]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(280px,0.35fr)]">
         <AdminCard className="overflow-hidden">
           <div className="border-b border-[#d8c8b9] px-4 py-4">
             <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
-              课程分类
+              课程列表
             </div>
-            <p className="mt-1 text-sm text-[#75665d]">先按分类和条件收窄，再维护课程列表。</p>
+            <p className="mt-1 text-sm text-[#75665d]">
+              课程由首页生成，此处负责筛选、分类、发布、可见范围和删除。
+            </p>
           </div>
 
           <div className="grid gap-2 border-b border-[#eaded1] p-3 md:grid-cols-[minmax(180px,1fr)_140px_140px_140px_auto]">
@@ -369,7 +339,10 @@ export function CourseAdminPanel() {
             <div className="flex gap-2">
               <Button
                 className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
-                onClick={() => setFilters(filterDraft)}
+                onClick={() => {
+                  setFilters(filterDraft);
+                  setCoursePage(1);
+                }}
                 type="button"
               >
                 筛选
@@ -380,6 +353,7 @@ export function CourseAdminPanel() {
                   onClick={() => {
                     setFilterDraft(DEFAULT_COURSE_ADMIN_FILTERS);
                     setFilters(DEFAULT_COURSE_ADMIN_FILTERS);
+                    setCoursePage(1);
                   }}
                   type="button"
                   variant="outline"
@@ -400,10 +374,10 @@ export function CourseAdminPanel() {
                   <span>可见范围</span>
                   <span className="text-right">操作</span>
                 </div>
-                {filteredCourses.length === 0 ? (
+                {coursePagination.total === 0 ? (
                   <EmptyState text="当前筛选无课程" />
                 ) : (
-                  filteredCourses.map((course) => {
+                  coursePagination.rows.map((course) => {
                     const draft = visibilityDrafts[course.id] ?? {
                       visibilityMode: course.visibilityMode,
                       visibleRoleIds: course.visibleRoleIds,
@@ -505,50 +479,39 @@ export function CourseAdminPanel() {
               </div>
             </div>
           </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#eaded1] px-4 py-3 text-sm text-[#75665d]">
+            <span>
+              {coursePagination.total === 0
+                ? '显示 0 条，共 0 条'
+                : `显示 ${coursePagination.start}-${coursePagination.end} 条，共 ${coursePagination.total} 条`}
+            </span>
+            <div className="flex items-center gap-3">
+              <span>
+                第 {coursePagination.page} / {coursePagination.totalPages} 页
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  className="rounded-[4px]"
+                  disabled={coursePagination.page <= 1}
+                  onClick={() => setCoursePage(coursePagination.page - 1)}
+                  variant="outline"
+                >
+                  上一页
+                </Button>
+                <Button
+                  className="rounded-[4px]"
+                  disabled={coursePagination.page >= coursePagination.totalPages}
+                  onClick={() => setCoursePage(coursePagination.page + 1)}
+                  variant="outline"
+                >
+                  下一页
+                </Button>
+              </div>
+            </div>
+          </div>
         </AdminCard>
 
         <aside className="grid gap-4 content-start">
-          <AdminCard className="p-4">
-            <div className="mb-3 text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
-              新建课程草稿
-            </div>
-            <div className="grid gap-2">
-              <Input
-                className={adminInputClassName}
-                value={courseDraft.name}
-                onChange={(event) =>
-                  setCourseDraft((draft) => ({ ...draft, name: event.target.value }))
-                }
-                placeholder="课程名称"
-              />
-              <Input
-                className={adminInputClassName}
-                value={courseDraft.description}
-                onChange={(event) =>
-                  setCourseDraft((draft) => ({ ...draft, description: event.target.value }))
-                }
-                placeholder="描述"
-              />
-              <select
-                className={adminSelectClassName}
-                value={courseDraft.categoryId}
-                onChange={(event) =>
-                  setCourseDraft((draft) => ({ ...draft, categoryId: event.target.value }))
-                }
-              >
-                <option value="">选择分类</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-              <Button className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]" onClick={createCourse}>
-                创建草稿
-              </Button>
-            </div>
-          </AdminCard>
-
           <AdminCard className="p-4">
             <div className="mb-3 text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
               新建分类

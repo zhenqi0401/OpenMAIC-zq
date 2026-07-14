@@ -211,6 +211,14 @@ export function createAdminClient(fetcher: AdminFetch = fetch) {
       });
       return readJson<{ examPolicy: AdminExamPolicy }>(response, '考核策略发布失败');
     },
+
+    async deleteExamPolicy(id: string) {
+      const response = await fetcher(
+        `/api/admin/exam-policies/${encodeURIComponent(id)}`,
+        deleteRequest(),
+      );
+      return readJson<{ examPolicy: AdminExamPolicy }>(response, '考核策略删除失败');
+    },
   };
 }
 

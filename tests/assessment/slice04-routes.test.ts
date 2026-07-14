@@ -228,6 +228,9 @@ function makeRepository(): EnterpriseRepository {
     async publishExamPolicy() {
       throw new Error('not used');
     },
+    async deleteExamPolicy() {
+      throw new Error('not used');
+    },
     async listExamAttemptsForUser() {
       return [];
     },

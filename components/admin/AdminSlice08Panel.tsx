@@ -25,6 +25,7 @@ import {
   type AdminRole,
   type AdminUser,
 } from '@/lib/admin/client';
+import { paginateAdminRows } from '@/lib/admin/pagination';
 
 interface AdminSlice08PanelProps {
   view?: 'all' | 'dashboard' | 'access';
@@ -59,8 +60,6 @@ interface DashboardFilters {
   roleId: string;
   courseId: string;
 }
-
-const USER_ROLE_PAGE_SIZE = 10;
 
 function toDatetimeLocal(value: string | Date | null | undefined): string {
   if (!value) return '';
@@ -110,6 +109,7 @@ export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08
   const [deletingInviteCodeId, setDeletingInviteCodeId] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [userRolePage, setUserRolePage] = useState(1);
+  const [dashboardPage, setDashboardPage] = useState(1);
   const [dashboardFilters, setDashboardFilters] = useState<DashboardFilters>({
     userId: '',
     roleId: '',
@@ -123,19 +123,10 @@ export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08
     () => buildDashboardPendingItems(dashboard, roles, inviteCodes, users),
     [dashboard, roles, inviteCodes, users],
   );
-  const userRoleTotalPages = Math.max(1, Math.ceil(users.length / USER_ROLE_PAGE_SIZE));
-  const currentUserRolePage = Math.min(userRolePage, userRoleTotalPages);
-  const paginatedUsers = useMemo(
-    () =>
-      users.slice(
-        (currentUserRolePage - 1) * USER_ROLE_PAGE_SIZE,
-        currentUserRolePage * USER_ROLE_PAGE_SIZE,
-      ),
-    [currentUserRolePage, users],
+  const userRolePagination = useMemo(
+    () => paginateAdminRows(users, userRolePage),
+    [userRolePage, users],
   );
-  const userRoleStart =
-    users.length === 0 ? 0 : (currentUserRolePage - 1) * USER_ROLE_PAGE_SIZE + 1;
-  const userRoleEnd = Math.min(currentUserRolePage * USER_ROLE_PAGE_SIZE, users.length);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -183,19 +174,31 @@ export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08
     void loadAll();
   }, [loadAll]);
 
-  async function loadDashboard() {
+  async function loadDashboard(filters = dashboardFilters) {
     try {
       setDashboard(
         await client.getDashboard({
-          userId: dashboardFilters.userId,
-          roleId: dashboardFilters.roleId,
-          courseId: dashboardFilters.courseId,
+          userId: filters.userId,
+          roleId: filters.roleId,
+          courseId: filters.courseId,
         }),
       );
       toast.success('看板已刷新');
     } catch (loadError) {
       notifyAdminError(loadError, '看板刷新失败');
     }
+  }
+
+  function applyDashboardFilters() {
+    setDashboardPage(1);
+    void loadDashboard();
+  }
+
+  function resetDashboardFilters() {
+    const emptyFilters = { userId: '', roleId: '', courseId: '' };
+    setDashboardFilters(emptyFilters);
+    setDashboardPage(1);
+    void loadDashboard(emptyFilters);
   }
 
   async function createRole() {
@@ -335,7 +338,7 @@ export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08
                 leading={
                   <Button
                     className="rounded-[4px] border-[#d8c8b9]"
-                    onClick={loadDashboard}
+                    onClick={() => void loadDashboard()}
                     variant="outline"
                   >
                     刷新看板
@@ -381,7 +384,10 @@ export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08
                   dashboardFilters={dashboardFilters}
                   emptyText="当前筛选无学员明细"
                   onFilterChange={setDashboardFilters}
-                  onSubmit={loadDashboard}
+                  onPageChange={setDashboardPage}
+                  onReset={resetDashboardFilters}
+                  onSubmit={applyDashboardFilters}
+                  page={dashboardPage}
                   progress={dashboard.progress}
                   roleOptions={roleOptions}
                 />
@@ -417,7 +423,10 @@ export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08
               dashboardFilters={dashboardFilters}
               emptyText="正在加载看板数据..."
               onFilterChange={setDashboardFilters}
-              onSubmit={loadDashboard}
+              onPageChange={setDashboardPage}
+              onReset={resetDashboardFilters}
+              onSubmit={applyDashboardFilters}
+              page={dashboardPage}
               progress={[]}
               roleOptions={roleOptions}
             />
@@ -726,7 +735,7 @@ export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08
                   </p>
                 </div>
                 <div className="text-sm text-[#75665d]">
-                  第 {currentUserRolePage} / {userRoleTotalPages} 页
+                  第 {userRolePagination.page} / {userRolePagination.totalPages} 页
                 </div>
               </div>
               <div className="overflow-x-auto md:overflow-visible">
@@ -741,7 +750,7 @@ export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08
                   {users.length === 0 ? (
                     <EmptyState text="暂无用户" />
                   ) : (
-                    paginatedUsers.map((user) => (
+                    userRolePagination.rows.map((user) => (
                       <div
                         className="grid grid-cols-[1.2fr_1fr_1fr_1.2fr_minmax(130px,auto)] items-center gap-3 py-3 text-sm"
                         key={user.id}
@@ -787,25 +796,23 @@ export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08
               </div>
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#eaded1] pt-3 text-sm text-[#75665d]">
                 <span>
-                  {users.length === 0
+                  {userRolePagination.total === 0
                     ? '共 0 条'
-                    : `显示 ${userRoleStart}-${userRoleEnd} 条，共 ${users.length} 条`}
+                    : `显示 ${userRolePagination.start}-${userRolePagination.end} 条，共 ${userRolePagination.total} 条`}
                 </span>
                 <div className="flex gap-2">
                   <Button
                     className="rounded-[4px]"
-                    disabled={currentUserRolePage <= 1}
-                    onClick={() => setUserRolePage((page) => Math.max(1, page - 1))}
+                    disabled={userRolePagination.page <= 1}
+                    onClick={() => setUserRolePage(userRolePagination.page - 1)}
                     variant="outline"
                   >
                     上一页
                   </Button>
                   <Button
                     className="rounded-[4px]"
-                    disabled={currentUserRolePage >= userRoleTotalPages}
-                    onClick={() =>
-                      setUserRolePage((page) => Math.min(userRoleTotalPages, page + 1))
-                    }
+                    disabled={userRolePagination.page >= userRolePagination.totalPages}
+                    onClick={() => setUserRolePage(userRolePagination.page + 1)}
                     variant="outline"
                   >
                     下一页
@@ -859,15 +866,24 @@ function DashboardProgressPanel({
   dashboardFilters,
   roleOptions,
   onFilterChange,
+  onPageChange,
+  onReset,
   onSubmit,
+  page,
 }: {
   progress: AdminDashboard['progress'];
   emptyText: string;
   dashboardFilters: DashboardFilters;
   roleOptions: ReturnType<typeof buildRoleOptions>;
   onFilterChange: Dispatch<SetStateAction<DashboardFilters>>;
+  onPageChange: (page: number) => void;
+  onReset: () => void;
   onSubmit: () => void;
+  page: number;
 }) {
+  const pagination = paginateAdminRows(progress, page);
+  const hasFilters = Object.values(dashboardFilters).some((value) => value.trim().length > 0);
+
   return (
     <AdminCard className="overflow-hidden" data-admin-dashboard-progress-panel="true">
       <div className="border-b border-[#d8c8b9] px-4 py-4">
@@ -907,9 +923,16 @@ function DashboardProgressPanel({
             onFilterChange((filters) => ({ ...filters, courseId: event.target.value }))
           }
         />
-        <Button className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]" onClick={onSubmit}>
-          应用筛选
-        </Button>
+        <div className="flex gap-2">
+          <Button className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]" onClick={onSubmit}>
+            应用筛选
+          </Button>
+          {hasFilters ? (
+            <Button className="rounded-[4px]" onClick={onReset} variant="outline">
+              重置
+            </Button>
+          ) : null}
+        </div>
       </div>
       <div className="overflow-x-auto md:overflow-visible">
         <div className="min-w-[760px] md:min-w-0">
@@ -920,10 +943,10 @@ function DashboardProgressPanel({
             <span>状态</span>
             <span>最近活动</span>
           </div>
-          {progress.length === 0 ? (
+          {pagination.total === 0 ? (
             <EmptyState text={emptyText} />
           ) : (
-            progress.map((row) => (
+            pagination.rows.map((row) => (
               <div
                 className="grid grid-cols-[1fr_0.8fr_1fr_0.7fr_1fr] gap-3 border-b border-[#eaded1] px-4 py-3 text-sm last:border-b-0"
                 key={`${row.userId}-${row.courseId}`}
@@ -936,6 +959,36 @@ function DashboardProgressPanel({
               </div>
             ))
           )}
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#eaded1] px-4 py-3 text-sm text-[#75665d]">
+        <span>
+          {pagination.total === 0
+            ? '显示 0 条，共 0 条'
+            : `显示 ${pagination.start}-${pagination.end} 条，共 ${pagination.total} 条`}
+        </span>
+        <div className="flex items-center gap-3">
+          <span>
+            第 {pagination.page} / {pagination.totalPages} 页
+          </span>
+          <div className="flex gap-2">
+            <Button
+              className="rounded-[4px]"
+              disabled={pagination.page <= 1}
+              onClick={() => onPageChange(pagination.page - 1)}
+              variant="outline"
+            >
+              上一页
+            </Button>
+            <Button
+              className="rounded-[4px]"
+              disabled={pagination.page >= pagination.totalPages}
+              onClick={() => onPageChange(pagination.page + 1)}
+              variant="outline"
+            >
+              下一页
+            </Button>
+          </div>
         </div>
       </div>
     </AdminCard>

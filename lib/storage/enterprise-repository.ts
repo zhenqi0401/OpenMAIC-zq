@@ -38,6 +38,7 @@ import {
   type EnterpriseExamAttempt,
   type EnterpriseExamAttemptInput,
   type EnterpriseExamPolicy,
+  type DeleteExamPolicyRepositoryResult,
   type EnterpriseInviteCode,
   type EnterpriseMediaBlob,
   type EnterpriseMediaFile,
@@ -898,6 +899,25 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
 
   async publishExamPolicy(id: string): Promise<EnterpriseExamPolicy | null> {
     return this.updateExamPolicy(id, { status: 'published' });
+  }
+
+  async deleteExamPolicy(id: string): Promise<DeleteExamPolicyRepositoryResult> {
+    return runDbTransaction<DeleteExamPolicyRepositoryResult>(async (tx) => {
+      const courseIds = (
+        await tx.select().from(examPolicyCourses).where(eq(examPolicyCourses.examPolicyId, id))
+      ).map((mapping) => mapping.courseId);
+      const [deleted] = await tx
+        .delete(examPolicies)
+        .where(and(eq(examPolicies.id, id), eq(examPolicies.status, 'draft')))
+        .returning();
+      if (deleted) {
+        return { outcome: 'deleted', policy: toExamPolicy(deleted, courseIds) };
+      }
+
+      const [existing] = await tx.select().from(examPolicies).where(eq(examPolicies.id, id));
+      if (!existing) return { outcome: 'not_found' };
+      return { outcome: 'not_draft', policy: toExamPolicy(existing, courseIds) };
+    });
   }
 
   async listExamAttemptsForUser(

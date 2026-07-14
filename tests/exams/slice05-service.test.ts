@@ -331,6 +331,14 @@ function makeRepository(): EnterpriseRepository {
       policy.status = 'published';
       return policy;
     },
+    async deleteExamPolicy(id) {
+      const index = policies.findIndex((candidate) => candidate.id === id);
+      if (index === -1) return { outcome: 'not_found' as const };
+      const policy = policies[index];
+      if (policy.status !== 'draft') return { outcome: 'not_draft' as const, policy };
+      policies.splice(index, 1);
+      return { outcome: 'deleted' as const, policy };
+    },
     async listExamAttemptsForUser(examPolicyId, userId) {
       return examAttempts.filter(
         (attempt) => attempt.examPolicyId === examPolicyId && attempt.userId === userId,
@@ -371,6 +379,21 @@ function makeRepository(): EnterpriseRepository {
 }
 
 describe('Slice-05 stage exam service', () => {
+  test('deletes only draft exam policies and distinguishes conflicts from missing records', async () => {
+    const service = createEnterpriseStorageService(makeRepository());
+
+    await expect(service.deleteExamPolicy('policy-draft')).resolves.toMatchObject({
+      id: 'policy-draft',
+      status: 'draft',
+    });
+    await expect(service.deleteExamPolicy('policy-sales-all')).rejects.toMatchObject({
+      code: 'CONFLICT',
+    });
+    await expect(service.deleteExamPolicy('policy-missing')).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+  });
+
   test('shows only published exams for the current learner role with candidate counts', async () => {
     const service = createEnterpriseStorageService(makeRepository());
 

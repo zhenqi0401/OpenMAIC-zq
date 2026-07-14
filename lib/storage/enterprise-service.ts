@@ -171,6 +171,11 @@ export interface EnterpriseExamPolicy {
   candidateQuestionCount?: number;
 }
 
+export type DeleteExamPolicyRepositoryResult =
+  | { outcome: 'deleted'; policy: EnterpriseExamPolicy }
+  | { outcome: 'not_draft'; policy: EnterpriseExamPolicy }
+  | { outcome: 'not_found' };
+
 export interface EnterpriseExamAttempt {
   id: string;
   examPolicyId: string;
@@ -384,6 +389,7 @@ export interface EnterpriseRepository {
     },
   ): Promise<EnterpriseExamPolicy | null>;
   publishExamPolicy(id: string): Promise<EnterpriseExamPolicy | null>;
+  deleteExamPolicy(id: string): Promise<DeleteExamPolicyRepositoryResult>;
   listExamAttemptsForUser(examPolicyId: string, userId: string): Promise<EnterpriseExamAttempt[]>;
   createExamAttempt(input: EnterpriseExamAttemptInput): Promise<EnterpriseExamAttempt>;
 
@@ -926,6 +932,19 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
       const policy = await repository.publishExamPolicy(id);
       if (!policy) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Exam policy not found');
       return withCandidateQuestionCount(policy);
+    },
+    deleteExamPolicy: async (id: string) => {
+      const result = await repository.deleteExamPolicy(id);
+      if (result.outcome === 'not_found') {
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Exam policy not found');
+      }
+      if (result.outcome === 'not_draft') {
+        throw new EnterpriseStorageServiceError(
+          'CONFLICT',
+          'Only draft exam policies can be deleted',
+        );
+      }
+      return result.policy;
     },
     async listAvailableExams(roleId: string): Promise<EnterpriseExamPolicy[]> {
       const policies = await repository.listExamPolicies();

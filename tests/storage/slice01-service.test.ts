@@ -310,6 +310,9 @@ function makeRepository(): EnterpriseRepository {
       existing.status = 'published';
       return existing;
     },
+    async deleteExamPolicy() {
+      throw new Error('not used');
+    },
     async listExamAttemptsForUser() {
       return [];
     },

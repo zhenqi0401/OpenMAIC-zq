@@ -145,6 +145,9 @@ function makeRepository(course: EnterpriseCourse = makeCourse()): EnterpriseRepo
     async publishExamPolicy() {
       throw new Error('not used');
     },
+    async deleteExamPolicy() {
+      throw new Error('not used');
+    },
     async listExamAttemptsForUser() {
       return [];
     },
