@@ -38,6 +38,9 @@ describe('AdminShell', () => {
 
     expect(markup).toContain('管理后台');
     expect(markup).toContain('企业培训运营台');
+    expect(markup).toContain('元我智脑');
+    expect(markup).toContain('data-admin-brand="desktop"');
+    expect(markup).toContain('data-admin-brand="mobile"');
     expect(markup).toContain('access content');
     expect(markup).toContain('data-admin-shell="prototype-workbench"');
     expect(markup).not.toContain('max-w-[1280px]');

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { BarChart3, BookOpen, ClipboardList, KeyRound, type LucideIcon } from 'lucide-react';
+import { BrandLockup } from '@/components/brand/BrandLockup';
 import { cn } from '@/lib/utils';
 
 export type AdminModuleId = 'dashboard' | 'courses' | 'exams' | 'access';
@@ -81,15 +82,19 @@ export function AdminShell({ activeModuleId = 'dashboard', children }: AdminShel
 function AdminBrand({ compact = false }: { compact?: boolean }) {
   return (
     <div
+      data-admin-brand={compact ? 'mobile' : 'desktop'}
       className={cn(
-        'grid gap-1',
+        'grid gap-3',
         compact && 'rounded-[6px] border border-[#d8c8b9] bg-[#fffaf2] p-4',
       )}
     >
-      <h1 className="text-[32px] font-normal leading-[1.08] tracking-[-0.016em] text-[#2b211d]">
-        管理后台
-      </h1>
-      <p className="text-sm leading-5 text-[#75665d]">企业培训运营台</p>
+      <BrandLockup variant={compact ? 'compact' : 'full'} priority />
+      <div className="grid gap-1">
+        <h1 className="text-[28px] font-normal leading-[1.08] tracking-[-0.016em] text-[#2b211d]">
+          管理后台
+        </h1>
+        <p className="text-sm leading-5 text-[#75665d]">企业培训运营台</p>
+      </div>
     </div>
   );
 }
@@ -125,7 +130,9 @@ function AdminNavigation({
               <Icon className="size-4" />
               {module.label}
             </span>
-            <span className={cn('col-start-1 text-xs', active ? 'text-[#75665d]' : 'text-[#75665d]')}>
+            <span
+              className={cn('col-start-1 text-xs', active ? 'text-[#75665d]' : 'text-[#75665d]')}
+            >
               {module.description}
             </span>
             {active ? (

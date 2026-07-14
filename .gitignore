@@ -41,6 +41,9 @@ voxcpm_python_api_server.py
 
 # misc
 .DS_Store
+Thumbs.db
+Desktop.ini
+*:Zone.Identifier
 *.pem
 
 # debug
@@ -119,3 +122,6 @@ venv/
 .mypy_cache/
 .ruff_cache/
 *.log
+
+# large local image exports (never part of source or deployment)
+/openmaic-images-*.tar

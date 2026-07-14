@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
+import { BrandLockup } from '@/components/brand/BrandLockup';
+
 import styles from './auth-page.module.css';
 
 type AuthMode = 'login' | 'register';
@@ -40,16 +42,11 @@ const content = {
   },
 } as const;
 
-function BrandMark() {
+function AuthBrand() {
   return (
     <div className={styles.brandLockup}>
-      <span className={styles.logoSlot} aria-label="品牌 Logo 占位">
-        LOGO
-      </span>
-      <div>
-        <strong>企业培训平台</strong>
-        <span>员工学习中心</span>
-      </div>
+      <BrandLockup variant="full" priority />
+      <span className={styles.brandDescriptor}>企业学习平台</span>
     </div>
   );
 }
@@ -60,7 +57,7 @@ export function AuthLayout({ mode, children }: { mode: AuthMode; children: React
   return (
     <main className={styles.authShell} data-auth-page={mode}>
       <aside className={styles.story} aria-hidden="true">
-        <BrandMark />
+        <AuthBrand />
 
         <div className={styles.storyBody}>
           <p className={styles.eyebrow}>{page.eyebrow}</p>
@@ -84,7 +81,7 @@ export function AuthLayout({ mode, children }: { mode: AuthMode; children: React
 
       <section className={styles.formPanel}>
         <div className={styles.mobileBrand}>
-          <BrandMark />
+          <AuthBrand />
         </div>
 
         <header className={styles.panelTop}>

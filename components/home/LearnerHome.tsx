@@ -20,6 +20,7 @@ import {
 import type { Slide } from '@openmaic/dsl';
 import { SlideThumbnail } from '@/components/slide-renderer/SlideThumbnail';
 import { StageExamPanel } from '@/components/assessment/StageExamPanel';
+import { BrandLockup } from '@/components/brand/BrandLockup';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { Button } from '@/components/ui/button';
 import {
@@ -162,14 +163,7 @@ export function LearnerHome({
       <header className="sticky top-0 z-40 border-b border-[#d9dce3] bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-[#1a1d25]/95">
         <div className="mx-auto flex min-h-16 w-[min(1240px,calc(100%-2rem))] items-center justify-between gap-4 md:w-[min(1240px,calc(100%-3rem))]">
           <div className="flex min-w-0 items-center gap-3">
-            <Image
-              src="/logo-horizontal.png"
-              alt="OpenMAIC"
-              width={156}
-              height={32}
-              priority
-              className="h-auto w-28 dark:brightness-0 dark:invert sm:w-36"
-            />
+            <BrandLockup variant="compact" priority />
             <span className="hidden h-5 w-px bg-slate-200 dark:bg-slate-700 sm:block" />
             <span className="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">
               学习中心
@@ -398,7 +392,7 @@ export function LearnerHome({
       </main>
 
       <footer className="mx-auto flex w-[min(1240px,calc(100%-2rem))] justify-between border-t border-[#d9dce3] py-5 text-[11px] text-slate-400 dark:border-slate-800 md:w-[min(1240px,calc(100%-3rem))]">
-        <span>OpenMAIC</span>
+        <span>元我智脑</span>
         <span>企业学习空间</span>
       </footer>
     </div>

@@ -71,6 +71,7 @@ import type { EnterpriseCategory } from '@/lib/storage/enterprise-service';
 import { logoutCurrentSession } from '@/lib/auth/logout-client';
 import { persistImportedClassroomToEnterprise } from '@/lib/authoring/course-draft';
 import { LearnerHome } from '@/components/home/LearnerHome';
+import { BrandLockup } from '@/components/brand/BrandLockup';
 
 const log = createLogger('Home');
 
@@ -689,10 +690,8 @@ function HomePage() {
           classrooms.length === 0 ? 'justify-center min-h-[calc(100dvh-8rem)]' : 'mt-[10vh]',
         )}
       >
-        {/* ── Logo ── */}
-        <motion.img
-          src="/logo-horizontal.png"
-          alt="OpenMAIC"
+        {/* ── Brand ── */}
+        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{
@@ -701,8 +700,10 @@ function HomePage() {
             stiffness: 200,
             damping: 20,
           }}
-          className="h-12 md:h-16 mb-2 -ml-2 md:-ml-3"
-        />
+          className="mb-3"
+        >
+          <BrandLockup priority />
+        </motion.div>
 
         {/* ── Slogan ── */}
         <motion.p
@@ -1114,7 +1115,7 @@ function HomePage() {
 
       {/* Footer — flows with content, at the very end */}
       <div className="mt-auto pt-12 pb-4 text-center text-xs text-muted-foreground/40">
-        OpenMAIC Open Source Project
+        元我智脑 · 企业智能学习平台
       </div>
     </div>
   );

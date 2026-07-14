@@ -13,7 +13,7 @@ describe('PBL v2 static assets', () => {
     expectPng('public/avatars/instructor.png');
   });
 
-  test('ships the OpenMAIC mark used in the workspace header', () => {
-    expectPng('public/openmaic-mark.png');
+  test('ships the 元我智脑 mark used in the workspace header', () => {
+    expectPng('public/brand/yuanwo-mark.png');
   });
 });

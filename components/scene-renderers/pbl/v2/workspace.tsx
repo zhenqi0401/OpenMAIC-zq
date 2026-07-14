@@ -12,7 +12,6 @@
  */
 
 import type { PBLMilestone, PBLProjectV2 } from '@/lib/pbl/v2/types';
-import Image from 'next/image';
 import { Maximize2, Workflow } from 'lucide-react';
 import {
   useCallback,
@@ -32,6 +31,7 @@ import { useI18n } from '@/lib/hooks/use-i18n';
 import type { CSSProperties } from 'react';
 import { runOneStream, type StreamDisplayState, type StreamStatus } from './use-instructor-stream';
 import type { PBLProjectPatch } from '@/lib/pbl/v2/api/sse';
+import { BrandLockup } from '@/components/brand/BrandLockup';
 
 interface Props {
   readonly project: PBLProjectV2;
@@ -441,13 +441,7 @@ function WorkspaceTopBar({
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(157,140,255,0.20),transparent_30%),radial-gradient(circle_at_78%_0%,rgba(34,211,238,0.13),transparent_26%),linear-gradient(90deg,rgba(255,255,255,0.05),transparent_34%,rgba(255,255,255,0.035))]" />
       <div className="relative flex min-w-0 flex-1 items-center gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-violet-200/25 bg-violet-100/[0.08] shadow-[0_0_24px_rgba(157,140,255,0.18)]">
-          <Image
-            src="/openmaic-mark.png"
-            alt="OpenMAIC"
-            width={28}
-            height={28}
-            className="h-6 w-6"
-          />
+          <BrandLockup variant="mark" tone="inverse" ariaLabel="元我智脑品牌标志" />
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-2">

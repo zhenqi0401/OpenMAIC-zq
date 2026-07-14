@@ -1,0 +1,77 @@
+.root {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.markImage {
+  display: block;
+  flex: 0 0 auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.full {
+  gap: 10px;
+}
+
+.full .markImage {
+  width: 46px;
+  height: 46px;
+}
+
+.compact {
+  gap: 8px;
+}
+
+.compact .markImage {
+  width: 32px;
+  height: 32px;
+}
+
+.mark .markImage {
+  width: 30px;
+  height: 30px;
+}
+
+.wordmark {
+  color: #155fa8;
+  font-family: 'STKaiti', 'KaiTi', 'KaiTi_GB2312', 'Microsoft YaHei UI', 'PingFang SC', sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.compact .wordmark {
+  font-size: 17px;
+  letter-spacing: 0.06em;
+}
+
+.inverse .wordmark {
+  color: #f3f8ff;
+}
+
+@media (max-width: 480px) {
+  .full {
+    gap: 8px;
+  }
+
+  .full .markImage {
+    width: 40px;
+    height: 40px;
+  }
+
+  .full .wordmark {
+    font-size: 21px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { LogIn, ShieldAlert } from 'lucide-react';
 import { AdminCard, AdminNotice } from '@/components/admin/AdminSurface';
+import { BrandLockup } from '@/components/brand/BrandLockup';
 import { Button } from '@/components/ui/button';
 
 type GateState =
@@ -78,6 +79,7 @@ export function AdminAccessGate({ children }: { children: ReactNode }) {
 
   return (
     <AdminCard className="grid gap-4 p-6">
+      <BrandLockup variant="compact" />
       <div className="flex items-start gap-3">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-[4px] border border-[#d8c8b9] bg-[#f1e2d0] text-[#9b5b47]">
           {loginRequired ? <LogIn className="size-5" /> : <ShieldAlert className="size-5" />}
@@ -88,7 +90,7 @@ export function AdminAccessGate({ children }: { children: ReactNode }) {
           </h2>
           <p className="mt-2 max-w-[64ch] text-sm leading-6 text-[#75665d]">
             {loginRequired
-              ? '后台数据接口需要 OpenMAIC 管理员会话。登录后再进入管理后台，页面才会加载看板、课程、考核和权限数据。'
+              ? '后台数据接口需要元我智脑管理员会话。登录后再进入管理后台，页面才会加载看板、课程、考核和权限数据。'
               : '后台仅管理员角色可访问。请切换到管理员账号，或联系管理员调整当前用户角色。'}
           </p>
         </div>

@@ -19,9 +19,15 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'OpenMAIC',
-  description:
-    'The open-source AI interactive classroom. Upload a PDF to instantly generate an immersive, multi-agent learning experience.',
+  title: '元我智脑',
+  description: '元我智脑企业智能学习平台，提供 AI 课程生成、企业学习、测评与阶段考核。',
+  icons: {
+    icon: [
+      { url: '/brand/yuanwo-mark.png', type: 'image/png', sizes: '512x512' },
+      { url: '/brand/yuanwo-icon-192.png', type: 'image/png', sizes: '192x192' },
+    ],
+    apple: [{ url: '/brand/yuanwo-apple-touch-icon.png', sizes: '180x180' }],
+  },
 };
 
 export default function RootLayout({
