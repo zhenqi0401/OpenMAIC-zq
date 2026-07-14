@@ -48,6 +48,7 @@ export interface AuthRepository {
 }
 
 export type AuthServiceErrorCode =
+  | 'INVALID_DISPLAY_NAME'
   | 'INVALID_PHONE'
   | 'WEAK_PASSWORD'
   | 'PHONE_ALREADY_REGISTERED'
@@ -88,8 +89,18 @@ function normalizePhone(phone: string): string {
   return phone.trim();
 }
 
+function normalizeDisplayName(displayName: string): string {
+  return displayName.trim();
+}
+
+function assertValidDisplayName(displayName: string): void {
+  if (displayName.length < 2 || displayName.length > 20) {
+    throw new AuthServiceError('INVALID_DISPLAY_NAME');
+  }
+}
+
 function assertValidPhone(phone: string): void {
-  if (!/^1\d{10}$/.test(phone)) {
+  if (!/^1[3-9]\d{9}$/.test(phone)) {
     throw new AuthServiceError('INVALID_PHONE');
   }
 }
@@ -158,11 +169,14 @@ export function createAuthService(repository: AuthRepository) {
 
   return {
     async registerWithPassword(input: {
+      name: string;
       phone: string;
       password: string;
       inviteCode: string;
     }): Promise<AuthResult> {
+      const displayName = normalizeDisplayName(input.name);
       const phone = normalizePhone(input.phone);
+      assertValidDisplayName(displayName);
       assertValidPhone(phone);
       assertStrongEnoughPassword(input.password);
 
@@ -184,7 +198,7 @@ export function createAuthService(repository: AuthRepository) {
         phone,
         passwordHash: await hashPassword(input.password),
         roleId: role.id,
-        displayName: phone,
+        displayName,
       });
 
       return { user, role, identity: identityFrom(user, role, 'password') };

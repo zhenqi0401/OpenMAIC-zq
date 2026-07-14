@@ -118,6 +118,7 @@ describe('Slice-07 auth service', () => {
     const service = createAuthService(repo);
 
     const result = await service.registerWithPassword({
+      name: '张三',
       phone: '13800138000',
       password: 'password-123',
       inviteCode: 'LEARN-2026',
@@ -131,9 +132,42 @@ describe('Slice-07 auth service', () => {
       authSource: 'password',
     });
     expect(result.user.phone).toBe('13800138000');
+    expect(result.user.displayName).toBe('张三');
     expect(result.user.passwordHash).not.toBe('password-123');
     await expect(verifyPassword('password-123', result.user.passwordHash!)).resolves.toBe(true);
     vi.useRealTimers();
+  });
+
+  test('normalizes names and rejects invalid names or mobile numbers', async () => {
+    const repo = makeRepo();
+    const service = createAuthService(repo);
+
+    await expect(
+      service.registerWithPassword({
+        name: '  张三  ',
+        phone: '13800138000',
+        password: 'password-123',
+        inviteCode: 'LEARN-2026',
+      }),
+    ).resolves.toMatchObject({ user: { displayName: '张三' } });
+
+    await expect(
+      service.registerWithPassword({
+        name: '张',
+        phone: '13900139000',
+        password: 'password-123',
+        inviteCode: 'LEARN-2026',
+      }),
+    ).rejects.toMatchObject(new AuthServiceError('INVALID_DISPLAY_NAME'));
+
+    await expect(
+      service.registerWithPassword({
+        name: '李四',
+        phone: '12800128000',
+        password: 'password-123',
+        inviteCode: 'LEARN-2026',
+      }),
+    ).rejects.toMatchObject(new AuthServiceError('INVALID_PHONE'));
   });
 
   test('rejects disabled, expired, or unknown invite codes', async () => {
@@ -157,6 +191,7 @@ describe('Slice-07 auth service', () => {
 
     await expect(
       service.registerWithPassword({
+        name: '张三',
         phone: '13800138001',
         password: 'password-123',
         inviteCode: 'NOPE',
@@ -164,6 +199,7 @@ describe('Slice-07 auth service', () => {
     ).rejects.toMatchObject(new AuthServiceError('INVALID_INVITE_CODE'));
     await expect(
       service.registerWithPassword({
+        name: '李四',
         phone: '13800138002',
         password: 'password-123',
         inviteCode: 'DISABLED',
@@ -171,6 +207,7 @@ describe('Slice-07 auth service', () => {
     ).rejects.toMatchObject(new AuthServiceError('INVITE_CODE_DISABLED'));
     await expect(
       service.registerWithPassword({
+        name: '王五',
         phone: '13800138003',
         password: 'password-123',
         inviteCode: 'EXPIRED',
@@ -191,6 +228,7 @@ describe('Slice-07 auth service', () => {
 
     await expect(
       service.registerWithPassword({
+        name: '赵六',
         phone: '13800138004',
         password: 'password-123',
         inviteCode: 'ADMIN-CODE',
@@ -202,6 +240,7 @@ describe('Slice-07 auth service', () => {
     const repo = makeRepo();
     const service = createAuthService(repo);
     await service.registerWithPassword({
+      name: '张三',
       phone: '13800138000',
       password: 'password-123',
       inviteCode: 'LEARN-2026',
@@ -244,6 +283,7 @@ describe('Slice-07 auth service', () => {
     const repo = makeRepo();
     const service = createAuthService(repo);
     await service.registerWithPassword({
+      name: '张三',
       phone: '13800138000',
       password: 'password-123',
       inviteCode: 'LEARN-2026',
@@ -256,7 +296,7 @@ describe('Slice-07 auth service', () => {
         hostUserId: null,
         role: { id: learnerRole.id, code: 'learner', name: 'Learner', isAdmin: false },
         status: 'active',
-        displayName: '13800138000',
+        displayName: '张三',
       },
     ]);
 
@@ -274,6 +314,7 @@ describe('Slice-07 auth service', () => {
     const repo = makeRepo();
     const service = createAuthService(repo);
     await service.registerWithPassword({
+      name: '张三',
       phone: '13800138000',
       password: 'password-123',
       inviteCode: 'LEARN-2026',

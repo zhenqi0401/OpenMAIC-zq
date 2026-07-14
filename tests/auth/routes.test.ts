@@ -163,6 +163,7 @@ describe('Slice-07 auth routes', () => {
 
   test('POST /api/auth/register creates a learner session cookie', async () => {
     const res = await postRoute('@/app/api/auth/register/route', {
+      name: '张三',
       phone: '13800138000',
       password: 'password-123',
       inviteCode: 'LEARN-2026',
@@ -172,7 +173,7 @@ describe('Slice-07 auth routes', () => {
     expect(res.status).toBe(201);
     expect(json).toMatchObject({
       success: true,
-      user: { id: 'user-1', phone: '13800138000' },
+      user: { id: 'user-1', phone: '13800138000', displayName: '张三' },
       identity: { roleCode: 'learner', isAdmin: false, authSource: 'password' },
     });
     expect(mocks.cookieStore.set).toHaveBeenCalledWith(
@@ -180,6 +181,21 @@ describe('Slice-07 auth routes', () => {
       expect.any(String),
       expect.objectContaining({ httpOnly: true, sameSite: 'lax', path: '/' }),
     );
+  });
+
+  test('POST /api/auth/register requires a display name', async () => {
+    const res = await postRoute('@/app/api/auth/register/route', {
+      phone: '13800138000',
+      password: 'password-123',
+      inviteCode: 'LEARN-2026',
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json).toMatchObject({
+      success: false,
+      errorCode: 'MISSING_REQUIRED_FIELD',
+    });
   });
 
   test('POST /api/auth/host-sso requires a valid host signature and creates an admin session', async () => {

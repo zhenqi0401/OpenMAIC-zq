@@ -1,78 +1,16 @@
-'use client';
+import type { Metadata } from 'next';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { LogIn } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { AuthLayout } from '@/components/auth/auth-layout';
+import { LoginForm } from '@/components/auth/login-form';
+
+export const metadata: Metadata = {
+  title: '员工登录 | 企业培训平台',
+};
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSubmitting(true);
-    setError(null);
-
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, password }),
-    });
-
-    setSubmitting(false);
-    if (!response.ok) {
-      setError('手机号或密码不正确');
-      return;
-    }
-    router.replace('/');
-    router.refresh();
-  }
-
   return (
-    <main className="min-h-[100dvh] bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-4">
-      <form
-        onSubmit={submit}
-        className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-      >
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-md bg-slate-900 text-white dark:bg-white dark:text-slate-950">
-            <LogIn className="size-4" />
-          </div>
-          <h1 className="text-lg font-semibold text-slate-950 dark:text-slate-50">登录 OpenMAIC</h1>
-        </div>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="phone">手机号</Label>
-            <Input id="phone" value={phone} onChange={(event) => setPhone(event.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">密码</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </div>
-        </div>
-        {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
-        <Button type="submit" className="mt-6 w-full" disabled={submitting}>
-          登录
-        </Button>
-        <button
-          type="button"
-          onClick={() => router.push('/register')}
-          className="mt-4 w-full text-center text-sm text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-        >
-          学员注册
-        </button>
-      </form>
-    </main>
+    <AuthLayout mode="login">
+      <LoginForm />
+    </AuthLayout>
   );
 }

@@ -7,6 +7,7 @@ import { setSessionCookie } from '@/lib/auth/session-cookie';
 export const dynamic = 'force-dynamic';
 
 interface RegisterBody {
+  name?: string;
   phone?: string;
   password?: string;
   inviteCode?: string;
@@ -15,13 +16,18 @@ interface RegisterBody {
 export async function POST(request: Request) {
   const body = await readJsonBody<RegisterBody>(request);
   if (!body) return apiError('INVALID_REQUEST', 400, 'Invalid JSON body');
-  if (!body.phone || !body.password || !body.inviteCode) {
-    return apiError('MISSING_REQUIRED_FIELD', 400, 'phone, password and inviteCode are required');
+  if (!body.name || !body.phone || !body.password || !body.inviteCode) {
+    return apiError(
+      'MISSING_REQUIRED_FIELD',
+      400,
+      'name, phone, password and inviteCode are required',
+    );
   }
 
   try {
     const auth = createAuthService(getAuthRepository());
     const result = await auth.registerWithPassword({
+      name: body.name,
       phone: body.phone,
       password: body.password,
       inviteCode: body.inviteCode,
