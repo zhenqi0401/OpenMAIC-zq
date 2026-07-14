@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f5f4ed">
+  <title>员工登录 | 企业培训平台</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-auth-page="login">
+  <main class="auth-shell" data-od-id="login-main">
+    <aside class="story" data-od-id="login-story" aria-hidden="true">
+      <div class="brand" data-od-id="login-brand">
+        <span class="logo-slot" aria-label="品牌 Logo 占位">LOGO</span>
+        <div>
+          <strong>企业培训平台</strong>
+          <span>员工学习中心</span>
+        </div>
+      </div>
+      <div class="story-body">
+        <p class="eyebrow">内部学习系统</p>
+        <h1 data-od-id="login-story-title">让每一次学习都有记录</h1>
+        <p class="lead">登录后继续课程、完成练习，在同一个空间查看培训进度。</p>
+      </div>
+      <div class="story-card" data-od-id="login-module">
+        <p class="eyebrow">登录后可使用</p>
+        <h2>继续你的企业学习任务</h2>
+        <ul class="story-list">
+          <li><strong>课程内容</strong> 按计划继续学习</li>
+          <li><strong>随堂练习</strong> 巩固关键知识</li>
+          <li><strong>完成记录</strong> 统一保存结果</li>
+        </ul>
+      </div>
+    </aside>
+
+    <section class="form-panel" data-od-id="login-form-panel">
+      <div class="mobile-brand" data-od-id="login-mobile-brand">
+        <span class="logo-slot" aria-label="品牌 Logo 占位">LOGO</span>
+        <div>
+          <strong>企业培训平台</strong>
+          <span>员工学习中心</span>
+        </div>
+      </div>
+
+      <header class="panel-top" data-od-id="login-panel-top">
+        <span>员工账号</span>
+        <a href="register.html" data-od-id="login-to-register">创建账号</a>
+      </header>
+
+      <form class="auth-form" id="login-form" novalidate data-od-id="login-form">
+        <div class="form-heading">
+          <h1 data-od-id="login-title">欢迎回来</h1>
+          <p>使用手机号和密码进入学习中心。</p>
+        </div>
+
+        <div class="field" data-field="phone">
+          <label for="phone">手机号</label>
+          <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="11" placeholder="请输入 11 位手机号" aria-describedby="phone-error" data-od-id="login-phone">
+          <p class="field-error" id="phone-error" aria-live="polite"></p>
+        </div>
+
+        <div class="field has-action" data-field="password">
+          <label for="password">密码</label>
+          <div class="input-wrap">
+            <input id="password" name="password" type="password" autocomplete="current-password" minlength="6" placeholder="请输入密码" aria-describedby="password-error" data-od-id="login-password">
+            <button class="input-action" type="button" data-password-toggle aria-controls="password" aria-label="显示密码" data-od-id="login-toggle">显示</button>
+          </div>
+          <p class="field-error" id="password-error" aria-live="polite"></p>
+        </div>
+
+        <div class="form-options">
+          <label class="check" for="remember">
+            <input id="remember" name="remember" type="checkbox" data-od-id="login-remember">
+            <span>在此设备保持登录</span>
+          </label>
+          <button class="text-btn" type="button" data-help-action data-od-id="login-help">无法登录？</button>
+        </div>
+
+        <button class="btn-primary" type="submit" data-submit-button data-od-id="login-submit">登录</button>
+        <p class="form-status" role="status" aria-live="polite" data-form-status data-od-id="login-status"></p>
+        <p class="switch">首次使用？ <a href="register.html" data-od-id="login-register-link">创建员工账号</a></p>
+      </form>
+
+      <footer class="panel-foot" data-od-id="login-footer">账号由企业培训管理员统一维护。</footer>
+    </section>
+  </main>
+  <script src="auth.js" defer></script>
+</body>
+</html>

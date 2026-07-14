@@ -41,9 +41,6 @@ voxcpm_python_api_server.py
 
 # misc
 .DS_Store
-Thumbs.db
-Desktop.ini
-*:Zone.Identifier
 *.pem
 
 # debug
@@ -90,11 +87,11 @@ __pycache__/
 .venv-voxcpm/
 
 # docs
-/docs/
-
-# Eval results
-/eval/
-vitest.eval.config.ts
+docs/plan/SLICE-*
+docs/plan/CHANGE-01.md
+docs/deployment.md
+docs/host-integration.md
+docs/requirements-by-module.html
 
 # e2e screenshot artifacts
 e2e/screenshots/
@@ -122,6 +119,3 @@ venv/
 .mypy_cache/
 .ruff_cache/
 *.log
-
-# large local image exports (never part of source or deployment)
-/openmaic-images-*.tar

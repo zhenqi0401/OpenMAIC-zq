@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>OpenMAIC 学习中心原型</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body data-theme="light">
+    <a class="skip-link" href="#main-content">跳到主要内容</a>
+
+    <header class="app-header">
+      <div class="header-inner">
+        <a class="brand" href="#" aria-label="OpenMAIC 学习中心首页">
+          <img src="../../../public/logo-horizontal.png" alt="OpenMAIC" />
+          <span class="brand-divider" aria-hidden="true"></span>
+          <span class="brand-context">学习中心</span>
+        </a>
+
+        <div class="account-bar" aria-label="账户工具">
+          <div class="identity-copy">
+            <strong>张琪</strong>
+            <span>门店运营专员</span>
+          </div>
+          <span class="avatar" aria-hidden="true">张</span>
+          <span class="tool-divider" aria-hidden="true"></span>
+          <button class="icon-button" id="language-button" type="button" title="语言：简体中文" aria-label="语言：简体中文">中</button>
+          <button class="icon-button" id="theme-button" type="button" title="切换为深色主题" aria-label="切换为深色主题">☾</button>
+          <button class="icon-button" id="logout-button" type="button" title="退出登录" aria-label="退出登录">↪</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="page-shell" id="main-content">
+      <section class="page-heading" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">2026 年 7 月 10 日 · 星期五</p>
+          <h1 id="page-title">早上好，张琪</h1>
+          <p>继续完成当前岗位的学习任务。</p>
+        </div>
+        <div class="learning-summary" aria-label="学习概览">
+          <span><strong id="course-total">6</strong> 门可学课程</span>
+          <span><strong id="pending-total">1</strong> 项待完成考核</span>
+        </div>
+      </section>
+
+      <div class="workspace">
+        <aside class="task-rail" aria-labelledby="task-title">
+          <div class="section-label">
+            <span class="section-kicker">TODAY</span>
+            <h2 id="task-title">待办事项</h2>
+          </div>
+
+          <button class="exam-note" id="exam-note" type="button" aria-haspopup="dialog">
+            <span class="note-pin" aria-hidden="true"></span>
+            <span class="note-status" id="note-status">待完成考核</span>
+            <strong id="note-title">门店安全与服务规范</strong>
+            <span class="note-rule" aria-hidden="true"></span>
+            <span class="note-meta"><b>5</b> 道题 · <b>80%</b> 通过</span>
+            <span class="note-meta"><b>15</b> 分钟 · 第 <b id="note-attempt">1</b> 次</span>
+            <span class="note-action" id="note-action">进入考核 <span aria-hidden="true">→</span></span>
+          </button>
+
+          <div class="week-progress">
+            <div class="week-progress-head">
+              <span>本周学习</span>
+              <strong>3 / 5</strong>
+            </div>
+            <div class="progress-track" aria-label="本周学习进度 60%">
+              <span style="width: 60%"></span>
+            </div>
+            <p>还需完成 2 门岗位课程</p>
+          </div>
+        </aside>
+
+        <section class="course-panel" aria-labelledby="course-title">
+          <div class="course-heading">
+            <div>
+              <span class="section-kicker">COURSES</span>
+              <h2 id="course-title">我的课程</h2>
+            </div>
+            <button class="button secondary" id="import-button" type="button">
+              <span aria-hidden="true">＋</span>
+              导入本地课程
+            </button>
+            <input id="file-input" type="file" accept=".zip,application/zip" hidden />
+          </div>
+
+          <div class="course-tools">
+            <div class="segmented" aria-label="课程来源筛选">
+              <button type="button" class="active" data-filter="all" aria-pressed="true">全部 <span id="count-all">6</span></button>
+              <button type="button" data-filter="enterprise" aria-pressed="false">企业课程 <span id="count-enterprise">4</span></button>
+              <button type="button" data-filter="local" aria-pressed="false">本地课程 <span id="count-local">2</span></button>
+            </div>
+            <label class="search-field">
+              <span aria-hidden="true">⌕</span>
+              <span class="sr-only">搜索课程</span>
+              <input id="search-input" type="search" placeholder="搜索课程" autocomplete="off" />
+            </label>
+          </div>
+
+          <div class="course-status" id="course-status" role="status" aria-live="polite"></div>
+          <div class="course-grid" id="course-grid"></div>
+          <div class="empty-state" id="empty-state" hidden>
+            <strong>没有匹配的课程</strong>
+            <p>调整搜索词或切换课程来源。</p>
+            <button class="button secondary" id="clear-filters" type="button">清除筛选</button>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="page-footer">
+      <span>OpenMAIC</span>
+      <span>企业学习空间</span>
+    </footer>
+
+    <div class="dialog-backdrop" id="exam-dialog" role="dialog" aria-modal="true" aria-labelledby="exam-dialog-title" aria-hidden="true">
+      <div class="dialog-shell">
+        <header class="dialog-header">
+          <div>
+            <span class="dialog-kicker">阶段考核</span>
+            <h2 id="exam-dialog-title">门店安全与服务规范</h2>
+          </div>
+          <button class="icon-button dialog-close" id="dialog-close" type="button" title="关闭考核" aria-label="关闭考核">×</button>
+        </header>
+
+        <div class="dialog-body">
+          <section class="exam-view active" id="exam-intro">
+            <div class="intro-layout">
+              <div class="intro-copy">
+                <span class="status-chip">待完成</span>
+                <h3>准备好后开始本次考核</h3>
+                <p>题目来自你当前岗位的已发布课程。提交后将立即评分，本次答题记录会计入考核结果。</p>
+                <dl class="exam-rules">
+                  <div><dt>题量</dt><dd>5 道单选题</dd></div>
+                  <div><dt>通过线</dt><dd>80 分</dd></div>
+                  <div><dt>时限</dt><dd>15 分钟</dd></div>
+                  <div><dt>当前尝试</dt><dd>第 <span id="intro-attempt">1</span> 次</dd></div>
+                </dl>
+              </div>
+              <div class="intro-side">
+                <span class="exam-seal" aria-hidden="true">考</span>
+                <p>开始后退出将保留在当前页面，未提交答案不会计入成绩。</p>
+                <button class="button primary wide" id="start-exam" type="button">开始答题 <span aria-hidden="true">→</span></button>
+              </div>
+            </div>
+          </section>
+
+          <section class="exam-view" id="exam-questions">
+            <div class="question-toolbar">
+              <div>
+                <span>答题进度</span>
+                <strong><b id="answered-count">0</b> / 5</strong>
+              </div>
+              <div class="progress-track"><span id="answer-progress" style="width: 0%"></span></div>
+            </div>
+            <form id="question-form">
+              <div id="question-list"></div>
+              <div class="submit-row">
+                <p id="submit-help">完成全部题目后即可提交。</p>
+                <button class="button primary" id="submit-exam" type="submit" disabled>提交答案</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="exam-view centered-view" id="exam-submitted">
+            <span class="result-mark neutral" aria-hidden="true">✓</span>
+            <span class="dialog-kicker">提交成功</span>
+            <h3>答案已提交并完成评分</h3>
+            <p>本次答题记录已保存。现在可以查看得分和通过状态。</p>
+            <button class="button primary" id="view-result" type="button">查看结果</button>
+          </section>
+
+          <section class="exam-view centered-view" id="exam-result">
+            <span class="result-mark" id="result-mark" aria-hidden="true">✓</span>
+            <span class="dialog-kicker">考核结果</span>
+            <h3 id="result-title">考核通过</h3>
+            <div class="score-line"><strong id="result-score">100</strong><span>分</span></div>
+            <p id="result-copy">你已达到 80 分通过线。</p>
+            <div class="result-details">
+              <span>答对 <strong id="result-correct">5</strong> / 5 题</span>
+              <span>第 <strong id="result-attempt">1</strong> 次尝试</span>
+              <span>通过线 <strong>80</strong> 分</span>
+            </div>
+            <button class="button primary" id="finish-exam" type="button">完成并返回</button>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
