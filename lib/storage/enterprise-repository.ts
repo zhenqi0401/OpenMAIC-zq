@@ -1,4 +1,4 @@
-import { and, count, eq, gte, lte } from 'drizzle-orm';
+import { and, asc, count, eq, gte, lte } from 'drizzle-orm';
 
 import { hashInviteCode, type AuthRole } from '@/lib/auth/service';
 import type { StoredHostApiKey } from '@/lib/host-api/access';
@@ -345,7 +345,14 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
   }
 
   async listCategories(): Promise<EnterpriseCategory[]> {
-    const rows = await getDb().select().from(courseCategories);
+    const rows = await getDb()
+      .select()
+      .from(courseCategories)
+      .orderBy(
+        asc(courseCategories.sortOrder),
+        asc(courseCategories.name),
+        asc(courseCategories.id),
+      );
     return rows.map(toCategory);
   }
 

@@ -15,6 +15,13 @@
       "when": 1783324500000,
       "tag": "0001_change_01_course_storage",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784016000000,
+      "tag": "0002_learner_category_defaults",
+      "breakpoints": true
     }
   ]
 }

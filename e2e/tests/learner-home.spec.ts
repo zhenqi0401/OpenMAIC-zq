@@ -49,10 +49,17 @@ async function mockLearnerApis(page: Page) {
             id: 'enterprise-1',
             name: '门店安全操作与突发事件应对',
             description: '岗位必修课程',
+            categoryId: 'category-rules',
+            categoryName: '公司规范规章制度',
             createdAt: '2026-07-09T00:00:00.000Z',
             updatedAt: '2026-07-10T00:00:00.000Z',
             generationComplete: true,
           },
+        ],
+        categories: [
+          { id: 'category-handbook', name: '员工手册', sortOrder: 10 },
+          { id: 'category-rules', name: '公司规范规章制度', sortOrder: 20 },
+          { id: 'category-onboarding', name: '新员工入职', sortOrder: 30 },
         ],
       }),
     }),
@@ -181,8 +188,23 @@ test('separates learner courses and completes the recoverable exam flow', async 
   await expect(page.getByRole('button', { name: '主题设置' })).toBeVisible();
   await expect(page.getByText('企业课程', { exact: true })).toBeVisible();
   await expect(page.getByText('本地导入', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '员工手册' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '公司规范规章制度' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '新员工入职' })).toBeVisible();
+
+  await page.getByRole('button', { name: '员工手册' }).click();
+  await expect(page.getByText('该分类暂无可学课程')).toBeVisible();
+  await expect(page.getByRole('button', { name: '公司规范规章制度' })).toBeVisible();
+
+  await page.getByRole('button', { name: '公司规范规章制度' }).click();
+  await expect(page.getByText('门店安全操作与突发事件应对')).toBeVisible();
+  await expect(page.getByText('本地服务话术练习课')).toHaveCount(0);
 
   await page.getByRole('button', { name: /本地课程 1/ }).click();
+  await expect(page.getByRole('button', { name: '全部分类' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   await expect(page.getByText('本地服务话术练习课')).toBeVisible();
   await expect(page.getByText('门店安全操作与突发事件应对')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /重命名本地服务话术练习课/ })).toBeVisible();

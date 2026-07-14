@@ -514,6 +514,7 @@ describe('Slice-01 API routes', () => {
     const list = await getRoute('@/app/api/courses/route');
     await expect(list.json()).resolves.toMatchObject({
       courses: [{ id: 'course-published' }],
+      categories: [{ id: 'cat-1', name: 'Default', sortOrder: 0 }],
     });
 
     const draft = await getRoute(
@@ -541,6 +542,34 @@ describe('Slice-01 API routes', () => {
     );
     await expect(progress.json()).resolves.toMatchObject({
       progress: { userId: 'learner-1', courseId: 'course-published', completed: true },
+    });
+  });
+
+  test('learner course API keeps all categories when no courses are visible', async () => {
+    const repository = makeRepository();
+    mocks.repository = {
+      ...repository,
+      async listCategories() {
+        return [
+          { id: 'cat-handbook', name: '员工手册', sortOrder: 10 },
+          { id: 'cat-rules', name: '公司规范规章制度', sortOrder: 20 },
+          { id: 'cat-onboarding', name: '新员工入职', sortOrder: 30 },
+        ];
+      },
+      async listAdminCourses() {
+        return [];
+      },
+    };
+
+    const list = await getRoute('@/app/api/courses/route');
+    await expect(list.json()).resolves.toEqual({
+      success: true,
+      courses: [],
+      categories: [
+        { id: 'cat-handbook', name: '员工手册', sortOrder: 10 },
+        { id: 'cat-rules', name: '公司规范规章制度', sortOrder: 20 },
+        { id: 'cat-onboarding', name: '新员工入职', sortOrder: 30 },
+      ],
     });
   });
 

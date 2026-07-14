@@ -1,9 +1,11 @@
 import { describe, expect, test, vi } from 'vitest';
 
 import {
+  changeHomeCourseCategory,
+  changeHomeCourseSource,
   filterHomeCourses,
   isLocalHomeCourse,
-  loadEnterpriseHomeCourses,
+  loadEnterpriseHomeCatalog,
   loadEnterpriseHomeCourseThumbnails,
   loadHomeCourses,
   shouldPersistImportedClassroom,
@@ -11,7 +13,7 @@ import {
 import type { SessionIdentity } from '@/lib/auth/types';
 
 describe('CHANGE-01 home enterprise course list', () => {
-  test('loads visible courses from PostgreSQL course API for the home page', async () => {
+  test('loads visible courses and all categories from one learner API request', async () => {
     const fetcher = vi.fn(async (url: string) => {
       expect(url).toBe('/api/courses');
       return new Response(
@@ -22,34 +24,48 @@ describe('CHANGE-01 home enterprise course list', () => {
               id: 'course-pg-1',
               name: 'Two Factor Theory',
               description: 'Motivation and hygiene factors',
+              categoryId: 'cat-handbook',
+              categoryName: '员工手册',
               updatedAt: '2026-07-06T06:00:00.000Z',
               createdAt: '2026-07-05T06:00:00.000Z',
               generationComplete: true,
             },
+          ],
+          categories: [
+            { id: 'cat-handbook', name: '员工手册', sortOrder: 10 },
+            { id: 'cat-empty', name: '新员工入职', sortOrder: 30 },
           ],
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       );
     });
 
-    await expect(loadEnterpriseHomeCourses(fetcher)).resolves.toEqual([
-      {
-        id: 'course-pg-1',
-        name: 'Two Factor Theory',
-        description: 'Motivation and hygiene factors',
-        sceneCount: 0,
-        createdAt: Date.parse('2026-07-05T06:00:00.000Z'),
-        updatedAt: Date.parse('2026-07-06T06:00:00.000Z'),
-        source: 'enterprise',
-        generationComplete: true,
-      },
-    ]);
+    await expect(loadEnterpriseHomeCatalog(fetcher)).resolves.toEqual({
+      courses: [
+        {
+          id: 'course-pg-1',
+          name: 'Two Factor Theory',
+          description: 'Motivation and hygiene factors',
+          categoryId: 'cat-handbook',
+          categoryName: '员工手册',
+          sceneCount: 0,
+          createdAt: Date.parse('2026-07-05T06:00:00.000Z'),
+          updatedAt: Date.parse('2026-07-06T06:00:00.000Z'),
+          source: 'enterprise',
+          generationComplete: true,
+        },
+      ],
+      categories: [
+        { id: 'cat-handbook', name: '员工手册', sortOrder: 10 },
+        { id: 'cat-empty', name: '新员工入职', sortOrder: 30 },
+      ],
+    });
   });
 
   test('surfaces learner course API failures so the home page can offer retry', async () => {
     const fetcher = vi.fn(async () => new Response('unauthorized', { status: 401 }));
 
-    await expect(loadEnterpriseHomeCourses(fetcher)).rejects.toThrow('课程加载失败');
+    await expect(loadEnterpriseHomeCatalog(fetcher)).rejects.toThrow('课程加载失败');
   });
 
   test('loads the first PostgreSQL course slide as a home thumbnail', async () => {
@@ -97,6 +113,8 @@ describe('CHANGE-01 home enterprise course list', () => {
         createdAt: 2,
         updatedAt: 2,
         source: 'enterprise' as const,
+        categoryId: 'cat-handbook',
+        categoryName: '员工手册',
         generationComplete: true,
       },
     ];
@@ -110,7 +128,10 @@ describe('CHANGE-01 home enterprise course list', () => {
     await expect(
       loadHomeCourses({
         listLocalStages: async () => localCourses,
-        loadEnterpriseCourses: async () => enterpriseCourses,
+        loadEnterpriseCatalog: async () => ({
+          courses: enterpriseCourses,
+          categories: [{ id: 'cat-empty', name: '新员工入职', sortOrder: 30 }],
+        }),
         loadEnterpriseFirstSlides: async (courses) => {
           expect(courses).toEqual(enterpriseCourses);
           return { 'course-pg-1': { id: 'slide-pg-1', elements: [] } };
@@ -122,6 +143,7 @@ describe('CHANGE-01 home enterprise course list', () => {
       }),
     ).resolves.toEqual({
       courses: [{ ...localCourses[0], source: 'local' }, enterpriseCourses[0]],
+      categories: [{ id: 'cat-empty', name: '新员工入职', sortOrder: 30 }],
       thumbnails: {
         'local-1': thumbnail,
         'course-pg-1': { id: 'slide-pg-1', elements: [] },
@@ -139,6 +161,8 @@ describe('CHANGE-01 home enterprise course list', () => {
         createdAt: 1,
         updatedAt: 3,
         source: 'enterprise' as const,
+        categoryId: 'cat-rules',
+        categoryName: '公司规范规章制度',
       },
       {
         id: 'local-1',
@@ -151,10 +175,36 @@ describe('CHANGE-01 home enterprise course list', () => {
       },
     ];
 
-    expect(filterHomeCourses(courses, 'enterprise', '')).toEqual([courses[0]]);
-    expect(filterHomeCourses(courses, 'local', '服务')).toEqual([courses[1]]);
-    expect(filterHomeCourses(courses, 'all', '岗位')).toEqual([courses[0]]);
-    expect(filterHomeCourses(courses, 'all', 'missing')).toEqual([]);
+    expect(filterHomeCourses(courses, 'enterprise', '', 'cat-rules')).toEqual([courses[0]]);
+    expect(filterHomeCourses(courses, 'enterprise', '', 'cat-empty')).toEqual([]);
+    expect(filterHomeCourses(courses, 'local', '服务', null)).toEqual([courses[1]]);
+    expect(filterHomeCourses(courses, 'all', '岗位', null)).toEqual([courses[0]]);
+    expect(filterHomeCourses(courses, 'all', 'missing', null)).toEqual([]);
+  });
+
+  test('keeps source and category selection transitions consistent', () => {
+    expect(changeHomeCourseCategory({ source: 'all', categoryId: null }, 'cat-rules')).toEqual({
+      source: 'enterprise',
+      categoryId: 'cat-rules',
+    });
+    expect(
+      changeHomeCourseCategory({ source: 'enterprise', categoryId: 'cat-rules' }, null),
+    ).toEqual({
+      source: 'enterprise',
+      categoryId: null,
+    });
+    expect(
+      changeHomeCourseSource({ source: 'enterprise', categoryId: 'cat-rules' }, 'all'),
+    ).toEqual({
+      source: 'all',
+      categoryId: null,
+    });
+    expect(
+      changeHomeCourseSource({ source: 'enterprise', categoryId: 'cat-rules' }, 'local'),
+    ).toEqual({
+      source: 'local',
+      categoryId: null,
+    });
   });
 
   test('allows management and enterprise persistence only for their intended sources', () => {
@@ -185,6 +235,8 @@ describe('CHANGE-01 home enterprise course list', () => {
         createdAt: 1,
         updatedAt: 1,
         source: 'enterprise',
+        categoryId: 'cat-1',
+        categoryName: null,
       }),
     ).toBe(false);
     expect(shouldPersistImportedClassroom(learner, 'category-1')).toBe(false);

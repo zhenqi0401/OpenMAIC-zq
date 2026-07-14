@@ -53,6 +53,7 @@ import {
   loadHomeCourses,
   shouldPersistImportedClassroom,
   type HomeCourse,
+  type HomeCourseCategory,
 } from '@/lib/home/enterprise-course-list';
 import { SlideThumbnail } from '@/components/slide-renderer/SlideThumbnail';
 import type { Slide } from '@openmaic/dsl';
@@ -223,6 +224,7 @@ function HomePage() {
   const [themeOpen, setThemeOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [classrooms, setClassrooms] = useState<HomeCourse[]>([]);
+  const [learnerCategories, setLearnerCategories] = useState<HomeCourseCategory[]>([]);
   const [thumbnails, setThumbnails] = useState<Record<string, Slide>>({});
   const [coursesLoading, setCoursesLoading] = useState(true);
   const [coursesError, setCoursesError] = useState<string | null>(null);
@@ -260,6 +262,7 @@ function HomePage() {
     try {
       const result = await loadHomeCourses();
       setClassrooms(result.courses);
+      setLearnerCategories(result.categories);
       replaceThumbnails(result.thumbnails);
     } catch (err) {
       log.error('Failed to load classrooms:', err);
@@ -512,6 +515,7 @@ function HomePage() {
         <LearnerHome
           identity={identity}
           courses={classrooms}
+          categories={learnerCategories}
           thumbnails={thumbnails}
           loading={coursesLoading}
           error={coursesError}

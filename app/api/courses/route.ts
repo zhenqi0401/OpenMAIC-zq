@@ -12,8 +12,12 @@ export async function GET() {
   if (!current) return apiError('INVALID_REQUEST', 401, 'OpenMAIC session required');
 
   try {
-    const courses = await getEnterpriseService().listVisibleCourses(current.identity.roleId);
-    return apiSuccess({ courses });
+    const service = getEnterpriseService();
+    const [courses, categories] = await Promise.all([
+      service.listVisibleCourses(current.identity.roleId),
+      service.listCategories(),
+    ]);
+    return apiSuccess({ courses, categories });
   } catch (error) {
     return enterpriseErrorResponse(error);
   }

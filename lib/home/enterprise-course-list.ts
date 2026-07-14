@@ -11,19 +11,33 @@ export type LocalHomeCourse = StageListItem & {
 
 export type EnterpriseHomeCourse = StageListItem & {
   source: 'enterprise';
+  categoryId: string;
+  categoryName: string | null;
   generationComplete?: boolean;
 };
 
 export type HomeCourse = LocalHomeCourse | EnterpriseHomeCourse;
 
+export interface HomeCourseCategory {
+  id: string;
+  name: string;
+  sortOrder: number;
+}
+
+export interface EnterpriseHomeCatalog {
+  courses: EnterpriseHomeCourse[];
+  categories: HomeCourseCategory[];
+}
+
 export interface HomeCourseLoadResult {
   courses: HomeCourse[];
+  categories: HomeCourseCategory[];
   thumbnails: Record<string, Slide>;
 }
 
 export interface HomeCourseLoaders {
   listLocalStages: () => Promise<StageListItem[]>;
-  loadEnterpriseCourses: () => Promise<EnterpriseHomeCourse[]>;
+  loadEnterpriseCatalog: () => Promise<EnterpriseHomeCatalog>;
   getFirstSlides: (stageIds: string[]) => Promise<Record<string, Slide>>;
   loadEnterpriseFirstSlides?: (courses: EnterpriseHomeCourse[]) => Promise<Record<string, Slide>>;
 }
@@ -36,9 +50,16 @@ interface EnterpriseCourseListResponse {
     id?: unknown;
     name?: unknown;
     description?: unknown;
+    categoryId?: unknown;
+    categoryName?: unknown;
     createdAt?: unknown;
     updatedAt?: unknown;
     generationComplete?: unknown;
+  }>;
+  categories?: Array<{
+    id?: unknown;
+    name?: unknown;
+    sortOrder?: unknown;
   }>;
 }
 
@@ -61,9 +82,9 @@ function toTimestamp(value: unknown): number {
   return Date.now();
 }
 
-export async function loadEnterpriseHomeCourses(
+export async function loadEnterpriseHomeCatalog(
   fetcher: FetchLike = (url) => fetch(url),
-): Promise<EnterpriseHomeCourse[]> {
+): Promise<EnterpriseHomeCatalog> {
   const response = await fetcher('/api/courses');
   const data = (await response.json().catch(() => ({}))) as EnterpriseCourseListResponse;
   if (!response.ok) {
@@ -71,20 +92,42 @@ export async function loadEnterpriseHomeCourses(
     throw new Error(message.includes('课程') ? message : '课程加载失败');
   }
   const courses = Array.isArray(data.courses) ? data.courses : [];
+  const categories = Array.isArray(data.categories) ? data.categories : [];
 
-  return courses
-    .filter((course) => typeof course.id === 'string' && typeof course.name === 'string')
-    .map((course) => ({
-      id: course.id as string,
-      name: course.name as string,
-      description: typeof course.description === 'string' ? course.description : undefined,
-      sceneCount: 0,
-      createdAt: toTimestamp(course.createdAt),
-      updatedAt: toTimestamp(course.updatedAt),
-      source: 'enterprise' as const,
-      generationComplete:
-        typeof course.generationComplete === 'boolean' ? course.generationComplete : undefined,
-    }));
+  return {
+    courses: courses
+      .filter(
+        (course) =>
+          typeof course.id === 'string' &&
+          typeof course.name === 'string' &&
+          typeof course.categoryId === 'string',
+      )
+      .map((course) => ({
+        id: course.id as string,
+        name: course.name as string,
+        description: typeof course.description === 'string' ? course.description : undefined,
+        categoryId: course.categoryId as string,
+        categoryName: typeof course.categoryName === 'string' ? course.categoryName : null,
+        sceneCount: 0,
+        createdAt: toTimestamp(course.createdAt),
+        updatedAt: toTimestamp(course.updatedAt),
+        source: 'enterprise' as const,
+        generationComplete:
+          typeof course.generationComplete === 'boolean' ? course.generationComplete : undefined,
+      })),
+    categories: categories
+      .filter(
+        (category) =>
+          typeof category.id === 'string' &&
+          typeof category.name === 'string' &&
+          typeof category.sortOrder === 'number',
+      )
+      .map((category) => ({
+        id: category.id as string,
+        name: category.name as string,
+        sortOrder: category.sortOrder as number,
+      })),
+  };
 }
 
 export function isLocalHomeCourse(course: HomeCourse): course is LocalHomeCourse {
@@ -95,15 +138,44 @@ export function filterHomeCourses(
   courses: HomeCourse[],
   source: HomeCourseFilter,
   query: string,
+  categoryId: string | null = null,
 ): HomeCourse[] {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   return courses.filter((course) => {
     if (source !== 'all' && course.source !== source) return false;
+    if (categoryId && (course.source !== 'enterprise' || course.categoryId !== categoryId)) {
+      return false;
+    }
     if (!normalizedQuery) return true;
     return [course.name, course.description]
       .filter((value): value is string => typeof value === 'string')
       .some((value) => value.toLocaleLowerCase().includes(normalizedQuery));
   });
+}
+
+export interface HomeCourseSelection {
+  source: HomeCourseFilter;
+  categoryId: string | null;
+}
+
+export function changeHomeCourseSource(
+  selection: HomeCourseSelection,
+  source: HomeCourseFilter,
+): HomeCourseSelection {
+  return {
+    source,
+    categoryId: source === 'all' || source === 'local' ? null : selection.categoryId,
+  };
+}
+
+export function changeHomeCourseCategory(
+  selection: HomeCourseSelection,
+  categoryId: string | null,
+): HomeCourseSelection {
+  return {
+    source: categoryId ? 'enterprise' : selection.source,
+    categoryId,
+  };
 }
 
 export function shouldPersistImportedClassroom(
@@ -137,14 +209,15 @@ export async function loadEnterpriseHomeCourseThumbnails(
 export async function loadHomeCourses(
   loaders: HomeCourseLoaders = {
     listLocalStages: listStages,
-    loadEnterpriseCourses: () => loadEnterpriseHomeCourses(),
+    loadEnterpriseCatalog: () => loadEnterpriseHomeCatalog(),
     getFirstSlides: getFirstSlideByStages,
   },
 ): Promise<HomeCourseLoadResult> {
-  const [localCourses, enterpriseCourses] = await Promise.all([
+  const [localCourses, enterpriseCatalog] = await Promise.all([
     loaders.listLocalStages(),
-    loaders.loadEnterpriseCourses(),
+    loaders.loadEnterpriseCatalog(),
   ]);
+  const enterpriseCourses = enterpriseCatalog.courses;
   const sourcedLocalCourses: LocalHomeCourse[] = localCourses.map((course) => ({
     ...course,
     source: 'local',
@@ -162,6 +235,7 @@ export async function loadHomeCourses(
     courses: [...sourcedLocalCourses, ...enterpriseCourses].sort(
       (a, b) => b.updatedAt - a.updatedAt,
     ),
+    categories: enterpriseCatalog.categories,
     thumbnails: { ...localThumbnails, ...enterpriseThumbnails },
   };
 }

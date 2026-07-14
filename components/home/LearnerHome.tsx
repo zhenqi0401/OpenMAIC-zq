@@ -34,16 +34,21 @@ import { useTheme } from '@/lib/hooks/use-theme';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useUserProfileStore } from '@/lib/store/user-profile';
 import {
+  changeHomeCourseCategory,
+  changeHomeCourseSource,
   filterHomeCourses,
   isLocalHomeCourse,
   type HomeCourse,
   type HomeCourseFilter,
+  type HomeCourseCategory,
+  type HomeCourseSelection,
 } from '@/lib/home/enterprise-course-list';
 import type { SessionIdentity } from '@/lib/auth/types';
 
 interface LearnerHomeProps {
   identity: SessionIdentity;
   courses: HomeCourse[];
+  categories: HomeCourseCategory[];
   thumbnails: Record<string, Slide>;
   loading: boolean;
   error: string | null;
@@ -110,6 +115,7 @@ function ThemeMenu() {
 export function LearnerHome({
   identity,
   courses,
+  categories,
   thumbnails,
   loading,
   error,
@@ -124,14 +130,23 @@ export function LearnerHome({
   const { t } = useI18n();
   const avatar = useUserProfileStore((state) => state.avatar);
   const nickname = useUserProfileStore((state) => state.nickname);
-  const [filter, setFilter] = useState<HomeCourseFilter>('all');
+  const [selection, setSelection] = useState<HomeCourseSelection>({
+    source: 'all',
+    categoryId: null,
+  });
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
   const displayName = nickname || t('profile.defaultNickname');
 
   const filteredCourses = useMemo(
-    () => filterHomeCourses(courses, filter, deferredQuery),
-    [courses, deferredQuery, filter],
+    () => filterHomeCourses(courses, selection.source, deferredQuery, selection.categoryId),
+    [courses, deferredQuery, selection],
+  );
+  const selectedCategoryHasCourses = useMemo(
+    () =>
+      selection.categoryId === null ||
+      filterHomeCourses(courses, 'enterprise', '', selection.categoryId).length > 0,
+    [courses, selection.categoryId],
   );
   const sourceCounts = useMemo(
     () => ({
@@ -260,11 +275,13 @@ export function LearnerHome({
                   <button
                     key={item.value}
                     type="button"
-                    aria-pressed={filter === item.value}
-                    onClick={() => setFilter(item.value)}
+                    aria-pressed={selection.source === item.value}
+                    onClick={() =>
+                      setSelection((current) => changeHomeCourseSource(current, item.value))
+                    }
                     className={cn(
                       'min-w-0 rounded px-2.5 text-xs text-slate-500 transition-colors dark:text-slate-400',
-                      filter === item.value &&
+                      selection.source === item.value &&
                         'bg-white text-slate-950 shadow-sm dark:bg-[#1a1d25] dark:text-white',
                     )}
                   >
@@ -286,6 +303,37 @@ export function LearnerHome({
                   className="h-10 rounded-md border-[#d9dce3] bg-white pl-9 dark:border-slate-700 dark:bg-[#1a1d25]"
                 />
               </label>
+            </div>
+
+            <div
+              className="flex flex-wrap items-center gap-2 border-b border-[#d9dce3] pb-4 dark:border-slate-800"
+              role="group"
+              aria-label="企业课程分类"
+            >
+              <span className="mr-1 text-xs text-slate-500 dark:text-slate-400">课程分类</span>
+              {[
+                { id: null, name: '全部分类' },
+                ...categories.map((category) => ({ id: category.id, name: category.name })),
+              ].map((category) => {
+                const selected = selection.categoryId === category.id;
+                return (
+                  <button
+                    key={category.id ?? 'all-categories'}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() =>
+                      setSelection((current) => changeHomeCourseCategory(current, category.id))
+                    }
+                    className={cn(
+                      'max-w-full rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition-colors hover:border-violet-400 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-slate-700 dark:bg-[#1a1d25] dark:text-slate-300 dark:hover:border-violet-500 dark:hover:text-violet-300 dark:focus-visible:ring-offset-[#12141a]',
+                      selected &&
+                        'border-violet-500 bg-violet-50 text-violet-700 dark:border-violet-500 dark:bg-violet-950/50 dark:text-violet-200',
+                    )}
+                  >
+                    {category.name}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="min-h-5 py-3 text-xs text-slate-500 dark:text-slate-400" role="status">
@@ -319,19 +367,25 @@ export function LearnerHome({
             ) : (
               <div className="border-y border-[#d9dce3] py-14 text-center dark:border-slate-800">
                 <BookOpen className="mx-auto size-7 text-slate-400" />
-                <p className="mt-3 font-medium">没有匹配的课程</p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  {courses.length === 0
-                    ? '导入本地课程，或等待管理员发布岗位课程。'
-                    : '调整搜索词或课程来源。'}
+                <p className="mt-3 font-medium">
+                  {selection.categoryId && !selectedCategoryHasCourses
+                    ? '该分类暂无可学课程'
+                    : '没有匹配的课程'}
                 </p>
-                {(query || filter !== 'all') && (
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  {selection.categoryId && !selectedCategoryHasCourses
+                    ? '可切换其他分类查看课程。'
+                    : courses.length === 0
+                      ? '导入本地课程，或等待管理员发布岗位课程。'
+                      : '调整搜索词或课程来源。'}
+                </p>
+                {(query || selection.source !== 'all' || selection.categoryId) && (
                   <Button
                     variant="outline"
                     className="mt-5 rounded-md"
                     onClick={() => {
                       setQuery('');
-                      setFilter('all');
+                      setSelection({ source: 'all', categoryId: null });
                     }}
                   >
                     清除筛选

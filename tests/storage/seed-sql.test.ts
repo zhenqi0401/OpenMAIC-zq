@@ -26,3 +26,20 @@ describe('enterprise seed SQL', () => {
     await expect(verifyPassword('admin123', hashMatch![0])).resolves.toBe(true);
   });
 });
+
+describe('learner category defaults migration', () => {
+  const migrationSql = readFileSync(
+    resolve(process.cwd(), 'drizzle/0002_learner_category_defaults.sql'),
+    'utf8',
+  );
+
+  test('initializes three editable categories without duplicating existing names', () => {
+    expect(migrationSql).toContain("('员工手册', 10)");
+    expect(migrationSql).toContain("('公司规范规章制度', 20)");
+    expect(migrationSql).toContain("('新员工入职', 30)");
+    expect(migrationSql).toMatch(/WHERE NOT EXISTS\s*\(/i);
+    expect(migrationSql).toMatch(/"course_categories"\."name"\s*=\s*defaults\.name/);
+    expect(migrationSql).not.toMatch(/system|protected|locked/i);
+    expect(migrationSql).not.toMatch(/DO UPDATE/i);
+  });
+});
