@@ -125,6 +125,52 @@ export const courseVisibilityRoles = pgTable(
   (table) => [primaryKey({ columns: [table.courseId, table.roleId] })],
 );
 
+export const courseDanmaku = pgTable(
+  'course_danmaku',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id'),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id),
+    sceneKey: varchar('scene_key', { length: 128 }).notNull(),
+    actionId: varchar('action_id', { length: 128 }).notNull(),
+    actionOffsetMs: integer('action_offset_ms').notNull(),
+    authorId: uuid('author_id')
+      .notNull()
+      .references(() => users.id),
+    content: varchar('content', { length: 200 }).notNull(),
+    inputSource: varchar('input_source', { length: 16 }).notNull().default('text'),
+    status: varchar('status', { length: 32 }).notNull().default('visible'),
+    clientRequestId: varchar('client_request_id', { length: 128 }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    moderatedBy: uuid('moderated_by').references(() => users.id),
+    moderationReason: text('moderation_reason'),
+    moderatedAt: timestamp('moderated_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    index('course_danmaku_course_scene_status_created_idx').on(
+      table.courseId,
+      table.sceneKey,
+      table.status,
+      table.createdAt,
+      table.id,
+    ),
+    index('course_danmaku_course_scene_action_idx').on(
+      table.courseId,
+      table.sceneKey,
+      table.actionId,
+    ),
+    index('course_danmaku_author_created_idx').on(table.authorId, table.createdAt),
+    uniqueIndex('course_danmaku_author_course_request_idx').on(
+      table.authorId,
+      table.courseId,
+      table.clientRequestId,
+    ),
+  ],
+);
+
 export const courseScenes = pgTable(
   'course_scenes',
   {
