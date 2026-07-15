@@ -170,6 +170,16 @@ function makeRepository(
         ? progress
         : null;
     },
+    async markCourseStarted(input) {
+      progress = progress ?? {
+        ...input,
+        sceneIndex: 0,
+        actionIndex: 0,
+        completed: false,
+        updatedAt: new Date('2026-07-01T00:00:00Z'),
+      };
+      return progress;
+    },
     async upsertCourseProgress(input) {
       progress = { ...input, updatedAt: new Date('2026-07-01T00:00:00Z') };
       return progress;

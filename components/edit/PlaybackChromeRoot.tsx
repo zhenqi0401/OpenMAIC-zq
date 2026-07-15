@@ -57,6 +57,8 @@ export interface PlaybackChromeRootHandle {
 interface PlaybackChromeRootProps {
   readonly onRetryOutline?: (outlineId: string) => Promise<void>;
   readonly enterpriseCourseId?: string | null;
+  /** Learner-only gate; administrator previews and local courses must not be counted. */
+  readonly trackCourseStart?: boolean;
   /** Whether the Pro Switch in Header should be enabled. */
   readonly canEnterProMode?: boolean;
   /** Pro Switch click handler — parent coordinates editLock + teardown. */
@@ -72,7 +74,13 @@ interface PlaybackChromeRootProps {
  */
 export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackChromeRootProps>(
   function PlaybackChromeRoot(
-    { onRetryOutline, enterpriseCourseId, canEnterProMode, onEnterProMode },
+    {
+      onRetryOutline,
+      enterpriseCourseId,
+      trackCourseStart = false,
+      canEnterProMode,
+      onEnterProMode,
+    },
     ref,
   ) {
     const { t } = useI18n();
@@ -197,6 +205,7 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
     }, [selectedAgentIds]);
 
     const engineRef = useRef<PlaybackEngine | null>(null);
+    const courseStartRequestsRef = useRef(new Map<string, 'pending' | 'recorded'>());
     const audioPlayerRef = useRef(createAudioPlayer());
     const chatAreaRef = useRef<ChatAreaRef>(null);
     const lectureSessionIdRef = useRef<string | null>(null);
@@ -213,6 +222,26 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
     // Discussion buffer-level pause state (distinct from soft-pause which aborts SSE)
     const [isDiscussionPaused, setIsDiscussionPaused] = useState(false);
     const [assessmentPassed, setAssessmentPassed] = useState(false);
+
+    const markCourseStarted = useCallback(() => {
+      if (!enterpriseCourseId || !trackCourseStart) return;
+      const mode = engineRef.current?.getMode();
+      if (mode !== 'playing' && mode !== 'live') return;
+      if (courseStartRequestsRef.current.has(enterpriseCourseId)) return;
+
+      courseStartRequestsRef.current.set(enterpriseCourseId, 'pending');
+      void fetch(`/api/courses/${encodeURIComponent(enterpriseCourseId)}/start`, {
+        method: 'POST',
+      })
+        .then((response) => {
+          if (!response.ok) throw new Error(`Course start request failed (${response.status})`);
+          courseStartRequestsRef.current.set(enterpriseCourseId, 'recorded');
+        })
+        .catch((error) => {
+          courseStartRequestsRef.current.delete(enterpriseCourseId);
+          console.warn('[Playback] Failed to record course start', error);
+        });
+    }, [enterpriseCourseId, trackCourseStart]);
 
     useEffect(() => {
       setAssessmentPassed(false);
@@ -630,6 +659,7 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
             lectureActionCounterRef.current = 0;
           }
           engine.start();
+          markCourseStarted();
         })();
       } else {
         // Load saved playback state and restore position (but never auto-play).
@@ -813,8 +843,9 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
           // Continue from current position (e.g. after discussion end)
           engine.continuePlayback();
         }
+        markCourseStarted();
       }
-    }, [playbackCompleted, currentScene]);
+    }, [playbackCompleted, currentScene, markCourseStarted]);
 
     // get scene information
     const isPendingScene = currentSceneId === PENDING_SCENE_ID;

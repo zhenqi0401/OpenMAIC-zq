@@ -161,6 +161,7 @@ export function Stage({
               ref={playbackRef}
               onRetryOutline={onRetryOutline}
               enterpriseCourseId={enterpriseCourseId}
+              trackCourseStart={authoringIdentity?.isAdmin === false}
               canEnterProMode={canEnterProMode}
               onEnterProMode={toggleHandler}
             />

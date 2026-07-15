@@ -235,6 +235,16 @@ function makeRepository(): EnterpriseRepository {
         ? { userId, courseId, ...saved, updatedAt: new Date('2026-07-01T00:00:00Z') }
         : null;
     },
+    async markCourseStarted(input) {
+      const existing = progress.get(`${input.userId}:${input.courseId}`);
+      const started = existing ?? {
+        sceneIndex: 0,
+        actionIndex: 0,
+        completed: false,
+      };
+      progress.set(`${input.userId}:${input.courseId}`, started);
+      return { ...input, ...started, updatedAt: new Date('2026-07-01T00:00:00Z') };
+    },
     async upsertCourseProgress(input) {
       progress.set(`${input.userId}:${input.courseId}`, input);
       return { ...input, updatedAt: new Date('2026-07-01T00:00:00Z') };

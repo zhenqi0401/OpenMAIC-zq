@@ -100,6 +100,15 @@ function makeRepository(course: EnterpriseCourse = makeCourse()): EnterpriseRepo
     async getCourseProgress() {
       return null;
     },
+    async markCourseStarted(input) {
+      return {
+        ...input,
+        sceneIndex: 0,
+        actionIndex: 0,
+        completed: false,
+        updatedAt: new Date('2026-07-01T00:00:00Z'),
+      };
+    },
     async upsertCourseProgress(input) {
       return { ...input, updatedAt: new Date('2026-07-01T00:00:00Z') };
     },

@@ -351,6 +351,7 @@ export interface EnterpriseRepository {
     questions: unknown[],
   ): Promise<EnterpriseCourse | null>;
   getCourseProgress(userId: string, courseId: string): Promise<EnterpriseCourseProgress | null>;
+  markCourseStarted(input: { userId: string; courseId: string }): Promise<EnterpriseCourseProgress>;
   upsertCourseProgress(input: EnterpriseCourseProgress): Promise<EnterpriseCourseProgress>;
   listCourseAssessmentAttempts(
     userId: string,
@@ -677,6 +678,17 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
         mediaManifest: buildMediaManifest(id, mediaFiles),
         audioManifest: buildAudioManifest(id, audioBlobs),
       };
+    },
+
+    async startCourse(input: { courseId: string; userId: string; roleId: string }) {
+      const content = await repository.getCourseContent(input.courseId);
+      if (!content || !isCourseVisibleToRole(content.course, input.roleId)) {
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      }
+      return repository.markCourseStarted({
+        userId: input.userId,
+        courseId: input.courseId,
+      });
     },
 
     replaceCourseContent: async (courseId: string, input: ReplaceCourseContentInput) => {

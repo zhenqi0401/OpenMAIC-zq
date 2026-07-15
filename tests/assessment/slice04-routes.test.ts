@@ -180,6 +180,9 @@ function makeRepository(): EnterpriseRepository {
     async getCourseProgress(userId, courseId) {
       return progress.userId === userId && progress.courseId === courseId ? progress : null;
     },
+    async markCourseStarted() {
+      return progress;
+    },
     async upsertCourseProgress(input) {
       progress = { ...input, updatedAt: new Date('2026-07-01T00:00:00Z') };
       return progress;

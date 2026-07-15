@@ -606,6 +606,30 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     return progress ?? null;
   }
 
+  async markCourseStarted(input: {
+    userId: string;
+    courseId: string;
+  }): Promise<EnterpriseCourseProgress> {
+    const now = new Date();
+    const [progress] = await getDb()
+      .insert(courseProgress)
+      .values({
+        userId: input.userId,
+        courseId: input.courseId,
+        sceneIndex: 0,
+        actionIndex: 0,
+        completed: false,
+        completedAt: null,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [courseProgress.userId, courseProgress.courseId],
+        set: { updatedAt: now },
+      })
+      .returning();
+    return progress;
+  }
+
   async upsertCourseProgress(input: EnterpriseCourseProgress): Promise<EnterpriseCourseProgress> {
     const [progress] = await getDb()
       .insert(courseProgress)
