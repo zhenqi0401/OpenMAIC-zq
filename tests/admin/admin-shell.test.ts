@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { AdminShell, adminModules } from '@/components/admin/AdminShell';
 
 describe('AdminShell', () => {
-  it('renders the four admin modules as accessible navigation targets', () => {
+  it('renders the five admin modules as accessible navigation targets', () => {
     const markup = renderToStaticMarkup(
       React.createElement(
         AdminShell,
@@ -17,12 +17,14 @@ describe('AdminShell', () => {
       'dashboard',
       'courses',
       'exams',
+      'community',
       'access',
     ]);
     expect(markup).toContain('aria-label="后台模块导航"');
     expect(markup).toContain('href="/admin?module=dashboard"');
     expect(markup).toContain('href="/admin?module=courses"');
     expect(markup).toContain('href="/admin?module=exams"');
+    expect(markup).toContain('href="/admin?module=community"');
     expect(markup).toContain('href="/admin?module=access"');
     expect(markup).toContain('aria-current="page"');
   });

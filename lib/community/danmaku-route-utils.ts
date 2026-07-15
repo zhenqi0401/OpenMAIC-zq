@@ -2,9 +2,15 @@ import { apiError } from '@/lib/server/api-response';
 import { getEnterpriseRepository } from '@/lib/storage/enterprise-repository';
 import { getDanmakuRepository } from './danmaku-repository';
 import { createDanmakuService, DanmakuServiceError } from './danmaku';
+import { getCommunityRateLimiter } from './governance';
 
 export function getDanmakuService() {
-  return createDanmakuService(getDanmakuRepository(), getEnterpriseRepository());
+  return createDanmakuService(
+    getDanmakuRepository(),
+    getEnterpriseRepository(),
+    undefined,
+    getCommunityRateLimiter(),
+  );
 }
 
 export function danmakuErrorResponse(error: unknown) {

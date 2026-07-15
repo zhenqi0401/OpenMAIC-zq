@@ -2,6 +2,12 @@ import type {
   EnterpriseCourseContent,
   EnterpriseRepository,
 } from '@/lib/storage/enterprise-service';
+import {
+  CommunityGovernanceError,
+  normalizeCommunityText,
+  normalizeModerationReason,
+  type CommunityRateLimiter,
+} from './governance-shared';
 
 export const DANMAKU_MAX_CONTENT_LENGTH = 200;
 export const DANMAKU_DEFAULT_PAGE_SIZE = 50;
@@ -242,6 +248,7 @@ export function createDanmakuService(
   repository: DanmakuRepository,
   courses: Pick<EnterpriseRepository, 'getCourseContent'>,
   now: () => Date = () => new Date(),
+  rateLimiter?: CommunityRateLimiter,
 ) {
   async function getVisibleCourse(courseId: string, roleId: string) {
     return assertPublishedCourseVisible(await courses.getCourseContent(courseId), roleId);
@@ -279,12 +286,18 @@ export function createDanmakuService(
       inputSource?: DanmakuInputSource;
       clientRequestId?: string;
     }) {
-      const content = input.content.trim();
-      if (!content || content.length > DANMAKU_MAX_CONTENT_LENGTH) {
-        throw new DanmakuServiceError(
-          'INVALID_REQUEST',
-          `Danmaku content must be between 1 and ${DANMAKU_MAX_CONTENT_LENGTH} characters`,
+      let content: string;
+      try {
+        content = normalizeCommunityText(
+          input.content,
+          'Danmaku content',
+          DANMAKU_MAX_CONTENT_LENGTH,
         );
+      } catch (error) {
+        if (error instanceof CommunityGovernanceError) {
+          throw new DanmakuServiceError('INVALID_REQUEST', error.message);
+        }
+        throw error;
       }
       if (!Number.isInteger(input.actionOffsetMs) || input.actionOffsetMs < 0) {
         throw new DanmakuServiceError('INVALID_REQUEST', 'actionOffsetMs must be non-negative');
@@ -314,19 +327,38 @@ export function createDanmakuService(
         }
       }
 
-      const sent = await repository.getAuthorSendWindow(
-        input.authorId,
-        new Date(now().getTime() - DANMAKU_WINDOW_MS),
-      );
-      if (sent.length >= DANMAKU_MAX_PER_WINDOW) {
-        throw new DanmakuServiceError('RATE_LIMITED', 'Danmaku send limit exceeded');
-      }
-      const latest = sent.reduce<Date | null>(
-        (current, item) => (!current || item.createdAt > current ? item.createdAt : current),
-        null,
-      );
-      if (latest && now().getTime() - latest.getTime() < DANMAKU_MIN_INTERVAL_MS) {
-        throw new DanmakuServiceError('RATE_LIMITED', 'Please wait before sending another danmaku');
+      if (rateLimiter) {
+        try {
+          await rateLimiter.consume({
+            actorId: input.authorId,
+            actionKind: 'danmaku',
+            content,
+          });
+        } catch (error) {
+          if (error instanceof CommunityGovernanceError && error.code === 'RATE_LIMITED') {
+            throw new DanmakuServiceError('RATE_LIMITED', error.message);
+          }
+          throw error;
+        }
+      } else {
+        // Injected repositories keep the legacy path; production uses the atomic shared limiter.
+        const sent = await repository.getAuthorSendWindow(
+          input.authorId,
+          new Date(now().getTime() - DANMAKU_WINDOW_MS),
+        );
+        if (sent.length >= DANMAKU_MAX_PER_WINDOW) {
+          throw new DanmakuServiceError('RATE_LIMITED', 'Danmaku send limit exceeded');
+        }
+        const latest = sent.reduce<Date | null>(
+          (current, item) => (!current || item.createdAt > current ? item.createdAt : current),
+          null,
+        );
+        if (latest && now().getTime() - latest.getTime() < DANMAKU_MIN_INTERVAL_MS) {
+          throw new DanmakuServiceError(
+            'RATE_LIMITED',
+            'Please wait before sending another danmaku',
+          );
+        }
       }
 
       try {
@@ -376,12 +408,18 @@ export function createDanmakuService(
       if (!['hide', 'restore', 'delete'].includes(input.action)) {
         throw new DanmakuServiceError('INVALID_REQUEST', 'Unsupported moderation action');
       }
-      if (input.reason && input.reason.trim().length > 500) {
-        throw new DanmakuServiceError('INVALID_REQUEST', 'Moderation reason is too long');
+      let reason: string | undefined;
+      try {
+        reason = normalizeModerationReason(input.reason);
+      } catch (error) {
+        if (error instanceof CommunityGovernanceError) {
+          throw new DanmakuServiceError('INVALID_REQUEST', error.message);
+        }
+        throw error;
       }
       const updated = await repository.moderate({
         ...input,
-        reason: input.reason?.trim() || undefined,
+        reason,
       });
       if (!updated) throw new DanmakuServiceError('NOT_FOUND', 'Danmaku not found');
       return updated;

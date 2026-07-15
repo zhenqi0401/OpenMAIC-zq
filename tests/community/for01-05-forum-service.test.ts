@@ -242,7 +242,7 @@ describe('FOR-03 one-level replies', () => {
 describe('FOR-05 administrator actions', () => {
   test('passes the authenticated administrator and trimmed reason to all post states', async () => {
     const { service, repository } = setup();
-    for (const action of ['hide', 'restore', 'pin', 'unpin', 'lock', 'unlock'] as const) {
+    for (const action of ['hide', 'restore', 'delete', 'pin', 'unpin', 'lock', 'unlock'] as const) {
       await service.moderatePost({ id: 'post-1', action, adminId: 'admin-1', reason: ' abuse ' });
     }
     expect(repository.moderatePost).toHaveBeenLastCalledWith({
@@ -253,10 +253,11 @@ describe('FOR-05 administrator actions', () => {
     });
   });
 
-  test('supports hiding and restoring replies', async () => {
+  test('supports hiding, deleting and restoring replies', async () => {
     const { service, repository } = setup();
     await service.moderateReply({ id: 'reply-1', action: 'hide', adminId: 'admin-1' });
     await service.moderateReply({ id: 'reply-1', action: 'restore', adminId: 'admin-1' });
-    expect(repository.moderateReply).toHaveBeenCalledTimes(2);
+    await service.moderateReply({ id: 'reply-1', action: 'delete', adminId: 'admin-1' });
+    expect(repository.moderateReply).toHaveBeenCalledTimes(3);
   });
 });

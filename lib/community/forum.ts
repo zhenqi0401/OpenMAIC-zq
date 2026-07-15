@@ -1,4 +1,10 @@
 import type { EnterpriseRepository } from '@/lib/storage/enterprise-service';
+import {
+  CommunityGovernanceError,
+  normalizeCommunityText,
+  normalizeModerationReason,
+  type CommunityRateLimiter,
+} from './governance-shared';
 
 export const FORUM_TITLE_MAX_LENGTH = 160;
 export const FORUM_POST_MAX_LENGTH = 10_000;
@@ -96,13 +102,13 @@ export interface ForumRepository {
   deleteOwnReply(input: { id: string; authorId: string }): Promise<ForumReply | null>;
   moderatePost(input: {
     id: string;
-    action: 'hide' | 'restore' | 'pin' | 'unpin' | 'lock' | 'unlock';
+    action: 'hide' | 'restore' | 'delete' | 'pin' | 'unpin' | 'lock' | 'unlock';
     adminId: string;
     reason?: string;
   }): Promise<ForumPost | null>;
   moderateReply(input: {
     id: string;
-    action: 'hide' | 'restore';
+    action: 'hide' | 'restore' | 'delete';
     adminId: string;
     reason?: string;
   }): Promise<ForumReply | null>;
@@ -110,7 +116,12 @@ export interface ForumRepository {
 
 export class ForumServiceError extends Error {
   constructor(
-    public readonly code: 'NOT_FOUND' | 'FORBIDDEN' | 'INVALID_REQUEST' | 'CONFLICT',
+    public readonly code:
+      | 'NOT_FOUND'
+      | 'FORBIDDEN'
+      | 'INVALID_REQUEST'
+      | 'RATE_LIMITED'
+      | 'CONFLICT',
     message: string,
   ) {
     super(message);
@@ -119,14 +130,14 @@ export class ForumServiceError extends Error {
 }
 
 function normalizeRequired(value: string, field: string, maxLength: number): string {
-  const normalized = value.trim();
-  if (!normalized || normalized.length > maxLength) {
-    throw new ForumServiceError(
-      'INVALID_REQUEST',
-      `${field} must be between 1 and ${maxLength} characters`,
-    );
+  try {
+    return normalizeCommunityText(value, field, maxLength);
+  } catch (error) {
+    if (error instanceof CommunityGovernanceError) {
+      throw new ForumServiceError('INVALID_REQUEST', error.message);
+    }
+    throw error;
   }
-  return normalized;
 }
 
 function assertPublicPost(post: ForumPost): void {
@@ -181,7 +192,24 @@ export function parseForumPagination(search: URLSearchParams) {
 export function createForumService(
   repository: ForumRepository,
   courses: Pick<EnterpriseRepository, 'getCourseContent'>,
+  rateLimiter?: CommunityRateLimiter,
 ) {
+  async function consumeRateLimit(
+    actorId: string,
+    actionKind: 'forum_post' | 'forum_reply',
+    content: string,
+  ) {
+    if (!rateLimiter) return;
+    try {
+      await rateLimiter.consume({ actorId, actionKind, content });
+    } catch (error) {
+      if (error instanceof CommunityGovernanceError && error.code === 'RATE_LIMITED') {
+        throw new ForumServiceError('RATE_LIMITED', error.message);
+      }
+      throw error;
+    }
+  }
+
   async function assertPostAccess(post: ForumPost, roleId: string) {
     assertPublicPost(post);
     if (post.scope === 'course') {
@@ -222,12 +250,15 @@ export function createForumService(
         if (!courseId) throw new ForumServiceError('INVALID_REQUEST', 'courseId is required');
         await assertCourseVisible(await courses.getCourseContent(courseId), input.roleId);
       }
+      const title = normalizeRequired(input.title, 'title', FORUM_TITLE_MAX_LENGTH);
+      const body = normalizeRequired(input.body, 'body', FORUM_POST_MAX_LENGTH);
+      await consumeRateLimit(input.authorId, 'forum_post', `${title}\n${body}`);
       return repository.createPost({
         authorId: input.authorId,
         scope: input.scope,
         courseId,
-        title: normalizeRequired(input.title, 'title', FORUM_TITLE_MAX_LENGTH),
-        body: normalizeRequired(input.body, 'body', FORUM_POST_MAX_LENGTH),
+        title,
+        body,
       });
     },
 
@@ -282,10 +313,12 @@ export function createForumService(
       if (post.status !== 'visible') {
         throw new ForumServiceError('CONFLICT', 'Deleted posts cannot receive new replies');
       }
+      const body = normalizeRequired(input.body, 'body', FORUM_REPLY_MAX_LENGTH);
+      await consumeRateLimit(input.authorId, 'forum_reply', body);
       return repository.createReply({
         postId: input.postId,
         authorId: input.authorId,
-        body: normalizeRequired(input.body, 'body', FORUM_REPLY_MAX_LENGTH),
+        body,
       });
     },
 
@@ -322,19 +355,31 @@ export function createForumService(
     },
 
     async moderatePost(input: Parameters<ForumRepository['moderatePost']>[0]) {
-      const post = await repository.moderatePost({
-        ...input,
-        reason: input.reason?.trim() || undefined,
-      });
+      let reason: string | undefined;
+      try {
+        reason = normalizeModerationReason(input.reason);
+      } catch (error) {
+        if (error instanceof CommunityGovernanceError) {
+          throw new ForumServiceError('INVALID_REQUEST', error.message);
+        }
+        throw error;
+      }
+      const post = await repository.moderatePost({ ...input, reason });
       if (!post) throw new ForumServiceError('CONFLICT', 'Post action is not valid');
       return post;
     },
 
     async moderateReply(input: Parameters<ForumRepository['moderateReply']>[0]) {
-      const reply = await repository.moderateReply({
-        ...input,
-        reason: input.reason?.trim() || undefined,
-      });
+      let reason: string | undefined;
+      try {
+        reason = normalizeModerationReason(input.reason);
+      } catch (error) {
+        if (error instanceof CommunityGovernanceError) {
+          throw new ForumServiceError('INVALID_REQUEST', error.message);
+        }
+        throw error;
+      }
+      const reply = await repository.moderateReply({ ...input, reason });
       if (!reply) throw new ForumServiceError('CONFLICT', 'Reply action is not valid');
       return reply;
     },

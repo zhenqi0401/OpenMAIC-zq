@@ -1,7 +1,7 @@
 import { and, asc, eq, gt, gte, inArray, or } from 'drizzle-orm';
 
-import { getDb } from '@/lib/storage/db';
-import { courseDanmaku, roles, users } from '@/lib/storage/schema';
+import { getDb, runDbTransaction } from '@/lib/storage/db';
+import { communityModerationAudit, courseDanmaku, roles, users } from '@/lib/storage/schema';
 import type { AdminDanmaku, DanmakuRecord, DanmakuRepository, DanmakuStatus } from './danmaku';
 
 function toRecord(row: typeof courseDanmaku.$inferSelect): DanmakuRecord {
@@ -149,32 +149,44 @@ export class DrizzleDanmakuRepository implements DanmakuRepository {
   }
 
   async moderate(input: Parameters<DanmakuRepository['moderate']>[0]) {
-    const now = new Date();
-    const status =
-      input.action === 'hide'
-        ? 'hidden'
-        : input.action === 'delete'
-          ? 'deleted_by_admin'
-          : 'visible';
-    const allowedStatuses: DanmakuStatus[] =
-      input.action === 'hide'
-        ? ['visible']
-        : input.action === 'delete'
-          ? ['visible', 'hidden']
-          : ['hidden', 'deleted_by_admin'];
-    const [row] = await getDb()
-      .update(courseDanmaku)
-      .set({
-        status,
-        deletedAt: status === 'deleted_by_admin' ? now : null,
-        moderatedBy: input.adminId,
-        moderationReason: input.reason ?? null,
-        moderatedAt: now,
-        updatedAt: now,
-      })
-      .where(and(eq(courseDanmaku.id, input.id), inArray(courseDanmaku.status, allowedStatuses)))
-      .returning({ id: courseDanmaku.id });
-    return row ? getAdminDanmaku(row.id) : null;
+    const id = await runDbTransaction<string | null>(async (tx) => {
+      const now = new Date();
+      const status =
+        input.action === 'hide'
+          ? 'hidden'
+          : input.action === 'delete'
+            ? 'deleted_by_admin'
+            : 'visible';
+      const allowedStatuses: DanmakuStatus[] =
+        input.action === 'hide'
+          ? ['visible']
+          : input.action === 'delete'
+            ? ['visible', 'hidden']
+            : ['hidden', 'deleted_by_admin'];
+      const [row] = await tx
+        .update(courseDanmaku)
+        .set({
+          status,
+          deletedAt: status === 'deleted_by_admin' ? now : null,
+          moderatedBy: input.adminId,
+          moderationReason: input.reason ?? null,
+          moderatedAt: now,
+          updatedAt: now,
+        })
+        .where(and(eq(courseDanmaku.id, input.id), inArray(courseDanmaku.status, allowedStatuses)))
+        .returning({ id: courseDanmaku.id });
+      if (!row) return null;
+      await tx.insert(communityModerationAudit).values({
+        moderatorId: input.adminId,
+        targetType: 'danmaku',
+        targetId: row.id,
+        action: input.action,
+        reason: input.reason ?? null,
+        createdAt: now,
+      });
+      return row.id;
+    });
+    return id ? getAdminDanmaku(id) : null;
   }
 }
 

@@ -256,5 +256,17 @@ describe('FOR administrator routes', () => {
     expect(mocks.service.moderateReply).toHaveBeenCalledWith(
       expect.objectContaining({ adminId: 'admin-1', action: 'hide' }),
     );
+
+    await moderateReply(
+      new Request('http://localhost', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', reason: 'abuse' }),
+      }),
+      { params: Promise.resolve({ replyId: 'reply-1' }) },
+    );
+    expect(mocks.service.moderateReply).toHaveBeenLastCalledWith(
+      expect.objectContaining({ adminId: 'admin-1', action: 'delete', reason: 'abuse' }),
+    );
   });
 });

@@ -14,8 +14,8 @@ export async function PATCH(request: Request, context: Context) {
   if (admin instanceof Response) return admin;
   const body = await readJsonBody<ModerateBody>(request);
   if (!body) return apiError('INVALID_REQUEST', 400, 'Invalid JSON body');
-  if (body.action !== 'hide' && body.action !== 'restore') {
-    return apiError('INVALID_REQUEST', 400, 'action must be hide or restore');
+  if (body.action !== 'hide' && body.action !== 'restore' && body.action !== 'delete') {
+    return apiError('INVALID_REQUEST', 400, 'action must be hide, restore or delete');
   }
   if (body.reason !== undefined && typeof body.reason !== 'string') {
     return apiError('INVALID_REQUEST', 400, 'reason must be a string');

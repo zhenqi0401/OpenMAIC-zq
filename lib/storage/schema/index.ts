@@ -187,9 +187,7 @@ export const forumPosts = pgTable(
     pinned: boolean('pinned').notNull().default(false),
     locked: boolean('locked').notNull().default(false),
     replyCount: integer('reply_count').notNull().default(0),
-    lastActivityAt: timestamp('last_activity_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    lastActivityAt: timestamp('last_activity_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     moderatedBy: uuid('moderated_by').references(() => users.id),
     moderationReason: text('moderation_reason'),
@@ -244,6 +242,52 @@ export const forumReplies = pgTable(
       table.id,
     ),
     index('forum_replies_author_created_idx').on(table.authorId, table.createdAt),
+  ],
+);
+
+export const communityRateLimits = pgTable(
+  'community_rate_limits',
+  {
+    actorId: uuid('actor_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    actionKind: varchar('action_kind', { length: 32 }).notNull(),
+    windowStartedAt: timestamp('window_started_at', { withTimezone: true }).notNull(),
+    actionCount: integer('action_count').notNull().default(1),
+    lastActionAt: timestamp('last_action_at', { withTimezone: true }).notNull(),
+    lastContentHash: varchar('last_content_hash', { length: 64 }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.actorId, table.actionKind] }),
+    index('community_rate_limits_updated_at_idx').on(table.updatedAt),
+  ],
+);
+
+export const communityModerationAudit = pgTable(
+  'community_moderation_audit',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    moderatorId: uuid('moderator_id')
+      .notNull()
+      .references(() => users.id),
+    targetType: varchar('target_type', { length: 32 }).notNull(),
+    targetId: uuid('target_id').notNull(),
+    action: varchar('action', { length: 32 }).notNull(),
+    reason: text('reason'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('community_moderation_audit_target_idx').on(
+      table.targetType,
+      table.targetId,
+      table.createdAt,
+    ),
+    index('community_moderation_audit_moderator_created_idx').on(
+      table.moderatorId,
+      table.createdAt,
+    ),
+    index('community_moderation_audit_created_at_idx').on(table.createdAt),
   ],
 );
 

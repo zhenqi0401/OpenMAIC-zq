@@ -1,9 +1,16 @@
 import type { ReactNode } from 'react';
-import { BarChart3, BookOpen, ClipboardList, KeyRound, type LucideIcon } from 'lucide-react';
+import {
+  BarChart3,
+  BookOpen,
+  ClipboardList,
+  KeyRound,
+  MessageSquareText,
+  type LucideIcon,
+} from 'lucide-react';
 import { BrandLockup } from '@/components/brand/BrandLockup';
 import { cn } from '@/lib/utils';
 
-export type AdminModuleId = 'dashboard' | 'courses' | 'exams' | 'access';
+export type AdminModuleId = 'dashboard' | 'courses' | 'exams' | 'community' | 'access';
 
 interface AdminModule {
   id: AdminModuleId;
@@ -34,6 +41,13 @@ export const adminModules: AdminModule[] = [
     description: '考核新建与发布',
     href: '/admin?module=exams',
     icon: ClipboardList,
+  },
+  {
+    id: 'community',
+    label: '社区内容',
+    description: '弹幕、帖子与回复治理',
+    href: '/admin?module=community',
+    icon: MessageSquareText,
   },
   {
     id: 'access',

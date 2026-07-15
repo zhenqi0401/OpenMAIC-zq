@@ -226,6 +226,8 @@ export function ForumPostPage({ postId }: { postId: string }) {
   async function moderatePost(action: 'hide' | 'restore' | 'pin' | 'unpin' | 'lock' | 'unlock') {
     if (action === 'hide' && !window.confirm('确定隐藏这篇帖子吗？隐藏后普通用户将无法查看。'))
       return;
+    const reason = window.prompt('请输入本次管理操作原因（可留空）：', '');
+    if (reason === null) return;
     setPendingAction(`moderate-${action}`);
     try {
       const result = await forumApi<{ post: ForumClientPost }>(
@@ -233,7 +235,7 @@ export function ForumPostPage({ postId }: { postId: string }) {
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action }),
+          body: JSON.stringify({ action, reason }),
         },
       );
       setPost(result.post);
@@ -246,6 +248,8 @@ export function ForumPostPage({ postId }: { postId: string }) {
 
   async function moderateReply(replyId: string, action: 'hide' | 'restore') {
     if (action === 'hide' && !window.confirm('确定隐藏这条回复吗？')) return;
+    const reason = window.prompt('请输入本次管理操作原因（可留空）：', '');
+    if (reason === null) return;
     setPendingAction(`${action}-reply-${replyId}`);
     try {
       const result = await forumApi<{ reply: ForumClientReply }>(
@@ -253,7 +257,7 @@ export function ForumPostPage({ postId }: { postId: string }) {
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action }),
+          body: JSON.stringify({ action, reason }),
         },
       );
       setReplies((current) =>

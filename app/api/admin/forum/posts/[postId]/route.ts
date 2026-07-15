@@ -9,7 +9,7 @@ interface ModerateBody {
   reason?: unknown;
 }
 
-const ACTIONS = new Set(['hide', 'restore', 'pin', 'unpin', 'lock', 'unlock']);
+const ACTIONS = new Set(['hide', 'restore', 'delete', 'pin', 'unpin', 'lock', 'unlock']);
 
 export async function PATCH(request: Request, context: Context) {
   const admin = await requireCurrentAdmin();
@@ -26,7 +26,7 @@ export async function PATCH(request: Request, context: Context) {
     const { postId } = await context.params;
     const post = await getForumService().moderatePost({
       id: postId,
-      action: body.action as 'hide' | 'restore' | 'pin' | 'unpin' | 'lock' | 'unlock',
+      action: body.action as 'hide' | 'restore' | 'delete' | 'pin' | 'unpin' | 'lock' | 'unlock',
       adminId: admin.user.id,
       reason: body.reason,
     });

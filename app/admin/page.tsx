@@ -4,21 +4,13 @@ import { AdminSlice08Panel } from '@/components/admin/AdminSlice08Panel';
 import type { AdminModuleId } from '@/components/admin/AdminShell';
 import { CourseAdminPanel } from '@/components/admin/courses/CourseAdminPanel';
 import { ExamPolicyAdminPanel } from '@/components/admin/exams/ExamPolicyAdminPanel';
-
-type AdminSearchParams = Record<string, string | string[] | undefined>;
-
-const adminModuleIds = new Set<AdminModuleId>(['dashboard', 'courses', 'exams', 'access']);
-
-export function resolveAdminModuleId(searchParams: AdminSearchParams | undefined): AdminModuleId {
-  const moduleIdParam = searchParams?.module;
-  return typeof moduleIdParam === 'string' && adminModuleIds.has(moduleIdParam as AdminModuleId)
-    ? (moduleIdParam as AdminModuleId)
-    : 'dashboard';
-}
+import { CommunityAdminPanel } from '@/components/admin/community/CommunityAdminPanel';
+import { resolveAdminModuleId, type AdminSearchParams } from '@/lib/admin/module';
 
 function AdminModuleView({ activeModuleId }: { activeModuleId: AdminModuleId }) {
   if (activeModuleId === 'courses') return <CourseAdminPanel />;
   if (activeModuleId === 'exams') return <ExamPolicyAdminPanel />;
+  if (activeModuleId === 'community') return <CommunityAdminPanel />;
   if (activeModuleId === 'access') return <AdminSlice08Panel view="access" />;
   return <AdminSlice08Panel view="dashboard" />;
 }

@@ -2,6 +2,7 @@ import { and, asc, count, desc, eq, gt, inArray, or, sql } from 'drizzle-orm';
 
 import { getDb, runDbTransaction } from '@/lib/storage/db';
 import {
+  communityModerationAudit,
   courseVisibilityRoles,
   courses,
   forumPosts,
@@ -262,37 +263,53 @@ export class DrizzleForumRepository implements ForumRepository {
   }
 
   async moderatePost(input: Parameters<ForumRepository['moderatePost']>[0]) {
-    const now = new Date();
-    const statePatch =
-      input.action === 'hide'
-        ? { status: 'hidden' }
-        : input.action === 'restore'
-          ? { status: 'visible', deletedAt: null }
-          : input.action === 'pin'
-            ? { pinned: true }
-            : input.action === 'unpin'
-              ? { pinned: false }
-              : input.action === 'lock'
-                ? { locked: true }
-                : { locked: false };
-    const allowed =
-      input.action === 'hide'
-        ? eq(forumPosts.status, 'visible')
-        : input.action === 'restore'
-          ? inArray(forumPosts.status, ['hidden', 'deleted_by_admin'])
-          : eq(forumPosts.status, 'visible');
-    const [row] = await getDb()
-      .update(forumPosts)
-      .set({
-        ...statePatch,
-        moderatedBy: input.adminId,
-        moderationReason: input.reason ?? null,
-        moderatedAt: now,
-        updatedAt: now,
-      })
-      .where(and(eq(forumPosts.id, input.id), allowed))
-      .returning({ id: forumPosts.id });
-    return row ? loadPost(row.id) : null;
+    const id = await runDbTransaction<string | null>(async (tx) => {
+      const now = new Date();
+      const statePatch =
+        input.action === 'hide'
+          ? { status: 'hidden' }
+          : input.action === 'delete'
+            ? { status: 'deleted_by_admin', deletedAt: now }
+            : input.action === 'restore'
+              ? { status: 'visible', deletedAt: null }
+              : input.action === 'pin'
+                ? { pinned: true }
+                : input.action === 'unpin'
+                  ? { pinned: false }
+                  : input.action === 'lock'
+                    ? { locked: true }
+                    : { locked: false };
+      const allowed =
+        input.action === 'hide'
+          ? eq(forumPosts.status, 'visible')
+          : input.action === 'delete'
+            ? inArray(forumPosts.status, ['visible', 'hidden'])
+            : input.action === 'restore'
+              ? inArray(forumPosts.status, ['hidden', 'deleted_by_admin'])
+              : eq(forumPosts.status, 'visible');
+      const [row] = await tx
+        .update(forumPosts)
+        .set({
+          ...statePatch,
+          moderatedBy: input.adminId,
+          moderationReason: input.reason ?? null,
+          moderatedAt: now,
+          updatedAt: now,
+        })
+        .where(and(eq(forumPosts.id, input.id), allowed))
+        .returning({ id: forumPosts.id });
+      if (!row) return null;
+      await tx.insert(communityModerationAudit).values({
+        moderatorId: input.adminId,
+        targetType: 'forum_post',
+        targetId: row.id,
+        action: input.action,
+        reason: input.reason ?? null,
+        createdAt: now,
+      });
+      return row.id;
+    });
+    return id ? loadPost(id) : null;
   }
 
   async moderateReply(input: Parameters<ForumRepository['moderateReply']>[0]) {
@@ -301,7 +318,14 @@ export class DrizzleForumRepository implements ForumRepository {
       const [reply] = await tx
         .update(forumReplies)
         .set({
-          status: input.action === 'hide' ? 'hidden' : 'visible',
+          status:
+            input.action === 'hide'
+              ? 'hidden'
+              : input.action === 'delete'
+                ? 'deleted_by_admin'
+                : 'visible',
+          deletedAt:
+            input.action === 'delete' ? now : input.action === 'restore' ? null : undefined,
           moderatedBy: input.adminId,
           moderationReason: input.reason ?? null,
           moderatedAt: now,
@@ -312,16 +336,26 @@ export class DrizzleForumRepository implements ForumRepository {
             eq(forumReplies.id, input.id),
             input.action === 'hide'
               ? eq(forumReplies.status, 'visible')
-              : inArray(forumReplies.status, ['hidden', 'deleted_by_admin']),
+              : input.action === 'delete'
+                ? inArray(forumReplies.status, ['visible', 'hidden'])
+                : inArray(forumReplies.status, ['hidden', 'deleted_by_admin']),
           ),
         )
         .returning({ id: forumReplies.id, postId: forumReplies.postId });
       if (!reply) return null;
+      await tx.insert(communityModerationAudit).values({
+        moderatorId: input.adminId,
+        targetType: 'forum_reply',
+        targetId: reply.id,
+        action: input.action,
+        reason: input.reason ?? null,
+        createdAt: now,
+      });
       await tx
         .update(forumPosts)
         .set({
           replyCount:
-            input.action === 'hide'
+            input.action === 'hide' || input.action === 'delete'
               ? sql`greatest(${forumPosts.replyCount} - 1, 0)`
               : sql`${forumPosts.replyCount} + 1`,
           updatedAt: now,
