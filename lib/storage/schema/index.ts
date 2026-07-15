@@ -171,6 +171,82 @@ export const courseDanmaku = pgTable(
   ],
 );
 
+export const forumPosts = pgTable(
+  'forum_posts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id'),
+    authorId: uuid('author_id')
+      .notNull()
+      .references(() => users.id),
+    scope: varchar('scope', { length: 16 }).notNull().default('global'),
+    courseId: uuid('course_id').references(() => courses.id, { onDelete: 'set null' }),
+    title: varchar('title', { length: 160 }).notNull(),
+    body: text('body').notNull(),
+    status: varchar('status', { length: 32 }).notNull().default('visible'),
+    pinned: boolean('pinned').notNull().default(false),
+    locked: boolean('locked').notNull().default(false),
+    replyCount: integer('reply_count').notNull().default(0),
+    lastActivityAt: timestamp('last_activity_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    moderatedBy: uuid('moderated_by').references(() => users.id),
+    moderationReason: text('moderation_reason'),
+    moderatedAt: timestamp('moderated_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    index('forum_posts_status_pinned_created_idx').on(
+      table.status,
+      table.pinned,
+      table.createdAt,
+      table.id,
+    ),
+    index('forum_posts_status_pinned_activity_idx').on(
+      table.status,
+      table.pinned,
+      table.lastActivityAt,
+      table.id,
+    ),
+    index('forum_posts_course_status_activity_idx').on(
+      table.courseId,
+      table.status,
+      table.lastActivityAt,
+    ),
+    index('forum_posts_author_created_idx').on(table.authorId, table.createdAt),
+  ],
+);
+
+export const forumReplies = pgTable(
+  'forum_replies',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    postId: uuid('post_id')
+      .notNull()
+      .references(() => forumPosts.id, { onDelete: 'cascade' }),
+    authorId: uuid('author_id')
+      .notNull()
+      .references(() => users.id),
+    body: text('body').notNull(),
+    status: varchar('status', { length: 32 }).notNull().default('visible'),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    moderatedBy: uuid('moderated_by').references(() => users.id),
+    moderationReason: text('moderation_reason'),
+    moderatedAt: timestamp('moderated_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    index('forum_replies_post_status_created_idx').on(
+      table.postId,
+      table.status,
+      table.createdAt,
+      table.id,
+    ),
+    index('forum_replies_author_created_idx').on(table.authorId, table.createdAt),
+  ],
+);
+
 export const courseScenes = pgTable(
   'course_scenes',
   {

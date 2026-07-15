@@ -14,6 +14,7 @@ import {
   examAttempts,
   examPolicies,
   examPolicyCourses,
+  forumPosts,
   hostApiKeys,
   inviteCodes,
   mediaFiles,
@@ -503,6 +504,10 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
       await tx.delete(examPolicyCourses).where(eq(examPolicyCourses.courseId, id));
       await tx.delete(courseVisibilityRoles).where(eq(courseVisibilityRoles.courseId, id));
       await tx.delete(courseAudioBlobs).where(eq(courseAudioBlobs.courseId, id));
+      await tx
+        .update(forumPosts)
+        .set({ status: 'archived', courseId: null, updatedAt: new Date() })
+        .where(eq(forumPosts.courseId, id));
       await tx.delete(outlines).where(eq(outlines.courseId, id));
       await tx.delete(scenes).where(eq(scenes.courseId, id));
       await tx.delete(courses).where(eq(courses.id, id));
