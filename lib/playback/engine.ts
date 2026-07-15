@@ -32,7 +32,10 @@ import type {
   PlaybackSnapshot,
   TriggerEvent,
   Effect,
+  PlaybackCursorSnapshot,
+  PlaybackEngineOptions,
 } from './types';
+import { PlaybackCursorController } from './cursor';
 import type { AudioPlayer } from '@/lib/utils/audio-player';
 import { ActionEngine } from '@/lib/action/engine';
 import { useCanvasStore } from '@/lib/store/canvas';
@@ -67,6 +70,8 @@ export class PlaybackEngine {
   private audioPlayer: AudioPlayer;
   private actionEngine: ActionEngine;
   private callbacks: PlaybackEngineCallbacks;
+  private cursor: PlaybackCursorController;
+  private cursorSceneIndexBase: number;
 
   // Scene identity (for snapshot validation)
   private sceneId: string | undefined;
@@ -95,6 +100,12 @@ export class PlaybackEngine {
     this.actionEngine = actionEngine;
     this.audioPlayer = audioPlayer;
     this.callbacks = callbacks;
+    this.cursorSceneIndexBase = 0;
+    this.cursor = new PlaybackCursorController(
+      null,
+      callbacks.getPlaybackSpeed?.() ?? 1,
+      callbacks.onPlaybackCursor,
+    );
   }
 
   // ==================== Public API ====================
@@ -102,6 +113,31 @@ export class PlaybackEngine {
   /** Get the current engine mode */
   getMode(): EngineMode {
     return this.mode;
+  }
+
+  /** Current PLAY-01 cursor snapshot for late subscribers and action creation. */
+  getPlaybackCursor(): PlaybackCursorSnapshot {
+    return this.cursor.getSnapshot();
+  }
+
+  /** Notify the cursor contract when the externally-owned playback speed changes. */
+  setPlaybackRate(rate: number): void {
+    this.cursor.setPlaybackRate(rate);
+  }
+
+  /** Configure enterprise course/global scene identity before playback starts. */
+  setPlaybackCursorContext(options: PlaybackEngineOptions): void {
+    if (this.mode !== 'idle') {
+      log.warn('Cannot configure playback cursor while engine is active');
+      return;
+    }
+    this.cursorSceneIndexBase = options.sceneIndexBase ?? 0;
+    this.cursor = new PlaybackCursorController(
+      options.courseId ?? null,
+      this.callbacks.getPlaybackSpeed?.() ?? 1,
+      this.callbacks.onPlaybackCursor,
+      options.now,
+    );
   }
 
   /** Export a serializable playback snapshot */
@@ -130,6 +166,7 @@ export class PlaybackEngine {
 
     this.sceneIndex = 0;
     this.actionIndex = 0;
+    this.cursor.play();
     this.setMode('playing');
     this.processNext();
   }
@@ -140,6 +177,7 @@ export class PlaybackEngine {
       log.warn('Cannot continue: not idle, current mode:', this.mode);
       return;
     }
+    this.cursor.play();
     this.setMode('playing');
     this.processNext();
   }
@@ -162,6 +200,7 @@ export class PlaybackEngine {
         this.speechTimer = null;
       }
       this.setMode('paused');
+      this.cursor.pause();
       // Freeze TTS — but skip if waiting on ProactiveCard (no active speech)
       if (!this.currentTrigger) {
         if (this.browserTTSActive) {
@@ -177,6 +216,7 @@ export class PlaybackEngine {
       }
     } else if (this.mode === 'live') {
       this.setMode('paused');
+      this.cursor.pause();
       this.currentTopicState = 'pending';
       // Caller is responsible for aborting SSE
     } else {
@@ -194,12 +234,15 @@ export class PlaybackEngine {
     if (this.currentTopicState === 'pending') {
       // Resume discussion → live
       this.currentTopicState = 'active';
+      this.cursor.resumeDiscussion();
       this.setMode('live');
     } else if (this.currentTrigger) {
       // Waiting on ProactiveCard — just resume mode, don't touch audio
+      this.cursor.resume();
       this.setMode('playing');
     } else {
       // Resume lecture
+      this.cursor.resume();
       this.setMode('playing');
       if (this.browserTTSPausedChunks.length > 0) {
         // Browser TTS was paused via cancel — re-speak remaining chunks
@@ -231,6 +274,7 @@ export class PlaybackEngine {
   stop(): void {
     // Set mode BEFORE stopping audio to prevent spurious processNext from
     // synchronous onend callbacks (see handleUserInterrupt for details).
+    this.cursor.stop();
     this.setMode('idle');
     this.audioPlayer.stop();
     this.cancelBrowserTTS();
@@ -270,6 +314,7 @@ export class PlaybackEngine {
 
     // Enter live mode
     this.currentTopicState = 'active';
+    this.cursor.discussionStart();
     this.setMode('live');
 
     // Notify callbacks
@@ -308,6 +353,7 @@ export class PlaybackEngine {
     // Restore lecture state
     this.restoreSavedLectureState();
 
+    this.cursor.discussionEnd();
     this.setMode('idle');
   }
 
@@ -330,6 +376,7 @@ export class PlaybackEngine {
     this.currentTopicState = 'closed';
     this.currentTrigger = null;
     this.restoreSavedLectureState();
+    this.cursor.discussionEnd();
     this.setMode('idle');
   }
 
@@ -357,6 +404,7 @@ export class PlaybackEngine {
     // `this.mode === 'playing'`.  Setting mode first prevents a spurious
     // processNext that would advance actionIndex past the interrupted speech.
     this.currentTopicState = 'active';
+    this.cursor.discussionStart();
     this.setMode('live');
     this.audioPlayer.stop();
     this.cancelBrowserTTS();
@@ -439,12 +487,20 @@ export class PlaybackEngine {
     if (!current) {
       // All scenes complete
       this.actionEngine.clearEffects();
+      this.cursor.complete();
       this.setMode('idle');
       this.callbacks.onComplete?.();
       return;
     }
 
-    const { action } = current;
+    const { action, sceneId } = current;
+
+    this.cursor.startAction({
+      sceneKey: sceneId,
+      sceneIndex: this.cursorSceneIndexBase + this.sceneIndex,
+      actionId: action.id,
+      actionIndex: this.actionIndex,
+    });
 
     // Notify progress BEFORE advancing the cursor so the snapshot points at
     // the current action.  On restore the same action will be replayed — this

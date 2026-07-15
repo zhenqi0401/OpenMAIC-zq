@@ -18,7 +18,14 @@ import { SceneSidebar } from '@/components/stage/scene-sidebar';
 import { Header } from '@/components/header';
 import { CanvasArea } from '@/components/canvas/canvas-area';
 import { Roundtable } from '@/components/roundtable';
-import { PlaybackEngine, computePlaybackView } from '@/lib/playback';
+import {
+  PlaybackEngine,
+  computePlaybackView,
+  playbackCursorChannel,
+  DanmakuPlaybackScheduler,
+  danmakuScheduleChannel,
+  resolveDanmakuPlaybackGate,
+} from '@/lib/playback';
 import type { EngineMode, TriggerEvent, Effect } from '@/lib/playback';
 import { ActionEngine } from '@/lib/action/engine';
 import { createAudioPlayer } from '@/lib/utils/audio-player';
@@ -115,6 +122,9 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
     const [liveSpeech, setLiveSpeech] = useState<string | null>(null); // From buffer (discussion/QA)
     const [speechProgress, setSpeechProgress] = useState<number | null>(null); // StreamBuffer reveal progress (0–1)
     const [discussionTrigger, setDiscussionTrigger] = useState<TriggerEvent | null>(null);
+    const [danmakuScheduler] = useState(
+      () => new DanmakuPlaybackScheduler({ onDue: danmakuScheduleChannel.publish }),
+    );
 
     // Speaking agent tracking (Issue 2)
     const [speakingAgentId, setSpeakingAgentId] = useState<string | null>(null);
@@ -473,16 +483,16 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
       // Reset all roundtable/live state so scenes are fully isolated
       resetSceneState();
 
+      // Stop the previous scene cursor before handling an empty next scene.
+      if (engineRef.current) {
+        engineRef.current.stop();
+      }
+
       if (!currentScene || !currentScene.actions || currentScene.actions.length === 0) {
         engineRef.current = null;
         setEngineMode('idle');
 
         return;
-      }
-
-      // Stop previous engine
-      if (engineRef.current) {
-        engineRef.current.stop();
       }
 
       // Widget iframe messaging callback for interactive scenes, resolved lazily
@@ -503,6 +513,16 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
       );
 
       // Create new PlaybackEngine
+      danmakuScheduler.setContext({
+        courseId: enterpriseCourseId ?? null,
+        sceneKey: currentScene.id,
+        gate: resolveDanmakuPlaybackGate({
+          courseId: enterpriseCourseId,
+          scene: currentScene,
+          mode,
+          whiteboardOpen: useCanvasStore.getState().whiteboardOpen,
+        }),
+      });
       const engine = new PlaybackEngine([currentScene], actionEngine, audioPlayerRef.current, {
         onModeChange: (mode) => {
           setEngineMode(mode);
@@ -598,6 +618,10 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
           return ids.includes(agentId);
         },
         getPlaybackSpeed: () => useSettingsStore.getState().playbackSpeed || 1,
+        onPlaybackCursor: (event) => {
+          playbackCursorChannel.publish(event);
+          danmakuScheduler.handleCursor(event);
+        },
         onComplete: () => {
           // lectureSpeech intentionally NOT cleared — last sentence stays visible
           // until scene transition (auto-play) or user restarts. Scene change
@@ -646,6 +670,13 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
           }
         },
       });
+      engine.setPlaybackCursorContext({
+        courseId: enterpriseCourseId ?? null,
+        sceneIndexBase: Math.max(
+          0,
+          scenes.findIndex((scene) => scene.id === currentScene.id),
+        ),
+      });
 
       engineRef.current = engine;
 
@@ -665,7 +696,21 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
         // Load saved playback state and restore position (but never auto-play).
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps -- Only re-run when scene changes, functions are stable refs
-    }, [currentScene]);
+    }, [currentScene, danmakuScheduler, enterpriseCourseId, mode, scenes]);
+
+    useEffect(() => {
+      danmakuScheduler.setContext({
+        courseId: enterpriseCourseId ?? null,
+        sceneKey: currentScene?.id ?? null,
+        gate: resolveDanmakuPlaybackGate({
+          courseId: enterpriseCourseId,
+          scene: currentScene,
+          mode,
+          whiteboardOpen,
+          phase: engineMode === 'live' ? 'discussion' : undefined,
+        }),
+      });
+    }, [currentScene, danmakuScheduler, engineMode, enterpriseCourseId, mode, whiteboardOpen]);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -681,6 +726,7 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
         }
         discussionTTS.cleanup();
         chatArea?.endActiveSession();
+        danmakuScheduler.dispose();
         clearPresentationIdleTimer();
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only cleanup, clearPresentationIdleTimer is stable
@@ -703,6 +749,7 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
     const playbackSpeed = useSettingsStore((s) => s.playbackSpeed);
     useEffect(() => {
       audioPlayerRef.current.setPlaybackRate(playbackSpeed);
+      engineRef.current?.setPlaybackRate(playbackSpeed);
     }, [playbackSpeed]);
 
     /**

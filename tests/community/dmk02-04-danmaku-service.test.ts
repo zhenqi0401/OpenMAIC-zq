@@ -107,7 +107,7 @@ describe('DMK-02 history and course permission', () => {
   test.each([
     [{ status: 'draft' as const }, 'draft course'],
     [{ visible: false }, 'role-restricted course'],
-  ])('does not expose a %s', async (options) => {
+  ])('does not expose a %s', async (options, _label) => {
     const { service, repository } = setup(options);
     await expect(
       service.listVisible({

@@ -17,6 +17,40 @@ export type EngineMode = 'idle' | 'playing' | 'paused' | 'live';
 /** Discussion topic state */
 export type TopicState = 'active' | 'pending' | 'closed';
 
+export type PlaybackCursorPhase = 'idle' | 'playing' | 'paused' | 'discussion' | 'completed';
+
+export type PlaybackCursorReason =
+  | 'play'
+  | 'pause'
+  | 'resume'
+  | 'scene-change'
+  | 'action-start'
+  | 'discussion-start'
+  | 'discussion-end'
+  | 'rate-change'
+  | 'complete'
+  | 'stop';
+
+/** Stable playback contract consumed by later scheduling features such as danmaku. */
+export interface PlaybackCursorSnapshot {
+  /** PostgreSQL enterprise course ID. Null identifies local/preview playback. */
+  courseId: string | null;
+  sceneKey: string | null;
+  sceneIndex: number;
+  actionId: string | null;
+  actionIndex: number;
+  /** Playback-time offset, frozen while paused or in discussion and adjusted by playback rate. */
+  actionOffsetMs: number;
+  phase: PlaybackCursorPhase;
+  playbackRate: number;
+  emittedAt: number;
+}
+
+export interface PlaybackCursorEvent {
+  reason: PlaybackCursorReason;
+  cursor: PlaybackCursorSnapshot;
+}
+
 /** Trigger event (for proactive discussion card) */
 export interface TriggerEvent {
   id: string;
@@ -58,5 +92,15 @@ export interface PlaybackEngineCallbacks {
   /** Get current playback speed multiplier (e.g. 1, 1.5, 2) */
   getPlaybackSpeed?: () => number;
 
+  /** PLAY-01 cursor contract. This does not schedule or render danmaku. */
+  onPlaybackCursor?: (event: PlaybackCursorEvent) => void;
+
   onComplete?: () => void;
+}
+
+export interface PlaybackEngineOptions {
+  courseId?: string | null;
+  /** Global course scene index when an engine instance owns only a scene slice. */
+  sceneIndexBase?: number;
+  now?: () => number;
 }
