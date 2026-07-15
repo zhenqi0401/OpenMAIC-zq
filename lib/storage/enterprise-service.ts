@@ -28,6 +28,7 @@ import {
 
 export type CourseStatus = 'draft' | 'published' | 'archived';
 export type CourseVisibilityMode = 'all' | 'roles';
+export type CourseListSort = 'latest' | 'popular';
 
 export interface EnterpriseCourse {
   id: string;
@@ -42,6 +43,7 @@ export interface EnterpriseCourse {
   generationStatus?: string;
   generationComplete?: boolean;
   assessmentQuestions: unknown[];
+  learnerCount?: number;
   publishedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -94,6 +96,8 @@ export interface EnterpriseCourseProgress {
   sceneIndex: number;
   actionIndex: number;
   completed: boolean;
+  startedAt?: Date;
+  lastViewedAt?: Date;
   updatedAt?: Date;
 }
 
@@ -139,6 +143,8 @@ export interface EnterpriseProgressDetail {
   courseId: string;
   courseName: string;
   completed: boolean;
+  startedAt?: Date;
+  lastViewedAt?: Date;
   updatedAt: Date;
 }
 
@@ -429,6 +435,18 @@ function isCourseVisibleToRole(course: EnterpriseCourse, roleId: string): boolea
   return course.visibleRoleIds.includes(roleId);
 }
 
+function sortVisibleCourses(courses: EnterpriseCourse[], sort: CourseListSort): EnterpriseCourse[] {
+  return [...courses].sort((left, right) => {
+    if (sort === 'popular') {
+      const countDifference = (right.learnerCount ?? 0) - (left.learnerCount ?? 0);
+      if (countDifference !== 0) return countDifference;
+    }
+    const dateDifference = right.updatedAt.getTime() - left.updatedAt.getTime();
+    if (dateDifference !== 0) return dateDifference;
+    return left.id.localeCompare(right.id);
+  });
+}
+
 function assertValidVisibility(visibility: {
   visibilityMode: CourseVisibilityMode;
   visibleRoleIds: string[];
@@ -644,9 +662,12 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
       return course;
     },
 
-    async listVisibleCourses(roleId: string) {
+    async listVisibleCourses(roleId: string, sort: CourseListSort = 'latest') {
       const courses = await repository.listAdminCourses();
-      return courses.filter((course) => isCourseVisibleToRole(course, roleId));
+      return sortVisibleCourses(
+        courses.filter((course) => isCourseVisibleToRole(course, roleId)),
+        sort,
+      );
     },
 
     async getVisibleCourse(id: string, roleId: string) {

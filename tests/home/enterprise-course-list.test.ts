@@ -8,6 +8,7 @@ import {
   loadEnterpriseHomeCatalog,
   loadEnterpriseHomeCourseThumbnails,
   loadHomeCourses,
+  sortHomeCourses,
   shouldPersistImportedClassroom,
 } from '@/lib/home/enterprise-course-list';
 import type { SessionIdentity } from '@/lib/auth/types';
@@ -29,6 +30,7 @@ describe('CHANGE-01 home enterprise course list', () => {
               updatedAt: '2026-07-06T06:00:00.000Z',
               createdAt: '2026-07-05T06:00:00.000Z',
               generationComplete: true,
+              learnerCount: 12,
             },
           ],
           categories: [
@@ -53,6 +55,7 @@ describe('CHANGE-01 home enterprise course list', () => {
           updatedAt: Date.parse('2026-07-06T06:00:00.000Z'),
           source: 'enterprise',
           generationComplete: true,
+          learnerCount: 12,
         },
       ],
       categories: [
@@ -116,6 +119,7 @@ describe('CHANGE-01 home enterprise course list', () => {
         categoryId: 'cat-handbook',
         categoryName: '员工手册',
         generationComplete: true,
+        learnerCount: 4,
       },
     ];
     const thumbnail = {
@@ -163,6 +167,7 @@ describe('CHANGE-01 home enterprise course list', () => {
         source: 'enterprise' as const,
         categoryId: 'cat-rules',
         categoryName: '公司规范规章制度',
+        learnerCount: 8,
       },
       {
         id: 'local-1',
@@ -180,6 +185,52 @@ describe('CHANGE-01 home enterprise course list', () => {
     expect(filterHomeCourses(courses, 'local', '服务', null)).toEqual([courses[1]]);
     expect(filterHomeCourses(courses, 'all', '岗位', null)).toEqual([courses[0]]);
     expect(filterHomeCourses(courses, 'all', 'missing', null)).toEqual([]);
+  });
+
+  test('sorts latest across sources and keeps local courses out of popularity ranking', () => {
+    const courses = [
+      {
+        id: 'local-new',
+        name: 'Local',
+        sceneCount: 1,
+        createdAt: 1,
+        updatedAt: 40,
+        source: 'local' as const,
+      },
+      {
+        id: 'enterprise-low',
+        name: 'Low',
+        sceneCount: 1,
+        createdAt: 1,
+        updatedAt: 30,
+        source: 'enterprise' as const,
+        categoryId: 'cat-1',
+        categoryName: null,
+        learnerCount: 2,
+      },
+      {
+        id: 'enterprise-hot',
+        name: 'Hot',
+        sceneCount: 1,
+        createdAt: 1,
+        updatedAt: 10,
+        source: 'enterprise' as const,
+        categoryId: 'cat-1',
+        categoryName: null,
+        learnerCount: 20,
+      },
+    ];
+
+    expect(sortHomeCourses(courses, 'latest').map((course) => course.id)).toEqual([
+      'local-new',
+      'enterprise-low',
+      'enterprise-hot',
+    ]);
+    expect(sortHomeCourses(courses, 'popular').map((course) => course.id)).toEqual([
+      'enterprise-hot',
+      'enterprise-low',
+      'local-new',
+    ]);
   });
 
   test('keeps source and category selection transitions consistent', () => {
@@ -237,6 +288,7 @@ describe('CHANGE-01 home enterprise course list', () => {
         source: 'enterprise',
         categoryId: 'cat-1',
         categoryName: null,
+        learnerCount: 0,
       }),
     ).toBe(false);
     expect(shouldPersistImportedClassroom(learner, 'category-1')).toBe(false);

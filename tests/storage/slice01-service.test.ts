@@ -7,6 +7,7 @@ import {
   type EnterpriseRepository,
 } from '@/lib/storage/enterprise-service';
 import {
+  calculateCourseCompletionRate,
   filterDashboardRowsForPublishedCourses,
   filterHostRowsForQuery,
 } from '@/lib/storage/enterprise-repository';
@@ -31,6 +32,7 @@ const courses: EnterpriseCourse[] = [
     publishedAt: null,
     createdAt: new Date('2026-07-01T00:00:00Z'),
     updatedAt: new Date('2026-07-01T00:00:00Z'),
+    learnerCount: 0,
   },
   {
     id: 'course-all',
@@ -45,6 +47,7 @@ const courses: EnterpriseCourse[] = [
     publishedAt: new Date('2026-07-01T01:00:00Z'),
     createdAt: new Date('2026-07-01T00:00:00Z'),
     updatedAt: new Date('2026-07-01T00:00:00Z'),
+    learnerCount: 3,
   },
   {
     id: 'course-sales',
@@ -59,6 +62,7 @@ const courses: EnterpriseCourse[] = [
     publishedAt: new Date('2026-07-01T02:00:00Z'),
     createdAt: new Date('2026-07-01T00:00:00Z'),
     updatedAt: new Date('2026-07-01T00:00:00Z'),
+    learnerCount: 9,
   },
 ];
 
@@ -469,6 +473,27 @@ describe('Slice-01 enterprise storage service', () => {
       { id: 'course-all' },
       { id: 'course-sales' },
     ]);
+  });
+
+  test('sorts visible courses by unique learner count with update time as the tie breaker', async () => {
+    const service = createEnterpriseStorageService(makeRepository());
+
+    await expect(service.listVisibleCourses(salesRole.id, 'popular')).resolves.toMatchObject([
+      { id: 'course-sales', learnerCount: 9 },
+      { id: 'course-all', learnerCount: 3 },
+    ]);
+  });
+
+  test('uses all started progress rows as the course completion denominator', () => {
+    expect(
+      calculateCourseCompletionRate([
+        { completed: true },
+        { completed: false },
+        { completed: false },
+        { completed: true },
+      ]),
+    ).toBe(50);
+    expect(calculateCourseCompletionRate([])).toBe(0);
   });
 
   test('returns complete course content only when the current role can see the course', async () => {

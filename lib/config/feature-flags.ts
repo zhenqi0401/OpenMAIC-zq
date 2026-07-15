@@ -12,6 +12,16 @@ function readBoolean(envValue: string | undefined): boolean {
 }
 
 /**
+ * Course popularity gate. Default ON because start tracking is a backwards-
+ * compatible fact write; deployments can explicitly disable the module with
+ * `false` or `0` without affecting ordinary course playback.
+ */
+export function isCoursePopularityEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_COURSE_POPULARITY_ENABLED;
+  return value === undefined || (value !== 'false' && value !== '0');
+}
+
+/**
  * MAIC Editor (Pro mode) gate. Default OFF — gates only the Pro toggle
  * affordance in `Header`. The `StageMode` type union is unaffected so
  * existing code paths typecheck identically with the flag in either

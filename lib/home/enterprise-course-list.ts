@@ -4,6 +4,7 @@ import type { SessionIdentity } from '@/lib/auth/types';
 
 export type HomeCourseSource = 'enterprise' | 'local';
 export type HomeCourseFilter = 'all' | HomeCourseSource;
+export type HomeCourseSort = 'latest' | 'popular';
 
 export type LocalHomeCourse = StageListItem & {
   source: 'local';
@@ -13,6 +14,7 @@ export type EnterpriseHomeCourse = StageListItem & {
   source: 'enterprise';
   categoryId: string;
   categoryName: string | null;
+  learnerCount: number;
   generationComplete?: boolean;
 };
 
@@ -55,6 +57,7 @@ interface EnterpriseCourseListResponse {
     createdAt?: unknown;
     updatedAt?: unknown;
     generationComplete?: unknown;
+    learnerCount?: unknown;
   }>;
   categories?: Array<{
     id?: unknown;
@@ -112,6 +115,10 @@ export async function loadEnterpriseHomeCatalog(
         createdAt: toTimestamp(course.createdAt),
         updatedAt: toTimestamp(course.updatedAt),
         source: 'enterprise' as const,
+        learnerCount:
+          typeof course.learnerCount === 'number' && Number.isFinite(course.learnerCount)
+            ? Math.max(0, Math.trunc(course.learnerCount))
+            : 0,
         generationComplete:
           typeof course.generationComplete === 'boolean' ? course.generationComplete : undefined,
       })),
@@ -150,6 +157,21 @@ export function filterHomeCourses(
     return [course.name, course.description]
       .filter((value): value is string => typeof value === 'string')
       .some((value) => value.toLocaleLowerCase().includes(normalizedQuery));
+  });
+}
+
+export function sortHomeCourses(courses: HomeCourse[], sort: HomeCourseSort): HomeCourse[] {
+  return [...courses].sort((left, right) => {
+    if (sort === 'popular') {
+      if (left.source !== right.source) return left.source === 'enterprise' ? -1 : 1;
+      if (left.source === 'enterprise' && right.source === 'enterprise') {
+        const countDifference = right.learnerCount - left.learnerCount;
+        if (countDifference !== 0) return countDifference;
+      }
+    }
+    const dateDifference = right.updatedAt - left.updatedAt;
+    if (dateDifference !== 0) return dateDifference;
+    return left.id.localeCompare(right.id);
   });
 }
 

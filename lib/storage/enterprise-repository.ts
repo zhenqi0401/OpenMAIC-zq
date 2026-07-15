@@ -179,7 +179,11 @@ async function loadVisibleRoleIds(courseIds: string[]): Promise<Map<string, stri
   return result;
 }
 
-function toCourse(row: CourseRow, visibleRoleIds: string[]): EnterpriseCourse {
+function toCourse(
+  row: CourseRow,
+  visibleRoleIds: string[],
+  learnerCount: number = 0,
+): EnterpriseCourse {
   return {
     id: row.id,
     name: row.name,
@@ -193,6 +197,7 @@ function toCourse(row: CourseRow, visibleRoleIds: string[]): EnterpriseCourse {
     generationStatus: row.generationStatus,
     generationComplete: row.generationComplete,
     assessmentQuestions: row.assessmentQuestions,
+    learnerCount,
     publishedAt: row.publishedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -247,6 +252,12 @@ export function filterDashboardRowsForPublishedCourses<
     courseRows.filter((course) => course.status === 'published').map((course) => course.id),
   );
   return rows.filter((row) => !!row.courseId && publishedCourseIds.has(row.courseId));
+}
+
+export function calculateCourseCompletionRate(rows: Array<{ completed: boolean }>): number {
+  if (rows.length === 0) return 0;
+  const completed = rows.filter((row) => row.completed).length;
+  return Math.round((completed / rows.length) * 100);
 }
 
 export class DrizzleEnterpriseRepository implements EnterpriseRepository {
@@ -378,13 +389,33 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
   }
 
   async listAdminCourses(): Promise<EnterpriseCourse[]> {
+    const learnerCounts = getDb()
+      .select({
+        courseId: courseProgress.courseId,
+        learnerCount: count(courseProgress.userId).as('learner_count'),
+      })
+      .from(courseProgress)
+      .innerJoin(users, eq(courseProgress.userId, users.id))
+      .innerJoin(roles, eq(users.roleId, roles.id))
+      .where(eq(roles.isAdmin, false))
+      .groupBy(courseProgress.courseId)
+      .as('course_learner_counts');
     const rows = await getDb()
-      .select({ course: courses, categoryName: courseCategories.name })
+      .select({
+        course: courses,
+        categoryName: courseCategories.name,
+        learnerCount: learnerCounts.learnerCount,
+      })
       .from(courses)
-      .leftJoin(courseCategories, eq(courses.categoryId, courseCategories.id));
+      .leftJoin(courseCategories, eq(courses.categoryId, courseCategories.id))
+      .leftJoin(learnerCounts, eq(courses.id, learnerCounts.courseId));
     const roleIds = await loadVisibleRoleIds(rows.map((row) => row.course.id));
     return rows.map((row) =>
-      toCourse({ ...row.course, categoryName: row.categoryName }, roleIds.get(row.course.id) ?? []),
+      toCourse(
+        { ...row.course, categoryName: row.categoryName },
+        roleIds.get(row.course.id) ?? [],
+        Number(row.learnerCount ?? 0),
+      ),
     );
   }
 
@@ -620,11 +651,13 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
         actionIndex: 0,
         completed: false,
         completedAt: null,
+        startedAt: now,
+        lastViewedAt: now,
         updatedAt: now,
       })
       .onConflictDoUpdate({
         target: [courseProgress.userId, courseProgress.courseId],
-        set: { updatedAt: now },
+        set: { lastViewedAt: now, updatedAt: now },
       })
       .returning();
     return progress;
@@ -640,6 +673,8 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
         actionIndex: input.actionIndex,
         completed: input.completed,
         completedAt: input.completed ? new Date() : null,
+        startedAt: input.startedAt ?? new Date(),
+        lastViewedAt: input.lastViewedAt ?? new Date(),
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
@@ -649,6 +684,7 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
           actionIndex: input.actionIndex,
           completed: input.completed,
           completedAt: input.completed ? new Date() : null,
+          lastViewedAt: input.lastViewedAt ?? new Date(),
           updatedAt: new Date(),
         },
       })
@@ -709,13 +745,10 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
       activeCourses,
       assessmentRows,
     );
-    const completed = activeProgressRows.filter((row) => row.completed).length;
     const assessmentPassed = activeAssessmentRows.filter((row) => row.passed).length;
     const examPassed = examRows.filter((row) => row.passed).length;
     return {
-      courseCompletionRate: activeProgressRows.length
-        ? Math.round((completed / activeProgressRows.length) * 100)
-        : 0,
+      courseCompletionRate: calculateCourseCompletionRate(activeProgressRows),
       assessmentPassRate: activeAssessmentRows.length
         ? Math.round((assessmentPassed / activeAssessmentRows.length) * 100)
         : 0,
@@ -747,7 +780,7 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
       .where(clauses.length ? and(...clauses) : undefined);
     return filterHostRowsForQuery(
       rows
-        .filter((row) => row.course.status === 'published')
+        .filter((row) => row.course.status === 'published' && !row.role.isAdmin)
         .map((row) => ({
           userId: row.user.id,
           displayName: row.user.displayName,
@@ -756,6 +789,8 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
           courseId: row.course.id,
           courseName: row.course.name,
           completed: row.progress.completed,
+          startedAt: row.progress.startedAt,
+          lastViewedAt: row.progress.lastViewedAt,
           updatedAt: row.progress.updatedAt,
         })),
       filters,

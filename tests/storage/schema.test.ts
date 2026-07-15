@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { describe, expect, test } from 'vitest';
-import { getTableName } from 'drizzle-orm';
+import { getTableColumns, getTableName } from 'drizzle-orm';
 
 import * as schema from '@/lib/storage/schema';
 
@@ -12,6 +12,11 @@ const migrationSql = readFileSync(
 
 const change01MigrationSql = readFileSync(
   resolve(__dirname, '../../drizzle/0001_change_01_course_storage.sql'),
+  'utf8',
+);
+
+const communityPopularityMigrationSql = readFileSync(
+  resolve(__dirname, '../../drizzle/0003_community_course_popularity.sql'),
   'utf8',
 );
 
@@ -35,6 +40,10 @@ describe('Slice-00 database foundation SQL', () => {
     expect(getTableName(schema.examPolicyCourses)).toBe('exam_policy_courses');
     expect(getTableName(schema.examAttempts)).toBe('exam_attempts');
     expect(getTableName(schema.hostApiKeys)).toBe('host_api_keys');
+    expect(getTableColumns(schema.courseProgress)).toMatchObject({
+      startedAt: expect.any(Object),
+      lastViewedAt: expect.any(Object),
+    });
   });
 
   test('creates every enterprise foundation table', () => {
@@ -77,6 +86,19 @@ describe('Slice-00 database foundation SQL', () => {
     );
     expect(change01MigrationSql).not.toContain('ADD COLUMN IF NOT EXISTS "oss_key"');
     expect(change01MigrationSql).not.toContain('ADD COLUMN IF NOT EXISTS "poster_oss_key"');
+  });
+
+  test('backfills course start timestamps and adds the popularity aggregation index', () => {
+    expect(communityPopularityMigrationSql).toContain('"started_at" timestamp with time zone');
+    expect(communityPopularityMigrationSql).toContain(
+      'COALESCE("started_at", "completed_at", "updated_at")',
+    );
+    expect(communityPopularityMigrationSql).toContain(
+      '"last_viewed_at" = COALESCE("last_viewed_at", "updated_at"',
+    );
+    expect(communityPopularityMigrationSql).toContain(
+      'CREATE INDEX IF NOT EXISTS "course_progress_course_id_idx"',
+    );
   });
 
   test('seeds default administrator and learner roles idempotently', () => {

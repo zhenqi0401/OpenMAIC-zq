@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useStageStore } from '@/lib/store';
 import { isCurrentSceneEditable } from '@/lib/edit/stage-mode';
-import { isMaicEditorEnabled } from '@/lib/config/feature-flags';
+import { isCoursePopularityEnabled, isMaicEditorEnabled } from '@/lib/config/feature-flags';
 import { EditChromeRoot } from '@/components/edit/EditChromeRoot';
 import {
   PlaybackChromeRoot,
@@ -161,7 +161,7 @@ export function Stage({
               ref={playbackRef}
               onRetryOutline={onRetryOutline}
               enterpriseCourseId={enterpriseCourseId}
-              trackCourseStart={authoringIdentity?.isAdmin === false}
+              trackCourseStart={isCoursePopularityEnabled() && authoringIdentity?.isAdmin === false}
               canEnterProMode={canEnterProMode}
               onEnterProMode={toggleHandler}
             />

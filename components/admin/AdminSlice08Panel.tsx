@@ -358,7 +358,7 @@ export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08
                   label="课程完成率"
                   value={formatDashboardPercent(dashboard.summary.courseCompletionRate)}
                   progress={toDashboardProgressRatio(dashboard.summary.courseCompletionRate)}
-                  note={`学员 ${dashboard.summary.learnerCount} 人`}
+                  note="已完成人数 / 已开始学习人数"
                 />
                 <Metric
                   label="测评通过率"

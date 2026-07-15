@@ -1,10 +1,34 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  isCoursePopularityEnabled,
   isMaicEditorEnabled,
   isVocationalTaskEngineEnabled,
   resolveVocationalActive,
   shouldShowVocationalTestUi,
 } from '@/lib/config/feature-flags';
+
+describe('isCoursePopularityEnabled', () => {
+  const flag = 'NEXT_PUBLIC_COURSE_POPULARITY_ENABLED';
+  let original: string | undefined;
+
+  beforeEach(() => {
+    original = process.env[flag];
+  });
+
+  afterEach(() => {
+    if (original === undefined) delete process.env[flag];
+    else process.env[flag] = original;
+  });
+
+  it('defaults on and supports explicit shutdown', () => {
+    delete process.env[flag];
+    expect(isCoursePopularityEnabled()).toBe(true);
+    process.env[flag] = 'false';
+    expect(isCoursePopularityEnabled()).toBe(false);
+    process.env[flag] = '0';
+    expect(isCoursePopularityEnabled()).toBe(false);
+  });
+});
 
 const FLAG = 'NEXT_PUBLIC_MAIC_EDITOR_ENABLED';
 

@@ -562,6 +562,23 @@ describe('Slice-01 API routes', () => {
     });
   });
 
+  test('learner course API validates the requested popularity sort', async () => {
+    const popular = await getRoute(
+      '@/app/api/courses/route',
+      'http://localhost/api/courses?sort=popular',
+    );
+    expect(popular.status).toBe(200);
+
+    const invalid = await getRoute(
+      '@/app/api/courses/route',
+      'http://localhost/api/courses?sort=unknown',
+    );
+    expect(invalid.status).toBe(400);
+    await expect(invalid.json()).resolves.toMatchObject({
+      error: 'sort must be latest or popular',
+    });
+  });
+
   test('learner course API keeps all categories when no courses are visible', async () => {
     const repository = makeRepository();
     mocks.repository = {

@@ -225,9 +225,14 @@ export const courseProgress = pgTable(
     actionIndex: integer('action_index').notNull().default(0),
     completed: boolean('completed').notNull().default(false),
     completedAt: timestamp('completed_at', { withTimezone: true }),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    lastViewedAt: timestamp('last_viewed_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.userId, table.courseId] })],
+  (table) => [
+    primaryKey({ columns: [table.userId, table.courseId] }),
+    index('course_progress_course_id_idx').on(table.courseId),
+  ],
 );
 
 export const assessmentAttempts = pgTable(
