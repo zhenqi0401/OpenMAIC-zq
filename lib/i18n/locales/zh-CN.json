@@ -1541,6 +1541,21 @@
     "optional": "可选",
     "ttsBrowserNativeTimelineNotice": "浏览器内置 TTS 不支持编辑器时间轴的音频功能（试听、重新生成、全部配音）。切换到托管 TTS 提供方即可逐句生成和管理音频。"
   },
+  "danmaku": {
+    "toggle": "弹幕",
+    "inputLabel": "弹幕内容",
+    "placeholder": "发一条友善的弹幕…",
+    "send": "发送",
+    "sending": "正在发送…",
+    "sent": "已发送",
+    "sendFailed": "弹幕发送失败，请重试",
+    "startRecording": "开始语音输入",
+    "stopRecording": "停止录音",
+    "recording": "录音中 {{seconds}}/{{limit}} 秒",
+    "transcribing": "正在转写，结果会进入输入框…",
+    "cooldown": "{{seconds}} 秒后可再次发送",
+    "waitingForPlayback": "开始播放后即可发送弹幕"
+  },
   "profile": {
     "title": "个人资料",
     "defaultNickname": "同学",

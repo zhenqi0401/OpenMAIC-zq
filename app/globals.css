@@ -568,3 +568,40 @@ body[data-maic-editor='true'] .editable-element-text li,
     -webkit-text-fill-color: var(--muted-foreground);
   }
 }
+
+/* Historical danmaku traverses the course canvas without intercepting interaction. */
+@keyframes danmaku-traverse {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100vw - 100%));
+  }
+}
+
+.danmaku-item {
+  animation-name: danmaku-traverse;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  will-change: transform;
+}
+
+@keyframes danmaku-reduced-motion {
+  0%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .danmaku-item {
+    left: auto;
+    right: 2%;
+    animation-name: danmaku-reduced-motion;
+    animation-timing-function: ease-out;
+    will-change: opacity;
+  }
+}

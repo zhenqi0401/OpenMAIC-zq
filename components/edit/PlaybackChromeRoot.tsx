@@ -1104,6 +1104,14 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
       }
     })();
 
+    const danmakuUiEnabled = resolveDanmakuPlaybackGate({
+      courseId: enterpriseCourseId,
+      scene: currentScene,
+      mode,
+      whiteboardOpen,
+      phase: engineMode === 'live' ? 'discussion' : undefined,
+    }).enabled;
+
     // Build discussion request for Roundtable ProactiveCard from trigger
     const discussionRequest: DiscussionAction | null = discussionTrigger
       ? {
@@ -1198,6 +1206,7 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
               isPendingScene={isPendingScene}
               isCourseComplete={isCourseComplete}
               enterpriseCourseId={enterpriseCourseId}
+              danmakuEnabled={danmakuUiEnabled}
               assessmentPassed={assessmentPassed}
               learningProgress={learningProgress}
               onAssessmentPassed={notifyCourseCompleted}

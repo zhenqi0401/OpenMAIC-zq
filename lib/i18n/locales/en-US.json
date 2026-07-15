@@ -1541,6 +1541,21 @@
     "optional": "Optional",
     "ttsBrowserNativeTimelineNotice": "Browser-native TTS doesn't support the editor timeline's audio features (preview, regenerate, and bulk voiceover). Switch to a managed TTS provider to generate and manage per-line audio."
   },
+  "danmaku": {
+    "toggle": "Danmaku",
+    "inputLabel": "Danmaku message",
+    "placeholder": "Share a friendly comment…",
+    "send": "Send",
+    "sending": "Sending…",
+    "sent": "Sent",
+    "sendFailed": "Could not send the danmaku. Try again.",
+    "startRecording": "Start voice input",
+    "stopRecording": "Stop recording",
+    "recording": "Recording {{seconds}}/{{limit}} seconds",
+    "transcribing": "Transcribing into the input…",
+    "cooldown": "Send again in {{seconds}} seconds",
+    "waitingForPlayback": "Start playback to send danmaku"
+  },
   "profile": {
     "title": "Profile",
     "defaultNickname": "Learner",

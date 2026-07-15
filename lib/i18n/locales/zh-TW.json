@@ -1526,6 +1526,21 @@
     "voxcpmVoicesTitle": "VoxCPM 聲音",
     "ttsBrowserNativeTimelineNotice": "瀏覽器內建 TTS 不支援編輯器時間軸的音訊功能（試聽、重新生成、全部配音）。切換到託管 TTS 供應商即可逐句生成與管理音訊。"
   },
+  "danmaku": {
+    "toggle": "彈幕",
+    "inputLabel": "彈幕內容",
+    "placeholder": "發一條友善的彈幕…",
+    "send": "傳送",
+    "sending": "正在傳送…",
+    "sent": "已傳送",
+    "sendFailed": "彈幕傳送失敗，請重試",
+    "startRecording": "開始語音輸入",
+    "stopRecording": "停止錄音",
+    "recording": "錄音中 {{seconds}}/{{limit}} 秒",
+    "transcribing": "正在轉寫，結果會進入輸入框…",
+    "cooldown": "{{seconds}} 秒後可再次傳送",
+    "waitingForPlayback": "開始播放後即可傳送彈幕"
+  },
   "profile": {
     "title": "個人資料",
     "defaultNickname": "同學",

@@ -13,6 +13,7 @@ import type { Scene, StageMode } from '@/lib/types/stage';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { ClassroomCompletePageConnected } from '@/components/scene-renderers/classroom-complete';
 import { CourseAssessmentPanel } from '@/components/assessment/CourseAssessmentPanel';
+import { DanmakuOverlay } from '@/components/community/DanmakuOverlay';
 
 interface CanvasAreaProps extends CanvasToolbarProps {
   readonly currentScene: Scene | null;
@@ -21,6 +22,7 @@ interface CanvasAreaProps extends CanvasToolbarProps {
   readonly isPendingScene?: boolean;
   readonly isCourseComplete?: boolean;
   readonly enterpriseCourseId?: string | null;
+  readonly danmakuEnabled?: boolean;
   readonly assessmentPassed?: boolean;
   readonly learningProgress?: { sceneIndex: number; actionIndex: number };
   readonly isGenerationFailed?: boolean;
@@ -53,6 +55,7 @@ export function CanvasArea({
   isPendingScene,
   isCourseComplete,
   enterpriseCourseId,
+  danmakuEnabled = false,
   assessmentPassed,
   learningProgress,
   isGenerationFailed,
@@ -128,6 +131,11 @@ export function CanvasArea({
                 <SceneRenderer scene={currentScene} mode={mode} />
               </SceneProvider>
             </div>
+          )}
+
+          {/* Historical danmaku: above course content, below whiteboard and critical overlays. */}
+          {enterpriseCourseId && (
+            <DanmakuOverlay courseId={enterpriseCourseId} enabled={danmakuEnabled} />
           )}
 
           {/* Pending Scene Loading / Completion Overlay */}
