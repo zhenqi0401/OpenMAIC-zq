@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, MessagesSquare } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useRouter } from 'next/navigation';
 import type { StageMode } from '@/lib/types/stage';
@@ -11,9 +11,16 @@ interface HeaderProps {
   readonly mode?: StageMode;
   readonly canEdit?: boolean;
   readonly onToggleEditMode?: () => void;
+  readonly discussionCourseId?: string | null;
 }
 
-export function Header({ currentSceneTitle, mode, canEdit, onToggleEditMode }: HeaderProps) {
+export function Header({
+  currentSceneTitle,
+  mode,
+  canEdit,
+  onToggleEditMode,
+  discussionCourseId,
+}: HeaderProps) {
   const { t } = useI18n();
   const router = useRouter();
 
@@ -52,7 +59,24 @@ export function Header({ currentSceneTitle, mode, canEdit, onToggleEditMode }: H
           )}
         </div>
 
-        <HeaderControls mode={mode} canEdit={canEdit} onToggleEditMode={onToggleEditMode} />
+        <div className="flex shrink-0 items-center gap-2">
+          {discussionCourseId && mode !== 'edit' && (
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  `/forum?view=course&courseId=${encodeURIComponent(discussionCourseId)}&compose=true`,
+                )
+              }
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-100 dark:border-violet-900 dark:bg-violet-950/50 dark:text-violet-200 dark:hover:bg-violet-950"
+              title="讨论本课程"
+            >
+              <MessagesSquare className="size-4" />
+              <span className="hidden xl:inline">讨论本课程</span>
+            </button>
+          )}
+          <HeaderControls mode={mode} canEdit={canEdit} onToggleEditMode={onToggleEditMode} />
+        </div>
       </header>
     </>
   );

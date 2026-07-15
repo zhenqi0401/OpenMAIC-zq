@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { useDeferredValue, useMemo, useRef, useState, useEffect } from 'react';
 import {
   BookOpen,
@@ -8,6 +9,7 @@ import {
   ChevronRight,
   LogOut,
   Monitor,
+  MessagesSquare,
   Moon,
   Pencil,
   RefreshCw,
@@ -197,6 +199,12 @@ export function LearnerHome({
             <span className="mx-1 hidden h-5 w-px bg-slate-200 dark:bg-slate-700 sm:block" />
             <LanguageSwitcher />
             <ThemeMenu />
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/forum" aria-label="进入学习交流区" title="学习交流区">
+                <MessagesSquare className="size-4" />
+                <span className="hidden lg:inline">交流区</span>
+              </Link>
+            </Button>
             <Button
               variant="ghost"
               size="icon-sm"
