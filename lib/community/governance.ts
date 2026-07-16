@@ -29,6 +29,11 @@ export class DrizzleCommunityRateLimiter implements CommunityRateLimiter {
     const windowBoundary = new Date(now.getTime() - policy.windowMs);
     const intervalBoundary = new Date(now.getTime() - policy.minIntervalMs);
     const contentHash = hashContent(input.content);
+    // Values interpolated directly into a raw `sql` fragment do not inherit the
+    // timestamp column's driver encoder. Bind them explicitly so postgres-js
+    // receives ISO timestamp strings instead of JavaScript Date objects.
+    const encodedNow = sql.param(now, communityRateLimits.windowStartedAt);
+    const encodedWindowBoundary = sql.param(windowBoundary, communityRateLimits.windowStartedAt);
 
     const [accepted] = await getDb()
       .insert(communityRateLimits)
@@ -44,8 +49,8 @@ export class DrizzleCommunityRateLimiter implements CommunityRateLimiter {
       .onConflictDoUpdate({
         target: [communityRateLimits.actorId, communityRateLimits.actionKind],
         set: {
-          windowStartedAt: sql`case when ${communityRateLimits.windowStartedAt} <= ${windowBoundary} then ${now} else ${communityRateLimits.windowStartedAt} end`,
-          actionCount: sql`case when ${communityRateLimits.windowStartedAt} <= ${windowBoundary} then 1 else ${communityRateLimits.actionCount} + 1 end`,
+          windowStartedAt: sql`case when ${communityRateLimits.windowStartedAt} <= ${encodedWindowBoundary} then ${encodedNow} else ${communityRateLimits.windowStartedAt} end`,
+          actionCount: sql`case when ${communityRateLimits.windowStartedAt} <= ${encodedWindowBoundary} then 1 else ${communityRateLimits.actionCount} + 1 end`,
           lastActionAt: now,
           lastContentHash: contentHash,
           updatedAt: now,

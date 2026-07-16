@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from 'vitest';
 
 import {
   createDanmakuService,
-  type DanmakuRecord,
+  type AdminDanmaku,
   type DanmakuRepository,
 } from '@/lib/community/danmaku';
 import type { EnterpriseRepository } from '@/lib/storage/enterprise-service';
@@ -11,7 +11,7 @@ const now = new Date('2026-07-16T01:00:00.000Z');
 
 describe('QA-04 cross-role historical danmaku acceptance', () => {
   test('learner A sends, learner B replays, restricted learner is denied, and admin hides it', async () => {
-    const records: DanmakuRecord[] = [];
+    const records: AdminDanmaku[] = [];
     const repository: DanmakuRepository = {
       listVisible: vi.fn(async ({ courseId, sceneKey }) =>
         records.filter(
@@ -22,7 +22,7 @@ describe('QA-04 cross-role historical danmaku acceptance', () => {
       findByRequestId: vi.fn(async () => null),
       getAuthorSendWindow: vi.fn(async () => []),
       create: vi.fn(async (input) => {
-        const created: DanmakuRecord = {
+        const created: AdminDanmaku = {
           id: `danmaku-${records.length + 1}`,
           ...input,
           inputSource: input.inputSource ?? 'text',
@@ -34,6 +34,13 @@ describe('QA-04 cross-role historical danmaku acceptance', () => {
           moderatedAt: null,
           createdAt: now,
           updatedAt: now,
+          author: {
+            id: input.authorId,
+            displayName: 'Learner A',
+            status: 'active',
+            roleId: 'role-learner',
+            roleCode: 'learner',
+          },
         };
         records.push(created);
         return created;

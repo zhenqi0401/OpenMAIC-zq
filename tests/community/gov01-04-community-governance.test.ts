@@ -175,6 +175,21 @@ describe('GOV-03 management filters and GOV-04 audit persistence', () => {
     expect(migration).toContain('"created_at" timestamp with time zone');
   });
 
+  test('binds raw rate-limit CASE timestamps through the column encoder', () => {
+    const implementation = fs.readFileSync(
+      path.join(process.cwd(), 'lib/community/governance.ts'),
+      'utf8',
+    );
+
+    expect(implementation).toContain('sql.param(now, communityRateLimits.windowStartedAt)');
+    expect(implementation).toMatch(
+      /sql\.param\(\s*windowBoundary,\s*communityRateLimits\.windowStartedAt,?\s*\)/,
+    );
+    expect(implementation).not.toMatch(
+      /windowStartedAt: sql`case when .* <= \$\{windowBoundary\} then \$\{now\}/,
+    );
+  });
+
   test('rejects invalid management pagination and content types', () => {
     expect(() => parseCommunityAdminFilters(new URLSearchParams({ type: 'unknown' }))).toThrow();
     expect(() => parseCommunityAdminFilters(new URLSearchParams({ pageSize: '51' }))).toThrow();
