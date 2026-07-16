@@ -33,6 +33,8 @@ test.describe('Slide editor — scene creation (enabled)', () => {
     await page.waitForURL(/\/generation-preview/);
 
     const preview = new GenerationPreviewPage(page);
+    await preview.waitForEditor();
+    await preview.confirmOutlines();
     await preview.waitForRedirectToClassroom();
     expect(page.url()).toMatch(/\/classroom\//);
 
@@ -41,7 +43,7 @@ test.describe('Slide editor — scene creation (enabled)', () => {
     await expect(classroom.sidebarScenes.first()).toBeVisible({ timeout: 10_000 });
 
     // Enter Pro mode via the header Pro Switch.
-    await page.getByRole('switch').click();
+    await page.getByRole('switch', { name: 'Edit course' }).click();
 
     // The slide nav rail replaces the playback sidebar in Pro mode.
     const rail = page.getByTestId('slide-nav-rail');

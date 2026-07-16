@@ -45,7 +45,10 @@ test.describe('Generation Flow', () => {
     );
   });
 
-  test('completes generation pipeline and redirects to classroom', async ({ page, mockApi }) => {
+  test('confirms the generated outline and completes the generation pipeline', async ({
+    page,
+    mockApi,
+  }) => {
     // Set up all API mocks
     await mockApi.setupGenerationMocks();
 
@@ -55,12 +58,27 @@ test.describe('Generation Flow', () => {
     // Generation card with progress dots should be visible
     await expect(preview.stepTitle).toBeVisible();
 
-    // Wait for auto-redirect to classroom
+    await preview.waitForEditor();
+    await preview.confirmOutlines();
     await preview.waitForRedirectToClassroom();
     expect(page.url()).toMatch(/\/classroom\//);
   });
 
-  test('opens outline editor from preview review opportunity and resumes generation', async ({
+  test('opens the required outline editor and resumes generation', async ({ page, mockApi }) => {
+    await mockApi.setupGenerationMocks();
+
+    const preview = new GenerationPreviewPage(page);
+    await preview.goto();
+
+    await preview.waitForEditor();
+    await expect(preview.editorTitle).toBeVisible();
+
+    await preview.confirmOutlines();
+    await preview.waitForRedirectToClassroom();
+    expect(page.url()).toMatch(/\/classroom\//);
+  });
+
+  test('does not expose an opt-out when outline confirmation is mandatory', async ({
     page,
     mockApi,
   }) => {
@@ -69,30 +87,8 @@ test.describe('Generation Flow', () => {
     const preview = new GenerationPreviewPage(page);
     await preview.goto();
 
-    await preview.waitForReviewOpportunity();
-    await preview.openOutlineReview();
-    await expect(preview.editorTitle).toBeVisible();
-
-    await preview.confirmOutlines();
-    await preview.waitForRedirectToClassroom();
-    expect(page.url()).toMatch(/\/classroom\//);
-  });
-
-  test('persists always review preference from the outline editor', async ({ page, mockApi }) => {
-    await mockApi.setupGenerationMocks();
-
-    const preview = new GenerationPreviewPage(page);
-    await preview.goto();
-
-    await preview.waitForReviewOpportunity();
-    await preview.openOutlineReview();
-    await preview.enableAlwaysReview();
-
-    const persistedPreference = await page.evaluate(() => {
-      const raw = localStorage.getItem('settings-storage');
-      return raw ? JSON.parse(raw).state.reviewOutlineEnabled : undefined;
-    });
-    expect(persistedPreference).toBe(true);
+    await preview.waitForEditor();
+    await expect(preview.alwaysReviewCheckbox).toHaveCount(0);
 
     await preview.confirmOutlines();
     await preview.waitForRedirectToClassroom();

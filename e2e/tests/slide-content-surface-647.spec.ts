@@ -35,13 +35,15 @@ test.describe('Slide content surface (#647)', () => {
     await home.submit();
     await page.waitForURL(/\/generation-preview/);
     const preview = new GenerationPreviewPage(page);
+    await preview.waitForEditor();
+    await preview.confirmOutlines();
     await preview.waitForRedirectToClassroom();
 
     const classroom = new ClassroomPage(page);
     await classroom.waitForLoaded();
     await expect(classroom.sidebarScenes.first()).toBeVisible({ timeout: 10_000 });
 
-    await page.getByRole('switch').click();
+    await page.getByRole('switch', { name: 'Edit course' }).click();
     await expect(page.getByTestId('slide-nav-rail')).toBeVisible({ timeout: 10_000 });
 
     // --- Slide background: a PaintBucket insert item opens a solid/image popover.

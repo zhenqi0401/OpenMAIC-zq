@@ -42,7 +42,11 @@ test.describe('Full Happy Path', () => {
     // Generation progress UI should be visible
     await expect(preview.stepTitle).toBeVisible();
 
-    // Wait for mocked generation to complete and auto-redirect to classroom
+    // Every generated outline now requires explicit confirmation.
+    await preview.waitForEditor();
+    await preview.confirmOutlines();
+
+    // Wait for mocked generation to complete and redirect to classroom.
     await preview.waitForRedirectToClassroom();
     expect(page.url()).toMatch(/\/classroom\//);
 

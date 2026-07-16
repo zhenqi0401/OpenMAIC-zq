@@ -28,6 +28,8 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
+    ".next-e2e-3002/types/**/*.ts",
+    ".next-e2e-3002/dev/types/**/*.ts",
     "**/*.mts"
   ],
   "exclude": ["node_modules", "dist", "packages/*/src", "packages/docs", "openclaw", "e2e"]

@@ -11,7 +11,7 @@ export class GenerationPreviewPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.stepTitle = page.locator('h2');
+    this.stepTitle = page.locator('h2').first();
     this.backButton = page.getByRole('button', { name: /back|返回/i });
     // The dedicated "Review outline" button was removed in favour of the streaming
     // preview card itself being the entry into the editor. Match its aria-label

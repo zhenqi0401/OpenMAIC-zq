@@ -341,21 +341,25 @@ export function OutlinesEditor({
 
       {/* Footer */}
       <div className="relative flex flex-col gap-3 border-t border-border/40 bg-gradient-to-t from-background/95 to-transparent px-6 py-4 md:flex-row md:items-center md:justify-between md:px-10 md:py-5">
-        <label
-          className={cn(
-            'flex cursor-pointer items-center gap-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground',
-            isLoading && 'cursor-not-allowed opacity-60',
-          )}
-        >
-          <Checkbox
-            checked={alwaysReview}
-            onCheckedChange={(checked) => onAlwaysReviewChange?.(checked === true)}
-            disabled={isLoading}
-            aria-label={t('generation.alwaysReviewOutlines')}
-            className="size-4"
-          />
-          <span>{t('generation.alwaysReviewOutlines')}</span>
-        </label>
+        {onAlwaysReviewChange ? (
+          <label
+            className={cn(
+              'flex cursor-pointer items-center gap-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground',
+              isLoading && 'cursor-not-allowed opacity-60',
+            )}
+          >
+            <Checkbox
+              checked={alwaysReview}
+              onCheckedChange={(checked) => onAlwaysReviewChange(checked === true)}
+              disabled={isLoading}
+              aria-label={t('generation.alwaysReviewOutlines')}
+              className="size-4"
+            />
+            <span>{t('generation.alwaysReviewOutlines')}</span>
+          </label>
+        ) : (
+          <span />
+        )}
 
         <div className="flex flex-col-reverse gap-2 md:flex-row md:items-center md:gap-2">
           <Button

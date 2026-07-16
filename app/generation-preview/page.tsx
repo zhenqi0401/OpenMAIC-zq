@@ -944,7 +944,9 @@ function GenerationPreviewContent() {
               languageDirective,
               signal,
               FOREGROUND_SCENE_RETRY_OPTIONS,
-              generatedCourseId ? { courseId: generatedCourseId, sceneKey: firstScene.id } : undefined,
+              generatedCourseId
+                ? { courseId: generatedCourseId, sceneKey: firstScene.id }
+                : undefined,
             );
           } catch (err) {
             if (isAbortError(err)) throw err;
@@ -1210,7 +1212,6 @@ function GenerationPreviewContent() {
               onChange={handleOutlinesChange}
               onConfirm={handleConfirmOutlines}
               onBack={goBackToHome}
-              alwaysReview
               isLoading={isConfirmingOutlines}
               isStreaming={isOutlineStreaming}
               onCollapse={handleCollapseEditor}
