@@ -1,10 +1,14 @@
 import { apiError } from '@/lib/server/api-response';
+import { isForumEnabled } from '@/lib/config/feature-flags';
 import { getEnterpriseRepository } from '@/lib/storage/enterprise-repository';
 import { ForumServiceError, createForumService } from './forum';
 import { getForumRepository } from './forum-repository';
 import { getCommunityRateLimiter } from './governance';
 
 export function getForumService() {
+  if (!isForumEnabled()) {
+    throw new ForumServiceError('NOT_FOUND', 'Forum is disabled');
+  }
   return createForumService(
     getForumRepository(),
     getEnterpriseRepository(),

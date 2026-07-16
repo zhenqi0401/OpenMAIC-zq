@@ -534,14 +534,16 @@ describe('Slice-01 API routes', () => {
       categories: [{ id: 'cat-1', name: 'Default', sortOrder: 0 }],
     });
 
-    const draft = await getRoute(
+    const draft = await getRouteWithContext(
       '@/app/api/courses/[id]/route',
+      { params: Promise.resolve({ id: 'course-draft' }) },
       'http://localhost/api/courses/course-draft',
     );
     expect(draft.status).toBe(404);
 
-    const detail = await getRoute(
+    const detail = await getRouteWithContext(
       '@/app/api/courses/[id]/route',
+      { params: Promise.resolve({ id: 'course-published' }) },
       'http://localhost/api/courses/course-published',
     );
     await expect(detail.json()).resolves.toMatchObject({
@@ -753,8 +755,9 @@ describe('Slice-01 API routes', () => {
       mediaFiles: [{ id: 'media-1', mediaId: 'video-1' }],
     });
 
-    const mediaResponse = await getRoute(
+    const mediaResponse = await getRouteWithContext(
       '@/app/api/courses/[id]/media/[mediaId]/route',
+      { params: Promise.resolve({ id: 'course-published', mediaId: 'video-1' }) },
       'http://localhost/api/courses/course-published/media/video-1',
     );
     expect(mediaResponse.status).toBe(200);
@@ -772,8 +775,9 @@ describe('Slice-01 API routes', () => {
     await expect(createdAudio.json()).resolves.toMatchObject({
       audio: { audioId: 'tts-1', mimeType: 'audio/mpeg', sizeBytes: 1024 },
     });
-    const audioResponse = await getRoute(
+    const audioResponse = await getRouteWithContext(
       '@/app/api/courses/[id]/audio/[audioId]/route',
+      { params: Promise.resolve({ id: 'course-published', audioId: 'tts-1' }) },
       'http://localhost/api/courses/course-published/audio/tts-1',
     );
     expect(audioResponse.status).toBe(200);
@@ -789,8 +793,9 @@ describe('Slice-01 API routes', () => {
       mimeType: 'image/png',
       base64: Buffer.from('draft-image').toString('base64'),
     });
-    const draftMediaResponse = await getRoute(
+    const draftMediaResponse = await getRouteWithContext(
       '@/app/api/courses/[id]/media/[mediaId]/route',
+      { params: Promise.resolve({ id: 'course-draft', mediaId: 'draft-image-1' }) },
       'http://localhost/api/courses/course-draft/media/draft-image-1',
     );
     expect(draftMediaResponse.status).toBe(200);

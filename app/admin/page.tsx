@@ -6,6 +6,7 @@ import { CourseAdminPanel } from '@/components/admin/courses/CourseAdminPanel';
 import { ExamPolicyAdminPanel } from '@/components/admin/exams/ExamPolicyAdminPanel';
 import { CommunityAdminPanel } from '@/components/admin/community/CommunityAdminPanel';
 import { resolveAdminModuleId, type AdminSearchParams } from '@/lib/admin/module';
+import { isDanmakuEnabled, isForumEnabled } from '@/lib/config/feature-flags';
 
 function AdminModuleView({ activeModuleId }: { activeModuleId: AdminModuleId }) {
   if (activeModuleId === 'courses') return <CourseAdminPanel />;
@@ -20,7 +21,11 @@ export default async function AdminPage({
 }: {
   searchParams?: Promise<AdminSearchParams>;
 }) {
-  const activeModuleId = resolveAdminModuleId(await searchParams);
+  const requestedModuleId = resolveAdminModuleId(await searchParams);
+  const activeModuleId =
+    requestedModuleId === 'community' && !isDanmakuEnabled() && !isForumEnabled()
+      ? 'dashboard'
+      : requestedModuleId;
 
   return (
     <AdminShell activeModuleId={activeModuleId}>

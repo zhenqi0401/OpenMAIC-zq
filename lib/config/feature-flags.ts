@@ -21,6 +21,18 @@ export function isCoursePopularityEnabled(): boolean {
   return value === undefined || (value !== 'false' && value !== '0');
 }
 
+/** Historical danmaku gate. Default ON; deployments can disable it independently. */
+export function isDanmakuEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_DANMAKU_ENABLED;
+  return value === undefined || (value !== 'false' && value !== '0');
+}
+
+/** Forum gate. Default ON; deployments can disable it independently. */
+export function isForumEnabled(): boolean {
+  const value = process.env.NEXT_PUBLIC_FORUM_ENABLED;
+  return value === undefined || (value !== 'false' && value !== '0');
+}
+
 /**
  * MAIC Editor (Pro mode) gate. Default OFF — gates only the Pro toggle
  * affordance in `Header`. The `StageMode` type union is unaffected so

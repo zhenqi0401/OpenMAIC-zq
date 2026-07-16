@@ -14,6 +14,7 @@ import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { isDanmakuEnabled, isForumEnabled } from '@/lib/config/feature-flags';
 
 type ContentType = 'danmaku' | 'posts' | 'replies' | 'audit';
 
@@ -96,7 +97,12 @@ function statusTone(status: string | undefined): 'success' | 'warning' | 'danger
 }
 
 export function CommunityAdminPanel() {
-  const [type, setType] = useState<ContentType>('danmaku');
+  const availableTabs = TABS.filter(
+    (tab) => tab.id === 'audit' || (tab.id === 'danmaku' ? isDanmakuEnabled() : isForumEnabled()),
+  );
+  const [type, setType] = useState<ContentType>(() =>
+    isDanmakuEnabled() ? 'danmaku' : isForumEnabled() ? 'posts' : 'audit',
+  );
   const [items, setItems] = useState<AdminCommunityItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -197,7 +203,7 @@ export function CommunityAdminPanel() {
       />
 
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="社区内容类型">
-        {TABS.map((tab) => (
+        {availableTabs.map((tab) => (
           <Button
             key={tab.id}
             role="tab"

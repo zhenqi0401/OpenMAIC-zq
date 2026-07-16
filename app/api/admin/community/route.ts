@@ -4,6 +4,7 @@ import {
   parseCommunityAdminFilters,
 } from '@/lib/community/community-admin';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
+import { isDanmakuEnabled, isForumEnabled } from '@/lib/config/feature-flags';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,14 @@ export async function GET(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Invalid community filters';
     return apiError('INVALID_REQUEST', 400, message);
+  }
+
+  if (
+    (!isDanmakuEnabled() && filters.type === 'danmaku') ||
+    (!isForumEnabled() && (filters.type === 'posts' || filters.type === 'replies')) ||
+    (!isDanmakuEnabled() && !isForumEnabled())
+  ) {
+    return apiError('INVALID_REQUEST', 404, 'Community feature is disabled');
   }
 
   try {

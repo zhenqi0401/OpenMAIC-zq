@@ -1,6 +1,9 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  // E2E runs may use an isolated build directory so they do not contend with
+  // a developer's already-running `.next` server lock.
+  distDir: process.env.NEXT_DIST_DIR || undefined,
   output: process.env.VERCEL ? undefined : 'standalone',
   transpilePackages: ['mathml2omml', 'pptxgenjs', '@openmaic/importer'],
   // These agent packages do a runtime `import(specifier)` with a computed

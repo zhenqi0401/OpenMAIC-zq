@@ -34,6 +34,7 @@ import { useWidgetIframeStore } from '@/lib/store/widget-iframe';
 import type { AudioIndicatorState } from '@/components/roundtable/audio-indicator';
 import type { Action, DiscussionAction, SpeechAction } from '@/lib/types/action';
 import { cn } from '@/lib/utils';
+import { isDanmakuEnabled } from '@/lib/config/feature-flags';
 // Playback state persistence removed — refresh always starts from the beginning
 import { ChatArea, type ChatAreaRef } from '@/components/chat/chat-area';
 import { agentsToParticipants, useAgentRegistry } from '@/lib/orchestration/registry/store';
@@ -1104,13 +1105,15 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
       }
     })();
 
-    const danmakuUiEnabled = resolveDanmakuPlaybackGate({
-      courseId: enterpriseCourseId,
-      scene: currentScene,
-      mode,
-      whiteboardOpen,
-      phase: engineMode === 'live' ? 'discussion' : undefined,
-    }).enabled;
+    const danmakuUiEnabled =
+      isDanmakuEnabled() &&
+      resolveDanmakuPlaybackGate({
+        courseId: enterpriseCourseId,
+        scene: currentScene,
+        mode,
+        whiteboardOpen,
+        phase: engineMode === 'live' ? 'discussion' : undefined,
+      }).enabled;
 
     // Build discussion request for Roundtable ProactiveCard from trigger
     const discussionRequest: DiscussionAction | null = discussionTrigger

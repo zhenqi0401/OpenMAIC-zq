@@ -1,11 +1,40 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   isCoursePopularityEnabled,
+  isDanmakuEnabled,
+  isForumEnabled,
   isMaicEditorEnabled,
   isVocationalTaskEngineEnabled,
   resolveVocationalActive,
   shouldShowVocationalTestUi,
 } from '@/lib/config/feature-flags';
+
+describe.each([
+  ['isDanmakuEnabled', 'NEXT_PUBLIC_DANMAKU_ENABLED', isDanmakuEnabled],
+  ['isForumEnabled', 'NEXT_PUBLIC_FORUM_ENABLED', isForumEnabled],
+] as const)('%s', (_name, flag, resolveFlag) => {
+  let original: string | undefined;
+
+  beforeEach(() => {
+    original = process.env[flag];
+  });
+
+  afterEach(() => {
+    if (original === undefined) delete process.env[flag];
+    else process.env[flag] = original;
+  });
+
+  it('defaults on and supports an independent explicit shutdown', () => {
+    delete process.env[flag];
+    expect(resolveFlag()).toBe(true);
+    process.env[flag] = 'false';
+    expect(resolveFlag()).toBe(false);
+    process.env[flag] = '0';
+    expect(resolveFlag()).toBe(false);
+    process.env[flag] = 'true';
+    expect(resolveFlag()).toBe(true);
+  });
+});
 
 describe('isCoursePopularityEnabled', () => {
   const flag = 'NEXT_PUBLIC_COURSE_POPULARITY_ENABLED';

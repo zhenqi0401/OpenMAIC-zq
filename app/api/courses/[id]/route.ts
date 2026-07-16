@@ -8,7 +8,7 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request, context?: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const current = await getCurrentAuthResult();
   if (!current) return apiError('INVALID_REQUEST', 401, 'OpenMAIC session required');
 

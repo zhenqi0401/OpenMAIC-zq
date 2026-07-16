@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { BrandLockup } from '@/components/brand/BrandLockup';
 import { cn } from '@/lib/utils';
+import { isDanmakuEnabled, isForumEnabled } from '@/lib/config/feature-flags';
 
 export type AdminModuleId = 'dashboard' | 'courses' | 'exams' | 'community' | 'access';
 
@@ -125,39 +126,41 @@ function AdminNavigation({
       aria-label="后台模块导航"
       className={cn('grid gap-2', compact && 'grid-flow-col auto-cols-[minmax(150px,1fr)]')}
     >
-      {adminModules.map((module) => {
-        const Icon = module.icon;
-        const active = module.id === activeModuleId;
-        return (
-          <a
-            aria-current={active ? 'page' : undefined}
-            className={cn(
-              'grid min-h-10 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 rounded-[6px] border px-3 py-2 text-left transition-colors',
-              active
-                ? 'border-[#c96f54]/70 bg-[#fffaf2] text-[#2b211d]'
-                : 'border-[#eaded1] bg-[#fffaf2] text-[#2b211d] hover:border-[#c96f54]/70 hover:bg-[#f1e2d0]',
-            )}
-            href={module.href}
-            key={module.id}
-          >
-            <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
-              <Icon className="size-4" />
-              {module.label}
-            </span>
-            <span
-              className={cn('col-start-1 text-xs', active ? 'text-[#75665d]' : 'text-[#75665d]')}
+      {adminModules
+        .filter((module) => module.id !== 'community' || isDanmakuEnabled() || isForumEnabled())
+        .map((module) => {
+          const Icon = module.icon;
+          const active = module.id === activeModuleId;
+          return (
+            <a
+              aria-current={active ? 'page' : undefined}
+              className={cn(
+                'grid min-h-10 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 rounded-[6px] border px-3 py-2 text-left transition-colors',
+                active
+                  ? 'border-[#c96f54]/70 bg-[#fffaf2] text-[#2b211d]'
+                  : 'border-[#eaded1] bg-[#fffaf2] text-[#2b211d] hover:border-[#c96f54]/70 hover:bg-[#f1e2d0]',
+              )}
+              href={module.href}
+              key={module.id}
             >
-              {module.description}
-            </span>
-            {active ? (
+              <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
+                <Icon className="size-4" />
+                {module.label}
+              </span>
               <span
-                aria-hidden="true"
-                className="col-start-2 row-span-2 row-start-1 size-[7px] self-center rounded-full bg-[#c96f54]"
-              />
-            ) : null}
-          </a>
-        );
-      })}
+                className={cn('col-start-1 text-xs', active ? 'text-[#75665d]' : 'text-[#75665d]')}
+              >
+                {module.description}
+              </span>
+              {active ? (
+                <span
+                  aria-hidden="true"
+                  className="col-start-2 row-span-2 row-start-1 size-[7px] self-center rounded-full bg-[#c96f54]"
+                />
+              ) : null}
+            </a>
+          );
+        })}
     </nav>
   );
 }

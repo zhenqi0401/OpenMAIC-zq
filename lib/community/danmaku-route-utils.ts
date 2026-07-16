@@ -1,10 +1,14 @@
 import { apiError } from '@/lib/server/api-response';
+import { isDanmakuEnabled } from '@/lib/config/feature-flags';
 import { getEnterpriseRepository } from '@/lib/storage/enterprise-repository';
 import { getDanmakuRepository } from './danmaku-repository';
 import { createDanmakuService, DanmakuServiceError } from './danmaku';
 import { getCommunityRateLimiter } from './governance';
 
 export function getDanmakuService() {
+  if (!isDanmakuEnabled()) {
+    throw new DanmakuServiceError('NOT_FOUND', 'Danmaku is disabled');
+  }
   return createDanmakuService(
     getDanmakuRepository(),
     getEnterpriseRepository(),

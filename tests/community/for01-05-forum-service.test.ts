@@ -117,7 +117,7 @@ describe('FOR-02 posts and FOR-04 course permission inheritance', () => {
     [{ status: 'draft' as const }, 'draft'],
     [{ status: 'archived' as const }, 'archived'],
     [{ visible: false }, 'role restricted'],
-  ])('does not expose or create posts for a %s course', async (options) => {
+  ])('does not expose or create posts for a %s course', async (options, _label) => {
     const { service, repository } = setup(options);
     vi.mocked(repository.getPost).mockResolvedValue(
       post({ scope: 'course', courseId: 'course-1' }),

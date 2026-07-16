@@ -30,6 +30,7 @@ voxcpm_python_api_server.py
 
 # next.js
 /.next/
+/.next-e2e-*/
 /out/
 
 # production

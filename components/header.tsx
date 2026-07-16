@@ -4,6 +4,7 @@ import { ArrowLeft, MessagesSquare } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useRouter } from 'next/navigation';
 import type { StageMode } from '@/lib/types/stage';
+import { isForumEnabled } from '@/lib/config/feature-flags';
 import { HeaderControls } from './stage/header-controls';
 
 interface HeaderProps {
@@ -60,7 +61,7 @@ export function Header({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {discussionCourseId && mode !== 'edit' && (
+          {isForumEnabled() && discussionCourseId && mode !== 'edit' && (
             <button
               type="button"
               onClick={() =>
