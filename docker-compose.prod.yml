@@ -1,82 +1,48 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-openmaic}
-      POSTGRES_USER: ${POSTGRES_USER:-openmaic}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-openmaic-change-me}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-openmaic} -d $${POSTGRES_DB:-openmaic}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    restart: unless-stopped
-
-  voxcpm-api:
-    build:
-      context: ./services/voxcpm-api
-      args:
-        TORCH_INDEX_URL: ${VOXCPM_TORCH_INDEX_URL:-}
-    environment:
-      VOXCPM_MODEL_ID: ${VOXCPM_MODEL_ID:-openbmb/VoxCPM2}
-      VOXCPM_DEVICE: ${VOXCPM_DEVICE:-}
-      VOXCPM_OPTIMIZE: ${VOXCPM_OPTIMIZE:-true}
-      VOXCPM_LOAD_DENOISER: ${VOXCPM_LOAD_DENOISER:-false}
-    volumes:
-      - voxcpm-models:/models
-    # Uncomment on NVIDIA GPU hosts with Docker Compose GPU support.
-    # gpus: all
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 20
-      start_period: 120s
-    restart: unless-stopped
-
-  migrate:
-    build:
-      context: .
-      target: migration
+  yuanwo-train-migrate:
+    image: "${MIGRATION_IMAGE:?MIGRATION_IMAGE is required}"
+    container_name: "${MIGRATION_CONTAINER_NAME:-yuanwo-train-migrate}"
     env_file:
-      - path: .env.production
-        required: false
-    environment:
-      DATABASE_URL: ${DATABASE_URL:-postgres://openmaic:openmaic-change-me@postgres:5432/openmaic}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    command: ["sh", "-c", "pnpm exec drizzle-kit migrate && node scripts/seed-roles.mjs"]
+      - .env.production
     profiles:
-      - migrate
+      - tools
 
-  openmaic:
-    build: .
-    ports:
-      - "3000:3000"
+  yuanwo-train-app:
+    image: "${APP_IMAGE:?APP_IMAGE is required}"
+    container_name: "${APP_CONTAINER_NAME:-yuanwo-train-app}"
     env_file:
-      - path: .env.production
-        required: false
-    environment:
-      DATABASE_URL: ${DATABASE_URL:-postgres://openmaic:openmaic-change-me@postgres:5432/openmaic}
-      TTS_VOXCPM_BASE_URL: ${TTS_VOXCPM_BASE_URL:-http://voxcpm-api:8000}
-      TTS_VOXCPM_MODELS: ${TTS_VOXCPM_MODELS:-voxcpm2}
-      ALLOW_LOCAL_NETWORKS: ${ALLOW_LOCAL_NETWORKS:-true}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      voxcpm-api:
-        condition: service_healthy
+      - .env.production
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - yuanwo-train-app-data:/app/data
+    healthcheck:
+      test: 
+       [ 
+        "CMD-SHELL", 
+        "wget -q -O - http://127.0.0.1:3000/api/health >/dev/null 2>&1",
+       ]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
     restart: unless-stopped
 
 volumes:
-  postgres-data:
-  voxcpm-models:
+  yuanwo-train-app-data:
+
+# postgres:
+#   image: "${POSTGRES_IMAGE:?POSTGRES_IMAGE is required}"
+#   environment:
+#     POSTGRES_DB: "${POSTGRES_DB:?POSTGRES_DB is required}"
+#     POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER is required}"
+#     POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+#   volumes:
+#     - postgres-data:/var/lib/postgresql/data
+#   healthcheck:
+#     test: [ "CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\"" ]
+#     interval: 10s
+#     timeout: 5s
+#     retries: 20
+#   restart: unless-stopped
+

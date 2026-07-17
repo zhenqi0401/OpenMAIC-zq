@@ -120,3 +120,4 @@ venv/
 .mypy_cache/
 .ruff_cache/
 *.log
+docs/community-features-plan.md

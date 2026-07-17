@@ -21,6 +21,9 @@ RUN pnpm install --frozen-lockfile
 # ---- Stage 3: Builder ----
 FROM base AS builder
 
+ARG NEXT_PUBLIC_MAIC_EDITOR_ENABLED=false
+ENV NEXT_PUBLIC_MAIC_EDITOR_ENABLED=${NEXT_PUBLIC_MAIC_EDITOR_ENABLED}
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages ./packages
 COPY --from=deps /app/public ./public
