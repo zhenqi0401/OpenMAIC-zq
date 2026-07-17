@@ -46,6 +46,7 @@
     "exportFailed": "导出失败",
     "classroomZip": "导出课堂 ZIP",
     "classroomZipDesc": "课程结构 + 媒体文件",
+    "audioPartial": "导出已完成，但有 {{count}} 个音频文件未能打包；该 ZIP 不是完整离线项目。",
     "inlinePartial": "{{count}} 个外部资源未能打包，离线时课程可能无法正常显示。"
   },
   "import": {

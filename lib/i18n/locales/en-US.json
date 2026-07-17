@@ -46,6 +46,7 @@
     "exportFailed": "Export failed",
     "classroomZip": "Export Classroom ZIP",
     "classroomZipDesc": "Course structure + media files",
+    "audioPartial": "Export completed, but {{count}} audio file(s) could not be bundled; this ZIP is not a complete offline project.",
     "inlinePartial": "{{count}} external asset(s) couldn't be bundled; the course may not display correctly offline."
   },
   "import": {

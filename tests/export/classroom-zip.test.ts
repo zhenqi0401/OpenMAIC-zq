@@ -1,10 +1,168 @@
-import { describe, test, expect } from 'vitest';
-import { rewriteAudioRefsToIds, actionsToManifest } from '@/lib/export/classroom-zip-utils';
+import JSZip from 'jszip';
+import { describe, test, expect, vi } from 'vitest';
+import {
+  rewriteAudioRefsToIds,
+  actionsToManifest,
+  collectAudioFiles,
+  resolveAudioFormat,
+} from '@/lib/export/classroom-zip-utils';
 import {
   CLASSROOM_ZIP_FORMAT_VERSION,
   type ClassroomManifest,
 } from '@/lib/export/classroom-zip-types';
 import type { DiscussionAction, SpeechAction, SpotlightAction } from '@/lib/types/action';
+import type { AudioFileRecord } from '@/lib/utils/database';
+import type { Scene } from '@/lib/types/stage';
+
+function scenesWithSpeech(
+  actions: Array<Pick<SpeechAction, 'id' | 'type' | 'text' | 'audioId' | 'audioUrl'>>,
+): Scene[] {
+  return [{ actions }] as unknown as Scene[];
+}
+
+// ─── collectAudioFiles ───────────────────────────────────────
+
+describe('collectAudioFiles', () => {
+  test('uses the IndexedDB record without fetching the remote URL', async () => {
+    const localRecord: AudioFileRecord = {
+      id: 'audio-local',
+      blob: new Blob(['local-audio'], { type: 'audio/wav' }),
+      format: 'wav',
+      createdAt: 1,
+    };
+    const getLocalAudio = vi.fn(async () => localRecord);
+    const fetchImpl = vi.fn();
+
+    const result = await collectAudioFiles(
+      scenesWithSpeech([
+        {
+          id: 'a1',
+          type: 'speech',
+          text: 'Hello',
+          audioId: 'audio-local',
+          audioUrl: '/api/courses/course-1/audio/audio-local',
+        },
+      ]),
+      { getLocalAudio, fetchImpl },
+    );
+
+    expect(result.missing).toEqual([]);
+    expect(result.files).toHaveLength(1);
+    expect(result.files[0]).toMatchObject({
+      zipPath: 'audio/audio-local.wav',
+      source: 'indexeddb',
+      record: { id: 'audio-local', format: 'wav' },
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  test('downloads authenticated server audio when IndexedDB has no record', async () => {
+    const getLocalAudio = vi.fn(async () => undefined);
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(new Uint8Array([1, 2, 3, 4]), {
+          status: 200,
+          headers: { 'Content-Type': 'audio/mpeg; charset=binary' },
+        }),
+    );
+    const audioUrl = '/api/courses/course-1/audio/tts-1';
+
+    const result = await collectAudioFiles(
+      scenesWithSpeech([{ id: 'a1', type: 'speech', text: 'Hello', audioId: 'tts-1', audioUrl }]),
+      { getLocalAudio, fetchImpl },
+    );
+
+    expect(result.missing).toEqual([]);
+    expect(result.files).toHaveLength(1);
+    expect(result.files[0]).toMatchObject({
+      zipPath: 'audio/tts-1.mp3',
+      source: 'remote',
+      record: { id: 'tts-1', format: 'mp3' },
+    });
+    expect(result.files[0].record.blob.size).toBe(4);
+    expect(fetchImpl).toHaveBeenCalledWith(audioUrl, { credentials: 'same-origin' });
+  });
+
+  test('reports every unresolved audio reference instead of silently dropping it', async () => {
+    const result = await collectAudioFiles(
+      scenesWithSpeech([
+        { id: 'a1', type: 'speech', text: 'One', audioId: 'missing-local' },
+        {
+          id: 'a2',
+          type: 'speech',
+          text: 'Two',
+          audioId: 'missing-remote',
+          audioUrl: '/api/courses/course-1/audio/missing-remote',
+        },
+      ]),
+      {
+        getLocalAudio: async () => undefined,
+        fetchImpl: async () => new Response('forbidden', { status: 403 }),
+      },
+    );
+
+    expect(result.files).toEqual([]);
+    expect(result.missing).toHaveLength(2);
+    expect(result.missing).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ audioId: 'missing-local', reason: expect.any(String) }),
+        expect.objectContaining({
+          audioId: 'missing-remote',
+          reason: 'Audio download failed with HTTP 403',
+        }),
+      ]),
+    );
+  });
+
+  test('derives portable extensions from content type, then URL, then MP3 fallback', () => {
+    expect(resolveAudioFormat('audio/x-wav')).toBe('wav');
+    expect(resolveAudioFormat('application/octet-stream', 'https://cdn.test/voice.ogg?x=1')).toBe(
+      'ogg',
+    );
+    expect(resolveAudioFormat('application/octet-stream', '/api/audio/no-extension')).toBe('mp3');
+  });
+
+  test('produces a ZIP with remote audio and a server-independent manifest reference', async () => {
+    const actions = [
+      {
+        id: 'a1',
+        type: 'speech' as const,
+        text: 'Portable narration',
+        audioId: 'tts-portable',
+        audioUrl: '/api/courses/original/audio/tts-portable',
+      } as SpeechAction,
+    ];
+    const collection = await collectAudioFiles(scenesWithSpeech(actions), {
+      getLocalAudio: async () => undefined,
+      fetchImpl: async () =>
+        new Response(new Uint8Array([7, 8, 9]), {
+          headers: { 'Content-Type': 'audio/ogg' },
+        }),
+    });
+    const audioIdToPath = new Map(collection.files.map((file) => [file.record.id, file.zipPath]));
+    const manifestActions = actionsToManifest(actions, audioIdToPath);
+    const zip = new JSZip();
+    zip.file('manifest.json', JSON.stringify({ scenes: [{ actions: manifestActions }] }));
+    // JSZip's Node test runtime does not recognize Node's Blob implementation;
+    // browsers accept the Blob directly, while ArrayBuffer verifies identical bytes here.
+    for (const file of collection.files) {
+      zip.file(file.zipPath, await file.record.blob.arrayBuffer());
+    }
+
+    const bytes = await zip.generateAsync({ type: 'uint8array' });
+    const restored = await JSZip.loadAsync(bytes);
+    const manifest = JSON.parse(await restored.file('manifest.json')!.async('string')) as {
+      scenes: Array<{ actions: Array<Record<string, unknown>> }>;
+    };
+
+    expect(restored.file('audio/tts-portable.ogg')).not.toBeNull();
+    expect(manifest.scenes[0].actions[0]).toMatchObject({
+      audioRef: 'audio/tts-portable.ogg',
+    });
+    expect(manifest.scenes[0].actions[0]).not.toHaveProperty('audioId');
+    expect(manifest.scenes[0].actions[0]).not.toHaveProperty('audioUrl');
+  });
+});
 
 // ─── rewriteAudioRefsToIds ────────────────────────────────────
 
@@ -34,6 +192,22 @@ describe('rewriteAudioRefsToIds', () => {
       text: 'Hello',
       audioUrl: 'https://example.com/a.mp3',
     });
+  });
+
+  test('drops a legacy server URL when an imported audioRef resolves locally', () => {
+    const actions = [
+      {
+        id: 'a1',
+        type: 'speech' as const,
+        text: 'Hello',
+        audioRef: 'audio/abc.mp3',
+        audioUrl: '/api/courses/original/audio/abc',
+      },
+    ];
+    const result = rewriteAudioRefsToIds(actions, { 'audio/abc.mp3': 'new-audio-id-1' });
+
+    expect(result[0]).toMatchObject({ audioId: 'new-audio-id-1' });
+    expect(result[0]).not.toHaveProperty('audioUrl');
   });
 
   test('replaces discussion agentIndex with imported agentId', () => {
@@ -124,6 +298,22 @@ describe('actionsToManifest', () => {
       audioUrl: 'https://cdn.example.com/hi.mp3',
     });
     expect(result[0]).not.toHaveProperty('audioRef');
+  });
+
+  test('removes the original server URL when audio was bundled', () => {
+    const actions = [
+      {
+        id: 'act1',
+        type: 'speech' as const,
+        text: 'Hi',
+        audioId: 'audio-123',
+        audioUrl: '/api/courses/original/audio/audio-123',
+      } as SpeechAction,
+    ];
+    const result = actionsToManifest(actions, new Map([['audio-123', 'audio/audio-123.mp3']]));
+
+    expect(result[0]).toMatchObject({ audioRef: 'audio/audio-123.mp3' });
+    expect(result[0]).not.toHaveProperty('audioUrl');
   });
 
   test('converts discussion agentId to agentIndex', () => {

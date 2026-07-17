@@ -16,7 +16,6 @@ import {
   type MediaIndexEntry,
 } from './classroom-zip-types';
 import { collectAudioFiles, collectMediaFiles, actionsToManifest } from './classroom-zip-utils';
-import type { SpeechAction } from '@/lib/types/action';
 import { createLogger } from '@/lib/logger';
 import {
   inlineHtmlAssets,
@@ -63,7 +62,7 @@ export function useExportClassroom() {
       const agentRecords = await getGeneratedAgentsByStageId(stage.id);
 
       // 3. Collect audio files
-      const audioFiles = await collectAudioFiles(scenes);
+      const { files: audioFiles, missing: missingAudio } = await collectAudioFiles(scenes);
 
       // 4. Collect media files (generated images/videos)
       const mediaFiles = await collectMediaFiles(stage.id);
@@ -170,17 +169,11 @@ export function useExportClassroom() {
         };
       }
 
-      // Check for missing audio references
-      for (const scene of scenes) {
-        for (const action of scene.actions ?? []) {
-          if (action.type === 'speech') {
-            const audioId = (action as SpeechAction).audioId;
-            if (audioId && !audioIdToPath.has(audioId)) {
-              const missingPath = `audio/${audioId}.mp3`;
-              mediaIndex[missingPath] = { type: 'audio', missing: true };
-            }
-          }
-        }
+      // Preserve explicit diagnostics in the manifest for audio that could not
+      // be resolved from either IndexedDB or its authenticated server URL.
+      for (const missing of missingAudio) {
+        const missingPath = `audio/${missing.audioId}.mp3`;
+        mediaIndex[missingPath] = { type: 'audio', missing: true };
       }
 
       // 8. Assemble manifest
@@ -229,7 +222,18 @@ export function useExportClassroom() {
           description: hosts.join(', '),
         });
       }
-      toast.success(t('export.exportSuccess'), { id: toastId });
+      if (missingAudio.length > 0) {
+        log.warn('Some referenced audio files could not be bundled:', missingAudio);
+        toast.warning(t('export.audioPartial', { count: missingAudio.length }), {
+          id: toastId,
+          description: missingAudio
+            .slice(0, 3)
+            .map((item) => item.audioId)
+            .join(', '),
+        });
+      } else {
+        toast.success(t('export.exportSuccess'), { id: toastId });
+      }
     } catch (error) {
       log.error('Classroom ZIP export failed:', error);
       toast.error(t('export.exportFailed'), { id: toastId });
