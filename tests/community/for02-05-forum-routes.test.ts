@@ -90,7 +90,7 @@ describe('FOR learner routes', () => {
     mocks.service.createPost.mockResolvedValue({ id: 'post-1' });
     mocks.service.updateOwnPost.mockResolvedValue({ id: 'post-1' });
     mocks.service.deleteOwnPost.mockResolvedValue({ id: 'post-1' });
-    mocks.service.listReplies.mockResolvedValue({ items: [], total: 0 });
+    mocks.service.listReplies.mockResolvedValue({ items: [], total: 0, rootTotal: 0 });
     mocks.service.createReply.mockResolvedValue({ id: 'reply-1' });
     mocks.service.updateOwnReply.mockResolvedValue({ id: 'reply-1' });
     mocks.service.deleteOwnReply.mockResolvedValue({ id: 'reply-1' });
@@ -158,7 +158,7 @@ describe('FOR learner routes', () => {
     );
   });
 
-  test('supports only one-level reply list/create/update/delete', async () => {
+  test('supports five-level reply list/create/update/delete contracts', async () => {
     const postContext = { params: Promise.resolve({ postId: 'post-1' }) };
     expect(
       (
@@ -177,7 +177,23 @@ describe('FOR learner routes', () => {
       }),
       postContext,
     );
-    expect(nested.status).toBe(400);
+    expect(nested.status).toBe(201);
+    expect(mocks.service.createReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authorId: 'session-user',
+        parentReplyId: 'reply-0',
+      }),
+    );
+
+    const invalidParent = await createReply(
+      new Request('http://localhost', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ body: 'Reply', parentReplyId: { id: 'reply-0' } }),
+      }),
+      postContext,
+    );
+    expect(invalidParent.status).toBe(400);
 
     await createReply(
       new Request('http://localhost', {
@@ -188,7 +204,7 @@ describe('FOR learner routes', () => {
       postContext,
     );
     expect(mocks.service.createReply).toHaveBeenCalledWith(
-      expect.objectContaining({ authorId: 'session-user' }),
+      expect.objectContaining({ authorId: 'session-user', parentReplyId: null }),
     );
 
     const replyContext = { params: Promise.resolve({ replyId: 'reply-1' }) };

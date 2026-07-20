@@ -3,6 +3,7 @@ import { describe, expect, test, vi } from 'vitest';
 import {
   createForumService,
   FORUM_POST_MAX_LENGTH,
+  FORUM_REPLY_MAX_DEPTH,
   type ForumPost,
   type ForumReply,
   type ForumRepository,
@@ -42,6 +43,8 @@ function reply(patch: Partial<ForumReply> = {}): ForumReply {
     id: 'reply-1',
     postId: 'post-1',
     authorId: 'user-1',
+    parentReplyId: null,
+    depth: 1,
     body: 'Reply',
     status: 'visible',
     deletedAt: null,
@@ -62,7 +65,7 @@ function setup(course: { status?: 'published' | 'draft' | 'archived'; visible?: 
     createPost: vi.fn(async (input) => post({ ...input })),
     updateOwnPost: vi.fn(async (input) => post({ ...input })),
     deleteOwnPost: vi.fn(async () => post({ status: 'deleted_by_author' })),
-    listReplies: vi.fn(async () => ({ items: [reply()], total: 1 })),
+    listReplies: vi.fn(async () => ({ items: [reply()], total: 1, rootTotal: 1 })),
     getReply: vi.fn(async () => reply()),
     createReply: vi.fn(async (input) => reply({ ...input })),
     updateOwnReply: vi.fn(async (input) => reply({ ...input })),
@@ -199,8 +202,8 @@ describe('FOR-02 posts and FOR-04 course permission inheritance', () => {
   });
 });
 
-describe('FOR-03 one-level replies', () => {
-  test('creates a reply and rejects new replies once a post is locked', async () => {
+describe('FOR-03 five-level reply trees', () => {
+  test('creates a top-level reply and rejects new replies once a post is locked', async () => {
     const { service, repository } = setup();
     await service.createReply({
       postId: 'post-1',
@@ -211,6 +214,8 @@ describe('FOR-03 one-level replies', () => {
     expect(repository.createReply).toHaveBeenCalledWith({
       postId: 'post-1',
       authorId: 'session-user',
+      parentReplyId: null,
+      depth: 1,
       body: 'Reply',
     });
 
@@ -223,6 +228,139 @@ describe('FOR-03 one-level replies', () => {
         body: 'Reply',
       }),
     ).rejects.toMatchObject({ code: 'CONFLICT' });
+  });
+
+  test('derives sibling depth from the direct parent', async () => {
+    const { service, repository } = setup();
+    vi.mocked(repository.getReply).mockResolvedValue(reply({ id: 'parent-1', depth: 1 }));
+
+    for (const body of ['First child', 'Second child']) {
+      await service.createReply({
+        postId: 'post-1',
+        authorId: 'session-user',
+        roleId: 'role-1',
+        parentReplyId: 'parent-1',
+        body,
+      });
+    }
+
+    expect(repository.createReply).toHaveBeenNthCalledWith(1, {
+      postId: 'post-1',
+      authorId: 'session-user',
+      parentReplyId: 'parent-1',
+      depth: 2,
+      body: 'First child',
+    });
+    expect(repository.createReply).toHaveBeenNthCalledWith(2, {
+      postId: 'post-1',
+      authorId: 'session-user',
+      parentReplyId: 'parent-1',
+      depth: 2,
+      body: 'Second child',
+    });
+  });
+
+  test('allows level five and rejects replies below it', async () => {
+    const { service, repository } = setup();
+    vi.mocked(repository.getReply).mockResolvedValueOnce(
+      reply({ id: 'level-4', depth: FORUM_REPLY_MAX_DEPTH - 1 }),
+    );
+    await service.createReply({
+      postId: 'post-1',
+      authorId: 'session-user',
+      roleId: 'role-1',
+      parentReplyId: 'level-4',
+      body: 'Level five',
+    });
+    expect(repository.createReply).toHaveBeenCalledWith(
+      expect.objectContaining({ parentReplyId: 'level-4', depth: FORUM_REPLY_MAX_DEPTH }),
+    );
+
+    vi.mocked(repository.getReply).mockResolvedValueOnce(
+      reply({ id: 'level-5', depth: FORUM_REPLY_MAX_DEPTH }),
+    );
+    await expect(
+      service.createReply({
+        postId: 'post-1',
+        authorId: 'session-user',
+        roleId: 'role-1',
+        parentReplyId: 'level-5',
+        body: 'Level six',
+      }),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect(repository.createReply).toHaveBeenCalledTimes(1);
+  });
+
+  test('rejects cross-post and unavailable parents', async () => {
+    const { service, repository } = setup();
+    vi.mocked(repository.getReply).mockResolvedValueOnce(null);
+    await expect(
+      service.createReply({
+        postId: 'post-1',
+        authorId: 'session-user',
+        roleId: 'role-1',
+        parentReplyId: 'missing-parent',
+        body: 'Missing parent',
+      }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+    vi.mocked(repository.getReply).mockResolvedValueOnce(
+      reply({ id: 'other-parent', postId: 'post-2' }),
+    );
+    await expect(
+      service.createReply({
+        postId: 'post-1',
+        authorId: 'session-user',
+        roleId: 'role-1',
+        parentReplyId: 'other-parent',
+        body: 'Cross post',
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
+
+    vi.mocked(repository.getReply).mockResolvedValueOnce(
+      reply({ id: 'deleted-parent', status: 'deleted_by_author' }),
+    );
+    await expect(
+      service.createReply({
+        postId: 'post-1',
+        authorId: 'session-user',
+        roleId: 'role-1',
+        parentReplyId: 'deleted-parent',
+        body: 'Unavailable parent',
+      }),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect(repository.createReply).not.toHaveBeenCalled();
+  });
+
+  test('redacts unavailable nodes without changing their tree coordinates', async () => {
+    const { service, repository } = setup();
+    vi.mocked(repository.listReplies).mockResolvedValue({
+      items: [
+        reply({
+          id: 'hidden-child',
+          parentReplyId: 'root-1',
+          depth: 2,
+          status: 'hidden',
+          body: 'Moderated body',
+        }),
+      ],
+      total: 0,
+      rootTotal: 1,
+    });
+
+    const result = await service.listReplies({
+      postId: 'post-1',
+      roleId: 'role-1',
+      page: 1,
+      pageSize: 20,
+    });
+    expect(result).toMatchObject({ total: 0, rootTotal: 1 });
+    expect(result.items[0]).toMatchObject({
+      id: 'hidden-child',
+      parentReplyId: 'root-1',
+      depth: 2,
+      body: '',
+    });
   });
 
   test('only allows the reply author to edit and delete', async () => {

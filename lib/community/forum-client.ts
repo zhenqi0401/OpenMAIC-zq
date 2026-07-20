@@ -22,11 +22,34 @@ export interface ForumClientReply {
   id: string;
   postId: string;
   authorId: string;
+  parentReplyId: string | null;
+  depth: number;
   body: string;
   status: ForumReplyStatus;
   createdAt: string;
   updatedAt: string;
   author: ForumAuthor;
+}
+
+export interface ForumClientReplyNode extends ForumClientReply {
+  children: ForumClientReplyNode[];
+}
+
+export function buildForumReplyTree(items: ForumClientReply[]): ForumClientReplyNode[] {
+  const nodes = new Map<string, ForumClientReplyNode>();
+  for (const item of items) nodes.set(item.id, { ...item, children: [] });
+
+  const roots: ForumClientReplyNode[] = [];
+  for (const item of items) {
+    const node = nodes.get(item.id)!;
+    if (!item.parentReplyId) {
+      roots.push(node);
+      continue;
+    }
+    const parent = nodes.get(item.parentReplyId);
+    if (parent && item.depth === parent.depth + 1) parent.children.push(node);
+  }
+  return roots;
 }
 
 export interface ForumCourseOption {

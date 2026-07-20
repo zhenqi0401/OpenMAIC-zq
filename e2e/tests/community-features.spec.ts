@@ -76,14 +76,25 @@ async function installCommunityApi(page: Page) {
       return json(route, { post });
     }
     if (path === '/api/forum/posts/post-qa/replies' && method === 'GET') {
-      return json(route, { items: replies, total: replies.length });
+      return json(route, {
+        items: replies,
+        total: replies.length,
+        rootTotal: replies.filter((reply) => reply.parentReplyId === null).length,
+      });
     }
     if (path === '/api/forum/posts/post-qa/replies' && method === 'POST') {
-      const input = request.postDataJSON() as { body: string };
+      const input = request.postDataJSON() as { body: string; parentReplyId: string | null };
+      const parent = input.parentReplyId
+        ? replies.find((reply) => reply.id === input.parentReplyId)
+        : null;
+      const depth = parent ? Number(parent.depth) + 1 : 1;
+      if (depth > 5) return json(route, { error: '回复最多支持 5 层' }, 409);
       const reply = {
         id: `reply-${replies.length + 1}`,
         postId: post.id,
         authorId: identity.userId,
+        parentReplyId: parent?.id ?? null,
+        depth,
         body: input.body,
         status: 'visible',
         createdAt: now,
@@ -136,9 +147,37 @@ test('course forum supports compose, pagination, reply, admin close, mobile and 
 
   await expect(page).toHaveURL(/\/forum\/posts\/post-qa$/);
   await expect(page.getByRole('heading', { name: '学员 A 的课程问题' })).toBeVisible();
-  await page.getByLabel('回复内容').fill('同角色学员的一级回复');
+  await page.getByLabel('回复内容').fill('同角色学员的第一层回复');
   await page.getByRole('button', { name: '发布回复' }).click();
-  await expect(page.getByText('同角色学员的一级回复')).toBeVisible();
+  await expect(page.getByText('同角色学员的第一层回复')).toBeVisible();
+
+  async function replyTo(parentText: string, body: string) {
+    const parentArticle = page
+      .getByText(parentText, { exact: true })
+      .locator('xpath=ancestor::article[1]');
+    const parentContent = parentArticle.locator(':scope > div').first();
+    await parentContent.getByRole('button', { name: '回复', exact: true }).click();
+    await parentContent.getByLabel('回复 学员 A').fill(body);
+    await parentContent.getByRole('button', { name: '发布回复', exact: true }).click();
+    await expect(page.getByText(body, { exact: true })).toBeVisible();
+  }
+
+  await replyTo('同角色学员的第一层回复', '第二层回复 A');
+  await replyTo('第二层回复 A', '第三层回复');
+  await replyTo('第三层回复', '第四层回复');
+  await replyTo('第四层回复', '第五层回复');
+  await replyTo('同角色学员的第一层回复', '第二层回复 B');
+
+  const secondSibling = page
+    .getByText('第二层回复 B', { exact: true })
+    .locator('xpath=ancestor::article[1]');
+  await expect(secondSibling.getByText('第 2 层', { exact: false })).toBeVisible();
+  const fifthLevel = page
+    .getByText('第五层回复', { exact: true })
+    .locator('xpath=ancestor::article[1]');
+  const fifthLevelContent = fifthLevel.locator(':scope > div').first();
+  await expect(fifthLevelContent.getByText('已达到最多 5 层')).toBeVisible();
+  await expect(fifthLevelContent.getByRole('button', { name: '回复', exact: true })).toHaveCount(0);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect

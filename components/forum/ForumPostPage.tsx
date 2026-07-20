@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   BookOpen,
@@ -25,15 +25,18 @@ import { Textarea } from '@/components/ui/textarea';
 import type { SessionIdentity } from '@/lib/auth/types';
 import {
   FORUM_POST_MAX_LENGTH,
+  FORUM_REPLY_MAX_DEPTH,
   FORUM_REPLY_MAX_LENGTH,
   FORUM_TITLE_MAX_LENGTH,
 } from '@/lib/community/forum';
 import {
+  buildForumReplyTree,
   formatForumTime,
   forumApi,
   wasForumContentEdited,
   type ForumClientPost,
   type ForumClientReply,
+  type ForumClientReplyNode,
 } from '@/lib/community/forum-client';
 import { ForumFrame } from './ForumFrame';
 
@@ -51,10 +54,14 @@ export function ForumPostPage({ postId }: { postId: string }) {
   const [replies, setReplies] = useState<ForumClientReply[]>([]);
   const [replyPage, setReplyPage] = useState(1);
   const [replyTotal, setReplyTotal] = useState(0);
+  const [replyRootTotal, setReplyRootTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [replyBody, setReplyBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [nestedReplyBody, setNestedReplyBody] = useState('');
+  const [submittingReplyId, setSubmittingReplyId] = useState<string | null>(null);
   const [editingPost, setEditingPost] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editBody, setEditBody] = useState('');
@@ -69,7 +76,7 @@ export function ForumPostPage({ postId }: { postId: string }) {
       const [session, postResult, replyResult] = await Promise.all([
         forumApi<SessionResponse>('/api/auth/session'),
         forumApi<{ post: ForumClientPost }>(`/api/forum/posts/${encodeURIComponent(postId)}`),
-        forumApi<{ items: ForumClientReply[]; total: number }>(
+        forumApi<{ items: ForumClientReply[]; total: number; rootTotal: number }>(
           `/api/forum/posts/${encodeURIComponent(postId)}/replies?page=1&pageSize=${REPLY_PAGE_SIZE}`,
         ),
       ]);
@@ -77,6 +84,7 @@ export function ForumPostPage({ postId }: { postId: string }) {
       setPost(postResult.post);
       setReplies(replyResult.items);
       setReplyTotal(replyResult.total);
+      setReplyRootTotal(replyResult.rootTotal);
       setReplyPage(1);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '讨论加载失败');
@@ -93,7 +101,11 @@ export function ForumPostPage({ postId }: { postId: string }) {
     const nextPage = replyPage + 1;
     setPendingAction('load-more');
     try {
-      const result = await forumApi<{ items: ForumClientReply[]; total: number }>(
+      const result = await forumApi<{
+        items: ForumClientReply[];
+        total: number;
+        rootTotal: number;
+      }>(
         `/api/forum/posts/${encodeURIComponent(postId)}/replies?page=${nextPage}&pageSize=${REPLY_PAGE_SIZE}`,
       );
       setReplies((current) => {
@@ -101,6 +113,7 @@ export function ForumPostPage({ postId }: { postId: string }) {
         return [...current, ...result.items.filter((reply) => !known.has(reply.id))];
       });
       setReplyTotal(result.total);
+      setReplyRootTotal(result.rootTotal);
       setReplyPage(nextPage);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '回复加载失败');
@@ -109,35 +122,60 @@ export function ForumPostPage({ postId }: { postId: string }) {
     }
   }
 
-  async function submitReply(event: FormEvent) {
+  async function publishReply(body: string, parentReplyId: string | null) {
+    return forumApi<{ reply: ForumClientReply }>(
+      `/api/forum/posts/${encodeURIComponent(postId)}/replies`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body, parentReplyId }),
+      },
+    );
+  }
+
+  function appendCreatedReply(reply: ForumClientReply) {
+    setReplies((current) => [...current, reply]);
+    setReplyTotal((current) => current + 1);
+    if (!reply.parentReplyId) setReplyRootTotal((current) => current + 1);
+    setPost((current) =>
+      current
+        ? {
+            ...current,
+            replyCount: current.replyCount + 1,
+            lastActivityAt: reply.createdAt,
+          }
+        : current,
+    );
+  }
+
+  async function submitTopLevelReply(event: FormEvent) {
     event.preventDefault();
     setSubmitting(true);
     setError(null);
     try {
-      const result = await forumApi<{ reply: ForumClientReply }>(
-        `/api/forum/posts/${encodeURIComponent(postId)}/replies`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ body: replyBody }),
-        },
-      );
-      setReplies((current) => [...current, result.reply]);
-      setReplyTotal((current) => current + 1);
+      const result = await publishReply(replyBody, null);
+      appendCreatedReply(result.reply);
       setReplyBody('');
-      setPost((current) =>
-        current
-          ? {
-              ...current,
-              replyCount: current.replyCount + 1,
-              lastActivityAt: result.reply.createdAt,
-            }
-          : current,
-      );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '回复发布失败');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function submitNestedReply(event: FormEvent, parent: ForumClientReply) {
+    event.preventDefault();
+    setSubmittingReplyId(parent.id);
+    setError(null);
+    try {
+      const result = await publishReply(nestedReplyBody, parent.id);
+      appendCreatedReply(result.reply);
+      setReplyingToId(null);
+      setNestedReplyBody('');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '回复发布失败');
+    } finally {
+      setSubmittingReplyId(null);
     }
   }
 
@@ -280,7 +318,210 @@ export function ForumPostPage({ postId }: { postId: string }) {
     }
   }
 
+  const replyTree = useMemo(() => buildForumReplyTree(replies), [replies]);
+  const loadedRootCount = replyTree.length;
   const ownsPost = Boolean(identity && post && identity.userId === post.authorId);
+
+  function renderReply(reply: ForumClientReplyNode): ReactNode {
+    const ownsReply = identity?.userId === reply.authorId;
+    const deletedByAuthor = reply.status === 'deleted_by_author';
+    const hiddenByAdmin = reply.status === 'hidden';
+    const deletedByAdmin = reply.status === 'deleted_by_admin';
+    const unavailableByAdmin = hiddenByAdmin || deletedByAdmin;
+    const canReply =
+      post?.status === 'visible' &&
+      !post.locked &&
+      reply.status === 'visible' &&
+      reply.depth < FORUM_REPLY_MAX_DEPTH;
+
+    return (
+      <article
+        key={reply.id}
+        className={
+          reply.depth === 1
+            ? 'py-5'
+            : 'mt-4 border-l border-violet-200 pl-3 dark:border-violet-900 md:pl-5'
+        }
+      >
+        <div className="flex gap-3 sm:gap-4">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-200 sm:size-9">
+            {reply.author.displayName.slice(0, 1) || '用'}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold">
+                {reply.author.displayName}{' '}
+                <span className="ml-1 text-[11px] font-normal text-slate-400">
+                  {reply.author.roleName} · 第 {reply.depth} 层
+                </span>
+              </p>
+              <time className="text-[11px] text-slate-400">
+                {formatForumTime(reply.createdAt)}
+                {wasForumContentEdited(reply.createdAt, reply.updatedAt) && ' · 已编辑'}
+              </time>
+            </div>
+
+            {editingReplyId === reply.id ? (
+              <div className="mt-3">
+                <Textarea
+                  value={editReplyBody}
+                  maxLength={FORUM_REPLY_MAX_LENGTH}
+                  onChange={(event) => setEditReplyBody(event.target.value)}
+                  className="min-h-24"
+                  aria-label="编辑回复"
+                />
+                <div className="mt-2 flex justify-end gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setEditingReplyId(null)}>
+                    取消
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={!editReplyBody.trim() || pendingAction === `edit-reply-${reply.id}`}
+                    onClick={() => void saveReply(reply.id)}
+                  >
+                    保存
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700 dark:text-slate-300">
+                {deletedByAuthor ? (
+                  <span className="italic text-slate-400">该回复已由作者删除</span>
+                ) : unavailableByAdmin ? (
+                  <span className="italic text-amber-700 dark:text-amber-300">
+                    {deletedByAdmin ? '该回复已被管理员删除' : '该回复已被管理员隐藏'}
+                  </span>
+                ) : (
+                  reply.body
+                )}
+              </p>
+            )}
+
+            {editingReplyId !== reply.id && (
+              <div className="mt-2 flex flex-wrap items-center gap-1">
+                {canReply && (
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={() => {
+                      setReplyingToId(reply.id);
+                      setNestedReplyBody('');
+                    }}
+                  >
+                    <MessageCircle className="size-3" />
+                    回复
+                  </Button>
+                )}
+                {reply.status === 'visible' && reply.depth >= FORUM_REPLY_MAX_DEPTH && (
+                  <span className="px-2 text-[11px] text-slate-400">已达到最多 5 层</span>
+                )}
+                {ownsReply && reply.status === 'visible' && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => {
+                        setEditingReplyId(reply.id);
+                        setEditReplyBody(reply.body);
+                      }}
+                    >
+                      <Edit3 className="size-3" />
+                      编辑
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      className="text-red-600"
+                      onClick={() => void deleteReply(reply.id)}
+                    >
+                      <Trash2 className="size-3" />
+                      删除
+                    </Button>
+                  </>
+                )}
+                {identity?.isAdmin && !ownsReply && reply.status === 'visible' && (
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    className="text-red-600"
+                    onClick={() => void moderateReply(reply.id, 'hide')}
+                  >
+                    <Shield className="size-3" />
+                    隐藏
+                  </Button>
+                )}
+                {identity?.isAdmin && unavailableByAdmin && (
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={() => void moderateReply(reply.id, 'restore')}
+                  >
+                    <Shield className="size-3" />
+                    恢复
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {replyingToId === reply.id && canReply && (
+              <form
+                onSubmit={(event) => void submitNestedReply(event, reply)}
+                className="mt-3 rounded-lg border border-violet-200 bg-violet-50/50 p-3 dark:border-violet-900 dark:bg-violet-950/20"
+              >
+                <p className="mb-2 text-xs text-slate-500">
+                  回复 @{reply.author.displayName}，将作为第 {reply.depth + 1} 层回复发布
+                </p>
+                <Textarea
+                  autoFocus
+                  value={nestedReplyBody}
+                  required
+                  maxLength={FORUM_REPLY_MAX_LENGTH}
+                  onChange={(event) => setNestedReplyBody(event.target.value)}
+                  placeholder={`回复 @${reply.author.displayName}`}
+                  className="min-h-20 resize-y bg-white dark:bg-[#1a1d25]"
+                  aria-label={`回复 ${reply.author.displayName}`}
+                />
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-slate-400">
+                    {nestedReplyBody.length}/{FORUM_REPLY_MAX_LENGTH}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setReplyingToId(null);
+                        setNestedReplyBody('');
+                      }}
+                    >
+                      取消
+                    </Button>
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={submittingReplyId === reply.id || !nestedReplyBody.trim()}
+                    >
+                      {submittingReplyId === reply.id ? (
+                        <RefreshCw className="size-4 animate-spin" />
+                      ) : (
+                        <Send className="size-4" />
+                      )}
+                      {submittingReplyId === reply.id ? '正在回复' : '发布回复'}
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+
+        {reply.children.length > 0 && (
+          <div>{reply.children.map((child) => renderReply(child))}</div>
+        )}
+      </article>
+    );
+  }
 
   return (
     <ForumFrame>
@@ -490,128 +731,9 @@ export function ForumPostPage({ postId }: { postId: string }) {
                 </h2>
               </div>
               <div className="divide-y divide-[#e1e3e8] dark:divide-slate-800">
-                {replies.map((reply, index) => {
-                  const ownsReply = identity?.userId === reply.authorId;
-                  const deleted = reply.status === 'deleted_by_author';
-                  const hidden = reply.status === 'hidden';
-                  return (
-                    <article key={reply.id} className="py-5">
-                      <div className="flex gap-4">
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-200">
-                          {reply.author.displayName.slice(0, 1) || '用'}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p className="text-sm font-semibold">
-                              {reply.author.displayName}{' '}
-                              <span className="ml-1 text-[11px] font-normal text-slate-400">
-                                {reply.author.roleName} · #{index + 1}
-                              </span>
-                            </p>
-                            <time className="text-[11px] text-slate-400">
-                              {formatForumTime(reply.createdAt)}
-                              {wasForumContentEdited(reply.createdAt, reply.updatedAt) &&
-                                ' · 已编辑'}
-                            </time>
-                          </div>
-                          {editingReplyId === reply.id ? (
-                            <div className="mt-3">
-                              <Textarea
-                                value={editReplyBody}
-                                maxLength={FORUM_REPLY_MAX_LENGTH}
-                                onChange={(event) => setEditReplyBody(event.target.value)}
-                                className="min-h-24"
-                                aria-label="编辑回复"
-                              />
-                              <div className="mt-2 flex justify-end gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setEditingReplyId(null)}
-                                >
-                                  取消
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  disabled={
-                                    !editReplyBody.trim() ||
-                                    pendingAction === `edit-reply-${reply.id}`
-                                  }
-                                  onClick={() => void saveReply(reply.id)}
-                                >
-                                  保存
-                                </Button>
-                              </div>
-                            </div>
-                          ) : (
-                            <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700 dark:text-slate-300">
-                              {deleted ? (
-                                <span className="italic text-slate-400">该回复已由作者删除</span>
-                              ) : hidden ? (
-                                <span className="italic text-amber-700 dark:text-amber-300">
-                                  该回复已被管理员隐藏
-                                </span>
-                              ) : (
-                                reply.body
-                              )}
-                            </p>
-                          )}
-                          {!deleted && editingReplyId !== reply.id && (
-                            <div className="mt-2 flex gap-1">
-                              {ownsReply && !hidden && (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="xs"
-                                    onClick={() => {
-                                      setEditingReplyId(reply.id);
-                                      setEditReplyBody(reply.body);
-                                    }}
-                                  >
-                                    <Edit3 className="size-3" />
-                                    编辑
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="xs"
-                                    className="text-red-600"
-                                    onClick={() => void deleteReply(reply.id)}
-                                  >
-                                    <Trash2 className="size-3" />
-                                    删除
-                                  </Button>
-                                </>
-                              )}
-                              {identity?.isAdmin && !ownsReply && !hidden && (
-                                <Button
-                                  variant="ghost"
-                                  size="xs"
-                                  className="text-red-600"
-                                  onClick={() => void moderateReply(reply.id, 'hide')}
-                                >
-                                  <Shield className="size-3" />
-                                  隐藏
-                                </Button>
-                              )}
-                              {identity?.isAdmin && hidden && (
-                                <Button
-                                  variant="ghost"
-                                  size="xs"
-                                  onClick={() => void moderateReply(reply.id, 'restore')}
-                                >
-                                  <Shield className="size-3" />
-                                  恢复
-                                </Button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
+                {replyTree.map((reply) => renderReply(reply))}
               </div>
-              {replies.length < replyTotal && (
+              {loadedRootCount < replyRootTotal && (
                 <div className="border-t border-[#d9dce3] pt-4 text-center dark:border-slate-800">
                   <Button
                     variant="outline"
@@ -623,7 +745,7 @@ export function ForumPostPage({ postId }: { postId: string }) {
                   </Button>
                 </div>
               )}
-              {!replies.length && (
+              {!replyTree.length && (
                 <div className="py-10 text-center text-sm text-slate-500">
                   还没有回复，来分享你的看法吧。
                 </div>
@@ -643,13 +765,13 @@ export function ForumPostPage({ postId }: { postId: string }) {
                   该帖子已关闭，暂时不能新增回复。
                 </p>
               ) : (
-                <form onSubmit={submitReply} className="mt-4">
+                <form onSubmit={submitTopLevelReply} className="mt-4">
                   <Textarea
                     value={replyBody}
                     required
                     maxLength={FORUM_REPLY_MAX_LENGTH}
                     onChange={(event) => setReplyBody(event.target.value)}
-                    placeholder="写下你的回复（首版仅支持一级回复）"
+                    placeholder="写下你的回复"
                     className="min-h-28 resize-y"
                     aria-label="回复内容"
                   />

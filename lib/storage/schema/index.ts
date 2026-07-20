@@ -1,12 +1,15 @@
 import { sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   boolean,
+  check,
   customType,
   index,
   integer,
   jsonb,
   pgTable,
   primaryKey,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -226,6 +229,8 @@ export const forumReplies = pgTable(
     authorId: uuid('author_id')
       .notNull()
       .references(() => users.id),
+    parentReplyId: uuid('parent_reply_id').references((): AnyPgColumn => forumReplies.id),
+    depth: smallint('depth').notNull().default(1),
     body: text('body').notNull(),
     status: varchar('status', { length: 32 }).notNull().default('visible'),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -241,7 +246,18 @@ export const forumReplies = pgTable(
       table.createdAt,
       table.id,
     ),
+    index('forum_replies_post_parent_created_idx').on(
+      table.postId,
+      table.parentReplyId,
+      table.createdAt,
+      table.id,
+    ),
     index('forum_replies_author_created_idx').on(table.authorId, table.createdAt),
+    check('forum_replies_depth_check', sql`${table.depth} BETWEEN 1 AND 5`),
+    check(
+      'forum_replies_parent_depth_check',
+      sql`(${table.parentReplyId} IS NULL AND ${table.depth} = 1) OR (${table.parentReplyId} IS NOT NULL AND ${table.depth} BETWEEN 2 AND 5)`,
+    ),
   ],
 );
 

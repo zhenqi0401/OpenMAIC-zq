@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gt, inArray, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import { getDb, runDbTransaction } from '@/lib/storage/db';
 import {
@@ -10,12 +10,13 @@ import {
   roles,
   users,
 } from '@/lib/storage/schema';
-import type {
-  ForumPost,
-  ForumPostStatus,
-  ForumReply,
-  ForumReplyStatus,
-  ForumRepository,
+import {
+  FORUM_REPLY_MAX_DEPTH,
+  type ForumPost,
+  type ForumPostStatus,
+  type ForumReply,
+  type ForumReplyStatus,
+  type ForumRepository,
 } from './forum';
 
 const postSelection = {
@@ -182,21 +183,53 @@ export class DrizzleForumRepository implements ForumRepository {
   }
 
   async listReplies(input: Parameters<ForumRepository['listReplies']>[0]) {
-    const where = and(
+    const rootWhere = and(
       eq(forumReplies.postId, input.postId),
-      inArray(forumReplies.status, ['visible', 'deleted_by_author']),
+      isNull(forumReplies.parentReplyId),
+      eq(forumReplies.depth, 1),
     );
-    const rows = await getDb()
+    const rootRows = await getDb()
       .select(replySelection)
       .from(forumReplies)
       .innerJoin(users, eq(forumReplies.authorId, users.id))
       .innerJoin(roles, eq(users.roleId, roles.id))
-      .where(where)
+      .where(rootWhere)
       .orderBy(asc(forumReplies.createdAt), asc(forumReplies.id))
       .limit(input.pageSize)
       .offset((input.page - 1) * input.pageSize);
-    const [totalRow] = await getDb().select({ value: count() }).from(forumReplies).where(where);
-    return { items: rows.map(toReply), total: totalRow?.value ?? 0 };
+
+    const rows = [...rootRows];
+    let parentIds = rootRows.map(({ reply }) => reply.id);
+    for (let depth = 2; depth <= FORUM_REPLY_MAX_DEPTH && parentIds.length > 0; depth += 1) {
+      const childRows = await getDb()
+        .select(replySelection)
+        .from(forumReplies)
+        .innerJoin(users, eq(forumReplies.authorId, users.id))
+        .innerJoin(roles, eq(users.roleId, roles.id))
+        .where(
+          and(
+            eq(forumReplies.postId, input.postId),
+            eq(forumReplies.depth, depth),
+            inArray(forumReplies.parentReplyId, parentIds),
+          ),
+        )
+        .orderBy(asc(forumReplies.createdAt), asc(forumReplies.id));
+      rows.push(...childRows);
+      parentIds = childRows.map(({ reply }) => reply.id);
+    }
+
+    const [[totalRow], [rootTotalRow]] = await Promise.all([
+      getDb()
+        .select({ value: count() })
+        .from(forumReplies)
+        .where(and(eq(forumReplies.postId, input.postId), eq(forumReplies.status, 'visible'))),
+      getDb().select({ value: count() }).from(forumReplies).where(rootWhere),
+    ]);
+    return {
+      items: rows.map(toReply),
+      total: totalRow?.value ?? 0,
+      rootTotal: rootTotalRow?.value ?? 0,
+    };
   }
 
   getReply(id: string) {

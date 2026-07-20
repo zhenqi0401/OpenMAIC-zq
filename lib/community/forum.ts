@@ -9,6 +9,7 @@ import {
 export const FORUM_TITLE_MAX_LENGTH = 160;
 export const FORUM_POST_MAX_LENGTH = 10_000;
 export const FORUM_REPLY_MAX_LENGTH = 5_000;
+export const FORUM_REPLY_MAX_DEPTH = 5;
 export const FORUM_DEFAULT_PAGE_SIZE = 20;
 export const FORUM_MAX_PAGE_SIZE = 50;
 
@@ -55,6 +56,8 @@ export interface ForumReply {
   id: string;
   postId: string;
   authorId: string;
+  parentReplyId: string | null;
+  depth: number;
   body: string;
   status: ForumReplyStatus;
   deletedAt: Date | null;
@@ -95,9 +98,15 @@ export interface ForumRepository {
     postId: string;
     page: number;
     pageSize: number;
-  }): Promise<{ items: ForumReply[]; total: number }>;
+  }): Promise<{ items: ForumReply[]; total: number; rootTotal: number }>;
   getReply(id: string): Promise<ForumReply | null>;
-  createReply(input: { postId: string; authorId: string; body: string }): Promise<ForumReply>;
+  createReply(input: {
+    postId: string;
+    authorId: string;
+    parentReplyId: string | null;
+    depth: number;
+    body: string;
+  }): Promise<ForumReply>;
   updateOwnReply(input: { id: string; authorId: string; body: string }): Promise<ForumReply | null>;
   deleteOwnReply(input: { id: string; authorId: string }): Promise<ForumReply | null>;
   moderatePost(input: {
@@ -152,8 +161,8 @@ function redactDeletedPost(post: ForumPost): ForumPost {
     : post;
 }
 
-function redactDeletedReply(reply: ForumReply): ForumReply {
-  return reply.status === 'deleted_by_author' ? { ...reply, body: '' } : reply;
+function redactUnavailableReply(reply: ForumReply): ForumReply {
+  return reply.status === 'visible' ? reply : { ...reply, body: '' };
 }
 
 function assertCourseVisible(
@@ -302,10 +311,16 @@ export function createForumService(
       if (!post) throw new ForumServiceError('NOT_FOUND', 'Post not found');
       await assertPostAccess(post, input.roleId);
       const result = await repository.listReplies(input);
-      return { ...result, items: result.items.map(redactDeletedReply) };
+      return { ...result, items: result.items.map(redactUnavailableReply) };
     },
 
-    async createReply(input: { postId: string; authorId: string; roleId: string; body: string }) {
+    async createReply(input: {
+      postId: string;
+      authorId: string;
+      roleId: string;
+      body: string;
+      parentReplyId?: string | null;
+    }) {
       const post = await repository.getPost(input.postId);
       if (!post) throw new ForumServiceError('NOT_FOUND', 'Post not found');
       await assertPostAccess(post, input.roleId);
@@ -313,11 +328,35 @@ export function createForumService(
       if (post.status !== 'visible') {
         throw new ForumServiceError('CONFLICT', 'Deleted posts cannot receive new replies');
       }
+      const parentReplyId = input.parentReplyId?.trim() || null;
+      let depth = 1;
+      if (parentReplyId) {
+        const parent = await repository.getReply(parentReplyId);
+        if (!parent) throw new ForumServiceError('NOT_FOUND', 'Parent reply not found');
+        if (parent.postId !== input.postId) {
+          throw new ForumServiceError(
+            'INVALID_REQUEST',
+            'Parent reply must belong to the same post',
+          );
+        }
+        if (parent.status !== 'visible') {
+          throw new ForumServiceError('CONFLICT', 'Unavailable replies cannot receive replies');
+        }
+        if (parent.depth >= FORUM_REPLY_MAX_DEPTH) {
+          throw new ForumServiceError(
+            'CONFLICT',
+            `Replies support at most ${FORUM_REPLY_MAX_DEPTH} levels`,
+          );
+        }
+        depth = parent.depth + 1;
+      }
       const body = normalizeRequired(input.body, 'body', FORUM_REPLY_MAX_LENGTH);
       await consumeRateLimit(input.authorId, 'forum_reply', body);
       return repository.createReply({
         postId: input.postId,
         authorId: input.authorId,
+        parentReplyId,
+        depth,
         body,
       });
     },

@@ -36,8 +36,12 @@ export async function POST(request: Request, context: Context) {
   if (!requiredString(body.body)) {
     return apiError('MISSING_REQUIRED_FIELD', 400, 'body is required');
   }
-  if (body.parentReplyId !== undefined) {
-    return apiError('INVALID_REQUEST', 400, 'Nested replies are not supported');
+  if (
+    body.parentReplyId !== undefined &&
+    body.parentReplyId !== null &&
+    !requiredString(body.parentReplyId)
+  ) {
+    return apiError('INVALID_REQUEST', 400, 'parentReplyId must be a non-empty string or null');
   }
   try {
     const { postId } = await context.params;
@@ -46,6 +50,7 @@ export async function POST(request: Request, context: Context) {
       authorId: current.user.id,
       roleId: current.identity.roleId,
       body: body.body,
+      parentReplyId: typeof body.parentReplyId === 'string' ? body.parentReplyId.trim() : null,
     });
     return apiSuccess({ reply }, 201);
   } catch (error) {

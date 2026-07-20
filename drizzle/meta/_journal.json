@@ -50,6 +50,13 @@
       "when": 1784332800000,
       "tag": "0006_community_governance",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784505600000,
+      "tag": "0007_forum_reply_tree",
+      "breakpoints": true
     }
   ]
 }

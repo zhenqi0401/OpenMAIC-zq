@@ -49,7 +49,7 @@ function forumSetup(rateLimiter: CommunityRateLimiter) {
     createPost: vi.fn(async (input) => post(input)),
     updateOwnPost: vi.fn(async (input) => post(input)),
     deleteOwnPost: vi.fn(async () => post({ status: 'deleted_by_author' })),
-    listReplies: vi.fn(async () => ({ items: [], total: 0 })),
+    listReplies: vi.fn(async () => ({ items: [], total: 0, rootTotal: 0 })),
     getReply: vi.fn(async () => null),
     createReply: vi.fn(async () => {
       throw new Error('not used');
