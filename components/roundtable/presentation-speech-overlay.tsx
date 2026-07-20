@@ -25,6 +25,8 @@ interface PresentationSpeechOverlayProps {
   readonly audioIndicatorState?: AudioIndicatorState;
   readonly buttonState?: 'play' | 'bars' | 'restart' | 'none';
   readonly isPaused?: boolean;
+  /** Keeps the mobile speech bubble clear of the stacked danmaku and action docks. */
+  readonly avoidBottomDockOnMobile?: boolean;
 }
 
 export interface PresentationBubbleModel {
@@ -396,6 +398,7 @@ export function PresentationSpeechOverlay({
   audioIndicatorState,
   buttonState,
   isPaused,
+  avoidBottomDockOnMobile,
 }: PresentationSpeechOverlayProps) {
   const { t } = useI18n();
 
@@ -468,7 +471,10 @@ export function PresentationSpeechOverlay({
               animate={{ opacity: 1, x: 0, y: 0 }}
               exit={{ opacity: 0, y: 8 }}
               transition={{ duration: 0.22, ease: [0.21, 1, 0.36, 1] }}
-              className="absolute bottom-6 left-6 z-30 pointer-events-auto"
+              className={cn(
+                'absolute left-3 z-30 pointer-events-auto sm:left-6',
+                avoidBottomDockOnMobile ? 'bottom-40 sm:bottom-6' : 'bottom-6',
+              )}
             >
               {renderContent(bubble)}
             </motion.div>

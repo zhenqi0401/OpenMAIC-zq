@@ -1544,6 +1544,11 @@
   },
   "danmaku": {
     "toggle": "弹幕",
+    "turnOn": "开启弹幕",
+    "turnOff": "关闭弹幕",
+    "unavailableWhiteboard": "白板打开时暂不显示弹幕",
+    "unavailableDiscussion": "课堂讨论期间暂不显示弹幕",
+    "unavailableScene": "当前页面暂不支持弹幕",
     "inputLabel": "弹幕内容",
     "placeholder": "发一条友善的弹幕…",
     "send": "发送",

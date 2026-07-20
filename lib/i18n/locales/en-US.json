@@ -1544,6 +1544,11 @@
   },
   "danmaku": {
     "toggle": "Danmaku",
+    "turnOn": "Turn on danmaku",
+    "turnOff": "Turn off danmaku",
+    "unavailableWhiteboard": "Danmaku is unavailable while the whiteboard is open",
+    "unavailableDiscussion": "Danmaku is unavailable during classroom discussions",
+    "unavailableScene": "Danmaku is unavailable on this page",
     "inputLabel": "Danmaku message",
     "placeholder": "Share a friendly comment…",
     "send": "Send",

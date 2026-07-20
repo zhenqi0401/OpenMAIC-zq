@@ -26,8 +26,13 @@ describe('UI-DMK danmaku overlay helpers', () => {
     expect(estimateDanmakuOffset(cursor({ phase: 'paused' }), 20_000)).toBe(500);
   });
 
-  it('gives longer comments more reading time and caps the duration', () => {
-    expect(getDanmakuDuration('短评')).toBe(5_160);
-    expect(getDanmakuDuration('x'.repeat(200))).toBe(12_000);
+  it('uses a normal reading speed that scales with the available track', () => {
+    expect(getDanmakuDuration('短评', 1_440)).toBe(10_714);
+    expect(getDanmakuDuration('短评', 1_920)).toBe(14_143);
+  });
+
+  it('keeps phone comments readable and caps very long desktop traversals', () => {
+    expect(getDanmakuDuration('短评', 375)).toBe(9_000);
+    expect(getDanmakuDuration('x'.repeat(200), 1_920)).toBe(20_000);
   });
 });

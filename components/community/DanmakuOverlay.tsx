@@ -1,16 +1,26 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Mic, Send, Volume2, VolumeX } from 'lucide-react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { Captions, Loader2, Mic, Send } from 'lucide-react';
 import { toast } from 'sonner';
-import { Switch } from '@/components/ui/switch';
 import { DANMAKU_MAX_CONTENT_LENGTH, type DanmakuInputSource } from '@/lib/community/danmaku';
 import { useAudioRecorder } from '@/lib/hooks/use-audio-recorder';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import {
   danmakuScheduleChannel,
+  getDanmakuDuration,
   playbackCursorChannel,
   type DanmakuDueEvent,
+  type DanmakuGateResult,
   type PlaybackCursorSnapshot,
 } from '@/lib/playback';
 import { cn } from '@/lib/utils';
@@ -19,9 +29,11 @@ const DANMAKU_PREFERENCE_KEY = 'openmaic-danmaku-enabled';
 const DANMAKU_RECORDING_LIMIT_SECONDS = 20;
 const DANMAKU_COOLDOWN_SECONDS = 2;
 
-interface DanmakuOverlayProps {
-  courseId: string;
-  enabled: boolean;
+interface DanmakuProviderProps {
+  readonly courseId: string | null;
+  readonly featureAvailable: boolean;
+  readonly gate: DanmakuGateResult;
+  readonly children: ReactNode;
 }
 
 interface VisibleDanmaku {
@@ -32,13 +44,36 @@ interface VisibleDanmaku {
   optimistic?: boolean;
 }
 
+interface DanmakuContextValue {
+  featureAvailable: boolean;
+  gate: DanmakuGateResult;
+  userEnabled: boolean;
+  composerVisible: boolean;
+  interactionActive: boolean;
+  visible: VisibleDanmaku[];
+  laneCount: number;
+  animationPaused: boolean;
+  draft: string;
+  canSend: boolean;
+  isSending: boolean;
+  isRecording: boolean;
+  isProcessing: boolean;
+  voiceBusy: boolean;
+  statusText: string;
+  transcriptionVersion: number;
+  toggleDanmaku: () => void;
+  setDraftValue: (value: string) => void;
+  setComposerFocused: (focused: boolean) => void;
+  handleVoiceClick: () => void;
+  handleSend: () => Promise<void>;
+  removeVisible: (key: string) => void;
+}
+
+const DanmakuContext = createContext<DanmakuContextValue | null>(null);
+
 export function estimateDanmakuOffset(cursor: PlaybackCursorSnapshot, now = Date.now()): number {
   const elapsed = cursor.phase === 'playing' ? (now - cursor.emittedAt) * cursor.playbackRate : 0;
   return Math.max(0, Math.round(cursor.actionOffsetMs + elapsed));
-}
-
-export function getDanmakuDuration(content: string): number {
-  return Math.min(12_000, 5_000 + content.length * 80);
 }
 
 function getLaneCount(): number {
@@ -55,24 +90,35 @@ function createClientRequestId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-export function DanmakuOverlay({ courseId, enabled }: DanmakuOverlayProps) {
+export function useDanmakuControls(): DanmakuContextValue | null {
+  return useContext(DanmakuContext);
+}
+
+export function DanmakuProvider({
+  courseId,
+  featureAvailable,
+  gate,
+  children,
+}: DanmakuProviderProps) {
   const { t } = useI18n();
   const [visible, setVisible] = useState<VisibleDanmaku[]>([]);
   const [laneCount, setLaneCount] = useState(getLaneCount);
   const [cursor, setCursor] = useState<PlaybackCursorSnapshot | null>(
     () => playbackCursorChannel.getLatest()?.cursor ?? null,
   );
-  const [danmakuEnabled, setDanmakuEnabled] = useState(true);
+  const [userEnabled, setUserEnabled] = useState(true);
   const [draft, setDraft] = useState('');
   const [inputSource, setInputSource] = useState<DanmakuInputSource>('text');
   const [isSending, setIsSending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [status, setStatus] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [composerFocused, setComposerFocused] = useState(false);
+  const [transcriptionVersion, setTranscriptionVersion] = useState(0);
+  const playbackEnabled = featureAvailable && gate.enabled;
 
   const addVisible = useCallback(
     (event: DanmakuDueEvent, optimistic = false) => {
-      if (!enabled || !danmakuEnabled || event.courseId !== courseId) return;
+      if (!playbackEnabled || !userEnabled || !courseId || event.courseId !== courseId) return;
       const key = optimistic ? `optimistic-${createClientRequestId()}` : event.danmaku.id;
       setVisible((current) => {
         if (!optimistic && current.some((item) => item.key === key)) return current;
@@ -89,12 +135,12 @@ export function DanmakuOverlay({ courseId, enabled }: DanmakuOverlayProps) {
         ];
       });
     },
-    [courseId, danmakuEnabled, enabled, laneCount],
+    [courseId, laneCount, playbackEnabled, userEnabled],
   );
 
   useEffect(() => {
     try {
-      setDanmakuEnabled(localStorage.getItem(DANMAKU_PREFERENCE_KEY) !== 'false');
+      setUserEnabled(localStorage.getItem(DANMAKU_PREFERENCE_KEY) !== 'false');
     } catch {
       // Storage can be unavailable in privacy-restricted browser contexts.
     }
@@ -125,8 +171,8 @@ export function DanmakuOverlay({ courseId, enabled }: DanmakuOverlayProps) {
   );
 
   useEffect(() => {
-    if (!enabled || !danmakuEnabled) setVisible([]);
-  }, [danmakuEnabled, enabled]);
+    if (!playbackEnabled || !userEnabled) setVisible([]);
+  }, [playbackEnabled, userEnabled]);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -145,7 +191,7 @@ export function DanmakuOverlay({ courseId, enabled }: DanmakuOverlayProps) {
     );
     setInputSource('voice');
     setStatus('');
-    requestAnimationFrame(() => inputRef.current?.focus());
+    setTranscriptionVersion((version) => version + 1);
   }, []);
 
   const handleVoiceError = useCallback((message: string) => {
@@ -170,21 +216,27 @@ export function DanmakuOverlay({ courseId, enabled }: DanmakuOverlayProps) {
   }, [isRecording, recordingTime, stopRecording]);
 
   useEffect(() => {
-    if (!enabled && isRecording) cancelRecording();
-  }, [cancelRecording, enabled, isRecording]);
+    if ((!playbackEnabled || !userEnabled) && isRecording) cancelRecording();
+  }, [cancelRecording, isRecording, playbackEnabled, userEnabled]);
 
   const anchoredCursor =
     cursor?.courseId === courseId && cursor.sceneKey && cursor.actionId ? cursor : null;
   const canSend =
-    enabled && danmakuEnabled && !!anchoredCursor && !!draft.trim() && !isSending && cooldown === 0;
+    playbackEnabled &&
+    userEnabled &&
+    !!anchoredCursor &&
+    !!draft.trim() &&
+    !isSending &&
+    cooldown === 0;
 
   const handleSend = useCallback(async () => {
     const activeCursor = playbackCursorChannel.getLatest()?.cursor ?? cursor;
     const content = draft.trim();
     if (
       !content ||
-      !enabled ||
-      !danmakuEnabled ||
+      !courseId ||
+      !playbackEnabled ||
+      !userEnabled ||
       !activeCursor ||
       activeCursor.courseId !== courseId ||
       !activeCursor.sceneKey ||
@@ -250,28 +302,47 @@ export function DanmakuOverlay({ courseId, enabled }: DanmakuOverlayProps) {
     cooldown,
     courseId,
     cursor,
-    danmakuEnabled,
     draft,
-    enabled,
     inputSource,
     isSending,
     laneCount,
+    playbackEnabled,
     t,
+    userEnabled,
   ]);
 
-  const toggleDanmaku = (checked: boolean) => {
-    setDanmakuEnabled(checked);
+  const toggleDanmaku = useCallback(() => {
+    const next = !userEnabled;
+    setUserEnabled(next);
+    if (!next) {
+      setVisible([]);
+      setComposerFocused(false);
+      if (isRecording) cancelRecording();
+    }
     try {
-      localStorage.setItem(DANMAKU_PREFERENCE_KEY, String(checked));
+      localStorage.setItem(DANMAKU_PREFERENCE_KEY, String(next));
     } catch {
       // The preference remains valid for the current page when storage is unavailable.
     }
-  };
+  }, [cancelRecording, isRecording, userEnabled]);
 
-  if (!enabled) return null;
+  const setDraftValue = useCallback((value: string) => {
+    setDraft(value);
+    if (!value) setInputSource('text');
+    setStatus('');
+  }, []);
+
+  const handleVoiceClick = useCallback(() => {
+    setStatus('');
+    if (isRecording) stopRecording();
+    else void startRecording();
+  }, [isRecording, startRecording, stopRecording]);
+
+  const removeVisible = useCallback((key: string) => {
+    setVisible((current) => current.filter((item) => item.key !== key));
+  }, []);
 
   const phase = cursor?.phase;
-  const animationPaused = phase !== 'playing';
   const voiceBusy = isRecording || isProcessing;
   const statusText = isRecording
     ? t('danmaku.recording', {
@@ -283,12 +354,71 @@ export function DanmakuOverlay({ courseId, enabled }: DanmakuOverlayProps) {
       : cooldown > 0
         ? t('danmaku.cooldown', { seconds: cooldown })
         : status || (!anchoredCursor ? t('danmaku.waitingForPlayback') : '');
+  const composerVisible = playbackEnabled && userEnabled;
+  const interactionActive = composerFocused || isRecording || isProcessing || isSending;
+
+  const value = useMemo<DanmakuContextValue>(
+    () => ({
+      featureAvailable,
+      gate,
+      userEnabled,
+      composerVisible,
+      interactionActive,
+      visible,
+      laneCount,
+      animationPaused: phase !== 'playing',
+      draft,
+      canSend,
+      isSending,
+      isRecording,
+      isProcessing,
+      voiceBusy,
+      statusText,
+      transcriptionVersion,
+      toggleDanmaku,
+      setDraftValue,
+      setComposerFocused,
+      handleVoiceClick,
+      handleSend,
+      removeVisible,
+    }),
+    [
+      canSend,
+      composerVisible,
+      draft,
+      featureAvailable,
+      gate,
+      handleSend,
+      handleVoiceClick,
+      interactionActive,
+      isProcessing,
+      isRecording,
+      isSending,
+      laneCount,
+      phase,
+      removeVisible,
+      setDraftValue,
+      statusText,
+      toggleDanmaku,
+      transcriptionVersion,
+      userEnabled,
+      visible,
+      voiceBusy,
+    ],
+  );
+
+  return <DanmakuContext.Provider value={value}>{children}</DanmakuContext.Provider>;
+}
+
+export function DanmakuOverlay() {
+  const danmaku = useDanmakuControls();
+  if (!danmaku?.featureAvailable || !danmaku.gate.enabled) return null;
 
   return (
-    <div className="absolute inset-0 z-[90] pointer-events-none" data-testid="danmaku-overlay">
-      {danmakuEnabled && (
-        <div className="absolute inset-x-0 top-0 bottom-[18%] overflow-hidden" aria-hidden="true">
-          {visible.map((item) => (
+    <div className="absolute inset-0 z-[30] pointer-events-none" data-testid="danmaku-overlay">
+      {danmaku.userEnabled && (
+        <div className="absolute inset-x-0 top-0 bottom-[22%] overflow-hidden" aria-hidden="true">
+          {danmaku.visible.map((item) => (
             <span
               key={item.key}
               className={cn(
@@ -297,118 +427,146 @@ export function DanmakuOverlay({ courseId, enabled }: DanmakuOverlayProps) {
                 'shadow-[0_1px_5px_rgba(0,0,0,0.45)] backdrop-blur-[2px]',
                 item.optimistic && 'ring-1 ring-violet-300/70',
               )}
+              data-duration-ms={item.durationMs}
               style={{
-                top: `${8 + item.lane * (72 / laneCount)}%`,
+                top: `${8 + item.lane * (72 / danmaku.laneCount)}%`,
                 animationDuration: `${item.durationMs}ms`,
-                animationPlayState: animationPaused ? 'paused' : 'running',
+                animationPlayState: danmaku.animationPaused ? 'paused' : 'running',
               }}
-              onAnimationEnd={() =>
-                setVisible((current) => current.filter((candidate) => candidate.key !== item.key))
-              }
+              onAnimationEnd={() => danmaku.removeVisible(item.key)}
             >
               {item.content}
             </span>
           ))}
         </div>
       )}
-
-      <div
-        className={cn(
-          'absolute inset-x-2 bottom-2 pointer-events-auto',
-          'flex items-center gap-1.5 rounded-xl border border-white/30 bg-gray-950/62 p-1.5',
-          'shadow-lg backdrop-blur-md sm:inset-x-[8%] sm:gap-2 sm:p-2',
-        )}
-        onClick={(event) => event.stopPropagation()}
-        onKeyDown={(event) => event.stopPropagation()}
-      >
-        <label className="flex shrink-0 items-center gap-1.5 px-1 text-xs font-medium text-white">
-          {danmakuEnabled ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
-          <span className="hidden sm:inline">{t('danmaku.toggle')}</span>
-          <Switch
-            checked={danmakuEnabled}
-            onCheckedChange={toggleDanmaku}
-            aria-label={t('danmaku.toggle')}
-            className="data-[state=checked]:bg-violet-500"
-          />
-        </label>
-
-        <div className="min-w-0 flex-1">
-          <input
-            ref={inputRef}
-            value={draft}
-            maxLength={DANMAKU_MAX_CONTENT_LENGTH}
-            disabled={!danmakuEnabled}
-            aria-label={t('danmaku.inputLabel')}
-            placeholder={t('danmaku.placeholder')}
-            className={cn(
-              'h-8 w-full rounded-lg border border-white/15 bg-white/10 px-3 text-sm text-white',
-              'placeholder:text-white/50 outline-none transition focus:border-violet-300/70 focus:bg-white/15',
-              'disabled:cursor-not-allowed disabled:opacity-45',
-            )}
-            onChange={(event) => {
-              setDraft(event.target.value);
-              if (!event.target.value) setInputSource('text');
-              setStatus('');
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
-                event.preventDefault();
-                void handleSend();
-              }
-            }}
-          />
-          <div
-            className="mt-0.5 flex min-h-3 items-center justify-between px-1 text-[10px] text-white/65"
-            aria-live="polite"
-          >
-            <span className="truncate">{statusText}</span>
-            <span className="ml-2 shrink-0">
-              {draft.length}/{DANMAKU_MAX_CONTENT_LENGTH}
-            </span>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          disabled={!danmakuEnabled || isProcessing}
-          aria-label={isRecording ? t('danmaku.stopRecording') : t('danmaku.startRecording')}
-          aria-pressed={isRecording}
-          className={cn(
-            'flex size-8 shrink-0 items-center justify-center rounded-lg text-white transition',
-            voiceBusy ? 'bg-rose-500' : 'bg-white/12 hover:bg-white/20',
-            'disabled:cursor-not-allowed disabled:opacity-45',
-          )}
-          onClick={() => {
-            setStatus('');
-            if (isRecording) stopRecording();
-            else void startRecording();
-          }}
-        >
-          {isProcessing ? (
-            <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
-          ) : (
-            <Mic className="size-4" />
-          )}
-        </button>
-
-        <button
-          type="button"
-          disabled={!canSend}
-          aria-label={t('danmaku.send')}
-          className={cn(
-            'flex h-8 shrink-0 items-center gap-1 rounded-lg bg-violet-500 px-2.5 text-xs font-semibold text-white',
-            'transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-45',
-          )}
-          onClick={() => void handleSend()}
-        >
-          {isSending ? (
-            <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
-          ) : (
-            <Send className="size-4" />
-          )}
-          <span className="hidden sm:inline">{t('danmaku.send')}</span>
-        </button>
-      </div>
     </div>
   );
 }
+
+export function DanmakuComposer({ className }: { readonly className?: string }) {
+  const { t } = useI18n();
+  const danmaku = useDanmakuControls();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const setComposerFocused = danmaku?.setComposerFocused;
+  const transcriptionVersion = danmaku?.transcriptionVersion ?? 0;
+  const lastTranscriptionVersionRef = useRef(transcriptionVersion);
+
+  useEffect(
+    () => () => {
+      setComposerFocused?.(false);
+    },
+    [setComposerFocused],
+  );
+
+  useEffect(() => {
+    if (transcriptionVersion > lastTranscriptionVersionRef.current) inputRef.current?.focus();
+    lastTranscriptionVersionRef.current = transcriptionVersion;
+  }, [transcriptionVersion]);
+
+  if (!danmaku?.composerVisible) return null;
+
+  return (
+    <div
+      ref={rootRef}
+      className={cn(
+        'relative flex h-11 w-full max-w-[520px] items-center gap-1.5 rounded-full',
+        'border border-gray-200/70 bg-white/82 p-1.5 text-gray-700',
+        'shadow-[0_8px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl',
+        'dark:border-white/12 dark:bg-black/62 dark:text-gray-100 dark:shadow-[0_8px_30px_rgba(0,0,0,0.42)]',
+        className,
+      )}
+      data-testid="danmaku-composer"
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+      onFocusCapture={() => danmaku.setComposerFocused(true)}
+      onBlurCapture={() => {
+        requestAnimationFrame(() => {
+          danmaku.setComposerFocused(!!rootRef.current?.contains(document.activeElement));
+        });
+      }}
+    >
+      <div className="hidden size-8 shrink-0 items-center justify-center rounded-full bg-violet-500/10 text-violet-600 sm:flex dark:bg-violet-400/12 dark:text-violet-300">
+        <Captions className="size-4" />
+      </div>
+
+      <div className="flex h-8 min-w-0 flex-1 items-center rounded-full bg-gray-100/75 px-3 ring-1 ring-transparent transition focus-within:bg-white focus-within:ring-violet-300/70 dark:bg-white/8 dark:focus-within:bg-white/12 dark:focus-within:ring-violet-500/55">
+        <input
+          ref={inputRef}
+          value={danmaku.draft}
+          maxLength={DANMAKU_MAX_CONTENT_LENGTH}
+          aria-label={t('danmaku.inputLabel')}
+          placeholder={t('danmaku.placeholder')}
+          className="h-full min-w-0 flex-1 bg-transparent text-xs text-gray-800 outline-none placeholder:text-gray-400 sm:text-sm dark:text-white dark:placeholder:text-gray-500"
+          onChange={(event) => danmaku.setDraftValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              void danmaku.handleSend();
+            }
+          }}
+        />
+        <span
+          className={cn(
+            'ml-1 shrink-0 text-[10px] tabular-nums text-gray-400 dark:text-gray-500',
+            danmaku.draft.length < 160 && 'hidden sm:inline',
+            danmaku.draft.length >= 190 && 'text-amber-500 dark:text-amber-400',
+          )}
+        >
+          {danmaku.draft.length}/{DANMAKU_MAX_CONTENT_LENGTH}
+        </span>
+      </div>
+
+      <button
+        type="button"
+        disabled={danmaku.isProcessing}
+        aria-label={danmaku.isRecording ? t('danmaku.stopRecording') : t('danmaku.startRecording')}
+        aria-pressed={danmaku.isRecording}
+        className={cn(
+          'flex size-8 shrink-0 items-center justify-center rounded-full transition active:scale-95',
+          danmaku.voiceBusy
+            ? 'bg-rose-500 text-white shadow-[0_0_0_4px_rgba(244,63,94,0.12)]'
+            : 'text-gray-500 hover:bg-gray-100 hover:text-violet-600 dark:text-gray-300 dark:hover:bg-white/10 dark:hover:text-violet-300',
+          'disabled:cursor-not-allowed disabled:opacity-45',
+        )}
+        onClick={danmaku.handleVoiceClick}
+      >
+        {danmaku.isProcessing ? (
+          <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
+        ) : (
+          <Mic className="size-4" />
+        )}
+      </button>
+
+      <button
+        type="button"
+        disabled={!danmaku.canSend}
+        aria-label={t('danmaku.send')}
+        className={cn(
+          'flex size-8 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white',
+          'shadow-[0_4px_14px_rgba(124,58,237,0.3)] transition hover:bg-violet-500 active:scale-95',
+          'disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none dark:disabled:bg-white/12 dark:disabled:text-gray-500',
+        )}
+        onClick={() => void danmaku.handleSend()}
+      >
+        {danmaku.isSending ? (
+          <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
+        ) : (
+          <Send className="size-3.5" />
+        )}
+      </button>
+
+      <span className="sr-only" aria-live="polite">
+        {danmaku.statusText}
+      </span>
+      {danmaku.statusText && (
+        <span className="pointer-events-none absolute bottom-full left-3 mb-1 max-w-[calc(100%-1.5rem)] truncate rounded-full border border-gray-200/70 bg-white/90 px-2.5 py-1 text-[10px] text-gray-500 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-gray-900/90 dark:text-gray-300">
+          {danmaku.statusText}
+        </span>
+      )}
+    </div>
+  );
+}
+
+export { getDanmakuDuration } from '@/lib/playback/danmaku-motion';

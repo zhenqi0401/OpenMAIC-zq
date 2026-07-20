@@ -601,6 +601,7 @@ body[data-maic-editor='true'] .editable-element-text li,
     left: auto;
     right: 2%;
     animation-name: danmaku-reduced-motion;
+    animation-duration: 5.5s !important;
     animation-timing-function: ease-out;
     will-change: opacity;
   }

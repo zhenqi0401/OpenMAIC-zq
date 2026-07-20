@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, type CSSProperties } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Mic,
@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { useSettingsStore, PLAYBACK_SPEEDS } from '@/lib/store/settings';
 import { ProactiveCard } from '@/components/chat/proactive-card';
 import { PresentationSpeechOverlay } from '@/components/roundtable/presentation-speech-overlay';
+import { DanmakuComposer, useDanmakuControls } from '@/components/community/DanmakuOverlay';
 import { AvatarDisplay } from '@/components/ui/avatar-display';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
@@ -187,6 +188,7 @@ export function Roundtable({
   const setAutoPlayLecture = useSettingsStore((s) => s.setAutoPlayLecture);
   const playbackSpeed = useSettingsStore((s) => s.playbackSpeed);
   const setPlaybackSpeed = useSettingsStore((s) => s.setPlaybackSpeed);
+  const danmaku = useDanmakuControls();
   const [isInputOpen, setIsInputOpen] = useState(false);
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -464,7 +466,8 @@ export function Roundtable({
     isProcessing,
   ]);
 
-  const isPresentationInteractionActive = isInputOpen || isVoiceOpen || isRecording || isProcessing;
+  const isPresentationInteractionActive =
+    isInputOpen || isVoiceOpen || isRecording || isProcessing || !!danmaku?.interactionActive;
 
   useEffect(() => {
     onPresentationInteractionChange?.(isPresentationInteractionActive);
@@ -613,6 +616,10 @@ export function Roundtable({
     isVoiceOpen ||
     isRecording ||
     isProcessing;
+  const showPresentationDanmakuComposer =
+    !!danmaku?.composerVisible && (!!controlsVisible || danmaku.interactionActive);
+  const presentationChatOffset = chatCollapsed === false ? (chatAreaWidth ?? 320) : 0;
+  const presentationDockRight = chatCollapsed ? 20 : 20 + (chatAreaWidth ?? 320);
   const toolbar = (
     <CanvasToolbar
       className="shrink-0 h-8 px-3 border-b border-gray-100/40 dark:border-gray-700/30"
@@ -665,12 +672,13 @@ export function Roundtable({
           audioIndicatorState={audioIndicatorState ?? 'idle'}
           buttonState={enrichedPlaybackView?.buttonState}
           isPaused={isDiscussionPaused || engineMode === 'paused'}
+          avoidBottomDockOnMobile={showPresentationDanmakuComposer}
         />
 
         {/* Click-outside backdrop to dismiss input/voice */}
         {(isInputOpen || isVoiceOpen) && (
           <div
-            className="fixed top-0 left-0 right-0 bottom-14 z-[45] pointer-events-auto"
+            className="fixed top-0 left-0 right-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-[45] pointer-events-auto sm:bottom-14"
             onClick={() => {
               setIsInputOpen(false);
               setIsVoiceOpen(false);
@@ -682,12 +690,16 @@ export function Roundtable({
         {/* ── Toolbar — pinned to bottom of screen ── */}
         <div
           className={cn(
-            'fixed bottom-0 left-0 z-[40] pointer-events-none flex items-center justify-center transition-all duration-300',
+            'fixed right-0 bottom-0 left-0 z-[40] pointer-events-none flex items-center justify-center px-1 pb-[env(safe-area-inset-bottom)] transition-all duration-300 sm:right-[var(--presentation-chat-offset)] sm:px-0 sm:pb-0',
             controlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2',
           )}
-          style={{ right: chatCollapsed === false ? (chatAreaWidth ?? 320) : 0 }}
+          style={
+            {
+              '--presentation-chat-offset': `${presentationChatOffset}px`,
+            } as CSSProperties
+          }
         >
-          <div className="mb-3 px-2 py-1 rounded-full bg-white/70 dark:bg-black/60 backdrop-blur-xl border border-gray-200/60 dark:border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] pointer-events-auto">
+          <div className="mb-3 w-[calc(100vw-0.5rem)] max-w-full rounded-full border border-gray-200/60 bg-white/70 px-2 py-1 shadow-[0_8px_32px_rgba(0,0,0,0.08)] backdrop-blur-xl pointer-events-auto dark:border-white/10 dark:bg-black/60 dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] sm:w-auto">
             {toolbar}
           </div>
         </div>
@@ -722,9 +734,29 @@ export function Roundtable({
 
         {/* ── Center stack: input / voice / thinking — anchored above toolbar ── */}
         <div
-          className="fixed bottom-14 left-0 z-[50] flex flex-col items-center justify-center gap-3 pointer-events-none transition-[right] duration-300"
-          style={{ right: chatCollapsed === false ? (chatAreaWidth ?? 320) : 0 }}
+          className="fixed right-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-[50] flex flex-col items-center justify-center gap-3 pointer-events-none transition-[left,right] duration-300 sm:right-[var(--presentation-chat-offset)] sm:bottom-14"
+          style={
+            {
+              left: bubbleRole === 'teacher' ? 'clamp(0px, calc((100vw - 640px) * 0.5), 440px)' : 0,
+              '--presentation-chat-offset': `${presentationChatOffset}px`,
+            } as CSSProperties
+          }
         >
+          <AnimatePresence>
+            {showPresentationDanmakuComposer && !isInputOpen && !isVoiceOpen && (
+              <motion.div
+                key="presentation-danmaku-composer"
+                initial={{ opacity: 0, scale: 0.96, y: 10, filter: 'blur(3px)' }}
+                animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, scale: 0.96, y: 8, filter: 'blur(3px)' }}
+                transition={{ duration: 0.22, ease: 'easeOut' }}
+                className="flex w-full max-w-[560px] justify-center px-2 pointer-events-auto"
+              >
+                <DanmakuComposer />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Input panel */}
           <AnimatePresence>
             {isInputOpen && (
@@ -862,8 +894,17 @@ export function Roundtable({
 
         {/* ── Right-side stack: bubble + dock — flex column, no hardcoded px ── */}
         <div
-          className="fixed bottom-5 z-[48] flex flex-col items-end gap-3 pointer-events-none transition-[right] duration-300"
-          style={{ right: chatCollapsed ? 20 : 20 + (chatAreaWidth ?? 320) }}
+          className={cn(
+            'fixed right-3 z-[48] flex flex-col items-end gap-3 pointer-events-none transition-[right,bottom] duration-300 sm:right-[var(--presentation-dock-right)]',
+            showPresentationDanmakuComposer
+              ? 'bottom-40 sm:bottom-5'
+              : 'bottom-[calc(3.5rem+env(safe-area-inset-bottom))] sm:bottom-5',
+          )}
+          style={
+            {
+              '--presentation-dock-right': `${presentationDockRight}px`,
+            } as CSSProperties
+          }
         >
           {/* Right-side speech bubble (flows above dock via flex) */}
           <PresentationSpeechOverlay
@@ -1068,6 +1109,11 @@ export function Roundtable({
       >
         {toolbar}
       </div>
+      {danmaku?.composerVisible && (
+        <div className="flex shrink-0 justify-center border-b border-gray-100/50 px-2 py-1 dark:border-gray-700/40">
+          <DanmakuComposer className="h-10 max-w-[560px] shadow-[0_4px_18px_rgba(15,23,42,0.08)] dark:shadow-[0_4px_18px_rgba(0,0,0,0.28)]" />
+        </div>
+      )}
       {/* ── Interaction area — three-column layout ── */}
       <div className="flex-1 flex items-stretch min-h-0">
         {/* Left: Teacher identity */}

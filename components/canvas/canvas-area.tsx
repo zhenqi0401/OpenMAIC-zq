@@ -22,7 +22,6 @@ interface CanvasAreaProps extends CanvasToolbarProps {
   readonly isPendingScene?: boolean;
   readonly isCourseComplete?: boolean;
   readonly enterpriseCourseId?: string | null;
-  readonly danmakuEnabled?: boolean;
   readonly assessmentPassed?: boolean;
   readonly learningProgress?: { sceneIndex: number; actionIndex: number };
   readonly isGenerationFailed?: boolean;
@@ -55,7 +54,6 @@ export function CanvasArea({
   isPendingScene,
   isCourseComplete,
   enterpriseCourseId,
-  danmakuEnabled = false,
   assessmentPassed,
   learningProgress,
   isGenerationFailed,
@@ -134,9 +132,7 @@ export function CanvasArea({
           )}
 
           {/* Historical danmaku: above course content, below whiteboard and critical overlays. */}
-          {enterpriseCourseId && (
-            <DanmakuOverlay courseId={enterpriseCourseId} enabled={danmakuEnabled} />
-          )}
+          <DanmakuOverlay />
 
           {/* Pending Scene Loading / Completion Overlay */}
           <AnimatePresence>

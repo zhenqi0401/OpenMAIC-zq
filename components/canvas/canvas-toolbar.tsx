@@ -13,6 +13,7 @@ import {
   Volume2,
   VolumeX,
   Repeat,
+  Captions,
   Maximize2,
   Minimize2,
 } from 'lucide-react';
@@ -20,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { useStageStore } from '@/lib/store';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useDanmakuControls } from '@/components/community/DanmakuOverlay';
 
 export interface CanvasToolbarProps {
   readonly currentSceneIndex: number;
@@ -60,8 +62,10 @@ const ctrlBtn = cn(
 );
 
 /* Subtle separator */
-function CtrlDivider() {
-  return <div className="w-px h-3 bg-gray-200/80 dark:bg-gray-700/60 mx-0.5 shrink-0" />;
+function CtrlDivider({ className }: { readonly className?: string }) {
+  return (
+    <div className={cn('w-px h-3 bg-gray-200/80 dark:bg-gray-700/60 mx-0.5 shrink-0', className)} />
+  );
 }
 
 /* Volume icon based on level */
@@ -110,6 +114,7 @@ export function CanvasToolbar({
   onCycleSpeed,
 }: CanvasToolbarProps) {
   const { t } = useI18n();
+  const danmaku = useDanmakuControls();
   const canGoPrev = currentSceneIndex > 0;
   const canGoNext = currentSceneIndex < scenesCount - 1;
   const showPlayPause = !isLiveSession;
@@ -138,17 +143,43 @@ export function CanvasToolbar({
   // Effective volume for display
   const effectiveVolume = ttsMuted ? 0 : ttsVolume;
   const presentationLabel = isPresenting ? t('stage.exitFullscreen') : t('stage.fullscreen');
+  const danmakuLabel = (() => {
+    if (!danmaku) return '';
+    if (!danmaku.gate.enabled) {
+      switch (danmaku.gate.reason) {
+        case 'whiteboard-open':
+          return t('danmaku.unavailableWhiteboard');
+        case 'discussion-active':
+          return t('danmaku.unavailableDiscussion');
+        default:
+          return t('danmaku.unavailableScene');
+      }
+    }
+    return danmaku.userEnabled ? t('danmaku.turnOff') : t('danmaku.turnOn');
+  })();
 
   return (
-    <div className={cn('flex items-center gap-2', className)}>
+    <div
+      className={cn(
+        'flex items-center gap-2',
+        className,
+        isPresenting && 'max-sm:w-full max-sm:gap-1 max-sm:px-1',
+      )}
+    >
       {/* ── Left: sidebar toggle + page indicator ── */}
-      <div className="flex items-center gap-1 shrink-0 pl-1">
+      <div
+        className={cn(
+          'flex items-center gap-1 shrink-0 pl-1',
+          isPresenting && 'max-sm:gap-0 max-sm:pl-0',
+        )}
+      >
         {onToggleSidebar && (
           <button
             onClick={onToggleSidebar}
             className={cn(
               ctrlBtn,
               'w-6 h-6',
+              isPresenting && 'max-sm:hidden',
               sidebarCollapsed
                 ? 'text-gray-400 dark:text-gray-500'
                 : 'text-gray-600 dark:text-gray-300',
@@ -165,13 +196,20 @@ export function CanvasToolbar({
         </span>
       </div>
 
-      <CtrlDivider />
+      <CtrlDivider className={isPresenting ? 'max-sm:hidden' : undefined} />
 
       {/* ── Center: unified playback controls ── */}
-      <div className="flex-1 flex items-center justify-center min-w-0">
+      <div
+        className={cn(
+          'flex-1 flex items-center justify-center min-w-0',
+          isPresenting &&
+            'max-sm:justify-start max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:scrollbar-hide',
+        )}
+      >
         <div
           className={cn(
             'inline-flex items-center gap-0.5 px-1 h-7',
+            isPresenting && 'max-sm:shrink-0 max-sm:px-0',
             isPresenting
               ? '' /* Single visual layer in fullscreen — buttons sit inside outer pill directly */
               : 'bg-gray-100/60 dark:bg-gray-800/60 rounded-lg',
@@ -373,6 +411,39 @@ export function CanvasToolbar({
             </TooltipProvider>
           )}
 
+          {danmaku?.featureAvailable && (
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (danmaku.gate.enabled) danmaku.toggleDanmaku();
+                    }}
+                    aria-label={danmakuLabel}
+                    aria-pressed={danmaku.userEnabled}
+                    aria-disabled={!danmaku.gate.enabled}
+                    className={cn(
+                      'flex h-6 shrink-0 items-center justify-center gap-1 rounded-md px-1.5',
+                      'text-[10px] font-medium transition-all duration-150 outline-none active:scale-95',
+                      !danmaku.gate.enabled
+                        ? 'cursor-not-allowed text-gray-300 dark:text-gray-600'
+                        : danmaku.userEnabled
+                          ? 'cursor-pointer bg-violet-500/10 text-violet-600 hover:bg-violet-500/15 dark:bg-violet-400/10 dark:text-violet-300'
+                          : 'cursor-pointer text-gray-400 hover:bg-gray-500/[0.08] hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300',
+                    )}
+                  >
+                    <Captions className="size-3.5" />
+                    <span className="hidden 2xl:inline">{t('danmaku.toggle')}</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  {danmakuLabel}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+
           {/* Whiteboard */}
           <button
             onClick={(e) => {
@@ -397,8 +468,13 @@ export function CanvasToolbar({
       </div>
 
       {/* ── Right: fullscreen + chat toggle ── */}
-      <div className="flex items-center justify-end gap-px shrink-0 pr-1">
-        <CtrlDivider />
+      <div
+        className={cn(
+          'flex items-center justify-end gap-px shrink-0 pr-1',
+          isPresenting && 'max-sm:pr-0',
+        )}
+      >
+        <CtrlDivider className={isPresenting ? 'max-sm:mx-0' : undefined} />
         {onTogglePresentation && (
           <button
             onClick={onTogglePresentation}

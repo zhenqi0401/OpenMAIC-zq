@@ -1529,6 +1529,11 @@
   },
   "danmaku": {
     "toggle": "彈幕",
+    "turnOn": "開啟彈幕",
+    "turnOff": "關閉彈幕",
+    "unavailableWhiteboard": "白板開啟時暫不顯示彈幕",
+    "unavailableDiscussion": "課堂討論期間暫不顯示彈幕",
+    "unavailableScene": "目前頁面暫不支援彈幕",
     "inputLabel": "彈幕內容",
     "placeholder": "發一條友善的彈幕…",
     "send": "傳送",

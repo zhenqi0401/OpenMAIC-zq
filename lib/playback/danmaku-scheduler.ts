@@ -1,6 +1,7 @@
 import type { PublicDanmaku } from '@/lib/community/danmaku';
 import type { PlaybackCursorEvent, PlaybackCursorSnapshot } from './types';
 import type { DanmakuGateResult } from './danmaku-gate';
+import { getDanmakuDuration } from './danmaku-motion';
 
 export interface DanmakuDueEvent {
   danmaku: PublicDanmaku;
@@ -283,7 +284,7 @@ export class DanmakuPlaybackScheduler {
           0,
         );
       }
-      const readableDuration = Math.min(12_000, 5_000 + item.content.length * 80);
+      const readableDuration = getDanmakuDuration(item.content);
       availableAt[lane] = item.actionOffsetMs + readableDuration;
       return { item, lane };
     });
