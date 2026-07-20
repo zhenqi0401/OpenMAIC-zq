@@ -163,6 +163,9 @@
   },
   "edit": {
     "proMode": "專業模式",
+    "save": "儲存",
+    "saveSuccess": "已儲存",
+    "saveFailed": "儲存失敗，請重試",
     "undo": "復原",
     "redo": "重做",
     "delete": "刪除",

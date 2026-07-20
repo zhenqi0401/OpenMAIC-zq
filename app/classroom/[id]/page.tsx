@@ -22,6 +22,7 @@ import {
 } from '@/lib/authoring/course-draft';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import { loadEnterpriseClassroom } from '@/lib/classroom/enterprise-course-loader';
+import { useCourseEditPersistence } from '@/lib/authoring/use-course-edit-persistence';
 
 const log = createLogger('Classroom');
 
@@ -39,6 +40,11 @@ export default function ClassroomDetailPage() {
   const generationStartedRef = useRef(false);
   const generatedCourseIdRef = useRef<string | null>(null);
   const assessmentGenerationStartedRef = useRef(false);
+
+  const courseEditPersistence = useCourseEditPersistence({
+    courseKey: classroomId,
+    enterpriseCourseId,
+  });
 
   const syncGeneratedDraftContent = useCallback(
     async (
@@ -111,7 +117,9 @@ export default function ClassroomDetailPage() {
     },
     onComplete: () => {
       log.info('[Classroom] All scenes generated');
-      void syncGeneratedDraftContent(generatedCourseIdRef.current, { generationComplete: true }).then((content) => {
+      void syncGeneratedDraftContent(generatedCourseIdRef.current, {
+        generationComplete: true,
+      }).then((content) => {
         if (content) void generateDraftAssessment();
       });
     },
@@ -373,6 +381,9 @@ export default function ClassroomDetailPage() {
               authoringIdentity={authoringIdentity}
               enterpriseCourseId={enterpriseCourseId}
               onRetryOutline={retrySingleOutline}
+              courseSaveStatus={courseEditPersistence.status}
+              onSaveCourse={courseEditPersistence.saveNow}
+              onFlushCourse={courseEditPersistence.flush}
             />
           )}
         </div>

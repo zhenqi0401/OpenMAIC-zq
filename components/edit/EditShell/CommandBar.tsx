@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { cn } from '@/lib/utils';
 import type { EditorCommand, SurfaceHistory } from '@/lib/edit/scene-editor-surface';
+import { flushBeforeCourseExit } from '@/lib/authoring/course-edit-persistence';
 
 interface CommandBarProps {
   readonly title: string;
@@ -19,6 +20,8 @@ interface CommandBarProps {
    * Header is unmounted to keep top chrome to a single bar.
    */
   readonly trailing?: ReactNode;
+  /** Flush editor changes before leaving the classroom. False blocks navigation. */
+  readonly onBeforeNavigateHome?: () => Promise<boolean>;
 }
 
 /**
@@ -32,7 +35,13 @@ interface CommandBarProps {
  * not a one-way state, so we deliberately do *not* place a "Done" pill
  * here that would compete with the Switch's affordance.
  */
-export function CommandBar({ title, history, commands, trailing }: CommandBarProps) {
+export function CommandBar({
+  title,
+  history,
+  commands,
+  trailing,
+  onBeforeNavigateHome,
+}: CommandBarProps) {
   const { t } = useI18n();
   const router = useRouter();
 
@@ -41,7 +50,12 @@ export function CommandBar({ title, history, commands, trailing }: CommandBarPro
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {/* Back-to-home — mirrors playback Header's leftmost button so the
             user has the same global-out affordance across modes. */}
-        <IconButton title={t('generation.backToHome')} onClick={() => router.push('/')}>
+        <IconButton
+          title={t('generation.backToHome')}
+          onClick={() => {
+            void flushBeforeCourseExit(onBeforeNavigateHome, () => router.push('/'));
+          }}
+        >
           <ArrowLeft className="h-4 w-4" />
         </IconButton>
         {history && (

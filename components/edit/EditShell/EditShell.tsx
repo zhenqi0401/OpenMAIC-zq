@@ -15,6 +15,7 @@ import { HintRail } from './HintRail';
 
 interface EditShellProps {
   readonly scene: Scene;
+  readonly onBeforeNavigateHome?: () => Promise<boolean>;
   /**
    * Optional left-side navigator slot. In v0 this is the SlideNavRail
    * passed from Stage when mode === 'edit'. Surface code never imports
@@ -73,6 +74,7 @@ const LEFT_RAIL_DELAY = CHROME_STAGGER * 2;
  */
 export function EditShell({
   scene,
+  onBeforeNavigateHome,
   leftRail,
   commandTrailing,
   rightRail,
@@ -103,6 +105,7 @@ export function EditShell({
         history={state?.history}
         commands={state?.commands}
         trailing={commandTrailing}
+        onBeforeNavigateHome={onBeforeNavigateHome}
         rightRail={rightRail}
         bottomRail={bottomRail}
       >
@@ -226,6 +229,7 @@ interface FrameProps {
   readonly history?: React.ComponentProps<typeof CommandBar>['history'];
   readonly commands?: React.ComponentProps<typeof CommandBar>['commands'];
   readonly trailing?: ReactNode;
+  readonly onBeforeNavigateHome?: () => Promise<boolean>;
   readonly rightRail?: ReactNode;
   readonly bottomRail?: ReactNode;
   readonly children: ReactNode;
@@ -237,6 +241,7 @@ function Frame({
   history,
   commands,
   trailing,
+  onBeforeNavigateHome,
   rightRail,
   bottomRail,
   children,
@@ -270,7 +275,13 @@ function Frame({
           animate={cmdAnimate}
           transition={{ ...stepTransition, delay: prefersReducedMotion ? 0 : COMMANDBAR_DELAY }}
         >
-          <CommandBar title={title} history={history} commands={commands} trailing={trailing} />
+          <CommandBar
+            title={title}
+            history={history}
+            commands={commands}
+            trailing={trailing}
+            onBeforeNavigateHome={onBeforeNavigateHome}
+          />
         </motion.div>
       }
       leftSlot={

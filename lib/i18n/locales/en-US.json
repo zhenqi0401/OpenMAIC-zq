@@ -163,6 +163,9 @@
   },
   "edit": {
     "proMode": "Pro",
+    "save": "Save",
+    "saveSuccess": "Saved",
+    "saveFailed": "Save failed. Please try again",
     "undo": "Undo",
     "redo": "Redo",
     "delete": "Delete",

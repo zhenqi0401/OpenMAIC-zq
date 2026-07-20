@@ -11,12 +11,16 @@ import { isMaicEditorEnabled } from '@/lib/config/feature-flags';
 import { preloadEditor } from '@/lib/edit/preload-editor';
 import { sceneEditorRegistry } from '@/lib/edit/scene-editor-registry';
 import type { Scene } from '@/lib/types/stage';
+import type { CourseSaveStatus } from '@/lib/authoring/course-edit-persistence';
 import { shouldRenderAgentPanel } from './agent-panel-visibility';
 
 interface EditChromeRootProps {
   readonly scene: Scene;
   readonly isEditable: boolean;
   readonly onToggleEditMode?: () => void;
+  readonly saveStatus?: CourseSaveStatus;
+  readonly onSave?: () => Promise<boolean>;
+  readonly onBeforeNavigateHome?: () => Promise<boolean>;
 }
 
 /**
@@ -39,7 +43,14 @@ interface EditChromeRootProps {
  * `scene` is required (non-null). The parent gates mounting on
  * `mode === 'edit' && currentScene` to satisfy this contract.
  */
-export function EditChromeRoot({ scene, isEditable, onToggleEditMode }: EditChromeRootProps) {
+export function EditChromeRoot({
+  scene,
+  isEditable,
+  onToggleEditMode,
+  saveStatus,
+  onSave,
+  onBeforeNavigateHome,
+}: EditChromeRootProps) {
   // Mark the body while edit mode is mounted, so the editor-scoped CSS
   // rule in globals.css that pins `body.padding-right` to 0 only fires
   // in Pro mode — not on non-editor pages where Radix's
@@ -91,6 +102,7 @@ export function EditChromeRoot({ scene, isEditable, onToggleEditMode }: EditChro
   return (
     <EditShell
       scene={scene}
+      onBeforeNavigateHome={onBeforeNavigateHome}
       leftRail={<SlideNavRail />}
       rightRail={
         showAgentPanel ? (
@@ -109,6 +121,8 @@ export function EditChromeRoot({ scene, isEditable, onToggleEditMode }: EditChro
           mode="edit"
           canEdit={isEditable}
           onToggleEditMode={isMaicEditorEnabled() ? onToggleEditMode : undefined}
+          saveStatus={saveStatus}
+          onSave={onSave}
         />
       }
     />

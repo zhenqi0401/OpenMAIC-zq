@@ -9,6 +9,7 @@ import {
   Monitor,
   Moon,
   Package,
+  Save,
   Settings,
   Sun,
 } from 'lucide-react';
@@ -29,11 +30,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import type { StageMode } from '@/lib/types/stage';
+import type { CourseSaveStatus } from '@/lib/authoring/course-edit-persistence';
 
 interface HeaderControlsProps {
   readonly mode?: StageMode;
   readonly canEdit?: boolean;
   readonly onToggleEditMode?: () => void;
+  readonly saveStatus?: CourseSaveStatus;
+  readonly onSave?: () => Promise<boolean>;
   /**
    * `default` — the chunky h-9 pill used in the playback Stage Header.
    * `compact` — slightly tighter padding for embedding in CommandBar's
@@ -60,6 +64,8 @@ export function HeaderControls({
   mode,
   canEdit,
   onToggleEditMode,
+  saveStatus = 'saved',
+  onSave,
   variant = 'default',
 }: HeaderControlsProps) {
   const { t } = useI18n();
@@ -190,7 +196,7 @@ export function HeaderControls({
           playback Header and edit CommandBar have different left-side
           widths, so morphing made the pill visibly drift). */}
       {onToggleEditMode && (
-        <label
+        <div
           className={cn(
             'shrink-0 inline-flex items-center gap-2.5 rounded-full border shadow-sm transition-colors duration-200',
             'bg-white/60 dark:bg-gray-800/60 backdrop-blur-md',
@@ -202,35 +208,67 @@ export function HeaderControls({
               ? 'opacity-60 cursor-not-allowed'
               : 'cursor-pointer hover:border-violet-400/60 dark:hover:border-violet-500/50',
           )}
-          // When disabled (e.g. the course-complete placeholder), explain why
-          // on hover and point the user to a real scene instead of a bare
-          // "Edit course" label they can't act on.
-          title={
-            !canEdit && mode !== 'edit'
-              ? t('stage.proModeDisabledHint')
-              : mode === 'edit'
-                ? t('stage.doneEditing')
-                : t('stage.editCourse')
-          }
         >
-          <span
+          {onSave && (
+            <>
+              <button
+                type="button"
+                onClick={() => void onSave()}
+                disabled={saveStatus === 'saved' || saveStatus === 'saving'}
+                title={t('edit.save')}
+                aria-label={t('edit.save')}
+                className={cn(
+                  'inline-flex h-7 items-center gap-1.5 rounded-full px-1.5 text-[11px] font-semibold transition-colors',
+                  saveStatus === 'dirty' || saveStatus === 'error'
+                    ? 'text-violet-600 hover:bg-violet-100/80 dark:text-violet-300 dark:hover:bg-violet-900/40'
+                    : 'cursor-default text-gray-400 dark:text-gray-500',
+                )}
+              >
+                {saveStatus === 'saving' ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Save className="size-3.5" />
+                )}
+                <span>{t('edit.save')}</span>
+              </button>
+              <span aria-hidden="true" className="h-4 w-px bg-gray-200/80 dark:bg-gray-700/80" />
+            </>
+          )}
+          <label
             className={cn(
-              'text-[11px] font-bold uppercase tracking-[0.14em] tabular-nums select-none transition-colors duration-200',
-              mode === 'edit'
-                ? 'text-violet-600 dark:text-violet-300'
-                : 'text-gray-500 dark:text-gray-400',
+              'inline-flex items-center gap-2.5',
+              !canEdit && mode !== 'edit' ? 'cursor-not-allowed' : 'cursor-pointer',
             )}
+            // When disabled (e.g. the course-complete placeholder), explain why
+            // on hover and point the user to a real scene instead of a bare
+            // "Edit course" label they can't act on.
+            title={
+              !canEdit && mode !== 'edit'
+                ? t('stage.proModeDisabledHint')
+                : mode === 'edit'
+                  ? t('stage.doneEditing')
+                  : t('stage.editCourse')
+            }
           >
-            {t('edit.proMode')}
-          </span>
-          <Switch
-            checked={mode === 'edit'}
-            onCheckedChange={onToggleEditMode}
-            disabled={!canEdit && mode !== 'edit'}
-            aria-label={mode === 'edit' ? t('stage.doneEditing') : t('stage.editCourse')}
-            className="data-[state=checked]:bg-violet-600 dark:data-[state=checked]:bg-violet-500"
-          />
-        </label>
+            <span
+              className={cn(
+                'text-[11px] font-bold uppercase tracking-[0.14em] tabular-nums select-none transition-colors duration-200',
+                mode === 'edit'
+                  ? 'text-violet-600 dark:text-violet-300'
+                  : 'text-gray-500 dark:text-gray-400',
+              )}
+            >
+              {t('edit.proMode')}
+            </span>
+            <Switch
+              checked={mode === 'edit'}
+              onCheckedChange={onToggleEditMode}
+              disabled={!canEdit && mode !== 'edit'}
+              aria-label={mode === 'edit' ? t('stage.doneEditing') : t('stage.editCourse')}
+              className="data-[state=checked]:bg-violet-600 dark:data-[state=checked]:bg-violet-500"
+            />
+          </label>
+        </div>
       )}
 
       {/* Export / Download — lives to the right of the Pro Switch.

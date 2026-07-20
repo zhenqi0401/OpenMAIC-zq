@@ -19,6 +19,10 @@ import {
   shouldAllowProModeEntry,
   type CourseAuthoringIdentity,
 } from '@/lib/authoring/course-permissions';
+import {
+  flushBeforeCourseExit,
+  type CourseSaveStatus,
+} from '@/lib/authoring/course-edit-persistence';
 
 /**
  * Stage — top-level classroom container. Dispatches between the two
@@ -38,10 +42,16 @@ export function Stage({
   onRetryOutline,
   enterpriseCourseId,
   authoringIdentity,
+  courseSaveStatus,
+  onSaveCourse,
+  onFlushCourse,
 }: {
   onRetryOutline?: (outlineId: string) => Promise<void>;
   enterpriseCourseId?: string | null;
   authoringIdentity?: CourseAuthoringIdentity | null;
+  courseSaveStatus?: CourseSaveStatus;
+  onSaveCourse?: () => Promise<boolean>;
+  onFlushCourse?: () => Promise<boolean>;
 }) {
   const { mode, setMode, scenes, currentSceneId, generatingOutlines, stage } = useStageStore();
   const currentScene = useStageStore((s) => s.getCurrentScene());
@@ -74,7 +84,7 @@ export function Stage({
   // so PlaybackChromeRoot is quiescent before it unmounts.
   const handleToggleEditMode = useCallback(async () => {
     if (mode === 'edit') {
-      setMode('playback');
+      await flushBeforeCourseExit(onFlushCourse, () => setMode('playback'));
       return;
     }
     if (!editLock.acquire()) return;
@@ -98,7 +108,7 @@ export function Stage({
       return;
     }
     setMode('edit');
-  }, [editLock, mode, setMode]);
+  }, [editLock, mode, onFlushCourse, setMode]);
 
   // Auto-exit edit mode when the current scene becomes uneditable
   // (pending generation, no scenes, currently generating).
@@ -146,6 +156,9 @@ export function Stage({
               scene={currentScene}
               isEditable={canEnterProMode}
               onToggleEditMode={toggleHandler}
+              saveStatus={courseSaveStatus}
+              onSave={onSaveCourse}
+              onBeforeNavigateHome={onFlushCourse}
             />
           </motion.div>
         ) : (

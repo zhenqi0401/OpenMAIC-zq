@@ -11,11 +11,7 @@ const log = createLogger('StageStore');
 
 function isServerBackedStage(stage: Stage | null): boolean {
   const record = stage as unknown as Record<string, unknown> | null;
-  return !!(
-    record &&
-    typeof record.serverCourseId === 'string' &&
-    record.serverCourseId
-  );
+  return !!(record && typeof record.serverCourseId === 'string' && record.serverCourseId);
 }
 
 /** Virtual scene ID used when the user navigates to a page still being generated */
@@ -28,21 +24,30 @@ export const PENDING_SCENE_ID = '__pending__';
  * @param func Function to debounce
  * @param delay Delay in milliseconds
  */
+type DebouncedFunction<T extends (...args: Parameters<T>) => ReturnType<T>> = ((
+  ...args: Parameters<T>
+) => void) & { cancel: () => void };
+
 function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(
   func: T,
   delay: number,
-): (...args: Parameters<T>) => void {
+): DebouncedFunction<T> {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-  return (...args: Parameters<T>) => {
+  const debounced = (...args: Parameters<T>) => {
     if (timeoutId) {
       clearTimeout(timeoutId);
     }
     timeoutId = setTimeout(() => {
-      func(...args);
       timeoutId = null;
+      func(...args);
     }, delay);
   };
+  debounced.cancel = () => {
+    if (timeoutId) clearTimeout(timeoutId);
+    timeoutId = null;
+  };
+  return debounced;
 }
 
 type ToolbarState = 'design' | 'ai';
@@ -384,6 +389,10 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
   // durability (e.g. setGenerationComplete) can avoid recording state that
   // outruns the scene data.
   saveToStorage: async () => {
+    // An explicit/manual flush supersedes the pending local debounce. This is
+    // important in Pro mode, where the save coordinator and this fallback use
+    // the same 1000ms window: only one IndexedDB replacement should run.
+    debouncedSave.cancel();
     const { stage, scenes, currentSceneId, chats } = get();
     if (!stage?.id) {
       log.warn('Cannot save: stage.id is required');
@@ -514,8 +523,8 @@ export const useStageStore = createSelectors(useStageStoreBase);
 
 /**
  * Debounced version of saveToStorage to prevent excessive writes
- * Waits 500ms after the last change before saving
+ * Waits 1000ms after the last change before saving
  */
 const debouncedSave = debounce(() => {
   useStageStore.getState().saveToStorage();
-}, 500);
+}, 1_000);
