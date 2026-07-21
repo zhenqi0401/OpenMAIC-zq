@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MessageSquareText, RefreshCw, Search, ShieldCheck } from 'lucide-react';
 import {
   AdminCard,
@@ -68,7 +68,6 @@ export function CommunityAdminPanel() {
   const [moderationAction, setModerationAction] = useState<CommunityModerationAction | null>(null);
   const [moderationError, setModerationError] = useState<string | null>(null);
   const [pendingItemId, setPendingItemId] = useState<string | null>(null);
-  const moderationScrollPosition = useRef<{ left: number; top: number } | null>(null);
   const pageSize = 20;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const hasActiveFilters = Boolean(keyword || authorId || courseId || status || from || to);
@@ -123,29 +122,15 @@ export function CommunityAdminPanel() {
   }
 
   function openModeration(item: AdminCommunityItem, action: CommunityModerationAction) {
-    moderationScrollPosition.current = { left: window.scrollX, top: window.scrollY };
     setModerationItem(item);
     setModerationAction(action);
     setModerationError(null);
-    restoreModerationScroll();
   }
 
   function closeModeration() {
     setModerationItem(null);
     setModerationAction(null);
     setModerationError(null);
-    restoreModerationScroll(true);
-  }
-
-  function restoreModerationScroll(release = false) {
-    const position = moderationScrollPosition.current;
-    if (!position) return;
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        window.scrollTo({ ...position, behavior: 'auto' });
-        if (release) moderationScrollPosition.current = null;
-      }),
-    );
   }
 
   async function moderate(reason: string) {

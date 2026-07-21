@@ -101,8 +101,8 @@ describe('community admin panel presentation', () => {
     expect(rowSource).not.toContain('<details');
     expect(rowSource).not.toContain('记录 ID：{item.id}');
     expect(rowSource).not.toContain('作者 ID：{item.author.id}');
-    expect(panelSource).toContain('moderationScrollPosition');
-    expect(panelSource).toContain("window.scrollTo({ ...position, behavior: 'auto' })");
+    expect(panelSource).not.toContain('moderationScrollPosition');
+    expect(dialogSource).toContain('modal={false}');
     expect(dialogSource).toContain('focus({ preventScroll: true })');
     expect(dialogSource).toContain('value={detail}');
     expect(dialogSource).toContain('{error ? <AdminNotice');

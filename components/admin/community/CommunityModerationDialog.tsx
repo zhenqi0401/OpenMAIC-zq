@@ -65,7 +65,11 @@ export function CommunityModerationDialog({
   }
 
   return (
-    <Dialog onOpenChange={(nextOpen) => !submitting && onOpenChange(nextOpen)} open={open}>
+    <Dialog
+      modal={false}
+      onOpenChange={(nextOpen) => !submitting && onOpenChange(nextOpen)}
+      open={open}
+    >
       <DialogContent
         className="max-w-[540px] rounded-[6px] border border-[#d8c8b9] bg-[#fffaf2] text-[#2b211d]"
         onOpenAutoFocus={(event) => {

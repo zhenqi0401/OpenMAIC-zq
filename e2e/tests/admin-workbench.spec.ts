@@ -112,9 +112,14 @@ const communityItem = {
 
 async function mockCommunityApis(
   page: Page,
-  options: { failModeration?: boolean; requests?: Array<{ path: string; body: unknown }> } = {},
+  options: {
+    failModeration?: boolean;
+    items?: Array<typeof communityItem>;
+    requests?: Array<{ path: string; body: unknown }>;
+  } = {},
 ) {
   let listRequests = 0;
+  const items = options.items ?? [communityItem];
   await page.route('**/api/admin/community?**', async (route) => {
     listRequests += 1;
     await route.fulfill({
@@ -122,8 +127,8 @@ async function mockCommunityApis(
       contentType: 'application/json',
       body: JSON.stringify({
         success: true,
-        items: [communityItem],
-        total: 1,
+        items,
+        total: items.length,
         page: 1,
         pageSize: 20,
       }),
@@ -152,7 +157,7 @@ async function mockCommunityApis(
 async function openCommunity(page: Page) {
   await page.goto('/admin?module=community');
   await expect(page.getByRole('heading', { name: '社区内容' })).toBeVisible();
-  await expect(page.locator('[data-community-item-row]')).toContainText(
+  await expect(page.locator('[data-community-item-row]').first()).toContainText(
     '这是一条需要审核的课程弹幕',
   );
 }
@@ -288,6 +293,37 @@ test.describe('P0-03 access workbench', () => {
 });
 
 test.describe('P0-07 community moderation', () => {
+  test('keeps the page and sticky navigation in place when opening the hide dialog', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 600 });
+    await mockCommunityApis(page, {
+      items: Array.from({ length: 8 }, (_, index) => ({
+        ...communityItem,
+        id: `danmaku-${index + 1}`,
+        content: index === 0 ? communityItem.content : `第 ${index + 1} 条需要审核的课程弹幕`,
+      })),
+    });
+    await openCommunity(page);
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+
+    const before = await page.evaluate(() => ({
+      scrollY: window.scrollY,
+      sidebarTop: document.querySelector('aside')?.getBoundingClientRect().top ?? null,
+    }));
+    expect(before.scrollY).toBeGreaterThan(0);
+
+    await page.getByRole('button', { name: '隐藏' }).last().click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+
+    const after = await page.evaluate(() => ({
+      scrollY: window.scrollY,
+      sidebarTop: document.querySelector('aside')?.getBoundingClientRect().top ?? null,
+    }));
+    expect(after.scrollY).toBe(before.scrollY);
+    expect(after.sidebarTop).toBe(before.sidebarTop);
+  });
+
   test('opens the moderation dialog, disables submission, sends the reason, and refreshes', async ({
     page,
   }) => {
