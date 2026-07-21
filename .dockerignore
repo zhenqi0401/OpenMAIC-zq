@@ -5,13 +5,13 @@ node_modules
 
 # build output
 .next
+.next-e2e-*
 out
 build
 dist
 
 # git
 .git
-.gitignore
 
 # IDE
 .idea
@@ -42,3 +42,10 @@ AGENTS.md
 voxcpm_python_api_server.py
 vitest.eval.config.ts
 .claude
+
+
+test-results
+playwright-report
+blob-report
+playwright/.cache
+output
