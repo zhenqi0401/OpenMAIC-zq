@@ -35,6 +35,13 @@ export interface CreateUserInput {
   displayName: string;
 }
 
+export interface HostSsoProfile {
+  hostUserId: string;
+  displayName: string;
+  phone: string;
+  timestamp: number;
+}
+
 export interface AuthRepository {
   findUserByPhone(phone: string): Promise<AuthUser | null>;
   findUserByHostUserId(hostUserId: string): Promise<AuthUser | null>;
@@ -43,6 +50,10 @@ export interface AuthRepository {
   findRoleByCode(code: string): Promise<AuthRole | null>;
   findInviteCodeByHash(codeHash: string): Promise<InviteCodeRecord | null>;
   createUser(input: CreateUserInput): Promise<AuthUser>;
+  updateUserFromHostSso(
+    userId: string,
+    input: { displayName: string; phone: string },
+  ): Promise<AuthUser | null>;
   listUsersWithRoles(): Promise<Array<{ user: AuthUser; role: AuthRole }>>;
   updateUserRole(userId: string, roleId: string): Promise<AuthUser | null>;
   deleteUser(userId: string): Promise<AuthUser | null>;
@@ -59,6 +70,7 @@ export type AuthServiceErrorCode =
   | 'INVITE_ROLE_NOT_FOUND'
   | 'INVITE_ROLE_NOT_ALLOWED'
   | 'INVALID_CREDENTIALS'
+  | 'INVALID_HOST_USER_ID'
   | 'USER_DISABLED'
   | 'ADMIN_ROLE_NOT_FOUND'
   | 'USER_NOT_FOUND'
@@ -96,6 +108,12 @@ function normalizeDisplayName(displayName: string): string {
 
 function assertValidDisplayName(displayName: string): void {
   if (displayName.length < 2 || displayName.length > 20) {
+    throw new AuthServiceError('INVALID_DISPLAY_NAME');
+  }
+}
+
+function assertValidHostDisplayName(displayName: string): void {
+  if (displayName.length < 1 || displayName.length > 128) {
     throw new AuthServiceError('INVALID_DISPLAY_NAME');
   }
 }
@@ -145,17 +163,26 @@ function signaturesMatch(actual: string, expected: string): boolean {
   );
 }
 
-function signHostSso(hostUserId: string, secret: string): string {
-  return createHmac('sha256', secret).update(hostUserId).digest('hex');
+function hostSsoSigningText(payload: HostSsoProfile): string {
+  return JSON.stringify({
+    hostUserId: payload.hostUserId,
+    displayName: payload.displayName,
+    phone: payload.phone,
+    timestamp: payload.timestamp,
+  });
+}
+
+function signHostSso(payload: HostSsoProfile, secret: string): string {
+  return createHmac('sha256', secret).update(hostSsoSigningText(payload)).digest('hex');
 }
 
 export const verifyHostSsoSignature: {
-  (hostUserId: string, signature: string | null | undefined, secret: string): boolean;
+  (payload: HostSsoProfile, signature: string | null | undefined, secret: string): boolean;
   sign: typeof signHostSso;
 } = Object.assign(
-  (hostUserId: string, signature: string | null | undefined, secret: string): boolean => {
+  (payload: HostSsoProfile, signature: string | null | undefined, secret: string): boolean => {
     if (!signature || !secret) return false;
-    const expected = signHostSso(hostUserId, secret);
+    const expected = signHostSso(payload, secret);
     return /^[a-f0-9]+$/i.test(signature) && signaturesMatch(signature, expected);
   },
   { sign: signHostSso },
@@ -221,21 +248,37 @@ export function createAuthService(repository: AuthRepository) {
       return { user, role, identity: identityFrom(user, role, 'password') };
     },
 
-    async loginWithHostSso(input: { hostUserId: string }): Promise<AuthResult> {
+    async loginWithHostSso(input: HostSsoProfile): Promise<AuthResult> {
       const hostUserId = input.hostUserId.trim();
+      const displayName = normalizeDisplayName(input.displayName);
+      const phone = normalizePhone(input.phone);
+      if (!hostUserId || hostUserId.length > 128) {
+        throw new AuthServiceError('INVALID_HOST_USER_ID');
+      }
+      assertValidHostDisplayName(displayName);
+      assertValidPhone(phone);
+
       let user = await repository.findUserByHostUserId(hostUserId);
+      if (user && user.status !== 'active') throw new AuthServiceError('USER_DISABLED');
       const role = user ? await getUserRole(user) : await repository.findRoleByCode('admin');
       if (!role) throw new AuthServiceError('ADMIN_ROLE_NOT_FOUND');
+
+      const phoneOwner = await repository.findUserByPhone(phone);
+      if (phoneOwner && phoneOwner.id !== user?.id) {
+        throw new AuthServiceError('PHONE_ALREADY_REGISTERED');
+      }
 
       if (!user) {
         user = await repository.createUser({
           hostUserId,
+          phone,
           roleId: role.id,
-          displayName: `Host admin ${hostUserId}`,
+          displayName,
         });
+      } else if (user.displayName !== displayName || user.phone !== phone) {
+        user = await repository.updateUserFromHostSso(user.id, { displayName, phone });
+        if (!user) throw new AuthServiceError('USER_NOT_FOUND');
       }
-
-      if (user.status !== 'active') throw new AuthServiceError('USER_DISABLED');
 
       return { user, role, identity: identityFrom(user, role, 'host-sso') };
     },

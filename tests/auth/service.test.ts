@@ -24,7 +24,7 @@ const learnerRole: AuthRole = {
   isAdmin: false,
 };
 
-function makeRepo(): AuthRepository & {
+type InMemoryAuthRepository = AuthRepository & {
   users: AuthUser[];
   roles: AuthRole[];
   inviteCodes: Array<{
@@ -33,8 +33,10 @@ function makeRepo(): AuthRepository & {
     enabled: boolean;
     expiresAt: Date | null;
   }>;
-} {
-  const repo = {
+};
+
+function makeRepo(): InMemoryAuthRepository {
+  const repo: InMemoryAuthRepository = {
     users: [] as AuthUser[],
     roles: [adminRole, learnerRole],
     inviteCodes: [
@@ -79,6 +81,13 @@ function makeRepo(): AuthRepository & {
       repo.users.push(user);
       return user;
     },
+    async updateUserFromHostSso(userId, input) {
+      const user = repo.users.find((candidate) => candidate.id === userId);
+      if (!user) return null;
+      user.displayName = input.displayName;
+      user.phone = input.phone;
+      return user;
+    },
     async listUsersWithRoles() {
       return repo.users.map((user) => ({
         user,
@@ -97,15 +106,6 @@ function makeRepo(): AuthRepository & {
       const [user] = repo.users.splice(index, 1);
       return user;
     },
-  } satisfies AuthRepository & {
-    users: AuthUser[];
-    roles: AuthRole[];
-    inviteCodes: Array<{
-      codeHash: string;
-      roleId: string;
-      enabled: boolean;
-      expiresAt: Date | null;
-    }>;
   };
 
   return repo;
@@ -290,10 +290,24 @@ describe('Slice-07 auth service', () => {
     const repo = makeRepo();
     const service = createAuthService(repo);
 
-    const first = await service.loginWithHostSso({ hostUserId: 'host-admin-1' });
-    const second = await service.loginWithHostSso({ hostUserId: 'host-admin-1' });
+    const first = await service.loginWithHostSso({
+      hostUserId: 'host-admin-1',
+      displayName: '宿主管理员',
+      phone: '13800138000',
+      timestamp: 1,
+    });
+    const second = await service.loginWithHostSso({
+      hostUserId: 'host-admin-1',
+      displayName: '宿主管理员（新）',
+      phone: '13900139000',
+      timestamp: 2,
+    });
 
     expect(repo.users).toHaveLength(1);
+    expect(repo.users[0]).toMatchObject({
+      displayName: '宿主管理员（新）',
+      phone: '13900139000',
+    });
     expect(first.identity).toEqual({
       userId: 'user-1',
       roleId: adminRole.id,
@@ -302,6 +316,26 @@ describe('Slice-07 auth service', () => {
       authSource: 'host-sso',
     });
     expect(second.identity.userId).toBe(first.identity.userId);
+  });
+
+  test('does not bind a host SSO account to another user phone', async () => {
+    const repo = makeRepo();
+    const service = createAuthService(repo);
+    await service.registerWithPassword({
+      name: '张三',
+      phone: '13800138000',
+      password: 'password-123',
+      inviteCode: 'LEARN-2026',
+    });
+
+    await expect(
+      service.loginWithHostSso({
+        hostUserId: 'host-admin-1',
+        displayName: '宿主管理员',
+        phone: '13800138000',
+        timestamp: 1,
+      }),
+    ).rejects.toMatchObject(new AuthServiceError('PHONE_ALREADY_REGISTERED'));
   });
 
   test('lists users and lets administrators update the current role only', async () => {
@@ -356,10 +390,18 @@ describe('Slice-07 auth service', () => {
   });
 
   test('verifies signed host SSO requests with the shared secret', () => {
-    const signature = verifyHostSsoSignature.sign('host-admin-1', 'secret');
+    const payload = {
+      hostUserId: 'host-admin-1',
+      displayName: '宿主管理员',
+      phone: '13800138000',
+      timestamp: 1_784_606_400,
+    };
+    const signature = verifyHostSsoSignature.sign(payload, 'secret');
 
-    expect(verifyHostSsoSignature('host-admin-1', signature, 'secret')).toBe(true);
-    expect(verifyHostSsoSignature('host-admin-2', signature, 'secret')).toBe(false);
-    expect(verifyHostSsoSignature('host-admin-1', signature, 'other-secret')).toBe(false);
+    expect(verifyHostSsoSignature(payload, signature, 'secret')).toBe(true);
+    expect(
+      verifyHostSsoSignature({ ...payload, displayName: '被篡改的姓名' }, signature, 'secret'),
+    ).toBe(false);
+    expect(verifyHostSsoSignature(payload, signature, 'other-secret')).toBe(false);
   });
 });

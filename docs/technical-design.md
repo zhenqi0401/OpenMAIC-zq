@@ -197,8 +197,8 @@
 - `GET /api/auth/session`：返回当前用户、角色和权限。
 
 **ARCH-031** 宿主 SSO 管理员绑定（REQ-033）
-- `POST /api/auth/host-sso`：宿主后端用签名请求提交 `{ hostUserId }`。
-- 若未绑定则创建管理员用户；若已绑定则返回 OpenMAIC 会话交换结果。
+- `POST /api/auth/host-sso`：宿主后端用签名请求提交 `{ hostUserId, displayName, phone, timestamp }`；签名原文为按该字段顺序序列化、无额外空白的紧凑 JSON，`timestamp` 为 Unix 秒。
+- 若未绑定则用宿主姓名、手机号创建管理员用户；若已绑定则同步姓名、手机号并返回 OpenMAIC 会话交换结果。
 - 该接口只用于宿主入口，不用于学员注册。
 
 **ARCH-032** 管理后台 API（REQ-035~041, REQ-044, REQ-047, REQ-048）

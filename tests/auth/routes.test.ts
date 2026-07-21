@@ -88,6 +88,13 @@ function makeRepo(): AuthRepository & { users: AuthUser[] } {
       users.push(user);
       return user;
     },
+    async updateUserFromHostSso(userId, input) {
+      const user = users.find((candidate) => candidate.id === userId);
+      if (!user) return null;
+      user.displayName = input.displayName;
+      user.phone = input.phone;
+      return user;
+    },
     async listUsersWithRoles() {
       return users.map((user) => ({
         user,
@@ -216,11 +223,17 @@ describe('Slice-07 auth routes', () => {
   });
 
   test('POST /api/auth/host-sso requires a valid host signature and creates an admin session', async () => {
-    const signature = verifyHostSsoSignature.sign('host-admin-1', 'host-secret');
+    const body = {
+      hostUserId: 'host-admin-1',
+      displayName: '宿主管理员',
+      phone: '13800138000',
+      timestamp: Math.floor(Date.now() / 1000),
+    };
+    const signature = verifyHostSsoSignature.sign(body, 'host-secret');
 
     const res = await postRoute(
       '@/app/api/auth/host-sso/route',
-      { hostUserId: 'host-admin-1' },
+      body,
       { 'x-openmaic-signature': signature },
     );
     const json = await res.json();
@@ -228,6 +241,11 @@ describe('Slice-07 auth routes', () => {
     expect(res.status).toBe(200);
     expect(json).toMatchObject({
       success: true,
+      user: {
+        hostUserId: 'host-admin-1',
+        displayName: '宿主管理员',
+        phone: '13800138000',
+      },
       identity: { roleCode: 'admin', isAdmin: true, authSource: 'host-sso' },
     });
     expect(mocks.cookieStore.set).toHaveBeenCalledWith(
@@ -238,10 +256,18 @@ describe('Slice-07 auth routes', () => {
 
     const rejected = await postRoute(
       '@/app/api/auth/host-sso/route',
-      { hostUserId: 'host-admin-1' },
+      body,
       { 'x-openmaic-signature': 'bad' },
     );
     expect(rejected.status).toBe(401);
+
+    const expiredBody = { ...body, timestamp: body.timestamp - 301 };
+    const expired = await postRoute(
+      '@/app/api/auth/host-sso/route',
+      expiredBody,
+      { 'x-openmaic-signature': verifyHostSsoSignature.sign(expiredBody, 'host-secret') },
+    );
+    expect(expired.status).toBe(401);
   });
 
   test('admin user APIs require administrator sessions and update current user roles', async () => {

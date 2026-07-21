@@ -118,6 +118,18 @@ export class DrizzleAuthRepository implements AuthRepository {
     return toAuthUser(user);
   }
 
+  async updateUserFromHostSso(
+    userId: string,
+    input: { displayName: string; phone: string },
+  ): Promise<AuthUser | null> {
+    const [user] = await getDb()
+      .update(users)
+      .set({ displayName: input.displayName, phone: input.phone, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user ? toAuthUser(user) : null;
+  }
+
   async listUsersWithRoles(): Promise<Array<{ user: AuthUser; role: AuthRole }>> {
     const records = await getDb()
       .select({ user: users, role: roles })
