@@ -1,6 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import type { SessionIdentity } from './types';
 import { hashPassword, verifyPassword } from '@/lib/security/password';
+import { getInviteCodeValidationIssue, normalizeInviteCode } from './invite-code';
 
 export interface AuthRole {
   id: string;
@@ -112,7 +113,7 @@ function assertStrongEnoughPassword(password: string): void {
 }
 
 export function hashInviteCode(code: string): string {
-  return `sha256$${createHash('sha256').update(code.trim().toUpperCase()).digest('hex')}`;
+  return `sha256$${createHash('sha256').update(normalizeInviteCode(code)).digest('hex')}`;
 }
 
 function identityFrom(user: AuthUser, role: AuthRole, authSource: SessionIdentity['authSource']) {
@@ -179,6 +180,9 @@ export function createAuthService(repository: AuthRepository) {
       assertValidDisplayName(displayName);
       assertValidPhone(phone);
       assertStrongEnoughPassword(input.password);
+      if (getInviteCodeValidationIssue(input.inviteCode)) {
+        throw new AuthServiceError('INVALID_INVITE_CODE');
+      }
 
       const existing = await repository.findUserByPhone(phone);
       if (existing) throw new AuthServiceError('PHONE_ALREADY_REGISTERED');

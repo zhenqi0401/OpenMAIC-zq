@@ -26,6 +26,13 @@ import {
   type AdminUser,
 } from '@/lib/admin/client';
 import { paginateAdminRows } from '@/lib/admin/pagination';
+import {
+  getInviteCodeValidationIssue,
+  INVITE_CODE_MAX_LENGTH,
+  INVITE_CODE_MIN_LENGTH,
+  normalizeInviteCode,
+  type InviteCodeValidationIssue,
+} from '@/lib/auth/invite-code';
 
 interface AdminSlice08PanelProps {
   view?: 'all' | 'dashboard' | 'access';
@@ -87,6 +94,12 @@ function normalizeExpiresAt(value: string): string | null {
 
 function notifyAdminError(error: unknown, fallback: string) {
   toast.error(error instanceof Error ? error.message : fallback);
+}
+
+function getInviteCodeValidationMessage(issue: InviteCodeValidationIssue): string {
+  if (issue === 'REQUIRED') return '请输入邀请码明文';
+  if (issue === 'TOO_SHORT') return `邀请码至少需要 ${INVITE_CODE_MIN_LENGTH} 个字符`;
+  return `邀请码不能超过 ${INVITE_CODE_MAX_LENGTH} 个字符`;
 }
 
 export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08PanelProps) {
@@ -246,13 +259,18 @@ export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08
   }
 
   async function createInviteCode() {
-    if (!newInvite.code.trim() || !newInvite.roleId) {
-      toast.error('邀请码明文和绑定角色必填');
+    const inviteCodeIssue = getInviteCodeValidationIssue(newInvite.code);
+    if (inviteCodeIssue) {
+      toast.error(getInviteCodeValidationMessage(inviteCodeIssue));
+      return;
+    }
+    if (!newInvite.roleId) {
+      toast.error('绑定角色必填');
       return;
     }
     try {
       await client.createInviteCode({
-        code: newInvite.code.trim(),
+        code: normalizeInviteCode(newInvite.code),
         roleId: newInvite.roleId,
         enabled: newInvite.enabled,
         expiresAt: normalizeExpiresAt(newInvite.expiresAt),
@@ -586,10 +604,14 @@ export function AdminSlice08Panel({ view = 'all', afterDashboard }: AdminSlice08
                 <div className="grid gap-2 md:grid-cols-[1fr_1fr]">
                   <Input
                     className={adminInputClassName}
+                    maxLength={INVITE_CODE_MAX_LENGTH}
                     placeholder="新邀请码明文"
                     value={newInvite.code}
                     onChange={(event) =>
-                      setNewInvite((draft) => ({ ...draft, code: event.target.value }))
+                      setNewInvite((draft) => ({
+                        ...draft,
+                        code: normalizeInviteCode(event.target.value),
+                      }))
                     }
                   />
                   <select

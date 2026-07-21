@@ -38,6 +38,15 @@ describe('auth client validation', () => {
       name: '姓名至少需要 2 个字符',
       inviteCode: '请检查邀请码是否完整',
     });
+
+    expect(
+      validateRegisterValues({
+        name: '张三',
+        phone: '13800138000',
+        password: '123456',
+        inviteCode: 'A'.repeat(17),
+      }),
+    ).toEqual({ inviteCode: '邀请码不能超过 16 个字符' });
   });
 
   test('maps structured API failures to actionable fields', () => {

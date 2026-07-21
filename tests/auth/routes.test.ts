@@ -198,6 +198,23 @@ describe('Slice-07 auth routes', () => {
     });
   });
 
+  test('POST /api/auth/register enforces the shared invite-code length limits', async () => {
+    for (const inviteCode of ['ABC', 'A'.repeat(17)]) {
+      const res = await postRoute('@/app/api/auth/register/route', {
+        name: '张三',
+        phone: '13800138000',
+        password: 'password-123',
+        inviteCode,
+      });
+
+      expect(res.status).toBe(400);
+      await expect(res.json()).resolves.toMatchObject({
+        success: false,
+        error: 'INVALID_INVITE_CODE',
+      });
+    }
+  });
+
   test('POST /api/auth/host-sso requires a valid host signature and creates an admin session', async () => {
     const signature = verifyHostSsoSignature.sign('host-admin-1', 'host-secret');
 

@@ -463,6 +463,32 @@ describe('Slice-01 API routes', () => {
     expect(forbidden.status).toBe(403);
   });
 
+  test('admin invite-code API enforces the registration format rules', async () => {
+    const createInviteCode = vi.spyOn(mocks.repository!, 'createInviteCode');
+
+    for (const code of ['ABC', 'A'.repeat(17)]) {
+      const response = await postRoute('@/app/api/admin/invite-codes/route', {
+        code,
+        roleId: learnerRole.id,
+      });
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({
+        success: false,
+        error: 'Invite code must contain 4 to 16 characters',
+      });
+    }
+
+    const created = await postRoute('@/app/api/admin/invite-codes/route', {
+      code: ' learn - 2026 ',
+      roleId: learnerRole.id,
+    });
+    expect(created.status).toBe(201);
+    expect(createInviteCode).toHaveBeenCalledTimes(1);
+    expect(createInviteCode).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'LEARN-2026', roleId: learnerRole.id }),
+    );
+  });
+
   test('admin course API lists courses, updates visibility, and publishes courses', async () => {
     const list = await getRoute('@/app/api/admin/courses/route');
     await expect(list.json()).resolves.toMatchObject({

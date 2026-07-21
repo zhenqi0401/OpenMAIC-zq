@@ -1,3 +1,9 @@
+import {
+  getInviteCodeValidationIssue,
+  INVITE_CODE_MAX_LENGTH,
+  normalizeInviteCode,
+} from './invite-code';
+
 export type AuthFieldName = 'name' | 'phone' | 'password' | 'inviteCode';
 export type AuthFieldErrors = Partial<Record<AuthFieldName, string>>;
 export type AuthOperation = 'login' | 'register';
@@ -36,7 +42,7 @@ export function normalizePhoneInput(value: string): string {
 }
 
 export function normalizeInviteCodeInput(value: string): string {
-  return value.replace(/\s/g, '').toUpperCase();
+  return normalizeInviteCode(value);
 }
 
 function validateName(value: string): string | undefined {
@@ -60,8 +66,10 @@ function validatePassword(value: string): string | undefined {
 }
 
 function validateInviteCode(value: string): string | undefined {
-  if (!value.trim()) return '请输入企业邀请码';
-  if (value.trim().length < 4) return '请检查邀请码是否完整';
+  const issue = getInviteCodeValidationIssue(value);
+  if (issue === 'REQUIRED') return '请输入企业邀请码';
+  if (issue === 'TOO_SHORT') return '请检查邀请码是否完整';
+  if (issue === 'TOO_LONG') return `邀请码不能超过 ${INVITE_CODE_MAX_LENGTH} 个字符`;
   return undefined;
 }
 

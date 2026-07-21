@@ -18,6 +18,7 @@ import {
 import { AuthField } from './auth-field';
 import { PasswordField } from './password-field';
 import styles from './auth-page.module.css';
+import { INVITE_CODE_MAX_LENGTH } from '@/lib/auth/invite-code';
 
 const initialValues: RegisterValues = { name: '', phone: '', password: '', inviteCode: '' };
 
@@ -134,7 +135,7 @@ export function RegisterForm() {
           label="邀请码"
           type="text"
           autoComplete="off"
-          maxLength={16}
+          maxLength={INVITE_CODE_MAX_LENGTH}
           placeholder="请输入企业邀请码"
           value={values.inviteCode}
           error={errors.inviteCode}

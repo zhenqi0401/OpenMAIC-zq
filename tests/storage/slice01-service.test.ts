@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 
 import {
   createEnterpriseStorageService,
@@ -610,6 +610,28 @@ describe('Slice-01 enterprise storage service', () => {
     await expect(service.deleteRole(salesRole.id)).resolves.toMatchObject({
       id: salesRole.id,
     });
+  });
+
+  test('normalizes and validates invite codes before creation', async () => {
+    const repository = makeRepository();
+    const createInviteCode = vi.spyOn(repository, 'createInviteCode');
+    const service = createEnterpriseStorageService(repository);
+
+    await expect(
+      service.createInviteCode({ code: ' sales - 2026 ', roleId: salesRole.id }),
+    ).resolves.toMatchObject({ roleId: salesRole.id });
+    expect(createInviteCode).toHaveBeenLastCalledWith({
+      code: 'SALES-2026',
+      roleId: salesRole.id,
+    });
+
+    for (const code of ['A B C', 'A'.repeat(17)]) {
+      await expect(service.createInviteCode({ code, roleId: salesRole.id })).rejects.toMatchObject({
+        code: 'INVALID_REQUEST',
+        message: 'Invite code must contain 4 to 16 characters',
+      });
+    }
+    expect(createInviteCode).toHaveBeenCalledTimes(1);
   });
 
   test('keeps stage exam policy CRUD in the admin backend without starting exams', async () => {

@@ -121,7 +121,7 @@ describe('Slice-07 auth service', () => {
       name: '张三',
       phone: '13800138000',
       password: 'password-123',
-      inviteCode: 'LEARN-2026',
+      inviteCode: ' learn - 2026 ',
     });
 
     expect(result.identity).toEqual({
@@ -214,6 +214,31 @@ describe('Slice-07 auth service', () => {
       }),
     ).rejects.toMatchObject(new AuthServiceError('INVITE_CODE_EXPIRED'));
     vi.useRealTimers();
+  });
+
+  test('rejects invite codes outside the shared format boundaries before lookup', async () => {
+    const repo = makeRepo();
+    const findInviteCode = vi.spyOn(repo, 'findInviteCodeByHash');
+    const service = createAuthService(repo);
+
+    await expect(
+      service.registerWithPassword({
+        name: '张三',
+        phone: '13800138001',
+        password: 'password-123',
+        inviteCode: 'A B C',
+      }),
+    ).rejects.toMatchObject(new AuthServiceError('INVALID_INVITE_CODE'));
+    await expect(
+      service.registerWithPassword({
+        name: '李四',
+        phone: '13800138002',
+        password: 'password-123',
+        inviteCode: 'A'.repeat(17),
+      }),
+    ).rejects.toMatchObject(new AuthServiceError('INVALID_INVITE_CODE'));
+
+    expect(findInviteCode).not.toHaveBeenCalled();
   });
 
   test('does not allow the learner registration entry to create administrator accounts', async () => {

@@ -67,6 +67,7 @@ describe('admin layout polish', () => {
     expect(markup).toContain('手机号');
     expect(markup).toContain('邀请码状态');
     expect(markup).toContain('绑定角色');
+    expect(markup).toMatch(/<input[^>]*maxLength="16"[^>]*placeholder="新邀请码明文"/);
     expect(markup).not.toContain('data-size="icon"');
 
     expect(markup.indexOf('data-admin-access-roles')).toBeLessThan(

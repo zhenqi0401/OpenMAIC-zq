@@ -1,6 +1,12 @@
 import { assertHostApiAccess, type StoredHostApiKey } from '@/lib/host-api/access';
 import type { DashboardSummary, HostQueryFilters } from '@/lib/host-api/types';
 import type { AuthRole } from '@/lib/auth/service';
+import {
+  getInviteCodeValidationIssue,
+  INVITE_CODE_MAX_LENGTH,
+  INVITE_CODE_MIN_LENGTH,
+  normalizeInviteCode,
+} from '@/lib/auth/invite-code';
 import { shouldShowAssessmentMismatchWarning } from '@/lib/authoring/course-draft';
 import {
   generateCourseAssessmentQuestions,
@@ -592,13 +598,22 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
     },
 
     listInviteCodes: () => repository.listInviteCodes(),
-    createInviteCode: (input: {
+    createInviteCode: async (input: {
       code: string;
       roleId: string;
       enabled?: boolean;
       expiresAt?: Date | null;
       createdBy?: string | null;
-    }) => repository.createInviteCode(input),
+    }) => {
+      const code = normalizeInviteCode(input.code);
+      if (getInviteCodeValidationIssue(code)) {
+        throw new EnterpriseStorageServiceError(
+          'INVALID_REQUEST',
+          `Invite code must contain ${INVITE_CODE_MIN_LENGTH} to ${INVITE_CODE_MAX_LENGTH} characters`,
+        );
+      }
+      return repository.createInviteCode({ ...input, code });
+    },
     updateInviteCode: async (
       id: string,
       patch: { enabled?: boolean; expiresAt?: Date | null; roleId?: string },
