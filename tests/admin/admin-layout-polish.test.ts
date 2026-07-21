@@ -1,4 +1,5 @@
 import React from 'react';
+import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { AdminShell } from '@/components/admin/AdminShell';
@@ -78,32 +79,43 @@ describe('admin layout polish', () => {
     expect(examMarkup).not.toContain('data-size="icon"');
   });
 
-  it('puts roles and invites side by side, with paginated user roles below', () => {
-    const markup = renderToStaticMarkup(React.createElement(AccessAdminPanel));
-
-    expect(markup).toContain('data-admin-access-layout');
-    expect(markup).toContain('data-admin-access-top');
-    expect(markup).toContain('data-admin-access-invite-table');
-    expect(markup).toContain('角色与用户');
-    expect(markup).toContain('邀请码维护');
-    expect(markup).toContain('每页 10 条');
-    expect(markup).toContain('角色标识');
-    expect(markup).toContain('角色名称');
-    expect(markup).toContain('学员');
-    expect(markup).toContain('手机号');
-    expect(markup).toContain('邀请码状态');
-    expect(markup).toContain('绑定角色');
-    expect(markup).toMatch(/<input[^>]*maxLength="16"[^>]*placeholder="新邀请码明文"/);
-    expect(markup).not.toContain('data-size="icon"');
-
-    expect(markup.indexOf('data-admin-access-roles')).toBeLessThan(
-      markup.indexOf('data-admin-access-invites'),
+  it('renders one URL-addressable access workspace behind three semantic tabs', () => {
+    const userMarkup = renderToStaticMarkup(React.createElement(AccessAdminPanel));
+    const roleMarkup = renderToStaticMarkup(
+      React.createElement(AccessAdminPanel, { initialSection: 'roles' }),
     );
-    expect(markup.indexOf('data-admin-access-invites')).toBeLessThan(
-      markup.indexOf('data-admin-access-user-roles'),
+    const inviteMarkup = renderToStaticMarkup(
+      React.createElement(AccessAdminPanel, { initialSection: 'invites' }),
     );
-    expect(markup).toContain('xl:grid-cols-[minmax(0,1fr)_minmax(560px,0.9fr)]');
-    expect(markup).toContain('min-w-[900px]');
-    expect(markup).toContain('whitespace-nowrap');
+
+    expect(userMarkup).toContain('data-admin-access-layout');
+    expect(userMarkup).toContain('role="tablist"');
+    expect(userMarkup.match(/role="tab"/g)).toHaveLength(3);
+    expect(userMarkup).toContain('用户');
+    expect(userMarkup).toContain('角色');
+    expect(userMarkup).toContain('邀请码');
+    expect(userMarkup).toContain('data-admin-access-workspace="users"');
+    expect(userMarkup).not.toContain('data-admin-access-workspace="roles"');
+    expect(userMarkup).not.toContain('data-admin-access-workspace="invites"');
+
+    expect(roleMarkup).toContain('data-admin-access-workspace="roles"');
+    expect(roleMarkup).not.toContain('data-admin-access-workspace="users"');
+    expect(roleMarkup).not.toContain('data-admin-access-workspace="invites"');
+
+    expect(inviteMarkup).toContain('data-admin-access-workspace="invites"');
+    expect(inviteMarkup).not.toContain('data-admin-access-workspace="users"');
+    expect(inviteMarkup).not.toContain('data-admin-access-workspace="roles"');
+
+    for (const markup of [userMarkup, roleMarkup, inviteMarkup]) {
+      expect(markup).not.toContain('min-w-[900px]');
+      expect(markup).not.toContain('data-size="icon"');
+    }
+
+    const inviteSource = readFileSync(
+      `${process.cwd()}/components/admin/access/AccessInvitesTab.tsx`,
+      'utf8',
+    );
+    expect(inviteSource).not.toContain('min-w-[900px]');
+    expect(inviteSource).not.toContain('whitespace-nowrap');
   });
 });
