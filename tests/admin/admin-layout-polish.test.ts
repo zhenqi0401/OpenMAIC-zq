@@ -6,7 +6,8 @@ import {
   AdminSessionActions,
   adminAccountMenuLabels,
 } from '@/components/admin/AdminSessionActions';
-import { AdminSlice08Panel } from '@/components/admin/AdminSlice08Panel';
+import { DashboardAdminPanel } from '@/components/admin/dashboard/DashboardAdminPanel';
+import { AccessAdminPanel } from '@/components/admin/access/AccessAdminPanel';
 import { CourseAdminPanel } from '@/components/admin/courses/CourseAdminPanel';
 import { ExamPolicyAdminPanel } from '@/components/admin/exams/ExamPolicyAdminPanel';
 
@@ -43,9 +44,7 @@ describe('admin layout polish', () => {
   });
 
   it('puts dashboard filters and learner rows in one continuous panel', () => {
-    const markup = renderToStaticMarkup(
-      React.createElement(AdminSlice08Panel, { view: 'dashboard' }),
-    );
+    const markup = renderToStaticMarkup(React.createElement(DashboardAdminPanel));
 
     expect(markup).toContain('刷新看板');
     expect(markup).toContain('账户');
@@ -80,7 +79,7 @@ describe('admin layout polish', () => {
   });
 
   it('puts roles and invites side by side, with paginated user roles below', () => {
-    const markup = renderToStaticMarkup(React.createElement(AdminSlice08Panel, { view: 'access' }));
+    const markup = renderToStaticMarkup(React.createElement(AccessAdminPanel));
 
     expect(markup).toContain('data-admin-access-layout');
     expect(markup).toContain('data-admin-access-top');

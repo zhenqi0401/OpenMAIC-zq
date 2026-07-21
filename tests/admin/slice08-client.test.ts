@@ -11,7 +11,7 @@ import {
 import {
   formatDashboardPercent,
   toDashboardProgressRatio,
-} from '@/components/admin/AdminSlice08Panel';
+} from '@/components/admin/dashboard/DashboardAdminPanel';
 
 const roles = [
   { id: 'role-admin', code: 'admin', name: '管理员', isAdmin: true },
@@ -50,6 +50,35 @@ describe('Slice-08 admin client helpers', () => {
 
     fetcher.mockResolvedValueOnce(new Response('forbidden', { status: 403 }));
     await expect(client.listRoles()).rejects.toBeInstanceOf(AdminClientError);
+  });
+
+  test('keeps dashboard, role, invite-code, and user read paths unchanged', async () => {
+    const calls: string[] = [];
+    const fetcher = vi.fn(async (url: string) => {
+      calls.push(url);
+      if (url.startsWith('/api/admin/dashboard')) {
+        return Response.json({ summary: {}, progress: [] });
+      }
+      if (url === '/api/admin/roles') return Response.json({ roles: [] });
+      if (url === '/api/admin/invite-codes') return Response.json({ inviteCodes: [] });
+      if (url === '/api/admin/users') return Response.json({ users: [] });
+      return new Response('not found', { status: 404 });
+    });
+    const client = createAdminClient(fetcher);
+
+    await Promise.all([
+      client.getDashboard({ userId: 'user-1', roleId: '', courseId: 'course-1' }),
+      client.listRoles(),
+      client.listInviteCodes(),
+      client.listUsers(),
+    ]);
+
+    expect(calls).toEqual([
+      '/api/admin/dashboard?userId=user-1&courseId=course-1',
+      '/api/admin/roles',
+      '/api/admin/invite-codes',
+      '/api/admin/users',
+    ]);
   });
 
   test('uses role list options for user role drafts instead of free-form roleId entry', () => {
