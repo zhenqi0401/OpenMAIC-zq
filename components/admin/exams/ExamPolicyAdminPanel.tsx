@@ -4,6 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ClipboardList, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import {
+  adminErrorToastStyle as errorToastStyle,
+  adminSuccessToastStyle as successToastStyle,
+} from '@/lib/admin/toast';
+import {
   AdminCard,
   AdminSectionHeader,
   adminInputClassName,
@@ -314,18 +318,6 @@ export function ExamPolicyAdminPanel() {
 }
 
 export { ExamPolicyActions } from '@/components/admin/exams/ExamPolicyTable';
-
-const successToastStyle = {
-  background: '#eef5ec',
-  borderColor: '#9db297',
-  color: '#35523a',
-};
-
-const errorToastStyle = {
-  background: '#f9ece8',
-  borderColor: '#d7a397',
-  color: '#7b3e32',
-};
 
 function notifySuccess(message: string) {
   toast.success(message, { style: successToastStyle });

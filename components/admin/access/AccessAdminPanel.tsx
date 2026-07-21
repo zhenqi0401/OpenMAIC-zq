@@ -6,7 +6,7 @@ import { AdminSectionHeader } from '@/components/admin/AdminSurface';
 import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
 import { AdminTabs } from '@/components/admin/AdminTabs';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
+import { adminErrorMessage, adminToast } from '@/lib/admin/toast';
 import {
   buildRoleOptions,
   createAdminClient,
@@ -58,7 +58,7 @@ function normalizeExpiresAt(value: string): string | null {
 }
 
 function notifyAdminError(error: unknown, fallback: string) {
-  toast.error(error instanceof Error ? error.message : fallback);
+  adminToast.error(adminErrorMessage(error, fallback));
 }
 
 export function AccessAdminPanel({
@@ -85,20 +85,24 @@ export function AccessAdminPanel({
 
   const roleOptions = useMemo(() => buildRoleOptions(roles), [roles]);
 
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await loadAccessAdminData(client);
-      setRoles(data.roles);
-      setInviteCodes(data.inviteCodes);
-      setUsers(data.users);
-      setUserRoleDrafts(createUserRoleDrafts(data.users));
-    } catch (loadError) {
-      notifyAdminError(loadError, '后台数据加载失败');
-    } finally {
-      setLoading(false);
-    }
-  }, [client]);
+  const loadAll = useCallback(
+    async (notify = false) => {
+      setLoading(true);
+      try {
+        const data = await loadAccessAdminData(client);
+        setRoles(data.roles);
+        setInviteCodes(data.inviteCodes);
+        setUsers(data.users);
+        setUserRoleDrafts(createUserRoleDrafts(data.users));
+        if (notify) adminToast.success('用户管理数据已刷新');
+      } catch (loadError) {
+        notifyAdminError(loadError, '后台数据加载失败');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [client],
+  );
 
   useEffect(() => {
     void loadAll();
@@ -128,7 +132,7 @@ export function AccessAdminPanel({
 
   async function createRole(draft: RoleDraft): Promise<boolean> {
     if (!draft.code.trim() || !draft.name.trim()) {
-      toast.error('角色标识和名称必填');
+      adminToast.error('角色标识和名称必填');
       return false;
     }
     setCreatingRole(true);
@@ -138,7 +142,7 @@ export function AccessAdminPanel({
         name: draft.name.trim(),
         isAdmin: draft.isAdmin,
       });
-      toast.success('角色已创建');
+      adminToast.success('角色已创建');
       await loadAll();
       return true;
     } catch (saveError) {
@@ -151,7 +155,7 @@ export function AccessAdminPanel({
 
   async function saveRole(roleId: string, draft: RoleDraft): Promise<boolean> {
     if (!draft.code.trim() || !draft.name.trim()) {
-      toast.error('角色标识和名称必填');
+      adminToast.error('角色标识和名称必填');
       return false;
     }
     setSavingRoleId(roleId);
@@ -161,7 +165,7 @@ export function AccessAdminPanel({
         name: draft.name.trim(),
         isAdmin: draft.isAdmin,
       });
-      toast.success('角色已保存');
+      adminToast.success('角色已保存');
       await loadAll();
       return true;
     } catch (saveError) {
@@ -176,7 +180,7 @@ export function AccessAdminPanel({
     setDeletingRoleId(role.id);
     try {
       await client.deleteRole(role.id);
-      toast.success('角色已删除');
+      adminToast.success('角色已删除');
       await loadAll();
     } catch (deleteError) {
       notifyAdminError(deleteError, '角色删除失败');
@@ -194,7 +198,7 @@ export function AccessAdminPanel({
         enabled: draft.enabled,
         expiresAt: normalizeExpiresAt(draft.expiresAt),
       });
-      toast.success('邀请码已创建。请妥善保存明文，列表不会再次展示。');
+      adminToast.success('邀请码已创建。请妥善保存明文，列表不会再次展示。');
       await loadAll();
       return true;
     } catch (saveError) {
@@ -216,7 +220,7 @@ export function AccessAdminPanel({
         enabled: draft.enabled,
         expiresAt: normalizeExpiresAt(draft.expiresAt),
       });
-      toast.success('邀请码已保存');
+      adminToast.success('邀请码已保存');
       await loadAll();
       return true;
     } catch (saveError) {
@@ -231,7 +235,7 @@ export function AccessAdminPanel({
     setDeletingInviteCodeId(inviteCode.id);
     try {
       await client.deleteInviteCode(inviteCode.id);
-      toast.success('邀请码已撤销');
+      adminToast.success('邀请码已撤销');
       await loadAll();
     } catch (deleteError) {
       notifyAdminError(deleteError, '邀请码撤销失败');
@@ -246,7 +250,7 @@ export function AccessAdminPanel({
     setSavingUserId(user.id);
     try {
       await client.updateUserRole(user.id, roleId);
-      toast.success('用户角色已更新');
+      adminToast.success('用户角色已更新');
       await loadAll();
     } catch (saveError) {
       // Deliberately keep the selected draft so the administrator can retry.
@@ -260,7 +264,7 @@ export function AccessAdminPanel({
     setDeletingUserId(user.id);
     try {
       await client.deleteUser(user.id);
-      toast.success('用户已永久删除');
+      adminToast.success('用户已永久删除');
       await loadAll();
     } catch (deleteError) {
       notifyAdminError(deleteError, '用户删除失败');
@@ -282,7 +286,7 @@ export function AccessAdminPanel({
                 aria-busy={loading}
                 className="rounded-[4px] border-[#d8c8b9]"
                 disabled={loading}
-                onClick={() => void loadAll()}
+                onClick={() => void loadAll(true)}
                 variant="outline"
               >
                 {loading ? '刷新中…' : '刷新'}

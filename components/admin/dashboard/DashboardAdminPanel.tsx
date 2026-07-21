@@ -11,7 +11,7 @@ import {
   type DashboardFilters,
 } from '@/components/admin/dashboard/DashboardProgressTable';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
+import { adminErrorMessage, adminToast } from '@/lib/admin/toast';
 import {
   createAdminClient,
   type AdminDashboard,
@@ -46,7 +46,7 @@ export async function loadDashboardAdminData(client: DashboardAdminClient) {
 }
 
 function notifyAdminError(error: unknown, fallback: string) {
-  toast.error(error instanceof Error ? error.message : fallback);
+  adminToast.error(adminErrorMessage(error, fallback));
 }
 
 function EmptyState({ text }: { text: string }) {
@@ -97,7 +97,7 @@ export function DashboardAdminPanel() {
     void loadAll();
   }, [loadAll]);
 
-  async function loadDashboard(filters = dashboardFilters) {
+  async function loadDashboard(filters = dashboardFilters, successMessage = '看板已刷新') {
     try {
       setDashboard(
         await client.getDashboard({
@@ -106,7 +106,7 @@ export function DashboardAdminPanel() {
           courseId: filters.courseId,
         }),
       );
-      toast.success('看板已刷新');
+      adminToast.success(successMessage);
     } catch (loadError) {
       notifyAdminError(loadError, '看板刷新失败');
     }
@@ -114,14 +114,14 @@ export function DashboardAdminPanel() {
 
   function applyDashboardFilters() {
     setDashboardPage(1);
-    void loadDashboard();
+    void loadDashboard(dashboardFilters, '筛选条件已应用');
   }
 
   function resetDashboardFilters() {
     const emptyFilters = { userId: '', roleId: '', courseId: '' };
     setDashboardFilters(emptyFilters);
     setDashboardPage(1);
-    void loadDashboard(emptyFilters);
+    void loadDashboard(emptyFilters, '筛选条件已重置');
   }
 
   const assessmentMetric = dashboard

@@ -24,8 +24,10 @@ import {
   type CommunityContentType,
   type CommunityModerationAction,
   availableCommunityTabs,
+  communityActionLabel,
   moderationEndpoint,
 } from '@/lib/admin/community-presentation';
+import { adminErrorMessage, adminToast } from '@/lib/admin/toast';
 import { isDanmakuEnabled, isForumEnabled } from '@/lib/config/feature-flags';
 import { cn } from '@/lib/utils';
 
@@ -83,21 +85,27 @@ export function CommunityAdminPanel() {
     return search.toString();
   }, [authorId, courseId, from, keyword, page, status, to, type]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const response = await fetch(`/api/admin/community?${query}`);
-      const data = (await response.json()) as CommunityResponse;
-      if (!response.ok) throw new Error(data.error || '社区内容加载失败');
-      setItems(data.items);
-      setTotal(data.total);
-    } catch (cause) {
-      setLoadError(cause instanceof Error ? cause.message : '社区内容加载失败');
-    } finally {
-      setLoading(false);
-    }
-  }, [query]);
+  const load = useCallback(
+    async (notify = false) => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const response = await fetch(`/api/admin/community?${query}`);
+        const data = (await response.json()) as CommunityResponse;
+        if (!response.ok) throw new Error(data.error || '社区内容加载失败');
+        setItems(data.items);
+        setTotal(data.total);
+        if (notify) adminToast.success('社区内容已刷新');
+      } catch (cause) {
+        const message = adminErrorMessage(cause, '社区内容加载失败');
+        setLoadError(message);
+        if (notify) adminToast.error(message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [query],
+  );
 
   useEffect(() => {
     void load();
@@ -147,10 +155,13 @@ export function CommunityAdminPanel() {
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(data.error || '管理操作失败');
+      adminToast.success(`${communityActionLabel(moderationAction)}操作成功`);
       closeModeration();
       await load();
     } catch (cause) {
-      setModerationError(cause instanceof Error ? cause.message : '管理操作失败');
+      const message = adminErrorMessage(cause, '管理操作失败');
+      setModerationError(message);
+      adminToast.error(message);
     } finally {
       setPendingItemId(null);
     }
@@ -254,7 +265,7 @@ export function CommunityAdminPanel() {
             </Button>
             <Button
               disabled={loading}
-              onClick={() => void load()}
+              onClick={() => void load(true)}
               size="sm"
               type="button"
               variant="outline"

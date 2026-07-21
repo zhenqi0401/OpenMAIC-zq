@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { BookOpen } from 'lucide-react';
-import { toast } from 'sonner';
+import { adminToast } from '@/lib/admin/toast';
 import {
   AdminCard,
   AdminSectionHeader,
@@ -139,22 +139,26 @@ export function CourseAdminPanel() {
     [coursePage, filteredCourses],
   );
 
-  async function loadAll() {
-    const [rolesResponse, categoriesResponse, coursesResponse] = await Promise.all([
-      fetch('/api/admin/roles'),
-      fetch('/api/admin/categories'),
-      fetch('/api/admin/courses'),
-    ]);
-    if (!rolesResponse.ok || !categoriesResponse.ok || !coursesResponse.ok) {
-      toast.error('课程后台加载失败');
-      return;
+  async function loadAll(notify = false) {
+    try {
+      const [rolesResponse, categoriesResponse, coursesResponse] = await Promise.all([
+        fetch('/api/admin/roles'),
+        fetch('/api/admin/categories'),
+        fetch('/api/admin/courses'),
+      ]);
+      if (!rolesResponse.ok || !categoriesResponse.ok || !coursesResponse.ok) {
+        throw new Error('课程后台加载失败');
+      }
+      const rolesData = (await rolesResponse.json()) as { roles: AuthRole[] };
+      const categoriesData = (await categoriesResponse.json()) as { categories: Category[] };
+      const coursesData = (await coursesResponse.json()) as { courses: EnterpriseCourse[] };
+      setRoles(rolesData.roles);
+      setCategories(categoriesData.categories);
+      setCourses(coursesData.courses);
+      if (notify) adminToast.success('课程列表已刷新');
+    } catch {
+      adminToast.error('课程后台加载失败');
     }
-    const rolesData = (await rolesResponse.json()) as { roles: AuthRole[] };
-    const categoriesData = (await categoriesResponse.json()) as { categories: Category[] };
-    const coursesData = (await coursesResponse.json()) as { courses: EnterpriseCourse[] };
-    setRoles(rolesData.roles);
-    setCategories(categoriesData.categories);
-    setCourses(coursesData.courses);
   }
 
   useEffect(() => {
@@ -170,10 +174,10 @@ export function CourseAdminPanel() {
         body: JSON.stringify({ name: categoryName }),
       });
       if (!response.ok) {
-        toast.error('分类创建失败');
+        adminToast.error('分类创建失败');
         return false;
       }
-      toast.success('分类已创建');
+      adminToast.success('分类已创建');
       await loadAll();
       return true;
     } finally {
@@ -192,10 +196,10 @@ export function CourseAdminPanel() {
       );
       const response = await fetch(request.url, request.init);
       if (!response.ok) {
-        toast.error('可见范围保存失败');
+        adminToast.error('可见范围保存失败');
         return;
       }
-      toast.success('可见范围已保存');
+      adminToast.success('可见范围已保存');
       setVisibilityCourse(null);
       await loadAll();
     } finally {
@@ -208,10 +212,10 @@ export function CourseAdminPanel() {
     try {
       const response = await fetch(`/api/admin/courses/${course.id}/${action}`, { method: 'POST' });
       if (!response.ok) {
-        toast.error(action === 'publish' ? '课程发布失败' : '课程下架失败');
+        adminToast.error(action === 'publish' ? '课程发布失败' : '课程下架失败');
         return;
       }
-      toast.success(action === 'publish' ? '课程已发布' : '课程已下架');
+      adminToast.success(action === 'publish' ? '课程已发布' : '课程已下架');
       await loadAll();
     } finally {
       setStatusChangingCourseId(null);
@@ -225,10 +229,10 @@ export function CourseAdminPanel() {
         method: 'DELETE',
       });
       if (!response.ok) {
-        toast.error('课程删除失败');
+        adminToast.error('课程删除失败');
         return;
       }
-      toast.success('课程已删除');
+      adminToast.success('课程已删除');
       setCourseToDelete(null);
       await loadAll();
     } finally {
@@ -256,7 +260,7 @@ export function CourseAdminPanel() {
             leading={
               <Button
                 className={adminSecondaryButtonClassName}
-                onClick={loadAll}
+                onClick={() => void loadAll(true)}
                 type="button"
                 variant="outline"
               >
@@ -300,6 +304,7 @@ export function CourseAdminPanel() {
           onApply={() => {
             setFilters(filterDraft);
             setCoursePage(1);
+            adminToast.success('课程筛选已应用');
           }}
           onChange={setFilterDraft}
           onClear={clearFilters}

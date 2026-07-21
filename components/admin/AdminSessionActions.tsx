@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { ChevronDown, CircleUserRound, Home, LoaderCircle, LogOut } from 'lucide-react';
-import { toast } from 'sonner';
+import { adminToast } from '@/lib/admin/toast';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -33,7 +33,7 @@ export function AdminSessionActions({ leading }: { leading?: ReactNode }) {
       window.location.assign('/');
     } catch {
       setLoggingOut(false);
-      toast.error('退出登录失败');
+      adminToast.error('退出登录失败');
     }
   }
 

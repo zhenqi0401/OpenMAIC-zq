@@ -34,7 +34,7 @@ import {
   normalizeInviteCode,
   type InviteCodeValidationIssue,
 } from '@/lib/auth/invite-code';
-import { toast } from 'sonner';
+import { adminToast } from '@/lib/admin/toast';
 import { AccessDangerDialog } from './AccessUsersTab';
 
 export interface InviteDraft {
@@ -226,11 +226,11 @@ export function AccessInvitesTab({
   async function submitCreate() {
     const issue = getInviteCodeValidationIssue(resolvedNewInvite.code);
     if (issue) {
-      toast.error(getInviteCodeValidationMessage(issue));
+      adminToast.error(getInviteCodeValidationMessage(issue));
       return;
     }
     if (!resolvedNewInvite.roleId) {
-      toast.error('绑定角色必填');
+      adminToast.error('绑定角色必填');
       return;
     }
     if (await onCreateInvite(resolvedNewInvite)) {
