@@ -28,6 +28,7 @@ export interface AdminRowActionsProps {
   primaryAction?: ReactNode;
   triggerLabel?: string;
   triggerAriaLabel?: string;
+  menuModal?: boolean;
 }
 
 export function partitionAdminRowActions(actions: readonly AdminRowAction[]) {
@@ -70,6 +71,7 @@ export function AdminRowActions({
   primaryAction,
   triggerLabel = '更多',
   triggerAriaLabel = '更多操作',
+  menuModal = true,
 }: AdminRowActionsProps) {
   const { standard, destructive } = partitionAdminRowActions(actions);
 
@@ -79,7 +81,7 @@ export function AdminRowActions({
     <div className="flex flex-wrap items-center justify-end gap-2" data-admin-row-actions>
       {primaryAction}
       {actions.length > 0 ? (
-        <DropdownMenu>
+        <DropdownMenu modal={menuModal}>
           <DropdownMenuTrigger asChild>
             <Button
               aria-label={triggerAriaLabel}

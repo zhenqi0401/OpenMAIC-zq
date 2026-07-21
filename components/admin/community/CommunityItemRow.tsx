@@ -129,6 +129,7 @@ export function CommunityItemRow({
         {!isAudit ? (
           <AdminRowActions
             actions={actions}
+            menuModal={false}
             primaryAction={
               primaryAction ? (
                 <Button
@@ -148,19 +149,6 @@ export function CommunityItemRow({
           />
         ) : null}
       </div>
-
-      <details className="text-xs text-[#75665d]">
-        <summary className="w-fit cursor-pointer select-none text-[#9b5b47]">详细信息</summary>
-        <dl className="mt-2 grid gap-x-6 gap-y-1 rounded-[4px] bg-[#f7eee3] p-3 sm:grid-cols-2">
-          <div>记录 ID：{item.id}</div>
-          {item.author ? <div>作者 ID：{item.author.id}</div> : null}
-          {item.courseId ? <div>课程 ID：{item.courseId}</div> : null}
-          {item.sceneKey ? <div>场景 ID：{item.sceneKey}</div> : null}
-          {item.actionId ? <div>动作 ID：{item.actionId}</div> : null}
-          {item.targetId ? <div>目标 ID：{item.targetId}</div> : null}
-          {item.postId ? <div>帖子 ID：{item.postId}</div> : null}
-        </dl>
-      </details>
     </AdminCard>
   );
 }

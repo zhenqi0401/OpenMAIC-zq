@@ -15,7 +15,6 @@ import {
 import {
   countDraftCandidateQuestions,
   createEmptyPolicyDraft,
-  getCandidateHealth,
   getExamReadiness,
   getPolicyMenuLabels,
   toPolicyDraft,
@@ -204,9 +203,9 @@ describe('ExamPolicyAdminPanel', () => {
     ]) {
       expect(markup).toContain(heading);
     }
-    expect(markup).toContain('候选题不足');
     expect(markup).toContain('编辑');
-    expect(markup).toContain('flex flex-wrap items-center gap-1.5');
+    expect(markup).not.toContain('题量充足');
+    expect(markup).not.toContain('候选题不足');
     expect(markup).not.toContain('<input');
     expect(markup).not.toContain('参与人数');
     expect(markup).not.toContain('通过率');
@@ -218,10 +217,5 @@ describe('ExamPolicyAdminPanel', () => {
     ['archived', ['重新发布']],
   ] as const)('exposes only the allowed %s menu actions', (status, labels) => {
     expect(getPolicyMenuLabels(status)).toEqual(labels);
-  });
-
-  it('marks candidate capacity against the requested question count', () => {
-    expect(getCandidateHealth(20, 20).label).toBe('题量充足');
-    expect(getCandidateHealth(19, 20).label).toBe('候选题不足');
   });
 });

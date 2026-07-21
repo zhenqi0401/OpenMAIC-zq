@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -44,6 +44,7 @@ export function CommunityModerationDialog({
   onOpenChange: (open: boolean) => void;
   onSubmit: (reason: string) => void;
 }) {
+  const contentRef = useRef<HTMLDivElement>(null);
   const [preset, setPreset] = useState('');
   const [detail, setDetail] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -67,7 +68,13 @@ export function CommunityModerationDialog({
     <Dialog onOpenChange={(nextOpen) => !submitting && onOpenChange(nextOpen)} open={open}>
       <DialogContent
         className="max-w-[540px] rounded-[6px] border border-[#d8c8b9] bg-[#fffaf2] text-[#2b211d]"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          contentRef.current?.focus({ preventScroll: true });
+        }}
+        ref={contentRef}
         style={adminThemeStyle}
+        tabIndex={-1}
       >
         <DialogHeader>
           <DialogTitle className="text-xl font-normal">确认{actionLabel}</DialogTitle>

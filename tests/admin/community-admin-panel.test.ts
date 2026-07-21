@@ -84,7 +84,7 @@ describe('community admin panel presentation', () => {
     expect(availableCommunityTabs(false, false).map((tab) => tab.label)).toEqual(['操作审计']);
   });
 
-  it('uses an in-page dialog, keeps technical IDs collapsed, and retains data on failure', () => {
+  it('uses a stable in-page dialog, hides technical IDs, and retains data on failure', () => {
     const panelSource = readFileSync('components/admin/community/CommunityAdminPanel.tsx', 'utf8');
     const rowSource = readFileSync('components/admin/community/CommunityItemRow.tsx', 'utf8');
     const dialogSource = readFileSync(
@@ -97,8 +97,13 @@ describe('community admin panel presentation', () => {
     expect(panelSource.indexOf('if (!response.ok)')).toBeLessThan(
       panelSource.indexOf('setItems(data.items)'),
     );
-    expect(rowSource).toContain('<details');
-    expect(rowSource).toContain('记录 ID：{item.id}');
+    expect(rowSource).toContain('menuModal={false}');
+    expect(rowSource).not.toContain('<details');
+    expect(rowSource).not.toContain('记录 ID：{item.id}');
+    expect(rowSource).not.toContain('作者 ID：{item.author.id}');
+    expect(panelSource).toContain('moderationScrollPosition');
+    expect(panelSource).toContain("window.scrollTo({ ...position, behavior: 'auto' })");
+    expect(dialogSource).toContain('focus({ preventScroll: true })');
     expect(dialogSource).toContain('value={detail}');
     expect(dialogSource).toContain('{error ? <AdminNotice');
   });

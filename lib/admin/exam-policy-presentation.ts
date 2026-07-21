@@ -86,12 +86,6 @@ export function countDraftCandidateQuestions(
     .reduce((total, course) => total + course.assessmentQuestions.length, 0);
 }
 
-export function getCandidateHealth(candidateQuestionCount: number, questionCount: number) {
-  return candidateQuestionCount >= questionCount
-    ? ({ label: '题量充足', tone: 'success' } as const)
-    : ({ label: '候选题不足', tone: 'warning' } as const);
-}
-
 export function getPolicyStatusView(status: AdminExamPolicy['status']) {
   return {
     draft: { label: '草稿', tone: 'warning' },
