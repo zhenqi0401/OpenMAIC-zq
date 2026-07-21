@@ -226,6 +226,12 @@ describe('filterAdminCourses', () => {
     expect(markup).not.toContain('data-size="icon"');
     expect(markup).not.toContain('课程完成率');
     expect(markup).not.toContain('<aside');
+    const listHeaderPosition = markup.indexOf('data-course-list-header');
+    const categoryActionPosition = markup.indexOf('data-course-category-action');
+    const filtersPosition = markup.indexOf('data-course-filters');
+    expect(listHeaderPosition).toBeGreaterThan(-1);
+    expect(categoryActionPosition).toBeGreaterThan(listHeaderPosition);
+    expect(filtersPosition).toBeGreaterThan(categoryActionPosition);
   });
 
   it('distinguishes an empty catalog from a filter with no matches', () => {

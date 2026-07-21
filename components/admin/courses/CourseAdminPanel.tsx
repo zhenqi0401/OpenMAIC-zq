@@ -254,21 +254,14 @@ export function CourseAdminPanel() {
         action={
           <AdminSessionActions
             leading={
-              <div className="flex flex-wrap gap-2">
-                <CategoryDialog
-                  categories={categories}
-                  creating={creatingCategory}
-                  onCreate={createCategory}
-                />
-                <Button
-                  className={adminSecondaryButtonClassName}
-                  onClick={loadAll}
-                  type="button"
-                  variant="outline"
-                >
-                  刷新
-                </Button>
-              </div>
+              <Button
+                className={adminSecondaryButtonClassName}
+                onClick={loadAll}
+                type="button"
+                variant="outline"
+              >
+                刷新
+              </Button>
             }
           />
         }
@@ -279,13 +272,25 @@ export function CourseAdminPanel() {
       />
 
       <AdminCard className="overflow-hidden">
-        <div className="border-b border-[#d8c8b9] px-4 py-4">
-          <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
-            课程列表
+        <div
+          className="flex flex-col gap-3 border-b border-[#d8c8b9] px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+          data-course-list-header
+        >
+          <div>
+            <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+              课程列表
+            </div>
+            <p className="mt-1 text-sm text-[#75665d]">
+              课程由首页生成，此处负责筛选、分类、发布、可见范围和删除。
+            </p>
           </div>
-          <p className="mt-1 text-sm text-[#75665d]">
-            课程由首页生成，此处负责筛选、分类、发布、可见范围和删除。
-          </p>
+          <div className="shrink-0" data-course-category-action>
+            <CategoryDialog
+              categories={categories}
+              creating={creatingCategory}
+              onCreate={createCategory}
+            />
+          </div>
         </div>
 
         <CourseFilters

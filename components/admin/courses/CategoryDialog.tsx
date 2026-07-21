@@ -45,7 +45,7 @@ export function CategoryDialog({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button className={adminSecondaryButtonClassName} type="button" variant="outline">
+        <Button className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]" type="button">
           分类管理
         </Button>
       </DialogTrigger>
