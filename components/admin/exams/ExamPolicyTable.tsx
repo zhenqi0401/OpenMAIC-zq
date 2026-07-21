@@ -111,8 +111,12 @@ export function ExamPolicyTable({
                   </td>
                   <td className="px-2 py-3 text-right tabular-nums">{policy.questionCount}</td>
                   <td className="px-2 py-3">
-                    <div className="tabular-nums text-[#2b211d]">{candidateQuestionCount} 题</div>
-                    <AdminStatusBadge tone={health.tone}>{health.label}</AdminStatusBadge>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="whitespace-nowrap tabular-nums text-[#2b211d]">
+                        {candidateQuestionCount} 题
+                      </span>
+                      <AdminStatusBadge tone={health.tone}>{health.label}</AdminStatusBadge>
+                    </div>
                   </td>
                   <td className="px-2 py-3 text-right tabular-nums">{policy.passThreshold}%</td>
                   <td className="px-2 py-3 text-right tabular-nums">

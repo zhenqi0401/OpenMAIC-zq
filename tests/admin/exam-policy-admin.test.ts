@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { ExamPolicyAdminPanel } from '@/components/admin/exams/ExamPolicyAdminPanel';
 import { ExamPolicyTable } from '@/components/admin/exams/ExamPolicyTable';
 import { ExamReadinessSummary } from '@/components/admin/exams/ExamReadinessSummary';
+import { ScopePicker } from '@/components/admin/exams/ScopePicker';
 import {
   changeExamCategoryScope,
   examCourseScopeLabel,
@@ -99,6 +100,22 @@ describe('exam policy course scope', () => {
     ).toBe(2);
   });
 
+  it('shows the course scope selection once and keeps the empty-selection explanation distinct', () => {
+    const markup = renderToStaticMarkup(
+      createElement(ScopePicker, {
+        categories: [{ id: 'category-sales', name: '销售', sortOrder: 1 }],
+        categoryIds: ['category-sales'],
+        courses: [courses[0]],
+        courseIds: [],
+        onCategoryToggle: () => {},
+        onClearCourses: () => {},
+        onCourseToggle: () => {},
+      }),
+    );
+    expect(markup.match(/使用所选分类下全部课程/g)).toHaveLength(1);
+    expect(markup).toContain('空选择表示使用所选分类下全部已发布课程');
+  });
+
   it('supports multi-select and resets concrete courses when categories change', () => {
     expect(toggleExamCourseSelection(['course-sales'], 'course-service')).toEqual([
       'course-sales',
@@ -121,11 +138,18 @@ describe('ExamPolicyAdminPanel', () => {
     expect(markup).toContain('考核策略列表');
     expect(markup).toContain('题库准备摘要');
     expect(markup).toContain('搜索考核名称或目标角色');
+    expect(markup).toContain('data-exam-policy-list="true"');
+    expect(markup).toContain('data-exam-policy-filters="true"');
     expect(markup).not.toContain('基础设置');
 
     const source = readFileSync('components/admin/exams/ExamPolicyAdminPanel.tsx', 'utf8');
     expect(source).toContain('onClick={openCreateDialog}');
     expect(source).toContain('setDialogDraft(toPolicyDraft(policy))');
+    expect(source.indexOf('data-exam-policy-list')).toBeLessThan(
+      source.indexOf('data-exam-policy-filters'),
+    );
+    expect(source).toContain('toast.success(message, { style: successToastStyle })');
+    expect(source).toContain('toast.error(error instanceof Error ? error.message : fallback');
   });
 
   it('loads every editable field from the selected policy', () => {
@@ -182,6 +206,7 @@ describe('ExamPolicyAdminPanel', () => {
     }
     expect(markup).toContain('候选题不足');
     expect(markup).toContain('编辑');
+    expect(markup).toContain('flex flex-wrap items-center gap-1.5');
     expect(markup).not.toContain('<input');
     expect(markup).not.toContain('参与人数');
     expect(markup).not.toContain('通过率');

@@ -1,7 +1,6 @@
 'use client';
 
 import { ChevronsUpDown } from 'lucide-react';
-import { AdminStatusBadge } from '@/components/admin/AdminSurface';
 import { Button } from '@/components/ui/button';
 import {
   Command,
@@ -62,7 +61,7 @@ export function ScopePicker({
       </div>
       <div>
         <div className="mb-2 text-xs font-medium text-[#75665d]">课程范围</div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div>
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -112,7 +111,6 @@ export function ScopePicker({
               </Command>
             </PopoverContent>
           </Popover>
-          <AdminStatusBadge>{examCourseScopeLabel([...courseIds])}</AdminStatusBadge>
         </div>
         <p className="mt-2 text-xs leading-5 text-[#75665d]">
           空选择表示使用所选分类下全部已发布课程。

@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ClipboardList, Plus } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   AdminCard,
-  AdminNotice,
   AdminSectionHeader,
   adminInputClassName,
   adminSelectClassName,
@@ -45,8 +45,6 @@ export function ExamPolicyAdminPanel() {
   const [dialogDraft, setDialogDraft] = useState<ExamPolicyDraft>(createEmptyPolicyDraft());
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | AdminExamPolicy['status']>('all');
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingPolicyId, setDeletingPolicyId] = useState<string | null>(null);
 
@@ -93,26 +91,29 @@ export function ExamPolicyAdminPanel() {
     );
   }, [policies, query, roleNames, statusFilter]);
 
-  const loadAll = useCallback(async () => {
-    setError(null);
-    try {
-      const [roleData, categoriesResponse, coursesResponse, policyData] = await Promise.all([
-        client.listRoles(),
-        fetch('/api/admin/categories'),
-        fetch('/api/admin/courses'),
-        client.listExamPolicies(),
-      ]);
-      if (!categoriesResponse.ok || !coursesResponse.ok) throw new Error('分类或课程加载失败');
-      const categoriesData = (await categoriesResponse.json()) as { categories: ExamCategory[] };
-      const coursesData = (await coursesResponse.json()) as { courses: EnterpriseCourse[] };
-      setRoles(roleData);
-      setCategories(categoriesData.categories);
-      setCourses(coursesData.courses);
-      setPolicies(policyData);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : '考核策略加载失败');
-    }
-  }, [client]);
+  const loadAll = useCallback(
+    async (notify = false) => {
+      try {
+        const [roleData, categoriesResponse, coursesResponse, policyData] = await Promise.all([
+          client.listRoles(),
+          fetch('/api/admin/categories'),
+          fetch('/api/admin/courses'),
+          client.listExamPolicies(),
+        ]);
+        if (!categoriesResponse.ok || !coursesResponse.ok) throw new Error('分类或课程加载失败');
+        const categoriesData = (await categoriesResponse.json()) as { categories: ExamCategory[] };
+        const coursesData = (await coursesResponse.json()) as { courses: EnterpriseCourse[] };
+        setRoles(roleData);
+        setCategories(categoriesData.categories);
+        setCourses(coursesData.courses);
+        setPolicies(policyData);
+        if (notify) notifySuccess('考核列表已刷新');
+      } catch (loadError) {
+        notifyError(loadError, '考核策略加载失败');
+      }
+    },
+    [client],
+  );
 
   useEffect(() => {
     void loadAll();
@@ -142,59 +143,55 @@ export function ExamPolicyAdminPanel() {
       !dialogDraft.targetRoleId ||
       dialogDraft.categoryIds.length === 0
     ) {
-      setError('标题、目标角色和分类必填');
+      notifyError(null, '标题、目标角色和分类必填');
       return;
     }
     setSaving(true);
-    setError(null);
     try {
       if (dialogMode === 'create') {
         await client.createExamPolicy(toPolicyInput(dialogDraft));
-        setMessage('考核策略已创建');
+        notifySuccess('考核策略已创建');
       } else if (dialogPolicyId) {
         await client.updateExamPolicy(dialogPolicyId, toPolicyInput(dialogDraft));
-        setMessage('考核策略已保存');
+        notifySuccess('考核策略已保存');
       }
       setDialogOpen(false);
       await loadAll();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : '考核策略保存失败');
+      notifyError(saveError, '考核策略保存失败');
     } finally {
       setSaving(false);
     }
   }
 
   async function publishPolicy(policyId: string) {
-    setError(null);
     try {
       await client.publishExamPolicy(policyId);
-      setMessage('考核策略已发布');
+      notifySuccess('考核策略已发布');
       await loadAll();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : '考核策略发布失败');
+      notifyError(saveError, '考核策略发布失败');
     }
   }
 
   async function archivePolicy(policyId: string) {
-    setError(null);
     try {
       await client.updateExamPolicy(policyId, { status: 'archived' });
-      setMessage('考核策略已下架');
+      notifySuccess('考核策略已下架');
       await loadAll();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : '考核策略下架失败');
+      notifyError(saveError, '考核策略下架失败');
     }
   }
 
   async function deletePolicy(policyId: string) {
     setDeletingPolicyId(policyId);
-    setError(null);
     try {
       await client.deleteExamPolicy(policyId);
-      setMessage('考核策略已删除');
+      notifySuccess('考核策略已删除');
       await loadAll();
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : '考核策略删除失败');
+      notifyError(deleteError, '考核策略删除失败');
     } finally {
       setDeletingPolicyId(null);
     }
@@ -206,24 +203,14 @@ export function ExamPolicyAdminPanel() {
         action={
           <AdminSessionActions
             leading={
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
-                  onClick={openCreateDialog}
-                  type="button"
-                >
-                  <Plus aria-hidden="true" className="size-4" />
-                  新建考核
-                </Button>
-                <Button
-                  className="rounded-[4px] border-[#d8c8b9]"
-                  onClick={loadAll}
-                  type="button"
-                  variant="outline"
-                >
-                  刷新
-                </Button>
-              </div>
+              <Button
+                className="rounded-[4px] border-[#d8c8b9]"
+                onClick={() => void loadAll(true)}
+                type="button"
+                variant="outline"
+              >
+                刷新
+              </Button>
             }
           />
         }
@@ -233,43 +220,48 @@ export function ExamPolicyAdminPanel() {
         title="阶段考核"
       />
 
-      {(message || error) && (
-        <AdminNotice tone={error ? 'error' : 'success'}>{error ?? message}</AdminNotice>
-      )}
-
       <ExamReadinessSummary readiness={readiness} />
 
-      <AdminCard className="p-4" data-exam-policy-filters>
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
-          <Input
-            aria-label="搜索考核"
-            className={adminInputClassName}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="搜索考核名称或目标角色"
-            value={query}
-          />
-          <select
-            aria-label="筛选考核状态"
-            className={adminSelectClassName}
-            onChange={(event) =>
-              setStatusFilter(event.target.value as 'all' | AdminExamPolicy['status'])
-            }
-            value={statusFilter}
+      <AdminCard className="overflow-hidden" data-exam-policy-list>
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#d8c8b9] px-4 py-4">
+          <div>
+            <div className="text-xl font-normal leading-tight text-[#2b211d]">考核策略列表</div>
+            <p className="mt-1 text-sm text-[#75665d]">
+              共 {filteredPolicies.length} 项；编辑配置后，再按状态发布、下架或删除草稿。
+            </p>
+          </div>
+          <Button
+            className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
+            onClick={openCreateDialog}
+            type="button"
           >
-            <option value="all">全部状态</option>
-            <option value="draft">草稿</option>
-            <option value="published">已发布</option>
-            <option value="archived">已归档</option>
-          </select>
+            <Plus aria-hidden="true" className="size-4" />
+            新建考核
+          </Button>
         </div>
-      </AdminCard>
-
-      <AdminCard className="overflow-hidden">
-        <div className="border-b border-[#d8c8b9] px-4 py-4">
-          <div className="text-xl font-normal leading-tight text-[#2b211d]">考核策略列表</div>
-          <p className="mt-1 text-sm text-[#75665d]">
-            共 {filteredPolicies.length} 项；编辑配置后，再按状态发布、下架或删除草稿。
-          </p>
+        <div className="border-b border-[#eaded1] p-4" data-exam-policy-filters>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
+            <Input
+              aria-label="搜索考核"
+              className={adminInputClassName}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="搜索考核名称或目标角色"
+              value={query}
+            />
+            <select
+              aria-label="筛选考核状态"
+              className={adminSelectClassName}
+              onChange={(event) =>
+                setStatusFilter(event.target.value as 'all' | AdminExamPolicy['status'])
+              }
+              value={statusFilter}
+            >
+              <option value="all">全部状态</option>
+              <option value="draft">草稿</option>
+              <option value="published">已发布</option>
+              <option value="archived">已归档</option>
+            </select>
+          </div>
         </div>
         {policies.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-[#75665d]">暂无阶段考核</div>
@@ -322,3 +314,23 @@ export function ExamPolicyAdminPanel() {
 }
 
 export { ExamPolicyActions } from '@/components/admin/exams/ExamPolicyTable';
+
+const successToastStyle = {
+  background: '#eef5ec',
+  borderColor: '#9db297',
+  color: '#35523a',
+};
+
+const errorToastStyle = {
+  background: '#f9ece8',
+  borderColor: '#d7a397',
+  color: '#7b3e32',
+};
+
+function notifySuccess(message: string) {
+  toast.success(message, { style: successToastStyle });
+}
+
+function notifyError(error: unknown, fallback: string) {
+  toast.error(error instanceof Error ? error.message : fallback, { style: errorToastStyle });
+}
