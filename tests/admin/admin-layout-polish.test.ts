@@ -89,12 +89,15 @@ describe('admin layout polish', () => {
     );
 
     expect(userMarkup).toContain('data-admin-access-layout');
+    expect(userMarkup).toContain('用户管理');
     expect(userMarkup).toContain('role="tablist"');
     expect(userMarkup.match(/role="tab"/g)).toHaveLength(3);
     expect(userMarkup).toContain('用户');
     expect(userMarkup).toContain('角色');
     expect(userMarkup).toContain('邀请码');
     expect(userMarkup).toContain('data-admin-access-workspace="users"');
+    expect(userMarkup).not.toContain('脱敏手机号');
+    expect(userMarkup).not.toContain('危险操作');
     expect(userMarkup).not.toContain('data-admin-access-workspace="roles"');
     expect(userMarkup).not.toContain('data-admin-access-workspace="invites"');
 

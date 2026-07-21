@@ -8,6 +8,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { BrandLockup } from '@/components/brand/BrandLockup';
+import { AdminCurrentIdentity } from '@/components/admin/AdminCurrentIdentity';
 import { adminThemeStyle } from '@/components/admin/AdminSurface';
 import { cn } from '@/lib/utils';
 import { isDanmakuEnabled, isForumEnabled } from '@/lib/config/feature-flags';
@@ -53,8 +54,8 @@ export const adminModules: AdminModule[] = [
   },
   {
     id: 'access',
-    label: '访问与角色',
-    description: '角色、用户与邀请码',
+    label: '用户管理',
+    description: '用户、角色与邀请码',
     href: '/admin?module=access',
     icon: KeyRound,
   },
@@ -76,10 +77,7 @@ export function AdminShell({ activeModuleId = 'dashboard', children }: AdminShel
         <aside className="hidden border-r border-[#d8c8b9] bg-[linear-gradient(180deg,#fffaf2,#f1e2d0)] lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:flex-col lg:gap-5 lg:p-6">
           <AdminBrand />
           <AdminNavigation activeModuleId={activeModuleId} />
-          <div className="mt-auto grid gap-1 border-t border-[#eaded1] pt-4 text-xs text-[#75665d]">
-            <span>当前身份：企业管理员</span>
-            <span>数据来源：后台 API 只读映射</span>
-          </div>
+          <AdminCurrentIdentity />
         </aside>
 
         <main data-admin-shell="prototype-workbench" className="min-w-0">

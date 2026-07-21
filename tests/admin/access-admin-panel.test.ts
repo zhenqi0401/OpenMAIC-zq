@@ -5,7 +5,6 @@ import {
   resolveAccessSection,
 } from '@/components/admin/access/AccessAdminPanel';
 import { getRoleUsageCounts } from '@/components/admin/access/AccessRolesTab';
-import { maskAdminPhone } from '@/components/admin/access/AccessUsersTab';
 
 describe('AccessAdminPanel data loading', () => {
   it('loads roles, invite codes, and users without loading the dashboard', async () => {
@@ -37,12 +36,6 @@ describe('AccessAdminPanel data loading', () => {
     expect(buildAccessSectionUrl('?module=access&source=test', 'roles')).toBe(
       '/admin?module=access&source=test&section=roles',
     );
-  });
-
-  it('masks user phone numbers before rendering them', () => {
-    expect(maskAdminPhone('13800138000')).toBe('138****8000');
-    expect(maskAdminPhone('1234567')).toBe('12***67');
-    expect(maskAdminPhone(null)).toBe('-');
   });
 
   it('calculates current user and invite-code counts for each loaded role', () => {

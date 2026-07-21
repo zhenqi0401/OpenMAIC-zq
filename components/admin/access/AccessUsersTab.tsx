@@ -25,14 +25,6 @@ import { AdminPagination } from '@/components/admin/AdminPagination';
 import type { AdminUser, RoleOption } from '@/lib/admin/client';
 import { paginateAdminRows } from '@/lib/admin/pagination';
 
-export function maskAdminPhone(phone: string | null | undefined): string {
-  if (!phone) return '-';
-  if (phone.length <= 7) {
-    return `${phone.slice(0, 2)}${'*'.repeat(Math.max(1, phone.length - 4))}${phone.slice(-2)}`;
-  }
-  return `${phone.slice(0, 3)}****${phone.slice(-4)}`;
-}
-
 export function AccessDangerDialog({
   busy,
   confirmLabel,
@@ -133,11 +125,20 @@ function UserRoleEditor({
 
 function UserFacts({ user }: { user: AdminUser }) {
   return (
-    <>
-      <span className="font-medium text-[#2b211d]">{user.displayName}</span>
-      <span className="text-[#75665d]">{maskAdminPhone(user.phone)}</span>
-      <span className="break-all text-[#75665d]">{user.hostUserId ?? '-'}</span>
-    </>
+    <dl className="grid gap-2">
+      <div>
+        <dt className="text-xs text-[#75665d]">用户</dt>
+        <dd className="mt-1 font-medium text-[#2b211d]">{user.displayName}</dd>
+      </div>
+      <div>
+        <dt className="text-xs text-[#75665d]">手机号</dt>
+        <dd className="mt-1 text-[#75665d]">{user.phone ?? '-'}</dd>
+      </div>
+      <div>
+        <dt className="text-xs text-[#75665d]">外部用户 ID</dt>
+        <dd className="mt-1 break-all text-[#75665d]">{user.hostUserId ?? '-'}</dd>
+      </div>
+    </dl>
   );
 }
 
@@ -200,40 +201,47 @@ export function AccessUsersTab({
     content = (
       <>
         <div className="hidden xl:block" data-admin-access-user-table>
-          <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(220px,1.25fr)_auto] gap-3 border-b border-[#eaded1] pb-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#75665d]">
-            <span>用户</span>
-            <span>脱敏手机号</span>
-            <span>外部 ID</span>
-            <span>当前角色</span>
-            <span className="text-right">危险操作</span>
-          </div>
-          <div className="divide-y divide-[#eaded1]">
-            {pagination.rows.map((user) => {
-              const saving = savingUserId === user.id;
-              return (
-                <div
-                  className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(220px,1.25fr)_auto] items-center gap-3 py-3 text-sm"
-                  key={user.id}
-                >
-                  <UserFacts user={user} />
-                  <UserRoleEditor
-                    disabled={saving}
-                    onChange={(roleId) => onRoleChange(user.id, roleId)}
-                    onSave={() => onSaveUserRole(user)}
-                    roleId={userRoleDrafts[user.id] ?? user.role.id}
-                    roleOptions={roleOptions}
-                  />
-                  <div className="flex justify-end">
-                    <UserDeleteAction
-                      busy={deletingUserId === user.id}
-                      onDelete={() => onDeleteUser(user)}
-                      user={user}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <table className="w-full table-auto border-collapse text-left text-sm">
+            <thead className="border-b border-[#eaded1] text-xs font-semibold uppercase tracking-[0.08em] text-[#75665d]">
+              <tr>
+                <th className="pb-2 pr-3">用户</th>
+                <th className="pb-2 pr-3">手机号</th>
+                <th className="pb-2 pr-3">外部用户 ID</th>
+                <th className="pb-2 pr-3">当前角色</th>
+                <th className="pb-2 text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#eaded1]">
+              {pagination.rows.map((user) => {
+                const saving = savingUserId === user.id;
+                return (
+                  <tr key={user.id}>
+                    <td className="py-3 pr-3 font-medium text-[#2b211d]">{user.displayName}</td>
+                    <td className="py-3 pr-3 text-[#75665d]">{user.phone ?? '-'}</td>
+                    <td className="max-w-52 break-all py-3 pr-3 text-[#75665d]">
+                      {user.hostUserId ?? '-'}
+                    </td>
+                    <td className="py-3 pr-3">
+                      <UserRoleEditor
+                        disabled={saving}
+                        onChange={(roleId) => onRoleChange(user.id, roleId)}
+                        onSave={() => onSaveUserRole(user)}
+                        roleId={userRoleDrafts[user.id] ?? user.role.id}
+                        roleOptions={roleOptions}
+                      />
+                    </td>
+                    <td className="py-3 text-right">
+                      <UserDeleteAction
+                        busy={deletingUserId === user.id}
+                        onDelete={() => onDeleteUser(user)}
+                        user={user}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
 
         <div className="grid gap-3 xl:hidden" data-admin-access-user-cards>
@@ -281,7 +289,7 @@ export function AccessUsersTab({
           用户与角色
         </h3>
         <p className="mt-1 text-sm leading-6 text-[#75665d]">
-          手机号只显示脱敏值；删除会永久移除账号及其关联学习记录。
+          查看用户基本信息并调整所属角色；删除用户会同时移除其关联学习记录。
         </p>
       </div>
       {content}

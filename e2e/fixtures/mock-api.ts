@@ -22,6 +22,18 @@ export class MockApi {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           authenticated: true,
+          user: {
+            id: 'admin-e2e',
+            phone: '13800138000',
+            hostUserId: 'host-admin-e2e',
+            displayName: 'E2E 管理员',
+            role: {
+              id: 'role-admin',
+              code: 'admin',
+              name: '管理员',
+              isAdmin: true,
+            },
+          },
           identity: {
             userId: 'admin-e2e',
             roleId: 'role-admin',

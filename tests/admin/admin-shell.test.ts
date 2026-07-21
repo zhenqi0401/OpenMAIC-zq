@@ -2,6 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { AdminShell, adminModules } from '@/components/admin/AdminShell';
+import { formatAdminIdentity } from '@/components/admin/AdminCurrentIdentity';
 
 describe('AdminShell', () => {
   it('renders the five admin modules as accessible navigation targets', () => {
@@ -30,6 +31,23 @@ describe('AdminShell', () => {
     expect(markup).toContain('data-admin-theme="warm-workbench"');
     expect(markup).toContain('--primary:');
     expect(markup).toContain('--ring:');
+    expect(markup).toContain('用户管理');
+    expect(markup).not.toContain('访问与角色');
+  });
+
+  it('formats the current session user and role for the sidebar', () => {
+    expect(
+      formatAdminIdentity({
+        id: 'user-1',
+        displayName: '张三',
+        phone: '13800138000',
+        role: { name: '管理员', code: 'admin' },
+      }),
+    ).toEqual({ user: '张三', role: '管理员（admin）' });
+    expect(formatAdminIdentity({ id: 'user-2', phone: '13900139000' })).toEqual({
+      user: '13900139000',
+      role: '未知角色',
+    });
   });
 
   it('lets the right-side workbench fill the available screen width', () => {

@@ -89,7 +89,7 @@ async function mockAccessApis(page: Page, revokedRequests: string[] = []) {
 
 async function openAccess(page: Page, section: 'users' | 'roles' | 'invites' = 'users') {
   await page.goto(`/admin?module=access&section=${section}`);
-  await expect(page.getByRole('heading', { name: '访问与角色' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '用户管理' })).toBeVisible();
   await expect(page.locator(`[data-admin-access-workspace="${section}"]`)).toBeVisible();
 }
 
@@ -102,10 +102,32 @@ test.describe('P0-03 access workbench', () => {
     await openAccess(page, 'invites');
 
     const workspace = page.locator('[data-admin-access-invite-workspace]');
-    await expect(workspace.locator('[data-admin-access-invite-table]')).toBeVisible();
+    const inviteTable = workspace.locator('[data-admin-access-invite-table]');
+    await expect(inviteTable).toBeVisible();
     expect(await workspace.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
       true,
     );
+    const headerColumns = await inviteTable.locator('thead th').evaluateAll((cells) =>
+      cells.map((cell) => {
+        const rect = cell.getBoundingClientRect();
+        return { left: rect.left, width: rect.width };
+      }),
+    );
+    const dataColumns = await inviteTable
+      .locator('tbody tr')
+      .first()
+      .locator('td')
+      .evaluateAll((cells) =>
+        cells.map((cell) => {
+          const rect = cell.getBoundingClientRect();
+          return { left: rect.left, width: rect.width };
+        }),
+      );
+    expect(dataColumns).toHaveLength(headerColumns.length);
+    headerColumns.forEach((header, index) => {
+      expect(Math.abs(header.left - dataColumns[index].left)).toBeLessThan(1);
+      expect(Math.abs(header.width - dataColumns[index].width)).toBeLessThan(1);
+    });
     await expect(workspace).not.toContainText('SALES-SECRET-2026');
   });
 
@@ -129,9 +151,25 @@ test.describe('P0-03 access workbench', () => {
     await mockAccessApis(page, revokedRequests);
     await openAccess(page);
 
+    const activeUserTabColors = await page
+      .getByRole('tab', { name: /^用户，/, selected: true })
+      .evaluate((tab) => {
+        const style = window.getComputedStyle(tab);
+        return { backgroundColor: style.backgroundColor, color: style.color };
+      });
+    expect(activeUserTabColors.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+    expect(activeUserTabColors.color).toBe('rgb(43, 33, 29)');
+
     const usersWorkspace = page.locator('[data-admin-access-workspace="users"]');
-    await expect(usersWorkspace).toContainText('138****8000');
-    await expect(usersWorkspace).not.toContainText('13800138000');
+    await expect(usersWorkspace).toContainText('13800138000');
+    await expect(usersWorkspace).not.toContainText('脱敏手机号');
+    await expect(usersWorkspace).not.toContainText('危险操作');
+    await expect(page.locator('[data-admin-current-identity]')).toContainText(
+      '当前用户：E2E 管理员',
+    );
+    await expect(page.locator('[data-admin-current-identity]')).toContainText(
+      '当前角色：管理员（admin）',
+    );
     await usersWorkspace.getByRole('button', { name: '永久删除用户' }).click();
     await expect(page.getByRole('heading', { name: '永久删除用户' })).toBeVisible();
     await page.getByRole('button', { name: '取消' }).click();

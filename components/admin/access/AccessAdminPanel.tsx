@@ -290,14 +290,14 @@ export function AccessAdminPanel({
             }
           />
         }
-        description="将用户、角色和邀请码拆成独立工作区，同时保留现有访问控制 API 与服务端保护。"
-        eyebrow="Access"
+        description="集中管理用户资料、角色分配和邀请码，所有变更继续遵循现有权限规则。"
+        eyebrow="User management"
         icon={<Shield className="size-4" />}
-        title="访问与角色"
+        title="用户管理"
       />
 
       <AdminTabs
-        ariaLabel="访问与角色工作区"
+        ariaLabel="用户管理工作区"
         items={accessTabs.map((tab) => ({
           ...tab,
           count:

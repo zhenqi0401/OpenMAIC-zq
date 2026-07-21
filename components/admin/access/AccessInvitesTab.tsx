@@ -150,15 +150,21 @@ function InviteSummary({
   const view = getInviteCodeView(inviteCode, roles);
   return (
     <>
-      <InviteStatusBadge status={view.status} />
-      <span className="min-w-0 break-words font-medium text-[#2b211d]">{view.roleLabel}</span>
-      <time className="break-words text-sm text-[#75665d]">
-        {formatAdminDate(inviteCode.createdAt, '-')}
-      </time>
-      <time className="break-words text-sm text-[#75665d]">
-        {formatAdminDate(inviteCode.expiresAt)}
-      </time>
-      <span className="text-sm text-[#75665d]">{inviteCode.enabled ? '是' : '否'}</span>
+      <td className="py-3 pr-3">
+        <InviteStatusBadge status={view.status} />
+      </td>
+      <td className="break-words py-3 pr-3 font-medium text-[#2b211d]">{view.roleLabel}</td>
+      <td className="py-3 pr-3">
+        <time className="break-words text-sm text-[#75665d]">
+          {formatAdminDate(inviteCode.createdAt, '-')}
+        </time>
+      </td>
+      <td className="py-3 pr-3">
+        <time className="break-words text-sm text-[#75665d]">
+          {formatAdminDate(inviteCode.expiresAt)}
+        </time>
+      </td>
+      <td className="py-3 pr-3 text-sm text-[#75665d]">{inviteCode.enabled ? '是' : '否'}</td>
     </>
   );
 }
@@ -309,43 +315,46 @@ export function AccessInvitesTab({
       ) : (
         <>
           <div className="hidden xl:block" data-admin-access-invite-table>
-            <div className="grid grid-cols-[minmax(90px,0.65fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(48px,0.4fr)_auto] gap-3 border-b border-[#eaded1] pb-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#75665d]">
-              <span>状态</span>
-              <span>绑定角色</span>
-              <span>创建时间</span>
-              <span>过期时间</span>
-              <span>启用</span>
-              <span className="text-right">操作</span>
-            </div>
-            <div className="divide-y divide-[#eaded1]">
-              {inviteCodes.map((inviteCode) => (
-                <div
-                  className="grid grid-cols-[minmax(90px,0.65fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(48px,0.4fr)_auto] items-center gap-3 py-3"
-                  key={inviteCode.id}
-                >
-                  <InviteSummary inviteCode={inviteCode} roles={roles} />
-                  <div className="flex flex-wrap justify-end gap-2">
-                    <Button
-                      className={adminSecondaryButtonClassName}
-                      disabled={savingInviteCodeId === inviteCode.id}
-                      onClick={() => openEdit(inviteCode)}
-                      type="button"
-                      variant="outline"
-                    >
-                      编辑
-                    </Button>
-                    <AccessDangerDialog
-                      busy={deletingInviteCodeId === inviteCode.id}
-                      confirmLabel="确认撤销"
-                      description={`确认撤销绑定到「${getInviteCodeView(inviteCode, roles).roleLabel}」的邀请码？操作不可恢复，原邀请码将无法注册。`}
-                      onConfirm={() => onDeleteInvite(inviteCode)}
-                      title="撤销邀请码"
-                      triggerLabel="撤销"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <table className="w-full table-auto border-collapse text-left">
+              <thead className="border-b border-[#eaded1] text-xs font-semibold uppercase tracking-[0.08em] text-[#75665d]">
+                <tr>
+                  <th className="pb-2 pr-3">状态</th>
+                  <th className="pb-2 pr-3">绑定角色</th>
+                  <th className="pb-2 pr-3">创建时间</th>
+                  <th className="pb-2 pr-3">过期时间</th>
+                  <th className="pb-2 pr-3">启用</th>
+                  <th className="pb-2 text-right">操作</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#eaded1]">
+                {inviteCodes.map((inviteCode) => (
+                  <tr key={inviteCode.id}>
+                    <InviteSummary inviteCode={inviteCode} roles={roles} />
+                    <td className="py-3 text-right">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <Button
+                          className={adminSecondaryButtonClassName}
+                          disabled={savingInviteCodeId === inviteCode.id}
+                          onClick={() => openEdit(inviteCode)}
+                          type="button"
+                          variant="outline"
+                        >
+                          编辑
+                        </Button>
+                        <AccessDangerDialog
+                          busy={deletingInviteCodeId === inviteCode.id}
+                          confirmLabel="确认撤销"
+                          description={`确认撤销绑定到「${getInviteCodeView(inviteCode, roles).roleLabel}」的邀请码？操作不可恢复，原邀请码将无法注册。`}
+                          onConfirm={() => onDeleteInvite(inviteCode)}
+                          title="撤销邀请码"
+                          triggerLabel="撤销"
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           <div className="grid gap-3 xl:hidden" data-admin-access-invite-cards>

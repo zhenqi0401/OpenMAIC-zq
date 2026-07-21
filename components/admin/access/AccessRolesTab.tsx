@@ -150,15 +150,17 @@ function RoleDialog({
 function RoleSummary({ count, role }: { count: RoleUsageCount; role: AdminRole }) {
   return (
     <>
-      <div className="min-w-0">
+      <td className="py-3 pr-3">
         <div className="font-medium text-[#2b211d]">{role.name}</div>
         <div className="break-all text-xs text-[#75665d]">{role.code}</div>
-      </div>
-      <AdminStatusBadge tone={role.isAdmin ? 'warning' : 'neutral'}>
-        {role.isAdmin ? '管理员角色' : '普通角色'}
-      </AdminStatusBadge>
-      <span className="text-sm tabular-nums text-[#75665d]">{count.userCount}</span>
-      <span className="text-sm tabular-nums text-[#75665d]">{count.inviteCount}</span>
+      </td>
+      <td className="py-3 pr-3">
+        <AdminStatusBadge tone={role.isAdmin ? 'warning' : 'neutral'}>
+          {role.isAdmin ? '管理员角色' : '普通角色'}
+        </AdminStatusBadge>
+      </td>
+      <td className="py-3 pr-3 text-sm tabular-nums text-[#75665d]">{count.userCount}</td>
+      <td className="py-3 pr-3 text-sm tabular-nums text-[#75665d]">{count.inviteCount}</td>
     </>
   );
 }
@@ -275,42 +277,45 @@ export function AccessRolesTab({
       ) : (
         <>
           <div className="hidden lg:block" data-admin-access-role-table>
-            <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(120px,0.8fr)_minmax(80px,0.5fr)_minmax(90px,0.5fr)_auto] gap-3 border-b border-[#eaded1] pb-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#75665d]">
-              <span>角色</span>
-              <span>类型</span>
-              <span>用户数</span>
-              <span>邀请码数</span>
-              <span className="text-right">操作</span>
-            </div>
-            <div className="divide-y divide-[#eaded1]">
-              {roles.map((role) => (
-                <div
-                  className="grid grid-cols-[minmax(0,1.4fr)_minmax(120px,0.8fr)_minmax(80px,0.5fr)_minmax(90px,0.5fr)_auto] items-center gap-3 py-3"
-                  key={role.id}
-                >
-                  <RoleSummary count={usageCounts[role.id]} role={role} />
-                  <div className="flex flex-wrap justify-end gap-2">
-                    <Button
-                      className={adminSecondaryButtonClassName}
-                      disabled={savingRoleId === role.id}
-                      onClick={() => openEdit(role)}
-                      type="button"
-                      variant="outline"
-                    >
-                      编辑
-                    </Button>
-                    <AccessDangerDialog
-                      busy={deletingRoleId === role.id}
-                      confirmLabel="确认删除"
-                      description={`确认删除角色「${role.name}（${role.code}）」？至少需要保留一个管理员角色；若已有用户、邀请码或阶段考试策略引用该角色，服务端会拒绝删除。`}
-                      onConfirm={() => onDeleteRole(role)}
-                      title="删除角色"
-                      triggerLabel="删除"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <table className="w-full table-auto border-collapse text-left">
+              <thead className="border-b border-[#eaded1] text-xs font-semibold uppercase tracking-[0.08em] text-[#75665d]">
+                <tr>
+                  <th className="pb-2 pr-3">角色</th>
+                  <th className="pb-2 pr-3">类型</th>
+                  <th className="pb-2 pr-3">用户数</th>
+                  <th className="pb-2 pr-3">邀请码数</th>
+                  <th className="pb-2 text-right">操作</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#eaded1]">
+                {roles.map((role) => (
+                  <tr key={role.id}>
+                    <RoleSummary count={usageCounts[role.id]} role={role} />
+                    <td className="py-3 text-right">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <Button
+                          className={adminSecondaryButtonClassName}
+                          disabled={savingRoleId === role.id}
+                          onClick={() => openEdit(role)}
+                          type="button"
+                          variant="outline"
+                        >
+                          编辑
+                        </Button>
+                        <AccessDangerDialog
+                          busy={deletingRoleId === role.id}
+                          confirmLabel="确认删除"
+                          description={`确认删除角色「${role.name}（${role.code}）」？至少需要保留一个管理员角色；若已有用户、邀请码或阶段考试策略引用该角色，服务端会拒绝删除。`}
+                          onConfirm={() => onDeleteRole(role)}
+                          title="删除角色"
+                          triggerLabel="删除"
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           <div className="grid gap-3 lg:hidden" data-admin-access-role-cards>
