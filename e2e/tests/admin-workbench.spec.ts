@@ -162,6 +162,79 @@ async function openCommunity(page: Page) {
   );
 }
 
+async function mockAdminModuleReadApis(page: Page) {
+  await page.route('**/api/admin/**', async (route) => {
+    const request = route.request();
+    const { pathname } = new URL(request.url());
+    if (request.method() !== 'GET') return route.fallback();
+
+    const payloads: Record<string, unknown> = {
+      '/api/admin/dashboard': {
+        summary: {
+          courseCompletionRate: 0,
+          assessmentPassRate: 0,
+          examPassRate: 0,
+          learnerCount: 0,
+          courseCount: 0,
+          assessmentAttemptCount: 0,
+          examAttemptCount: 0,
+        },
+        progress: [],
+      },
+      '/api/admin/roles': { roles },
+      '/api/admin/invite-codes': { inviteCodes },
+      '/api/admin/users': { users },
+      '/api/admin/categories': { categories: [] },
+      '/api/admin/courses': { courses: [] },
+      '/api/admin/exam-policies': { examPolicies: [] },
+      '/api/admin/community': {
+        success: true,
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+      },
+    };
+    if (!(pathname in payloads)) return route.fallback();
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(payloads[pathname]),
+    });
+  });
+}
+
+test.describe('P0 overall acceptance', () => {
+  test('loads all five modules without page-level overflow at desktop acceptance sizes', async ({
+    page,
+  }) => {
+    await mockAdminModuleReadApis(page);
+    const modules = [
+      { id: 'dashboard', heading: '运营状态一眼看清' },
+      { id: 'courses', heading: '课程管理' },
+      { id: 'exams', heading: '阶段考核' },
+      { id: 'community', heading: '社区内容' },
+      { id: 'access', heading: '用户管理' },
+    ];
+
+    for (const viewport of [
+      { width: 1920, height: 900 },
+      { width: 1440, height: 900 },
+    ]) {
+      await page.setViewportSize(viewport);
+      for (const adminModule of modules) {
+        await page.goto(`/admin?module=${adminModule.id}`);
+        await expect(page.getByRole('heading', { name: adminModule.heading })).toBeVisible();
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+          ),
+        ).toBe(true);
+      }
+    }
+  });
+});
+
 test.describe('P0-03 access workbench', () => {
   test('keeps the invitation workspace free of internal horizontal scrolling at 1920x900', async ({
     page,

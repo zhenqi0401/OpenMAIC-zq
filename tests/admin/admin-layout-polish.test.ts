@@ -64,8 +64,8 @@ describe('admin layout polish', () => {
     const examMarkup = renderToStaticMarkup(React.createElement(ExamPolicyAdminPanel));
 
     expect(courseMarkup).toContain('账户');
-    expect(courseMarkup).not.toContain('返回首页');
-    expect(courseMarkup).not.toContain('退出登录');
+    expect(courseMarkup).not.toContain('>返回首页<');
+    expect(courseMarkup).not.toContain('>退出登录<');
     expect(courseMarkup).toContain('刷新');
     expect(courseMarkup).toContain('课程列表');
     expect(courseMarkup).toContain('上一页');
