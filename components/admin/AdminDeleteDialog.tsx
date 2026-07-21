@@ -12,6 +12,11 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import {
+  adminDangerButtonClassName,
+  adminDangerOutlineButtonClassName,
+  adminSecondaryButtonClassName,
+} from '@/components/admin/AdminSurface';
 
 export function AdminDeleteDialog({
   title,
@@ -30,12 +35,13 @@ export function AdminDeleteDialog({
     <AlertDialog defaultOpen={defaultOpen}>
       <AlertDialogTrigger asChild>
         <Button
-          className="rounded-[4px] border-[#c96f54] text-[#9b4d39] hover:bg-[#fff2ea]"
+          aria-busy={deleting}
+          className={adminDangerOutlineButtonClassName}
           disabled={deleting}
           title="删除"
           variant="outline"
         >
-          {deleting ? '删除中' : '删除'}
+          {deleting ? '删除中…' : '删除'}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent className="max-w-[420px] rounded-[6px] border border-[#d8c8b9] bg-[#fffaf2] p-0 text-[#2b211d] shadow-[0_18px_50px_rgba(43,33,29,0.18)]">
@@ -48,15 +54,17 @@ export function AdminDeleteDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="border-t border-[#eaded1] px-5 pb-5 pt-3 sm:justify-end">
-          <AlertDialogCancel className="rounded-[4px] border-[#d8c8b9]" disabled={deleting}>
+          <AlertDialogCancel className={adminSecondaryButtonClassName} disabled={deleting}>
             取消
           </AlertDialogCancel>
           <AlertDialogAction
-            className="rounded-[4px] bg-[#c96f54] text-[#fffaf2] hover:bg-[#b9624a]"
+            aria-busy={deleting}
+            className={adminDangerButtonClassName}
             disabled={deleting}
             onClick={onDelete}
+            variant="destructive"
           >
-            确认删除
+            {deleting ? '删除中…' : '确认删除'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

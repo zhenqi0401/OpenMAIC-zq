@@ -8,6 +8,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { BrandLockup } from '@/components/brand/BrandLockup';
+import { adminThemeStyle } from '@/components/admin/AdminSurface';
 import { cn } from '@/lib/utils';
 import { isDanmakuEnabled, isForumEnabled } from '@/lib/config/feature-flags';
 
@@ -66,7 +67,11 @@ interface AdminShellProps {
 
 export function AdminShell({ activeModuleId = 'dashboard', children }: AdminShellProps) {
   return (
-    <div className="min-h-[100dvh] bg-[radial-gradient(circle_at_18%_0%,rgba(233,216,198,0.58),transparent_34%),linear-gradient(180deg,#f6efe5,#f1e2d0)] text-[#2b211d]">
+    <div
+      className="min-h-[100dvh] bg-[radial-gradient(circle_at_18%_0%,rgba(233,216,198,0.58),transparent_34%),linear-gradient(180deg,#f6efe5,#f1e2d0)] text-[#2b211d]"
+      data-admin-theme="warm-workbench"
+      style={adminThemeStyle}
+    >
       <div className="grid min-h-[100dvh] lg:grid-cols-[248px_minmax(0,1fr)]">
         <aside className="hidden border-r border-[#d8c8b9] bg-[linear-gradient(180deg,#fffaf2,#f1e2d0)] lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:flex-col lg:gap-5 lg:p-6">
           <AdminBrand />

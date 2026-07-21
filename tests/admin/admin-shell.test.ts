@@ -8,7 +8,7 @@ describe('AdminShell', () => {
     const markup = renderToStaticMarkup(
       React.createElement(
         AdminShell,
-        { activeModuleId: 'dashboard' },
+        { activeModuleId: 'dashboard' } as React.ComponentProps<typeof AdminShell>,
         React.createElement('div', null, 'admin content'),
       ),
     );
@@ -27,13 +27,16 @@ describe('AdminShell', () => {
     expect(markup).toContain('href="/admin?module=community"');
     expect(markup).toContain('href="/admin?module=access"');
     expect(markup).toContain('aria-current="page"');
+    expect(markup).toContain('data-admin-theme="warm-workbench"');
+    expect(markup).toContain('--primary:');
+    expect(markup).toContain('--ring:');
   });
 
   it('lets the right-side workbench fill the available screen width', () => {
     const markup = renderToStaticMarkup(
       React.createElement(
         AdminShell,
-        { activeModuleId: 'access' },
+        { activeModuleId: 'access' } as React.ComponentProps<typeof AdminShell>,
         React.createElement('section', { id: 'admin-access' }, 'access content'),
       ),
     );
@@ -53,7 +56,7 @@ describe('AdminShell', () => {
     const markup = renderToStaticMarkup(
       React.createElement(
         AdminShell,
-        { activeModuleId: 'courses' },
+        { activeModuleId: 'courses' } as React.ComponentProps<typeof AdminShell>,
         React.createElement('div', null, 'course content'),
       ),
     );
