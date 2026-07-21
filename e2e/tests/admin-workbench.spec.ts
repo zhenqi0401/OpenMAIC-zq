@@ -93,6 +93,70 @@ async function openAccess(page: Page, section: 'users' | 'roles' | 'invites' = '
   await expect(page.locator(`[data-admin-access-workspace="${section}"]`)).toBeVisible();
 }
 
+const communityItem = {
+  id: 'danmaku-1',
+  status: 'visible',
+  content: '这是一条需要审核的课程弹幕',
+  courseId: 'course-1',
+  courseName: '安全培训课',
+  sceneKey: 'scene-internal-1',
+  actionId: 'action-internal-1',
+  createdAt: '2026-07-21T06:00:00.000Z',
+  author: {
+    id: 'learner-1',
+    displayName: '测试学员',
+    roleName: '学员',
+    roleCode: 'learner',
+  },
+};
+
+async function mockCommunityApis(
+  page: Page,
+  options: { failModeration?: boolean; requests?: Array<{ path: string; body: unknown }> } = {},
+) {
+  let listRequests = 0;
+  await page.route('**/api/admin/community?**', async (route) => {
+    listRequests += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        items: [communityItem],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+      }),
+    });
+  });
+  await page.route('**/api/admin/danmaku/danmaku-1', async (route) => {
+    const request = route.request();
+    options.requests?.push({
+      path: new URL(request.url()).pathname,
+      body: request.postDataJSON(),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    await route.fulfill({
+      status: options.failModeration ? 500 : 200,
+      contentType: 'application/json',
+      body: JSON.stringify(
+        options.failModeration
+          ? { success: false, error: '审核服务暂时不可用' }
+          : { success: true, danmaku: { ...communityItem, status: 'hidden' } },
+      ),
+    });
+  });
+  return () => listRequests;
+}
+
+async function openCommunity(page: Page) {
+  await page.goto('/admin?module=community');
+  await expect(page.getByRole('heading', { name: '社区内容' })).toBeVisible();
+  await expect(page.locator('[data-community-item-row]')).toContainText(
+    '这是一条需要审核的课程弹幕',
+  );
+}
+
 test.describe('P0-03 access workbench', () => {
   test('keeps the invitation workspace free of internal horizontal scrolling at 1920x900', async ({
     page,
@@ -220,5 +284,55 @@ test.describe('P0-03 access workbench', () => {
     expect(inviteCardsBox).not.toBeNull();
     expect(inviteCardsBox!.x).toBeGreaterThanOrEqual(0);
     expect(inviteCardsBox!.x + inviteCardsBox!.width).toBeLessThanOrEqual(390);
+  });
+});
+
+test.describe('P0-07 community moderation', () => {
+  test('opens the moderation dialog, disables submission, sends the reason, and refreshes', async ({
+    page,
+  }) => {
+    const requests: Array<{ path: string; body: unknown }> = [];
+    const getListRequests = await mockCommunityApis(page, { requests });
+    await openCommunity(page);
+
+    await expect(page.locator('[data-community-item-row]')).toContainText('可见');
+    await expect(page.getByText('场景 ID：scene-internal-1')).toBeHidden();
+    await page.getByRole('button', { name: '隐藏' }).click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('heading', { name: '确认隐藏' })).toBeVisible();
+    await expect(dialog).toContainText('这是一条需要审核的课程弹幕');
+    await dialog.getByRole('button', { name: '确认隐藏' }).click();
+    await expect(dialog).toContainText('请选择原因，或填写补充说明。');
+
+    await dialog.getByLabel('广告营销').check();
+    await dialog.getByLabel('补充说明').fill('重复发布');
+    await dialog.getByRole('button', { name: '确认隐藏' }).click();
+    await expect(dialog.getByRole('button', { name: '处理中…' })).toBeDisabled();
+    await expect(dialog).toBeHidden();
+    await expect.poll(getListRequests).toBeGreaterThan(1);
+    expect(requests).toEqual([
+      {
+        path: '/api/admin/danmaku/danmaku-1',
+        body: { action: 'hide', reason: '广告营销：重复发布' },
+      },
+    ]);
+  });
+
+  test('keeps the dialog reason and the existing row when moderation fails', async ({ page }) => {
+    await mockCommunityApis(page, { failModeration: true });
+    await openCommunity(page);
+
+    await page.getByRole('button', { name: '隐藏' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('其他').check();
+    await dialog.getByLabel('补充说明').fill('需要人工复核的具体原因');
+    await dialog.getByRole('button', { name: '确认隐藏' }).click();
+
+    await expect(dialog).toContainText('审核服务暂时不可用');
+    await expect(dialog.getByLabel('补充说明')).toHaveValue('需要人工复核的具体原因');
+    await expect(page.locator('[data-community-item-row]')).toContainText(
+      '这是一条需要审核的课程弹幕',
+    );
   });
 });

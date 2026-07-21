@@ -1,0 +1,166 @@
+'use client';
+
+import { RefreshCw } from 'lucide-react';
+import { AdminRowActions, type AdminRowAction } from '@/components/admin/AdminRowActions';
+import {
+  AdminCard,
+  AdminStatusBadge,
+  adminSecondaryButtonClassName,
+} from '@/components/admin/AdminSurface';
+import { Button } from '@/components/ui/button';
+import {
+  type AdminCommunityItem,
+  type CommunityContentType,
+  type CommunityModerationAction,
+  communityActionLabel,
+  communityStatusLabel,
+  communityTargetLabel,
+  contentTypeLabel,
+} from '@/lib/admin/community-presentation';
+
+function formatTime(value: string) {
+  return new Date(value).toLocaleString('zh-CN');
+}
+
+function statusTone(status: string | undefined): 'success' | 'warning' | 'danger' | 'neutral' {
+  if (status === 'visible') return 'success';
+  if (status === 'hidden') return 'warning';
+  if (status?.startsWith('deleted')) return 'danger';
+  return 'neutral';
+}
+
+function secondaryActions(
+  type: Exclude<CommunityContentType, 'audit'>,
+  item: AdminCommunityItem,
+  disabled: boolean,
+  onModerate: (action: CommunityModerationAction) => void,
+) {
+  const actions: AdminRowAction[] = [];
+  if (type === 'posts' && item.status === 'visible') {
+    const pinAction = item.pinned ? 'unpin' : 'pin';
+    const lockAction = item.locked ? 'unlock' : 'lock';
+    actions.push(
+      {
+        id: pinAction,
+        label: communityActionLabel(pinAction),
+        disabled,
+        onSelect: () => onModerate(pinAction),
+      },
+      {
+        id: lockAction,
+        label: communityActionLabel(lockAction),
+        disabled,
+        onSelect: () => onModerate(lockAction),
+      },
+    );
+  }
+  if (item.status === 'visible' || item.status === 'hidden') {
+    actions.push({
+      id: 'delete',
+      label: communityActionLabel('delete'),
+      destructive: true,
+      disabled,
+      onSelect: () => onModerate('delete'),
+    });
+  }
+  return actions;
+}
+
+export function CommunityItemRow({
+  item,
+  pending,
+  type,
+  onModerate,
+}: {
+  item: AdminCommunityItem;
+  pending: boolean;
+  type: CommunityContentType;
+  onModerate: (action: CommunityModerationAction) => void;
+}) {
+  const isAudit = type === 'audit';
+  const primaryAction = !isAudit
+    ? item.status === 'visible'
+      ? ('hide' as const)
+      : item.status === 'hidden' || item.status === 'deleted_by_admin'
+        ? ('restore' as const)
+        : null
+    : null;
+  const actions = isAudit ? [] : secondaryActions(type, item, pending, onModerate);
+
+  return (
+    <AdminCard className="grid gap-3 p-4" data-community-item-row>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            {item.status ? (
+              <AdminStatusBadge tone={statusTone(item.status)}>
+                {communityStatusLabel(item.status)}
+              </AdminStatusBadge>
+            ) : null}
+            {item.targetType ? (
+              <AdminStatusBadge>{communityTargetLabel(item.targetType)}</AdminStatusBadge>
+            ) : null}
+            {item.pinned ? <AdminStatusBadge tone="warning">已置顶</AdminStatusBadge> : null}
+            {item.locked ? <AdminStatusBadge tone="warning">已关闭回复</AdminStatusBadge> : null}
+          </div>
+          {item.title ? <h3 className="mt-2 font-medium">{item.title}</h3> : null}
+          {item.postTitle ? (
+            <p className="mt-2 text-xs text-[#75665d]">所属帖子：{item.postTitle}</p>
+          ) : null}
+          <p className="mt-2 line-clamp-3 whitespace-pre-wrap break-words text-sm leading-6">
+            {item.content ?? item.body ?? item.reason ?? '无文本内容'}
+          </p>
+        </div>
+        <time className="shrink-0 text-xs text-[#75665d]">{formatTime(item.createdAt)}</time>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#eaded1] pt-3">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#75665d]">
+          {item.author ? <span>作者：{item.author.displayName}</span> : null}
+          {item.moderator ? <span>管理员：{item.moderator.displayName}</span> : null}
+          {item.courseName ? <span>课程：{item.courseName}</span> : null}
+          <span>
+            类型：{item.targetType ? communityTargetLabel(item.targetType) : contentTypeLabel(type)}
+          </span>
+          {item.action ? <span>操作：{communityActionLabel(item.action)}</span> : null}
+          {item.moderationReason ? <span>最近原因：{item.moderationReason}</span> : null}
+        </div>
+
+        {!isAudit ? (
+          <AdminRowActions
+            actions={actions}
+            primaryAction={
+              primaryAction ? (
+                <Button
+                  className={adminSecondaryButtonClassName}
+                  disabled={pending}
+                  onClick={() => onModerate(primaryAction)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  {pending ? <RefreshCw aria-hidden="true" className="animate-spin" /> : null}
+                  {pending ? '处理中…' : communityActionLabel(primaryAction)}
+                </Button>
+              ) : undefined
+            }
+            triggerAriaLabel={`${contentTypeLabel(type)}行操作`}
+          />
+        ) : null}
+      </div>
+
+      <details className="text-xs text-[#75665d]">
+        <summary className="w-fit cursor-pointer select-none text-[#9b5b47]">详细信息</summary>
+        <dl className="mt-2 grid gap-x-6 gap-y-1 rounded-[4px] bg-[#f7eee3] p-3 sm:grid-cols-2">
+          <div>记录 ID：{item.id}</div>
+          {item.author ? <div>作者 ID：{item.author.id}</div> : null}
+          {item.courseId ? <div>课程 ID：{item.courseId}</div> : null}
+          {item.sceneKey ? <div>场景 ID：{item.sceneKey}</div> : null}
+          {item.actionId ? <div>动作 ID：{item.actionId}</div> : null}
+          {item.targetId ? <div>目标 ID：{item.targetId}</div> : null}
+          {item.postId ? <div>帖子 ID：{item.postId}</div> : null}
+        </dl>
+      </details>
+    </AdminCard>
+  );
+}
