@@ -4,12 +4,19 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import {
   CourseDeleteDialog,
   CourseAdminPanel,
+  CourseListEmptyState,
   DEFAULT_COURSE_ADMIN_FILTERS,
   courseDeleteConfirmationMessage,
   courseGenerationStatusLabel,
   filterAdminCourses,
   shouldApplyCourseAdminFilters,
 } from '@/components/admin/courses/CourseAdminPanel';
+import { CourseTable } from '@/components/admin/courses/CourseTable';
+import {
+  buildCourseVisibilityRequest,
+  getCourseContentStatus,
+  getCourseStatusAction,
+} from '@/lib/admin/course-presentation';
 import type { EnterpriseCourse } from '@/lib/storage/enterprise-service';
 
 const baseCourse: EnterpriseCourse = {
@@ -22,6 +29,7 @@ const baseCourse: EnterpriseCourse = {
   visibilityMode: 'roles',
   visibleRoleIds: ['role-sales'],
   assessmentQuestions: [],
+  learnerCount: 18,
   publishedAt: new Date('2026-07-01T00:00:00.000Z'),
   createdAt: new Date('2026-06-30T00:00:00.000Z'),
   updatedAt: new Date('2026-07-02T00:00:00.000Z'),
@@ -81,6 +89,36 @@ describe('filterAdminCourses', () => {
     ).toBeNull();
   });
 
+  it('derives useful content states without treating every assessed course as a warning', () => {
+    expect(getCourseContentStatus(baseCourse)).toEqual({
+      label: '缺少课后测评',
+      tone: 'warning',
+    });
+    expect(
+      getCourseContentStatus({
+        ...baseCourse,
+        assessmentQuestions: [{ id: 'question-1' }],
+        generationComplete: true,
+      }),
+    ).toEqual({ label: '已有测评题', tone: 'neutral' });
+  });
+
+  it('supports the status shortcuts including the derived review queue', () => {
+    const readyDraft = {
+      ...baseCourse,
+      id: 'course-ready',
+      status: 'draft' as const,
+      generationComplete: true,
+      assessmentQuestions: [{ id: 'question-1' }],
+    };
+    expect(
+      filterAdminCourses([baseCourse, readyDraft], {
+        ...DEFAULT_COURSE_ADMIN_FILTERS,
+        status: 'review',
+      }).map((course) => course.id),
+    ).toEqual(['course-1']);
+  });
+
   it('keeps filter edits staged until the admin clicks the filter button', () => {
     expect(shouldApplyCourseAdminFilters(DEFAULT_COURSE_ADMIN_FILTERS)).toBe(false);
     expect(
@@ -112,16 +150,97 @@ describe('filterAdminCourses', () => {
     expect(markup).toContain('删除');
   });
 
-  it('renders the streamlined course layout with text buttons', () => {
+  it('keeps the existing visibility API path and request body', () => {
+    expect(buildCourseVisibilityRequest('course-1', 'roles', ['role-sales'])).toEqual({
+      url: '/api/admin/courses/course-1/visibility',
+      init: {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          visibilityMode: 'roles',
+          visibleRoleIds: ['role-sales'],
+        }),
+      },
+    });
+    expect(
+      JSON.parse(buildCourseVisibilityRequest('course-1', 'all', ['role-sales']).init.body),
+    ).toEqual({
+      visibilityMode: 'all',
+      visibleRoleIds: [],
+    });
+  });
+
+  it('shows learner count, update time, readable visibility, and only one exposed row action', () => {
+    const markup = renderToStaticMarkup(
+      createElement(CourseTable, {
+        courses: [baseCourse],
+        roleNames: new Map([['role-sales', '销售学员']]),
+        statusChangingCourseId: null,
+        onChangeStatus: () => {},
+        onDelete: () => {},
+        onEditVisibility: () => {},
+      }),
+    );
+
+    expect(markup).toContain('销售入门');
+    expect(markup).toContain('销售学员');
+    expect(markup).toContain('>18<');
+    expect(markup).toContain('2026-07-02');
+    expect(markup).toContain('修改可见范围');
+    expect(markup).toContain('更多');
+    expect(markup).not.toContain('课程完成率');
+    expect(markup.match(/修改可见范围/g)).toHaveLength(1);
+  });
+
+  it('exposes publish or archive in the more menu according to course status', () => {
+    expect(getCourseStatusAction({ status: 'draft' })).toEqual({
+      action: 'publish',
+      label: '发布',
+    });
+    expect(getCourseStatusAction({ status: 'published' })).toEqual({
+      action: 'archive',
+      label: '下架',
+    });
+    expect(getCourseStatusAction({ status: 'archived' })).toEqual({
+      action: 'publish',
+      label: '重新发布',
+    });
+  });
+
+  it('renders category management and a distinct no-course empty state without the old sidebar', () => {
     const markup = renderToStaticMarkup(createElement(CourseAdminPanel));
 
     expect(markup).toContain('课程列表');
     expect(markup).toContain('课程由首页生成，此处负责筛选、分类、发布、可见范围和删除。');
     expect(markup).not.toContain('新建课程草稿');
-    expect(markup).toContain('发布结构');
+    expect(markup).toContain('分类管理');
+    expect(markup).not.toContain('新建分类');
+    expect(markup).not.toContain('发布结构');
     expect(markup).not.toContain('创建草稿');
+    expect(markup).toContain('暂无课程');
+    expect(markup).toContain('课程需要从首页生成');
+    expect(markup).toContain('返回首页创建课程');
+    expect(markup).toContain('清除筛选');
     expect(markup).toContain('上一页');
     expect(markup).toContain('下一页');
     expect(markup).not.toContain('data-size="icon"');
+    expect(markup).not.toContain('课程完成率');
+    expect(markup).not.toContain('<aside');
+  });
+
+  it('distinguishes an empty catalog from a filter with no matches', () => {
+    const emptyMarkup = renderToStaticMarkup(
+      createElement(CourseListEmptyState, { hasCourses: false, onClear: () => {} }),
+    );
+    const filteredMarkup = renderToStaticMarkup(
+      createElement(CourseListEmptyState, { hasCourses: true, onClear: () => {} }),
+    );
+
+    expect(emptyMarkup).toContain('暂无课程');
+    expect(emptyMarkup).toContain('返回首页创建课程');
+    expect(emptyMarkup).not.toContain('没有符合当前筛选条件的课程');
+    expect(filteredMarkup).toContain('没有符合当前筛选条件的课程');
+    expect(filteredMarkup).toContain('清除筛选');
+    expect(filteredMarkup).not.toContain('返回首页创建课程');
   });
 });

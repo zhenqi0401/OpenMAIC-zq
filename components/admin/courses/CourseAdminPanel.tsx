@@ -1,26 +1,35 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, BookOpen } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   AdminCard,
   AdminSectionHeader,
-  AdminStatusBadge,
-  adminInputClassName,
-  adminSelectClassName,
+  adminSecondaryButtonClassName,
 } from '@/components/admin/AdminSurface';
 import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
 import { AdminDeleteDialog } from '@/components/admin/AdminDeleteDialog';
+import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
+import { AdminPagination } from '@/components/admin/AdminPagination';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
-import type {
-  CourseStatus,
-  CourseVisibilityMode,
-  EnterpriseCourse,
-} from '@/lib/storage/enterprise-service';
+import Link from 'next/link';
+import type { EnterpriseCourse } from '@/lib/storage/enterprise-service';
 import type { AuthRole } from '@/lib/auth/service';
 import { paginateAdminRows } from '@/lib/admin/pagination';
+import {
+  buildCourseVisibilityRequest,
+  DEFAULT_COURSE_ADMIN_FILTERS,
+  filterAdminCourses,
+  getCourseContentStatus,
+  shouldApplyCourseAdminFilters,
+  type CourseAdminFilters,
+  type CourseAdminStatusFilter,
+} from '@/lib/admin/course-presentation';
+import { CategoryDialog } from './CategoryDialog';
+import { CourseFilters } from './CourseFilters';
+import { CourseTable } from './CourseTable';
+import { CourseVisibilityDialog, type CourseVisibilityDraft } from './CourseVisibilityDialog';
 
 interface Category {
   id: string;
@@ -28,53 +37,12 @@ interface Category {
   sortOrder: number;
 }
 
-export interface CourseAdminFilters {
-  status: CourseStatus | 'all';
-  categoryId: string;
-  visibilityMode: CourseVisibilityMode | 'any';
-  query: string;
-}
-
-export const DEFAULT_COURSE_ADMIN_FILTERS: CourseAdminFilters = {
-  status: 'all',
-  categoryId: '',
-  visibilityMode: 'any',
-  query: '',
-};
-
-export function shouldApplyCourseAdminFilters(filters: CourseAdminFilters): boolean {
-  return (
-    filters.status !== DEFAULT_COURSE_ADMIN_FILTERS.status ||
-    filters.categoryId !== DEFAULT_COURSE_ADMIN_FILTERS.categoryId ||
-    filters.visibilityMode !== DEFAULT_COURSE_ADMIN_FILTERS.visibilityMode ||
-    filters.query.trim() !== DEFAULT_COURSE_ADMIN_FILTERS.query
-  );
-}
-
-export function filterAdminCourses(
-  courses: readonly EnterpriseCourse[],
-  filters: CourseAdminFilters,
-): EnterpriseCourse[] {
-  const query = filters.query.trim().toLowerCase();
-  return courses.filter((course) => {
-    if (filters.status !== 'all' && course.status !== filters.status) return false;
-    if (filters.categoryId && course.categoryId !== filters.categoryId) return false;
-    if (filters.visibilityMode !== 'any' && course.visibilityMode !== filters.visibilityMode) {
-      return false;
-    }
-    if (!query) return true;
-    return (
-      course.name.toLowerCase().includes(query) ||
-      (course.description ?? '').toLowerCase().includes(query) ||
-      (course.categoryName ?? '').toLowerCase().includes(query)
-    );
-  });
-}
+export { DEFAULT_COURSE_ADMIN_FILTERS, filterAdminCourses, shouldApplyCourseAdminFilters };
+export type { CourseAdminFilters };
 
 export function courseGenerationStatusLabel(course: EnterpriseCourse): string | null {
-  if (course.status !== 'draft' || course.generationComplete) return null;
-  if (course.generationStatus === 'generating') return '生成中';
-  return '内容未完成';
+  if (course.generationComplete !== false) return null;
+  return getCourseContentStatus(course).label;
 }
 
 export function courseDeleteConfirmationMessage(course: Pick<EnterpriseCourse, 'name'>): string {
@@ -103,32 +71,72 @@ export function CourseDeleteDialog({
   );
 }
 
+export function CourseListEmptyState({
+  hasCourses,
+  onClear,
+}: {
+  hasCourses: boolean;
+  onClear: () => void;
+}) {
+  if (!hasCourses) {
+    return (
+      <div className="p-4">
+        <AdminEmptyState
+          action={
+            <Button asChild className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]">
+              <Link href="/">返回首页创建课程</Link>
+            </Button>
+          }
+          description="课程需要从首页生成，生成后可在这里配置发布与可见范围。"
+          title="暂无课程"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4">
+      <AdminEmptyState
+        action={
+          <Button
+            className={adminSecondaryButtonClassName}
+            onClick={onClear}
+            type="button"
+            variant="outline"
+          >
+            清除筛选
+          </Button>
+        }
+        kind="filtered"
+        title="没有符合当前筛选条件的课程"
+      />
+    </div>
+  );
+}
+
 export function CourseAdminPanel() {
   const [roles, setRoles] = useState<AuthRole[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [courses, setCourses] = useState<EnterpriseCourse[]>([]);
-  const [categoryName, setCategoryName] = useState('');
-  const [visibilityDrafts, setVisibilityDrafts] = useState<
-    Record<string, { visibilityMode: CourseVisibilityMode; visibleRoleIds: string[] }>
-  >({});
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [visibilityCourse, setVisibilityCourse] = useState<EnterpriseCourse | null>(null);
+  const [savingVisibility, setSavingVisibility] = useState(false);
+  const [statusChangingCourseId, setStatusChangingCourseId] = useState<string | null>(null);
+  const [courseToDelete, setCourseToDelete] = useState<EnterpriseCourse | null>(null);
   const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null);
   const [filters, setFilters] = useState<CourseAdminFilters>(DEFAULT_COURSE_ADMIN_FILTERS);
   const [filterDraft, setFilterDraft] = useState<CourseAdminFilters>(DEFAULT_COURSE_ADMIN_FILTERS);
   const [coursePage, setCoursePage] = useState(1);
 
   const learnerRoles = useMemo(() => roles.filter((role) => !role.isAdmin), [roles]);
+  const roleNames = useMemo(
+    () => new Map(learnerRoles.map((role) => [role.id, role.name])),
+    [learnerRoles],
+  );
   const filteredCourses = useMemo(() => filterAdminCourses(courses, filters), [courses, filters]);
   const coursePagination = useMemo(
     () => paginateAdminRows(filteredCourses, coursePage),
     [coursePage, filteredCourses],
-  );
-  const courseStatusSummary = useMemo(
-    () => ({
-      published: courses.filter((course) => course.status === 'published').length,
-      draft: courses.filter((course) => course.status === 'draft').length,
-      archived: courses.filter((course) => course.status === 'archived').length,
-    }),
-    [courses],
   );
 
   async function loadAll() {
@@ -147,65 +155,67 @@ export function CourseAdminPanel() {
     setRoles(rolesData.roles);
     setCategories(categoriesData.categories);
     setCourses(coursesData.courses);
-    setVisibilityDrafts(
-      Object.fromEntries(
-        coursesData.courses.map((course) => [
-          course.id,
-          {
-            visibilityMode: course.visibilityMode,
-            visibleRoleIds: course.visibleRoleIds,
-          },
-        ]),
-      ),
-    );
   }
 
   useEffect(() => {
-    queueMicrotask(() => {
-      void loadAll();
-    });
+    queueMicrotask(() => void loadAll());
   }, []);
 
-  async function createCategory() {
-    if (!categoryName.trim()) return;
-    const response = await fetch('/api/admin/categories', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: categoryName.trim() }),
-    });
-    if (!response.ok) {
-      toast.error('分类创建失败');
-      return;
+  async function createCategory(categoryName: string): Promise<boolean> {
+    setCreatingCategory(true);
+    try {
+      const response = await fetch('/api/admin/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: categoryName }),
+      });
+      if (!response.ok) {
+        toast.error('分类创建失败');
+        return false;
+      }
+      toast.success('分类已创建');
+      await loadAll();
+      return true;
+    } finally {
+      setCreatingCategory(false);
     }
-    setCategoryName('');
-    toast.success('分类已创建');
-    await loadAll();
   }
 
-  async function saveVisibility(courseId: string) {
-    const draft = visibilityDrafts[courseId];
-    if (!draft) return;
-    const response = await fetch(`/api/admin/courses/${courseId}/visibility`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(draft),
-    });
-    if (!response.ok) {
-      toast.error('可见范围保存失败');
-      return;
+  async function saveVisibility(draft: CourseVisibilityDraft) {
+    if (!visibilityCourse) return;
+    setSavingVisibility(true);
+    try {
+      const request = buildCourseVisibilityRequest(
+        visibilityCourse.id,
+        draft.visibilityMode,
+        draft.visibleRoleIds,
+      );
+      const response = await fetch(request.url, request.init);
+      if (!response.ok) {
+        toast.error('可见范围保存失败');
+        return;
+      }
+      toast.success('可见范围已保存');
+      setVisibilityCourse(null);
+      await loadAll();
+    } finally {
+      setSavingVisibility(false);
     }
-    toast.success('可见范围已保存');
-    await loadAll();
   }
 
-  async function changeStatus(courseId: string, action: 'publish' | 'archive') {
-    const response = await fetch(`/api/admin/courses/${courseId}/${action}`, { method: 'POST' });
-    if (!response.ok) {
-      toast.error(action === 'publish' ? '课程发布失败' : '课程下架失败');
-      return;
+  async function changeStatus(course: EnterpriseCourse, action: 'publish' | 'archive') {
+    setStatusChangingCourseId(course.id);
+    try {
+      const response = await fetch(`/api/admin/courses/${course.id}/${action}`, { method: 'POST' });
+      if (!response.ok) {
+        toast.error(action === 'publish' ? '课程发布失败' : '课程下架失败');
+        return;
+      }
+      toast.success(action === 'publish' ? '课程已发布' : '课程已下架');
+      await loadAll();
+    } finally {
+      setStatusChangingCourseId(null);
     }
-    toast.success(action === 'publish' ? '课程已发布' : '课程已下架');
-    await loadAll();
   }
 
   async function deleteCourse(course: EnterpriseCourse) {
@@ -219,36 +229,23 @@ export function CourseAdminPanel() {
         return;
       }
       toast.success('课程已删除');
+      setCourseToDelete(null);
       await loadAll();
     } finally {
       setDeletingCourseId(null);
     }
   }
 
-  function setVisibilityMode(courseId: string, visibilityMode: CourseVisibilityMode) {
-    setVisibilityDrafts((drafts) => ({
-      ...drafts,
-      [courseId]: {
-        visibilityMode,
-        visibleRoleIds: visibilityMode === 'all' ? [] : (drafts[courseId]?.visibleRoleIds ?? []),
-      },
-    }));
+  function clearFilters() {
+    setFilterDraft(DEFAULT_COURSE_ADMIN_FILTERS);
+    setFilters(DEFAULT_COURSE_ADMIN_FILTERS);
+    setCoursePage(1);
   }
 
-  function toggleVisibleRole(courseId: string, roleId: string) {
-    setVisibilityDrafts((drafts) => {
-      const draft = drafts[courseId] ?? { visibilityMode: 'roles', visibleRoleIds: [] };
-      const nextRoleIds = draft.visibleRoleIds.includes(roleId)
-        ? draft.visibleRoleIds.filter((id) => id !== roleId)
-        : [...draft.visibleRoleIds, roleId];
-      return {
-        ...drafts,
-        [courseId]: {
-          visibilityMode: 'roles',
-          visibleRoleIds: nextRoleIds,
-        },
-      };
-    });
+  function changeStatusFilter(status: CourseAdminStatusFilter) {
+    setFilterDraft((draft) => ({ ...draft, status }));
+    setFilters((current) => ({ ...current, status }));
+    setCoursePage(1);
   }
 
   return (
@@ -257,13 +254,21 @@ export function CourseAdminPanel() {
         action={
           <AdminSessionActions
             leading={
-              <Button
-                className="rounded-[4px] border-[#d8c8b9]"
-                onClick={loadAll}
-                variant="outline"
-              >
-                刷新
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <CategoryDialog
+                  categories={categories}
+                  creating={creatingCategory}
+                  onCreate={createCategory}
+                />
+                <Button
+                  className={adminSecondaryButtonClassName}
+                  onClick={loadAll}
+                  type="button"
+                  variant="outline"
+                >
+                  刷新
+                </Button>
+              </div>
             }
           />
         }
@@ -273,311 +278,77 @@ export function CourseAdminPanel() {
         title="课程管理"
       />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(280px,0.35fr)]">
-        <AdminCard className="overflow-hidden">
-          <div className="border-b border-[#d8c8b9] px-4 py-4">
-            <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
-              课程列表
-            </div>
-            <p className="mt-1 text-sm text-[#75665d]">
-              课程由首页生成，此处负责筛选、分类、发布、可见范围和删除。
-            </p>
+      <AdminCard className="overflow-hidden">
+        <div className="border-b border-[#d8c8b9] px-4 py-4">
+          <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+            课程列表
           </div>
+          <p className="mt-1 text-sm text-[#75665d]">
+            课程由首页生成，此处负责筛选、分类、发布、可见范围和删除。
+          </p>
+        </div>
 
-          <div className="grid gap-2 border-b border-[#eaded1] p-3 md:grid-cols-[minmax(180px,1fr)_140px_140px_140px_auto]">
-            <Input
-              className={adminInputClassName}
-              placeholder="搜索课程、描述或分类"
-              value={filterDraft.query}
-              onChange={(event) =>
-                setFilterDraft((draft) => ({ ...draft, query: event.target.value }))
-              }
-            />
-            <select
-              className={adminSelectClassName}
-              value={filterDraft.status}
-              onChange={(event) =>
-                setFilterDraft((draft) => ({
-                  ...draft,
-                  status: event.target.value as CourseStatus | 'all',
-                }))
-              }
-            >
-              <option value="all">全部状态</option>
-              <option value="draft">草稿</option>
-              <option value="published">已发布</option>
-              <option value="archived">已归档</option>
-            </select>
-            <select
-              className={adminSelectClassName}
-              value={filterDraft.categoryId}
-              onChange={(event) =>
-                setFilterDraft((draft) => ({ ...draft, categoryId: event.target.value }))
-              }
-            >
-              <option value="">全部分类</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-            <select
-              className={adminSelectClassName}
-              value={filterDraft.visibilityMode}
-              onChange={(event) =>
-                setFilterDraft((draft) => ({
-                  ...draft,
-                  visibilityMode: event.target.value as CourseVisibilityMode | 'any',
-                }))
-              }
-            >
-              <option value="any">全部可见范围</option>
-              <option value="all">全体可见</option>
-              <option value="roles">按角色可见</option>
-            </select>
-            <div className="flex gap-2">
-              <Button
-                className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
-                onClick={() => {
-                  setFilters(filterDraft);
-                  setCoursePage(1);
-                }}
-                type="button"
-              >
-                筛选
-              </Button>
-              {shouldApplyCourseAdminFilters(filterDraft) && (
-                <Button
-                  className="rounded-[4px]"
-                  onClick={() => {
-                    setFilterDraft(DEFAULT_COURSE_ADMIN_FILTERS);
-                    setFilters(DEFAULT_COURSE_ADMIN_FILTERS);
-                    setCoursePage(1);
-                  }}
-                  type="button"
-                  variant="outline"
-                >
-                  重置
-                </Button>
-              )}
-            </div>
-          </div>
+        <CourseFilters
+          categories={categories}
+          draft={filterDraft}
+          filters={filters}
+          onApply={() => {
+            setFilters(filterDraft);
+            setCoursePage(1);
+          }}
+          onChange={setFilterDraft}
+          onClear={clearFilters}
+          onStatusChange={changeStatusFilter}
+        />
 
-          <div className="overflow-hidden">
-            <div className="overflow-x-auto md:overflow-visible">
-              <div className="min-w-[980px] md:min-w-0">
-                <div className="grid grid-cols-[1.1fr_0.7fr_0.7fr_1.4fr_auto] gap-3 border-b border-[#d8c8b9] px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[#75665d]">
-                  <span>课程</span>
-                  <span>分类</span>
-                  <span>状态</span>
-                  <span>可见范围</span>
-                  <span className="text-right">操作</span>
-                </div>
-                {coursePagination.total === 0 ? (
-                  <EmptyState text="当前筛选无课程" />
-                ) : (
-                  coursePagination.rows.map((course) => {
-                    const draft = visibilityDrafts[course.id] ?? {
-                      visibilityMode: course.visibilityMode,
-                      visibleRoleIds: course.visibleRoleIds,
-                    };
-                    const generationLabel = courseGenerationStatusLabel(course);
-                    return (
-                      <div
-                        key={course.id}
-                        className="grid min-h-[54px] grid-cols-[1.1fr_0.7fr_0.7fr_1.4fr_auto] items-start gap-3 border-b border-[#eaded1] px-4 py-3 text-sm last:border-b-0"
-                      >
-                        <div>
-                          <div className="font-medium text-[#2b211d]">{course.name}</div>
-                          {course.description && (
-                            <div className="mt-1 line-clamp-2 text-xs text-[#75665d]">
-                              {course.description}
-                            </div>
-                          )}
-                          {course.assessmentQuestions.length > 0 && (
-                            <div className="mt-2 flex items-start gap-1.5 text-xs text-[#a66f2e]">
-                              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-                              <span>内容更新后请检查课后测评题</span>
-                            </div>
-                          )}
-                        </div>
-                        <span className="text-[#75665d]">{course.categoryName ?? '-'}</span>
-                        <div className="flex flex-col items-start gap-1">
-                          <CourseStatusBadge status={course.status} />
-                          {generationLabel && (
-                            <AdminStatusBadge tone="warning">{generationLabel}</AdminStatusBadge>
-                          )}
-                        </div>
-                        <div className="space-y-2">
-                          <select
-                            className={adminSelectClassName}
-                            value={draft.visibilityMode}
-                            onChange={(event) =>
-                              setVisibilityMode(
-                                course.id,
-                                event.target.value as CourseVisibilityMode,
-                              )
-                            }
-                          >
-                            <option value="all">全体可见</option>
-                            <option value="roles">按角色可见</option>
-                          </select>
-                          {draft.visibilityMode === 'roles' && (
-                            <div className="flex flex-wrap gap-2">
-                              {learnerRoles.map((role) => (
-                                <label
-                                  key={role.id}
-                                  className="inline-flex items-center gap-1.5 rounded-[4px] border border-[#d8c8b9] px-2 py-1 text-xs"
-                                >
-                                  <input
-                                    checked={draft.visibleRoleIds.includes(role.id)}
-                                    onChange={() => toggleVisibleRole(course.id, role.id)}
-                                    type="checkbox"
-                                  />
-                                  {role.name}
-                                </label>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            className="rounded-[4px]"
-                            onClick={() => saveVisibility(course.id)}
-                            title="保存可见范围"
-                            variant="outline"
-                          >
-                            保存
-                          </Button>
-                          <Button
-                            className="rounded-[4px]"
-                            onClick={() => changeStatus(course.id, 'publish')}
-                            title="发布"
-                            variant="outline"
-                          >
-                            发布
-                          </Button>
-                          <Button
-                            className="rounded-[4px]"
-                            onClick={() => changeStatus(course.id, 'archive')}
-                            title="下架"
-                            variant="outline"
-                          >
-                            下架
-                          </Button>
-                          <CourseDeleteDialog
-                            course={course}
-                            deleting={deletingCourseId === course.id}
-                            onDelete={deleteCourse}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#eaded1] px-4 py-3 text-sm text-[#75665d]">
-            <span>
-              {coursePagination.total === 0
-                ? '显示 0 条，共 0 条'
-                : `显示 ${coursePagination.start}-${coursePagination.end} 条，共 ${coursePagination.total} 条`}
-            </span>
-            <div className="flex items-center gap-3">
-              <span>
-                第 {coursePagination.page} / {coursePagination.totalPages} 页
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  className="rounded-[4px]"
-                  disabled={coursePagination.page <= 1}
-                  onClick={() => setCoursePage(coursePagination.page - 1)}
-                  variant="outline"
-                >
-                  上一页
-                </Button>
-                <Button
-                  className="rounded-[4px]"
-                  disabled={coursePagination.page >= coursePagination.totalPages}
-                  onClick={() => setCoursePage(coursePagination.page + 1)}
-                  variant="outline"
-                >
-                  下一页
-                </Button>
-              </div>
-            </div>
-          </div>
-        </AdminCard>
+        {courses.length === 0 ? (
+          <CourseListEmptyState hasCourses={false} onClear={clearFilters} />
+        ) : coursePagination.total === 0 ? (
+          <CourseListEmptyState hasCourses onClear={clearFilters} />
+        ) : (
+          <CourseTable
+            courses={coursePagination.rows}
+            onChangeStatus={changeStatus}
+            onDelete={setCourseToDelete}
+            onEditVisibility={setVisibilityCourse}
+            roleNames={roleNames}
+            statusChangingCourseId={statusChangingCourseId}
+          />
+        )}
 
-        <aside className="grid gap-4 content-start">
-          <AdminCard className="p-4">
-            <div className="mb-3 text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
-              新建分类
-            </div>
-            <div className="flex gap-2">
-              <Input
-                className={adminInputClassName}
-                value={categoryName}
-                onChange={(event) => setCategoryName(event.target.value)}
-                placeholder="分类名称"
-              />
-              <Button className="rounded-[4px]" onClick={createCategory} variant="outline">
-                创建
-              </Button>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {categories.map((category) => (
-                <AdminStatusBadge key={category.id}>{category.name}</AdminStatusBadge>
-              ))}
-            </div>
-          </AdminCard>
+        <div className="border-t border-[#eaded1] px-4 py-3">
+          <AdminPagination
+            end={coursePagination.end}
+            onPageChange={setCoursePage}
+            page={coursePagination.page}
+            start={coursePagination.start}
+            total={coursePagination.total}
+            totalPages={coursePagination.totalPages}
+          />
+        </div>
+      </AdminCard>
 
-          <AdminCard className="grid gap-3 p-4">
-            <div>
-              <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
-                发布结构
-              </div>
-              <p className="mt-1 text-sm text-[#75665d]">帮助管理员判断今日优先处理什么。</p>
-            </div>
-            <StatusBar
-              label="已发布"
-              value={courseStatusSummary.published}
-              total={courses.length}
-            />
-            <StatusBar label="草稿" value={courseStatusSummary.draft} total={courses.length} />
-            <StatusBar label="已归档" value={courseStatusSummary.archived} total={courses.length} />
-          </AdminCard>
-        </aside>
-      </div>
+      <CourseVisibilityDialog
+        course={visibilityCourse}
+        onOpenChange={(open) => {
+          if (!open && !savingVisibility) setVisibilityCourse(null);
+        }}
+        onSave={saveVisibility}
+        open={visibilityCourse !== null}
+        roles={learnerRoles}
+        saving={savingVisibility}
+      />
+
+      {courseToDelete ? (
+        <div className="hidden">
+          <CourseDeleteDialog
+            course={courseToDelete}
+            defaultOpen
+            deleting={deletingCourseId === courseToDelete.id}
+            onDelete={deleteCourse}
+          />
+        </div>
+      ) : null}
     </section>
-  );
-}
-
-function EmptyState({ text }: { text: string }) {
-  return <div className="px-4 py-8 text-center text-sm text-[#75665d]">{text}</div>;
-}
-
-function CourseStatusBadge({ status }: { status: CourseStatus }) {
-  const map = {
-    draft: { label: '草稿', tone: 'warning' },
-    published: { label: '已发布', tone: 'success' },
-    archived: { label: '已归档', tone: 'neutral' },
-  } as const;
-  const view = map[status];
-  return <AdminStatusBadge tone={view.tone}>{view.label}</AdminStatusBadge>;
-}
-
-function StatusBar({ label, value, total }: { label: string; value: number; total: number }) {
-  const width = total === 0 ? '0%' : `${Math.round((value / total) * 100)}%`;
-  return (
-    <div className="grid grid-cols-[72px_minmax(0,1fr)_32px] items-center gap-3 text-sm text-[#75665d]">
-      <span>{label}</span>
-      <div className="h-3 overflow-hidden rounded-full bg-[#eaded1]">
-        <span className="block h-full rounded-full bg-[#c96f54]" style={{ width }} />
-      </div>
-      <strong className="text-right tabular-nums text-[#2b211d]">{value}</strong>
-    </div>
   );
 }
