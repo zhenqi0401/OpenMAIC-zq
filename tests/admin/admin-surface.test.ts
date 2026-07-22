@@ -63,7 +63,7 @@ describe('AdminSurface', () => {
     expect(markup).toContain('已发布');
     expect(markup).toContain('role="alert"');
     expect(adminSelectClassName).toContain('focus-visible:ring');
-    expect(adminSelectClassName).toContain('rounded-[4px]');
+    expect(adminSelectClassName).toContain('rounded-[var(--admin-radius-control)]');
   });
 
   it('renders accessible keyboard-managed tabs with counts and disabled states', () => {

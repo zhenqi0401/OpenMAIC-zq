@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import {
   Dialog,
   DialogClose,
@@ -86,7 +87,7 @@ function InviteForm({
   return (
     <div className="grid gap-4">
       {createMode ? (
-        <label className="grid gap-1.5 text-sm text-[#75665d]">
+        <label className="grid gap-1.5 text-sm text-[var(--admin-muted-foreground)]">
           <span>邀请码明文</span>
           <Input
             autoComplete="off"
@@ -101,7 +102,7 @@ function InviteForm({
           />
         </label>
       ) : null}
-      <label className="grid gap-1.5 text-sm text-[#75665d]">
+      <label className="grid gap-1.5 text-sm text-[var(--admin-muted-foreground)]">
         <span>绑定角色</span>
         <select
           className={adminSelectClassName}
@@ -117,7 +118,7 @@ function InviteForm({
           ))}
         </select>
       </label>
-      <label className="grid gap-1.5 text-sm text-[#75665d]">
+      <label className="grid gap-1.5 text-sm text-[var(--admin-muted-foreground)]">
         <span>过期时间</span>
         <Input
           className={adminInputClassName}
@@ -127,7 +128,7 @@ function InviteForm({
           value={draft.expiresAt}
         />
       </label>
-      <label className="inline-flex items-center gap-2 text-sm text-[#75665d]">
+      <label className="inline-flex items-center gap-2 text-sm text-[var(--admin-muted-foreground)]">
         <input
           checked={draft.enabled}
           disabled={disabled}
@@ -153,18 +154,22 @@ function InviteSummary({
       <td className="py-3 pr-3">
         <InviteStatusBadge status={view.status} />
       </td>
-      <td className="break-words py-3 pr-3 font-medium text-[#2b211d]">{view.roleLabel}</td>
+      <td className="break-words py-3 pr-3 font-medium text-[var(--admin-foreground)]">
+        {view.roleLabel}
+      </td>
       <td className="py-3 pr-3">
-        <time className="break-words text-sm text-[#75665d]">
+        <time className="break-words text-sm text-[var(--admin-muted-foreground)]">
           {formatAdminDate(inviteCode.createdAt, '-')}
         </time>
       </td>
       <td className="py-3 pr-3">
-        <time className="break-words text-sm text-[#75665d]">
+        <time className="break-words text-sm text-[var(--admin-muted-foreground)]">
           {formatAdminDate(inviteCode.expiresAt)}
         </time>
       </td>
-      <td className="py-3 pr-3 text-sm text-[#75665d]">{inviteCode.enabled ? '是' : '否'}</td>
+      <td className="py-3 pr-3 text-sm text-[var(--admin-muted-foreground)]">
+        {inviteCode.enabled ? '是' : '否'}
+      </td>
     </>
   );
 }
@@ -256,23 +261,29 @@ export function AccessInvitesTab({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+          <h3 className="text-xl font-normal leading-tight tracking-[-0.016em] text-[var(--admin-foreground)]">
             邀请码
           </h3>
-          <p className="mt-1 max-w-[68ch] text-sm leading-6 text-[#75665d]">
+          <p className="mt-1 max-w-[68ch] text-sm leading-6 text-[var(--admin-muted-foreground)]">
             列表只展示状态和绑定信息，不展示邀请码明文；撤销后原邀请码将无法注册。
           </p>
         </div>
         <Dialog onOpenChange={setCreateOpen} open={createOpen}>
           <DialogTrigger asChild>
-            <Button className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]" type="button">
+            <Button
+              className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
+              type="button"
+            >
               创建邀请码
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-[500px] rounded-[6px] border-[#d8c8b9] bg-[#fffaf2] text-[#2b211d]">
+          <DialogContent
+            {...adminThemeAttributes}
+            className="max-w-[500px] rounded-[var(--admin-radius-dialog)] border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)]"
+          >
             <DialogHeader>
               <DialogTitle className="text-xl font-normal">创建邀请码</DialogTitle>
-              <DialogDescription className="leading-6 text-[#75665d]">
+              <DialogDescription className="leading-6 text-[var(--admin-muted-foreground)]">
                 邀请码明文创建后不会在列表中再次显示，请自行安全保存。当前仍需手工输入明文。
               </DialogDescription>
             </DialogHeader>
@@ -296,7 +307,7 @@ export function AccessInvitesTab({
               </DialogClose>
               <Button
                 aria-busy={creatingInvite}
-                className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
+                className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
                 disabled={creatingInvite}
                 onClick={() => void submitCreate()}
                 type="button"
@@ -316,7 +327,7 @@ export function AccessInvitesTab({
         <>
           <div className="hidden xl:block" data-admin-access-invite-table>
             <table className="w-full table-auto border-collapse text-left">
-              <thead className="border-b border-[#eaded1] text-xs font-semibold uppercase tracking-[0.08em] text-[#75665d]">
+              <thead className="border-b border-[var(--admin-border-subtle)] text-xs font-semibold uppercase tracking-[0.08em] text-[var(--admin-muted-foreground)]">
                 <tr>
                   <th className="pb-2 pr-3">状态</th>
                   <th className="pb-2 pr-3">绑定角色</th>
@@ -326,7 +337,7 @@ export function AccessInvitesTab({
                   <th className="pb-2 text-right">操作</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#eaded1]">
+              <tbody className="divide-y divide-[var(--admin-border-subtle)]">
                 {inviteCodes.map((inviteCode) => (
                   <tr key={inviteCode.id}>
                     <InviteSummary inviteCode={inviteCode} roles={roles} />
@@ -362,29 +373,29 @@ export function AccessInvitesTab({
               const view = getInviteCodeView(inviteCode, roles);
               return (
                 <article
-                  className="grid min-w-0 gap-3 rounded-[4px] border border-[#eaded1] p-3"
+                  className="grid min-w-0 gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border-subtle)] p-3"
                   key={inviteCode.id}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="text-xs text-[#75665d]">绑定角色</div>
+                      <div className="text-xs text-[var(--admin-muted-foreground)]">绑定角色</div>
                       <div className="mt-1 break-words font-medium">{view.roleLabel}</div>
                     </div>
                     <InviteStatusBadge status={view.status} />
                   </div>
                   <dl className="grid gap-2 text-sm sm:grid-cols-3">
                     <div>
-                      <dt className="text-xs text-[#75665d]">创建时间</dt>
+                      <dt className="text-xs text-[var(--admin-muted-foreground)]">创建时间</dt>
                       <dd className="mt-1 break-words">
                         {formatAdminDate(inviteCode.createdAt, '-')}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-[#75665d]">过期时间</dt>
+                      <dt className="text-xs text-[var(--admin-muted-foreground)]">过期时间</dt>
                       <dd className="mt-1 break-words">{formatAdminDate(inviteCode.expiresAt)}</dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-[#75665d]">启用状态</dt>
+                      <dt className="text-xs text-[var(--admin-muted-foreground)]">启用状态</dt>
                       <dd className="mt-1">{inviteCode.enabled ? '是' : '否'}</dd>
                     </div>
                   </dl>
@@ -420,10 +431,13 @@ export function AccessInvitesTab({
         }}
         open={editingInvite !== null}
       >
-        <DialogContent className="max-w-[500px] rounded-[6px] border-[#d8c8b9] bg-[#fffaf2] text-[#2b211d]">
+        <DialogContent
+          {...adminThemeAttributes}
+          className="max-w-[500px] rounded-[var(--admin-radius-dialog)] border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)]"
+        >
           <DialogHeader>
             <DialogTitle className="text-xl font-normal">编辑邀请码</DialogTitle>
-            <DialogDescription className="leading-6 text-[#75665d]">
+            <DialogDescription className="leading-6 text-[var(--admin-muted-foreground)]">
               只更新绑定角色、过期时间和启用状态；邀请码明文不会被读取或展示。
             </DialogDescription>
           </DialogHeader>
@@ -447,7 +461,7 @@ export function AccessInvitesTab({
             </DialogClose>
             <Button
               aria-busy={Boolean(editingInvite && savingInviteCodeId === editingInvite.id)}
-              className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
+              className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
               disabled={Boolean(editingInvite && savingInviteCodeId === editingInvite.id)}
               onClick={() => void submitEdit()}
               type="button"

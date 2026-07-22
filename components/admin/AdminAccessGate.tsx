@@ -64,7 +64,7 @@ export function AdminAccessGate({ children }: { children: ReactNode }) {
   if (gate.status === 'checking') {
     return (
       <AdminCard className="p-4">
-        <div className="text-sm text-[#75665d]" role="status">
+        <div className="text-sm text-[var(--admin-muted-foreground)]" role="status">
           正在检查后台权限...
         </div>
       </AdminCard>
@@ -81,14 +81,14 @@ export function AdminAccessGate({ children }: { children: ReactNode }) {
     <AdminCard className="grid gap-4 p-6">
       <BrandLockup variant="compact" />
       <div className="flex items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-[4px] border border-[#d8c8b9] bg-[#f1e2d0] text-[#9b5b47]">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-selection-background)] text-[var(--admin-link)]">
           {loginRequired ? <LogIn className="size-5" /> : <ShieldAlert className="size-5" />}
         </div>
         <div>
-          <h2 className="text-2xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+          <h2 className="text-2xl font-normal leading-tight tracking-[-0.016em] text-[var(--admin-foreground)]">
             {loginRequired ? '请先登录管理员账号' : '当前账号没有后台权限'}
           </h2>
-          <p className="mt-2 max-w-[64ch] text-sm leading-6 text-[#75665d]">
+          <p className="mt-2 max-w-[64ch] text-sm leading-6 text-[var(--admin-muted-foreground)]">
             {loginRequired
               ? '后台数据接口需要元我智脑管理员会话。登录后再进入管理后台，页面才会加载看板、课程、考核和权限数据。'
               : '后台仅管理员角色可访问。请切换到管理员账号，或联系管理员调整当前用户角色。'}
@@ -97,7 +97,7 @@ export function AdminAccessGate({ children }: { children: ReactNode }) {
       </div>
       {loginRequired ? (
         <Button
-          className="w-fit rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
+          className="w-fit rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
           onClick={() => {
             window.location.href = '/login';
           }}

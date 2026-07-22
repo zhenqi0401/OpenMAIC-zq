@@ -11,7 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { adminSecondaryButtonClassName, adminThemeStyle } from '@/components/admin/AdminSurface';
+import { adminSecondaryButtonClassName } from '@/components/admin/AdminSurface';
+import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import type { CourseVisibilityMode, EnterpriseCourse } from '@/lib/storage/enterprise-service';
 import type { AuthRole } from '@/lib/auth/service';
 
@@ -89,15 +90,15 @@ function CourseVisibilityDialogContent({
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent
-        className="max-w-[520px] rounded-[6px] border border-[#d8c8b9] bg-[#fffaf2] text-[#2b211d]"
-        style={adminThemeStyle}
+        {...adminThemeAttributes}
+        className="max-w-[520px] rounded-[var(--admin-radius-card)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)]"
       >
         <DialogHeader>
           <DialogTitle className="text-xl font-normal">修改可见范围</DialogTitle>
           <DialogDescription>{`设置「${course.name}」对哪些学员角色可见。`}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
-          <label className="flex items-start gap-3 rounded-[4px] border border-[#d8c8b9] p-3">
+          <label className="flex items-start gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] p-3">
             <input
               checked={draft.visibilityMode === 'all'}
               name="visibility-mode"
@@ -106,10 +107,12 @@ function CourseVisibilityDialogContent({
             />
             <span>
               <strong className="block font-medium">全体可见</strong>
-              <span className="text-xs text-[#75665d]">所有可以进入学习端的用户都能看到。</span>
+              <span className="text-xs text-[var(--admin-muted-foreground)]">
+                所有可以进入学习端的用户都能看到。
+              </span>
             </span>
           </label>
-          <label className="flex items-start gap-3 rounded-[4px] border border-[#d8c8b9] p-3">
+          <label className="flex items-start gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] p-3">
             <input
               checked={draft.visibilityMode === 'roles'}
               name="visibility-mode"
@@ -118,14 +121,16 @@ function CourseVisibilityDialogContent({
             />
             <span>
               <strong className="block font-medium">按角色可见</strong>
-              <span className="text-xs text-[#75665d]">仅勾选的学员角色可以看到。</span>
+              <span className="text-xs text-[var(--admin-muted-foreground)]">
+                仅勾选的学员角色可以看到。
+              </span>
             </span>
           </label>
           {draft.visibilityMode === 'roles' ? (
-            <fieldset className="grid gap-2 rounded-[4px] bg-[#f7eee3] p-3 sm:grid-cols-2">
+            <fieldset className="grid gap-2 rounded-[var(--admin-radius-control)] bg-[var(--admin-surface-subtle)] p-3 sm:grid-cols-2">
               <legend className="sr-only">可见角色</legend>
               {roles.length === 0 ? (
-                <p className="text-sm text-[#75665d]">暂无可选学员角色</p>
+                <p className="text-sm text-[var(--admin-muted-foreground)]">暂无可选学员角色</p>
               ) : (
                 roles.map((role) => (
                   <label className="flex items-center gap-2 text-sm" key={role.id}>
@@ -149,7 +154,7 @@ function CourseVisibilityDialogContent({
           </DialogClose>
           <Button
             aria-busy={saving}
-            className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
+            className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
             disabled={
               saving || (draft.visibilityMode === 'roles' && draft.visibleRoleIds.length === 0)
             }

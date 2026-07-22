@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Shield } from 'lucide-react';
-import { AdminSectionHeader } from '@/components/admin/AdminSurface';
+import { AdminPage, AdminSectionHeader } from '@/components/admin/AdminSurface';
 import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
 import { AdminTabs } from '@/components/admin/AdminTabs';
 import { Button } from '@/components/ui/button';
@@ -274,8 +274,8 @@ export function AccessAdminPanel({
   }
 
   return (
-    <section
-      className="min-w-0 w-[calc(100vw-1.5rem)] scroll-mt-4 space-y-4 sm:w-[calc(100vw-2rem)] lg:w-auto"
+    <AdminPage
+      className="w-[calc(100vw-1.5rem)] space-y-4 sm:w-[calc(100vw-2rem)] lg:w-auto"
       id="admin-access"
     >
       <AdminSectionHeader
@@ -284,7 +284,7 @@ export function AccessAdminPanel({
             leading={
               <Button
                 aria-busy={loading}
-                className="rounded-[4px] border-[#d8c8b9]"
+                className="rounded-[var(--admin-radius-control)] border-[var(--admin-border)]"
                 disabled={loading}
                 onClick={() => void loadAll(true)}
                 variant="outline"
@@ -362,6 +362,6 @@ export function AccessAdminPanel({
           />
         ) : null}
       </div>
-    </section>
+    </AdminPage>
   );
 }

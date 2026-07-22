@@ -9,6 +9,7 @@ import {
 } from '@/lib/admin/toast';
 import {
   AdminCard,
+  AdminPage,
   AdminSectionHeader,
   adminInputClassName,
   adminSelectClassName,
@@ -202,13 +203,13 @@ export function ExamPolicyAdminPanel() {
   }
 
   return (
-    <section className="scroll-mt-4 space-y-5" id="admin-exams">
+    <AdminPage id="admin-exams">
       <AdminSectionHeader
         action={
           <AdminSessionActions
             leading={
               <Button
-                className="rounded-[4px] border-[#d8c8b9]"
+                className="rounded-[var(--admin-radius-control)] border-[var(--admin-border)]"
                 onClick={() => void loadAll(true)}
                 type="button"
                 variant="outline"
@@ -227,15 +228,17 @@ export function ExamPolicyAdminPanel() {
       <ExamReadinessSummary readiness={readiness} />
 
       <AdminCard className="overflow-hidden" data-exam-policy-list>
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#d8c8b9] px-4 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--admin-border)] px-4 py-4">
           <div>
-            <div className="text-xl font-normal leading-tight text-[#2b211d]">考核策略列表</div>
-            <p className="mt-1 text-sm text-[#75665d]">
+            <div className="text-xl font-normal leading-tight text-[var(--admin-foreground)]">
+              考核策略列表
+            </div>
+            <p className="mt-1 text-sm text-[var(--admin-muted-foreground)]">
               共 {filteredPolicies.length} 项；编辑配置后，再按状态发布、下架或删除草稿。
             </p>
           </div>
           <Button
-            className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
+            className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
             onClick={openCreateDialog}
             type="button"
           >
@@ -243,7 +246,7 @@ export function ExamPolicyAdminPanel() {
             新建考核
           </Button>
         </div>
-        <div className="border-b border-[#eaded1] p-4" data-exam-policy-filters>
+        <div className="border-b border-[var(--admin-border-subtle)] p-4" data-exam-policy-filters>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
             <Input
               aria-label="搜索考核"
@@ -268,9 +271,11 @@ export function ExamPolicyAdminPanel() {
           </div>
         </div>
         {policies.length === 0 ? (
-          <div className="px-4 py-10 text-center text-sm text-[#75665d]">暂无阶段考核</div>
+          <div className="px-4 py-10 text-center text-sm text-[var(--admin-muted-foreground)]">
+            暂无阶段考核
+          </div>
         ) : filteredPolicies.length === 0 ? (
-          <div className="px-4 py-10 text-center text-sm text-[#75665d]">
+          <div className="px-4 py-10 text-center text-sm text-[var(--admin-muted-foreground)]">
             没有符合当前筛选条件的考核
           </div>
         ) : (
@@ -313,7 +318,7 @@ export function ExamPolicyAdminPanel() {
         roles={learnerRoles}
         saving={saving}
       />
-    </section>
+    </AdminPage>
   );
 }
 

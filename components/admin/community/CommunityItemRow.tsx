@@ -105,17 +105,21 @@ export function CommunityItemRow({
           </div>
           {item.title ? <h3 className="mt-2 font-medium">{item.title}</h3> : null}
           {item.postTitle ? (
-            <p className="mt-2 text-xs text-[#75665d]">所属帖子：{item.postTitle}</p>
+            <p className="mt-2 text-xs text-[var(--admin-muted-foreground)]">
+              所属帖子：{item.postTitle}
+            </p>
           ) : null}
           <p className="mt-2 line-clamp-3 whitespace-pre-wrap break-words text-sm leading-6">
             {item.content ?? item.body ?? item.reason ?? '无文本内容'}
           </p>
         </div>
-        <time className="shrink-0 text-xs text-[#75665d]">{formatTime(item.createdAt)}</time>
+        <time className="shrink-0 text-xs text-[var(--admin-muted-foreground)]">
+          {formatTime(item.createdAt)}
+        </time>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#eaded1] pt-3">
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#75665d]">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--admin-border-subtle)] pt-3">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--admin-muted-foreground)]">
           {item.author ? <span>作者：{item.author.displayName}</span> : null}
           {item.moderator ? <span>管理员：{item.moderator.displayName}</span> : null}
           {item.courseName ? <span>课程：{item.courseName}</span> : null}

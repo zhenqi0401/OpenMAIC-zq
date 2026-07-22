@@ -10,7 +10,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { adminSecondaryButtonClassName, adminThemeStyle } from '@/components/admin/AdminSurface';
+import { adminSecondaryButtonClassName } from '@/components/admin/AdminSurface';
+import { adminThemeAttributes } from '@/components/admin/admin-theme';
 
 export interface AdminRowAction {
   id: string;
@@ -94,21 +95,21 @@ export function AdminRowActions({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
+            {...adminThemeAttributes}
             align="end"
             aria-label={triggerAriaLabel}
-            className="min-w-48 border-[#d8c8b9] bg-[#fffaf2] text-[#2b211d]"
-            style={adminThemeStyle}
+            className="min-w-48 border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)]"
           >
             {standard.map((action, index) => (
               <Fragment key={action.id}>
                 {action.separatorBefore && index > 0 ? (
-                  <DropdownMenuSeparator className="bg-[#eaded1]" />
+                  <DropdownMenuSeparator className="bg-[var(--admin-border-subtle)]" />
                 ) : null}
                 <RowActionItem action={action} />
               </Fragment>
             ))}
             {destructive.length > 0 && standard.length > 0 ? (
-              <DropdownMenuSeparator className="bg-[#eaded1]" />
+              <DropdownMenuSeparator className="bg-[var(--admin-border-subtle)]" />
             ) : null}
             {destructive.map((action) => (
               <RowActionItem action={action} key={action.id} />

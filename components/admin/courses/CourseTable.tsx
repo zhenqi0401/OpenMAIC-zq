@@ -55,7 +55,7 @@ export function CourseTable({
           <col className="w-[15%]" />
         </colgroup>
         <thead>
-          <tr className="border-b border-[#d8c8b9] text-xs font-semibold tracking-[0.04em] text-[#75665d]">
+          <tr className="border-b border-[var(--admin-border)] text-xs font-semibold tracking-[0.04em] text-[var(--admin-muted-foreground)]">
             <th className="px-3 py-3" scope="col">
               课程
             </th>
@@ -88,25 +88,30 @@ export function CourseTable({
             const statusAction = getCourseStatusAction(course);
             const changing = statusChangingCourseId === course.id;
             return (
-              <tr className="border-b border-[#eaded1] align-top last:border-b-0" key={course.id}>
+              <tr
+                className="border-b border-[var(--admin-border-subtle)] align-top last:border-b-0"
+                key={course.id}
+              >
                 <td className="min-w-0 px-3 py-3">
-                  <div className="break-words font-medium text-[#2b211d]">{course.name}</div>
+                  <div className="break-words font-medium text-[var(--admin-foreground)]">
+                    {course.name}
+                  </div>
                   {course.description ? (
-                    <div className="mt-1 line-clamp-2 break-words text-xs leading-5 text-[#75665d]">
+                    <div className="mt-1 line-clamp-2 break-words text-xs leading-5 text-[var(--admin-muted-foreground)]">
                       {course.description}
                     </div>
                   ) : null}
                 </td>
-                <td className="break-words px-2 py-3 text-[#75665d]">
+                <td className="break-words px-2 py-3 text-[var(--admin-muted-foreground)]">
                   {course.categoryName ?? '—'}
                 </td>
                 <td className="px-2 py-3">
                   <CourseStatusBadge status={course.status} />
                 </td>
-                <td className="break-words px-2 py-3 text-xs leading-5 text-[#75665d]">
+                <td className="break-words px-2 py-3 text-xs leading-5 text-[var(--admin-muted-foreground)]">
                   {getCourseVisibilitySummary(course, roleNames)}
                 </td>
-                <td className="px-2 py-3 text-right tabular-nums text-[#2b211d]">
+                <td className="px-2 py-3 text-right tabular-nums text-[var(--admin-foreground)]">
                   {course.learnerCount ?? 0}
                 </td>
                 <td className="px-2 py-3">
@@ -114,7 +119,7 @@ export function CourseTable({
                     {contentStatus.label}
                   </AdminStatusBadge>
                 </td>
-                <td className="px-2 py-3 text-xs tabular-nums text-[#75665d]">
+                <td className="px-2 py-3 text-xs tabular-nums text-[var(--admin-muted-foreground)]">
                   <time dateTime={new Date(course.updatedAt).toISOString()}>
                     {formatCourseUpdatedAt(course.updatedAt)}
                   </time>

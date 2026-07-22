@@ -41,10 +41,10 @@ export function CourseFilters({
   onStatusChange: (status: CourseAdminStatusFilter) => void;
 }) {
   return (
-    <div className="border-b border-[#eaded1]" data-course-filters>
+    <div className="border-b border-[var(--admin-border-subtle)]" data-course-filters>
       <div
         aria-label="课程状态快捷筛选"
-        className="flex flex-wrap gap-1 border-b border-[#eaded1] px-3 pt-3"
+        className="flex flex-wrap gap-1 border-b border-[var(--admin-border-subtle)] px-3 pt-3"
         role="group"
       >
         {statusOptions.map((option) => {
@@ -54,8 +54,8 @@ export function CourseFilters({
               aria-pressed={active}
               className={`rounded-b-none border-b-2 px-3 ${
                 active
-                  ? 'border-[#c96f54] bg-[#f1e2d0] text-[#2b211d]'
-                  : 'border-transparent text-[#75665d]'
+                  ? 'border-[var(--admin-selection-border)] bg-[var(--admin-selection-background)] text-[var(--admin-selection-foreground)]'
+                  : 'border-transparent text-[var(--admin-muted-foreground)]'
               }`}
               key={option.value}
               onClick={() => onStatusChange(option.value)}
@@ -105,7 +105,7 @@ export function CourseFilters({
         </select>
         <div className="flex gap-2">
           <Button
-            className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
+            className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
             onClick={onApply}
             type="button"
           >

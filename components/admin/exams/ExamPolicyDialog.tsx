@@ -5,8 +5,8 @@ import {
   adminInputClassName,
   adminSecondaryButtonClassName,
   adminSelectClassName,
-  adminThemeStyle,
 } from '@/components/admin/AdminSurface';
+import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import { ScopePicker } from '@/components/admin/exams/ScopePicker';
 import { Button } from '@/components/ui/button';
 import {
@@ -60,8 +60,8 @@ export function ExamPolicyDialog({
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent
-        className="max-h-[90vh] max-w-[760px] overflow-y-auto rounded-[6px] border border-[#d8c8b9] bg-[#fffaf2] text-[#2b211d]"
-        style={adminThemeStyle}
+        {...adminThemeAttributes}
+        className="max-h-[90vh] max-w-[760px] overflow-y-auto rounded-[var(--admin-radius-card)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)]"
       >
         <DialogHeader>
           <DialogTitle className="text-xl font-normal">
@@ -72,7 +72,7 @@ export function ExamPolicyDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <section className="grid gap-3 rounded-[4px] border border-[#eaded1] p-4">
+        <section className="grid gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border-subtle)] p-4">
           <h3 className="font-medium">基础设置</h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <Field className="sm:col-span-2" label="考核名称">
@@ -130,10 +130,10 @@ export function ExamPolicyDialog({
           </div>
         </section>
 
-        <section className="grid gap-3 rounded-[4px] border border-[#eaded1] p-4">
+        <section className="grid gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border-subtle)] p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-medium">题源范围</h3>
-            <span className="text-xs tabular-nums text-[#75665d]">
+            <span className="text-xs tabular-nums text-[var(--admin-muted-foreground)]">
               当前范围可提供 {candidateQuestionCount} 道候选题
             </span>
           </div>
@@ -156,7 +156,7 @@ export function ExamPolicyDialog({
           </DialogClose>
           <Button
             aria-busy={saving}
-            className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
+            className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
             disabled={saving || !valid}
             onClick={onSave}
             type="button"
@@ -206,7 +206,7 @@ function Field({
 }) {
   return (
     <div aria-label={label} className={`grid gap-1.5 ${className}`} role="group">
-      <span className="text-xs font-medium text-[#75665d]">{label}</span>
+      <span className="text-xs font-medium text-[var(--admin-muted-foreground)]">{label}</span>
       {children}
     </div>
   );

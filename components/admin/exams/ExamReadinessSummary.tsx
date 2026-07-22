@@ -6,8 +6,12 @@ export function ExamReadinessSummary({ readiness }: { readiness: ExamReadiness }
     <AdminCard className="p-4" data-exam-readiness-summary>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-lg font-normal leading-tight text-[#2b211d]">题库准备摘要</div>
-          <p className="mt-1 text-sm text-[#75665d]">仅按已发布课程及其现有课后题统计。</p>
+          <div className="text-lg font-normal leading-tight text-[var(--admin-foreground)]">
+            题库准备摘要
+          </div>
+          <p className="mt-1 text-sm text-[var(--admin-muted-foreground)]">
+            仅按已发布课程及其现有课后题统计。
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <AdminStatusBadge>已发布课程 {readiness.publishedCourseCount}</AdminStatusBadge>

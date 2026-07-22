@@ -5,6 +5,7 @@ import { MessageSquareText, RefreshCw, Search, ShieldCheck } from 'lucide-react'
 import {
   AdminCard,
   AdminNotice,
+  AdminPage,
   AdminSectionHeader,
   adminInputClassName,
   adminSelectClassName,
@@ -168,7 +169,7 @@ export function CommunityAdminPanel() {
   }
 
   return (
-    <div className="grid gap-5" data-community-admin-panel>
+    <AdminPage data-community-admin-panel>
       <AdminSectionHeader
         action={<AdminSessionActions />}
         description="统一检索和处置弹幕、帖子与回复；每次管理员操作均保留操作者、原因和时间。"
@@ -256,7 +257,7 @@ export function CommunityAdminPanel() {
           />
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-2 text-xs text-[#75665d]">
+          <span className="inline-flex items-center gap-2 text-xs text-[var(--admin-muted-foreground)]">
             <Search className="size-3.5" /> 共 {total} 条记录
           </span>
           <div className="flex gap-2">
@@ -280,7 +281,7 @@ export function CommunityAdminPanel() {
 
       <div className="grid gap-3" aria-live="polite">
         {loading && !items.length ? (
-          <AdminCard className="p-8 text-center text-sm text-[#75665d]">
+          <AdminCard className="p-8 text-center text-sm text-[var(--admin-muted-foreground)]">
             正在加载社区内容…
           </AdminCard>
         ) : loadError && !items.length ? (
@@ -342,6 +343,6 @@ export function CommunityAdminPanel() {
         open={Boolean(moderationItem && moderationAction)}
         submitting={pendingItemId === moderationItem?.id}
       />
-    </div>
+    </AdminPage>
   );
 }

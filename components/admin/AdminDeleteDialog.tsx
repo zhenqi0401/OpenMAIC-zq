@@ -12,6 +12,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import {
   adminDangerButtonClassName,
   adminDangerOutlineButtonClassName,
@@ -44,16 +45,19 @@ export function AdminDeleteDialog({
           {deleting ? '删除中…' : '删除'}
         </Button>
       </AlertDialogTrigger>
-      <AlertDialogContent className="max-w-[420px] rounded-[6px] border border-[#d8c8b9] bg-[#fffaf2] p-0 text-[#2b211d] shadow-[0_18px_50px_rgba(43,33,29,0.18)]">
+      <AlertDialogContent
+        {...adminThemeAttributes}
+        className="max-w-[420px] rounded-[var(--admin-radius-dialog)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-0 text-[var(--admin-foreground)] shadow-[var(--admin-shadow-popover)]"
+      >
         <AlertDialogHeader className="place-items-start gap-2 px-5 pb-2 pt-5 text-left">
-          <AlertDialogTitle className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+          <AlertDialogTitle className="text-xl font-normal leading-tight tracking-[-0.016em] text-[var(--admin-foreground)]">
             {title}
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-left text-sm leading-6 text-[#75665d]">
+          <AlertDialogDescription className="text-left text-sm leading-6 text-[var(--admin-muted-foreground)]">
             {description}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="border-t border-[#eaded1] px-5 pb-5 pt-3 sm:justify-end">
+        <AlertDialogFooter className="border-t border-[var(--admin-border-subtle)] px-5 pb-5 pt-3 sm:justify-end">
           <AlertDialogCancel className={adminSecondaryButtonClassName} disabled={deleting}>
             取消
           </AlertDialogCancel>

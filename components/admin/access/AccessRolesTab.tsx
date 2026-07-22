@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import {
   Dialog,
   DialogClose,
@@ -61,7 +62,7 @@ function RoleForm({
 }) {
   return (
     <div className="grid gap-4">
-      <label className="grid gap-1.5 text-sm text-[#75665d]">
+      <label className="grid gap-1.5 text-sm text-[var(--admin-muted-foreground)]">
         <span>角色代码</span>
         <Input
           className={adminInputClassName}
@@ -71,7 +72,7 @@ function RoleForm({
           value={draft.code}
         />
       </label>
-      <label className="grid gap-1.5 text-sm text-[#75665d]">
+      <label className="grid gap-1.5 text-sm text-[var(--admin-muted-foreground)]">
         <span>角色名称</span>
         <Input
           className={adminInputClassName}
@@ -81,7 +82,7 @@ function RoleForm({
           value={draft.name}
         />
       </label>
-      <label className="inline-flex items-center gap-2 text-sm text-[#75665d]">
+      <label className="inline-flex items-center gap-2 text-sm text-[var(--admin-muted-foreground)]">
         <input
           checked={draft.isAdmin}
           disabled={disabled}
@@ -113,10 +114,13 @@ function RoleDialog({
 }) {
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-w-[480px] rounded-[6px] border-[#d8c8b9] bg-[#fffaf2] text-[#2b211d]">
+      <DialogContent
+        {...adminThemeAttributes}
+        className="max-w-[480px] rounded-[var(--admin-radius-dialog)] border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)]"
+      >
         <DialogHeader>
           <DialogTitle className="text-xl font-normal">{title}</DialogTitle>
-          <DialogDescription className="leading-6 text-[#75665d]">
+          <DialogDescription className="leading-6 text-[var(--admin-muted-foreground)]">
             角色代码、名称和管理员权限会提交到现有角色 API。系统保护仍由服务端执行。
           </DialogDescription>
         </DialogHeader>
@@ -134,7 +138,7 @@ function RoleDialog({
           </DialogClose>
           <Button
             aria-busy={busy}
-            className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
+            className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
             disabled={busy}
             onClick={onSave}
             type="button"
@@ -151,16 +155,20 @@ function RoleSummary({ count, role }: { count: RoleUsageCount; role: AdminRole }
   return (
     <>
       <td className="py-3 pr-3">
-        <div className="font-medium text-[#2b211d]">{role.name}</div>
-        <div className="break-all text-xs text-[#75665d]">{role.code}</div>
+        <div className="font-medium text-[var(--admin-foreground)]">{role.name}</div>
+        <div className="break-all text-xs text-[var(--admin-muted-foreground)]">{role.code}</div>
       </td>
       <td className="py-3 pr-3">
         <AdminStatusBadge tone={role.isAdmin ? 'warning' : 'neutral'}>
           {role.isAdmin ? '管理员角色' : '普通角色'}
         </AdminStatusBadge>
       </td>
-      <td className="py-3 pr-3 text-sm tabular-nums text-[#75665d]">{count.userCount}</td>
-      <td className="py-3 pr-3 text-sm tabular-nums text-[#75665d]">{count.inviteCount}</td>
+      <td className="py-3 pr-3 text-sm tabular-nums text-[var(--admin-muted-foreground)]">
+        {count.userCount}
+      </td>
+      <td className="py-3 pr-3 text-sm tabular-nums text-[var(--admin-muted-foreground)]">
+        {count.inviteCount}
+      </td>
     </>
   );
 }
@@ -224,23 +232,29 @@ export function AccessRolesTab({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+          <h3 className="text-xl font-normal leading-tight tracking-[-0.016em] text-[var(--admin-foreground)]">
             角色与权限
           </h3>
-          <p className="mt-1 text-sm leading-6 text-[#75665d]">
+          <p className="mt-1 text-sm leading-6 text-[var(--admin-muted-foreground)]">
             列表保持只读；编辑时再打开表单，用户数和邀请码数来自当前已加载数据。
           </p>
         </div>
         <Dialog onOpenChange={setCreateOpen} open={createOpen}>
           <DialogTrigger asChild>
-            <Button className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]" type="button">
+            <Button
+              className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
+              type="button"
+            >
               创建角色
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-[480px] rounded-[6px] border-[#d8c8b9] bg-[#fffaf2] text-[#2b211d]">
+          <DialogContent
+            {...adminThemeAttributes}
+            className="max-w-[480px] rounded-[var(--admin-radius-dialog)] border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)]"
+          >
             <DialogHeader>
               <DialogTitle className="text-xl font-normal">创建角色</DialogTitle>
-              <DialogDescription className="leading-6 text-[#75665d]">
+              <DialogDescription className="leading-6 text-[var(--admin-muted-foreground)]">
                 创建普通或管理员角色；至少保留一个管理员角色等约束由服务端继续保护。
               </DialogDescription>
             </DialogHeader>
@@ -258,7 +272,7 @@ export function AccessRolesTab({
               </DialogClose>
               <Button
                 aria-busy={creatingRole}
-                className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
+                className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
                 disabled={creatingRole}
                 onClick={() => void submitCreate()}
                 type="button"
@@ -278,7 +292,7 @@ export function AccessRolesTab({
         <>
           <div className="hidden lg:block" data-admin-access-role-table>
             <table className="w-full table-auto border-collapse text-left">
-              <thead className="border-b border-[#eaded1] text-xs font-semibold uppercase tracking-[0.08em] text-[#75665d]">
+              <thead className="border-b border-[var(--admin-border-subtle)] text-xs font-semibold uppercase tracking-[0.08em] text-[var(--admin-muted-foreground)]">
                 <tr>
                   <th className="pb-2 pr-3">角色</th>
                   <th className="pb-2 pr-3">类型</th>
@@ -287,7 +301,7 @@ export function AccessRolesTab({
                   <th className="pb-2 text-right">操作</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#eaded1]">
+              <tbody className="divide-y divide-[var(--admin-border-subtle)]">
                 {roles.map((role) => (
                   <tr key={role.id}>
                     <RoleSummary count={usageCounts[role.id]} role={role} />
@@ -321,13 +335,15 @@ export function AccessRolesTab({
           <div className="grid gap-3 lg:hidden" data-admin-access-role-cards>
             {roles.map((role) => (
               <article
-                className="grid min-w-0 gap-3 rounded-[4px] border border-[#eaded1] p-3"
+                className="grid min-w-0 gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border-subtle)] p-3"
                 key={role.id}
               >
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                   <div className="min-w-0">
-                    <div className="font-medium text-[#2b211d]">{role.name}</div>
-                    <div className="break-all text-xs text-[#75665d]">{role.code}</div>
+                    <div className="font-medium text-[var(--admin-foreground)]">{role.name}</div>
+                    <div className="break-all text-xs text-[var(--admin-muted-foreground)]">
+                      {role.code}
+                    </div>
                   </div>
                   <AdminStatusBadge tone={role.isAdmin ? 'warning' : 'neutral'}>
                     {role.isAdmin ? '管理员角色' : '普通角色'}
@@ -335,11 +351,11 @@ export function AccessRolesTab({
                 </div>
                 <dl className="grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <dt className="text-xs text-[#75665d]">当前用户数</dt>
+                    <dt className="text-xs text-[var(--admin-muted-foreground)]">当前用户数</dt>
                     <dd className="mt-1 tabular-nums">{usageCounts[role.id].userCount}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-[#75665d]">当前邀请码数</dt>
+                    <dt className="text-xs text-[var(--admin-muted-foreground)]">当前邀请码数</dt>
                     <dd className="mt-1 tabular-nums">{usageCounts[role.id].inviteCount}</dd>
                   </div>
                 </dl>

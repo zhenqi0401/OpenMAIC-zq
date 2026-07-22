@@ -13,6 +13,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import {
   AdminCard,
   adminDangerButtonClassName,
@@ -53,16 +54,19 @@ export function AccessDangerDialog({
           {busy ? '处理中…' : triggerLabel}
         </Button>
       </AlertDialogTrigger>
-      <AlertDialogContent className="max-w-[420px] rounded-[6px] border border-[#d8c8b9] bg-[#fffaf2] p-0 text-[#2b211d] shadow-[0_18px_50px_rgba(43,33,29,0.18)]">
+      <AlertDialogContent
+        {...adminThemeAttributes}
+        className="max-w-[420px] rounded-[var(--admin-radius-dialog)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-0 text-[var(--admin-foreground)] shadow-[var(--admin-shadow-popover)]"
+      >
         <AlertDialogHeader className="place-items-start gap-2 px-5 pb-2 pt-5 text-left">
-          <AlertDialogTitle className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+          <AlertDialogTitle className="text-xl font-normal leading-tight tracking-[-0.016em] text-[var(--admin-foreground)]">
             {title}
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-left text-sm leading-6 text-[#75665d]">
+          <AlertDialogDescription className="text-left text-sm leading-6 text-[var(--admin-muted-foreground)]">
             {description}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="border-t border-[#eaded1] px-5 pb-5 pt-3 sm:justify-end">
+        <AlertDialogFooter className="border-t border-[var(--admin-border-subtle)] px-5 pb-5 pt-3 sm:justify-end">
           <AlertDialogCancel className={adminSecondaryButtonClassName} disabled={busy}>
             取消
           </AlertDialogCancel>
@@ -127,16 +131,18 @@ function UserFacts({ user }: { user: AdminUser }) {
   return (
     <dl className="grid gap-2">
       <div>
-        <dt className="text-xs text-[#75665d]">用户</dt>
-        <dd className="mt-1 font-medium text-[#2b211d]">{user.displayName}</dd>
+        <dt className="text-xs text-[var(--admin-muted-foreground)]">用户</dt>
+        <dd className="mt-1 font-medium text-[var(--admin-foreground)]">{user.displayName}</dd>
       </div>
       <div>
-        <dt className="text-xs text-[#75665d]">手机号</dt>
-        <dd className="mt-1 text-[#75665d]">{user.phone ?? '-'}</dd>
+        <dt className="text-xs text-[var(--admin-muted-foreground)]">手机号</dt>
+        <dd className="mt-1 text-[var(--admin-muted-foreground)]">{user.phone ?? '-'}</dd>
       </div>
       <div>
-        <dt className="text-xs text-[#75665d]">外部用户 ID</dt>
-        <dd className="mt-1 break-all text-[#75665d]">{user.hostUserId ?? '-'}</dd>
+        <dt className="text-xs text-[var(--admin-muted-foreground)]">外部用户 ID</dt>
+        <dd className="mt-1 break-all text-[var(--admin-muted-foreground)]">
+          {user.hostUserId ?? '-'}
+        </dd>
       </div>
     </dl>
   );
@@ -202,7 +208,7 @@ export function AccessUsersTab({
       <>
         <div className="hidden xl:block" data-admin-access-user-table>
           <table className="w-full table-auto border-collapse text-left text-sm">
-            <thead className="border-b border-[#eaded1] text-xs font-semibold uppercase tracking-[0.08em] text-[#75665d]">
+            <thead className="border-b border-[var(--admin-border-subtle)] text-xs font-semibold uppercase tracking-[0.08em] text-[var(--admin-muted-foreground)]">
               <tr>
                 <th className="pb-2 pr-3">用户</th>
                 <th className="pb-2 pr-3">手机号</th>
@@ -211,14 +217,18 @@ export function AccessUsersTab({
                 <th className="pb-2 text-right">操作</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#eaded1]">
+            <tbody className="divide-y divide-[var(--admin-border-subtle)]">
               {pagination.rows.map((user) => {
                 const saving = savingUserId === user.id;
                 return (
                   <tr key={user.id}>
-                    <td className="py-3 pr-3 font-medium text-[#2b211d]">{user.displayName}</td>
-                    <td className="py-3 pr-3 text-[#75665d]">{user.phone ?? '-'}</td>
-                    <td className="max-w-52 break-all py-3 pr-3 text-[#75665d]">
+                    <td className="py-3 pr-3 font-medium text-[var(--admin-foreground)]">
+                      {user.displayName}
+                    </td>
+                    <td className="py-3 pr-3 text-[var(--admin-muted-foreground)]">
+                      {user.phone ?? '-'}
+                    </td>
+                    <td className="max-w-52 break-all py-3 pr-3 text-[var(--admin-muted-foreground)]">
                       {user.hostUserId ?? '-'}
                     </td>
                     <td className="py-3 pr-3">
@@ -249,7 +259,7 @@ export function AccessUsersTab({
             const saving = savingUserId === user.id;
             return (
               <article
-                className="grid min-w-0 gap-3 rounded-[4px] border border-[#eaded1] p-3"
+                className="grid min-w-0 gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border-subtle)] p-3"
                 key={user.id}
               >
                 <div className="grid min-w-0 gap-1 text-sm">
@@ -285,15 +295,15 @@ export function AccessUsersTab({
       role="tabpanel"
     >
       <div>
-        <h3 className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+        <h3 className="text-xl font-normal leading-tight tracking-[-0.016em] text-[var(--admin-foreground)]">
           用户与角色
         </h3>
-        <p className="mt-1 text-sm leading-6 text-[#75665d]">
+        <p className="mt-1 text-sm leading-6 text-[var(--admin-muted-foreground)]">
           查看用户基本信息并调整所属角色；删除用户会同时移除其关联学习记录。
         </p>
       </div>
       {content}
-      <div className="border-t border-[#eaded1] pt-3">
+      <div className="border-t border-[var(--admin-border-subtle)] pt-3">
         <AdminPagination
           end={pagination.end}
           loading={loading}

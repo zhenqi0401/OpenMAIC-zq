@@ -5,6 +5,7 @@ import { BookOpen } from 'lucide-react';
 import { adminToast } from '@/lib/admin/toast';
 import {
   AdminCard,
+  AdminPage,
   AdminSectionHeader,
   adminSecondaryButtonClassName,
 } from '@/components/admin/AdminSurface';
@@ -83,7 +84,10 @@ export function CourseListEmptyState({
       <div className="p-4">
         <AdminEmptyState
           action={
-            <Button asChild className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]">
+            <Button
+              asChild
+              className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
+            >
               <Link href="/">返回首页创建课程</Link>
             </Button>
           }
@@ -253,7 +257,7 @@ export function CourseAdminPanel() {
   }
 
   return (
-    <section className="scroll-mt-4 space-y-5" id="admin-courses">
+    <AdminPage id="admin-courses">
       <AdminSectionHeader
         action={
           <AdminSessionActions
@@ -277,14 +281,14 @@ export function CourseAdminPanel() {
 
       <AdminCard className="overflow-hidden">
         <div
-          className="flex flex-col gap-3 border-b border-[#d8c8b9] px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+          className="flex flex-col gap-3 border-b border-[var(--admin-border)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
           data-course-list-header
         >
           <div>
-            <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+            <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[var(--admin-foreground)]">
               课程列表
             </div>
-            <p className="mt-1 text-sm text-[#75665d]">
+            <p className="mt-1 text-sm text-[var(--admin-muted-foreground)]">
               课程由首页生成，此处负责筛选、分类、发布、可见范围和删除。
             </p>
           </div>
@@ -326,7 +330,7 @@ export function CourseAdminPanel() {
           />
         )}
 
-        <div className="border-t border-[#eaded1] px-4 py-3">
+        <div className="border-t border-[var(--admin-border-subtle)] px-4 py-3">
           <AdminPagination
             end={coursePagination.end}
             onPageChange={setCoursePage}
@@ -359,6 +363,6 @@ export function CourseAdminPanel() {
           />
         </div>
       ) : null}
-    </section>
+    </AdminPage>
   );
 }

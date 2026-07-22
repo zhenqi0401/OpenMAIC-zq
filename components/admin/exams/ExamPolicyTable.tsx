@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import type { AdminExamPolicy } from '@/lib/admin/client';
+import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import {
   getPolicyMenuLabels,
   getPolicyScopeSummary,
@@ -61,7 +62,7 @@ export function ExamPolicyTable({
             <col className="w-[16%]" />
           </colgroup>
           <thead>
-            <tr className="border-b border-[#d8c8b9] text-xs font-semibold tracking-[0.03em] text-[#75665d]">
+            <tr className="border-b border-[var(--admin-border)] text-xs font-semibold tracking-[0.03em] text-[var(--admin-muted-foreground)]">
               <th className="px-3 py-3" scope="col">
                 考核名称
               </th>
@@ -97,19 +98,22 @@ export function ExamPolicyTable({
               const status = getPolicyStatusView(policy.status);
               const menuLabels = getPolicyMenuLabels(policy.status);
               return (
-                <tr className="border-b border-[#eaded1] align-top last:border-b-0" key={policy.id}>
-                  <td className="break-words px-3 py-3 font-medium text-[#2b211d]">
+                <tr
+                  className="border-b border-[var(--admin-border-subtle)] align-top last:border-b-0"
+                  key={policy.id}
+                >
+                  <td className="break-words px-3 py-3 font-medium text-[var(--admin-foreground)]">
                     {policy.title}
                   </td>
-                  <td className="break-words px-2 py-3 text-[#75665d]">
+                  <td className="break-words px-2 py-3 text-[var(--admin-muted-foreground)]">
                     {roleNames.get(policy.targetRoleId) ?? policy.targetRoleId}
                   </td>
-                  <td className="break-words px-2 py-3 text-xs leading-5 text-[#75665d]">
+                  <td className="break-words px-2 py-3 text-xs leading-5 text-[var(--admin-muted-foreground)]">
                     {getPolicyScopeSummary(policy, categoryNames)}
                   </td>
                   <td className="px-2 py-3 text-right tabular-nums">{policy.questionCount}</td>
                   <td className="px-2 py-3">
-                    <span className="whitespace-nowrap tabular-nums text-[#2b211d]">
+                    <span className="whitespace-nowrap tabular-nums text-[var(--admin-foreground)]">
                       {candidateQuestionCount} 题
                     </span>
                   </td>
@@ -156,7 +160,10 @@ export function ExamPolicyTable({
         onOpenChange={(open) => !open && setDeleteTarget(null)}
         open={Boolean(deleteTarget)}
       >
-        <AlertDialogContent className="max-w-[420px] rounded-[6px] border border-[#d8c8b9] bg-[#fffaf2] p-0 text-[#2b211d]">
+        <AlertDialogContent
+          {...adminThemeAttributes}
+          className="max-w-[420px] rounded-[var(--admin-radius-dialog)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-0 text-[var(--admin-foreground)]"
+        >
           <AlertDialogHeader className="place-items-start gap-2 px-5 pb-2 pt-5 text-left">
             <AlertDialogTitle className="text-xl font-normal">删除考核策略</AlertDialogTitle>
             <AlertDialogDescription className="text-left leading-6">
@@ -165,7 +172,7 @@ export function ExamPolicyTable({
                 : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="border-t border-[#eaded1] px-5 pb-5 pt-3">
+          <AlertDialogFooter className="border-t border-[var(--admin-border-subtle)] px-5 pb-5 pt-3">
             <AlertDialogCancel disabled={Boolean(deletingPolicyId)}>取消</AlertDialogCancel>
             <AlertDialogAction
               aria-busy={Boolean(deletingPolicyId)}

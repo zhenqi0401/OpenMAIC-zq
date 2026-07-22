@@ -12,11 +12,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  AdminNotice,
-  adminSecondaryButtonClassName,
-  adminThemeStyle,
-} from '@/components/admin/AdminSurface';
+import { AdminNotice, adminSecondaryButtonClassName } from '@/components/admin/AdminSurface';
+import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import {
   COMMUNITY_REASON_PRESETS,
   type AdminCommunityItem,
@@ -71,13 +68,13 @@ export function CommunityModerationDialog({
       open={open}
     >
       <DialogContent
-        className="max-w-[540px] rounded-[6px] border border-[#d8c8b9] bg-[#fffaf2] text-[#2b211d]"
+        {...adminThemeAttributes}
+        className="max-w-[540px] rounded-[var(--admin-radius-card)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)]"
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           contentRef.current?.focus({ preventScroll: true });
         }}
         ref={contentRef}
-        style={adminThemeStyle}
         tabIndex={-1}
       >
         <DialogHeader>
@@ -88,8 +85,8 @@ export function CommunityModerationDialog({
         </DialogHeader>
 
         <div className="grid gap-4">
-          <div className="rounded-[4px] border border-[#d8c8b9] bg-[#f7eee3] p-3">
-            <span className="text-xs text-[#75665d]">内容摘要</span>
+          <div className="rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface-subtle)] p-3">
+            <span className="text-xs text-[var(--admin-muted-foreground)]">内容摘要</span>
             <p className="mt-1 line-clamp-3 whitespace-pre-wrap break-words text-sm leading-6">
               {communityItemSummary(item)}
             </p>
@@ -102,7 +99,7 @@ export function CommunityModerationDialog({
             <div className="grid gap-2 sm:grid-cols-2">
               {COMMUNITY_REASON_PRESETS.map((reason) => (
                 <label
-                  className="flex cursor-pointer items-center gap-2 rounded-[4px] border border-[#d8c8b9] px-3 py-2 text-sm"
+                  className="flex cursor-pointer items-center gap-2 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] px-3 py-2 text-sm"
                   key={reason}
                 >
                   <input
@@ -125,7 +122,7 @@ export function CommunityModerationDialog({
             补充说明
             <Textarea
               aria-label="补充说明"
-              className="min-h-24 rounded-[4px] border-[#d8c8b9] bg-[#fffdf8]"
+              className="min-h-24 rounded-[var(--admin-radius-control)] border-[var(--admin-border)] bg-[var(--admin-surface)]"
               disabled={submitting}
               onChange={(event) => {
                 setDetail(event.target.value);
@@ -155,7 +152,7 @@ export function CommunityModerationDialog({
           </DialogClose>
           <Button
             aria-busy={submitting}
-            className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
+            className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
             disabled={submitting}
             onClick={submit}
             type="button"

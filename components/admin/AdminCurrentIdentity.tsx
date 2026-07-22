@@ -71,14 +71,16 @@ export function AdminCurrentIdentity() {
 
   return (
     <div
-      className="mt-auto grid gap-1 border-t border-[#eaded1] pt-4 text-xs text-[#75665d]"
+      className="mt-auto grid gap-1 border-t border-[var(--admin-border-subtle)] pt-4 text-xs text-[var(--admin-muted-foreground)]"
       data-admin-current-identity
     >
       <span>
-        当前用户：<strong className="font-medium text-[#2b211d]">{identity.user}</strong>
+        当前用户：
+        <strong className="font-medium text-[var(--admin-foreground)]">{identity.user}</strong>
       </span>
       <span>
-        当前角色：<strong className="font-medium text-[#2b211d]">{identity.role}</strong>
+        当前角色：
+        <strong className="font-medium text-[var(--admin-foreground)]">{identity.role}</strong>
       </span>
     </div>
   );

@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { BrandLockup } from '@/components/brand/BrandLockup';
 import { AdminCurrentIdentity } from '@/components/admin/AdminCurrentIdentity';
-import { adminThemeStyle } from '@/components/admin/AdminSurface';
+import { ADMIN_THEME_NAME, adminThemeStyle } from '@/components/admin/admin-theme';
 import { cn } from '@/lib/utils';
 import { isDanmakuEnabled, isForumEnabled } from '@/lib/config/feature-flags';
 
@@ -69,12 +69,12 @@ interface AdminShellProps {
 export function AdminShell({ activeModuleId = 'dashboard', children }: AdminShellProps) {
   return (
     <div
-      className="min-h-[100dvh] bg-[radial-gradient(circle_at_18%_0%,rgba(233,216,198,0.58),transparent_34%),linear-gradient(180deg,#f6efe5,#f1e2d0)] text-[#2b211d]"
-      data-admin-theme="warm-workbench"
+      className="min-h-[100dvh] bg-[radial-gradient(circle_at_18%_0%,var(--admin-page-glow),transparent_34%),linear-gradient(180deg,var(--admin-surface-subtle),var(--admin-page))] text-[var(--admin-foreground)]"
+      data-admin-theme={ADMIN_THEME_NAME}
       style={adminThemeStyle}
     >
       <div className="grid min-h-[100dvh] lg:grid-cols-[248px_minmax(0,1fr)]">
-        <aside className="hidden border-r border-[#d8c8b9] bg-[linear-gradient(180deg,#fffaf2,#f1e2d0)] lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:flex-col lg:gap-5 lg:p-6">
+        <aside className="hidden border-r border-[var(--admin-border)] bg-[linear-gradient(180deg,var(--admin-surface),var(--admin-surface-subtle))] lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:flex-col lg:gap-5 lg:p-6">
           <AdminBrand />
           <AdminNavigation activeModuleId={activeModuleId} />
           <AdminCurrentIdentity />
@@ -103,15 +103,16 @@ function AdminBrand({ compact = false }: { compact?: boolean }) {
       data-admin-brand={compact ? 'mobile' : 'desktop'}
       className={cn(
         'grid gap-3',
-        compact && 'rounded-[6px] border border-[#d8c8b9] bg-[#fffaf2] p-4',
+        compact &&
+          'rounded-[var(--admin-radius-card)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4',
       )}
     >
       <BrandLockup variant={compact ? 'compact' : 'full'} priority />
       <div className="grid gap-1">
-        <h1 className="text-[28px] font-normal leading-[1.08] tracking-[-0.016em] text-[#2b211d]">
+        <h1 className="text-[28px] font-normal leading-[1.08] tracking-[-0.016em] text-[var(--admin-heading)]">
           管理后台
         </h1>
-        <p className="text-sm leading-5 text-[#75665d]">企业培训运营台</p>
+        <p className="text-sm leading-5 text-[var(--admin-muted-foreground)]">企业培训运营台</p>
       </div>
     </div>
   );
@@ -138,10 +139,10 @@ function AdminNavigation({
             <a
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'grid min-h-10 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 rounded-[6px] border px-3 py-2 text-left transition-colors',
+                'relative grid min-h-10 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 overflow-hidden rounded-[var(--admin-radius-card)] border px-3 py-2 text-left transition-colors',
                 active
-                  ? 'border-[#c96f54]/70 bg-[#fffaf2] text-[#2b211d]'
-                  : 'border-[#eaded1] bg-[#fffaf2] text-[#2b211d] hover:border-[#c96f54]/70 hover:bg-[#f1e2d0]',
+                  ? 'border-[var(--admin-selection-border)] bg-[var(--admin-selection-background)] text-[var(--admin-selection-foreground)] shadow-[inset_3px_0_0_var(--admin-selection-indicator)]'
+                  : 'border-transparent bg-transparent text-[var(--admin-foreground)] hover:border-[var(--admin-border-interactive)] hover:bg-[var(--admin-surface-selected)]',
               )}
               href={module.href}
               key={module.id}
@@ -151,14 +152,19 @@ function AdminNavigation({
                 {module.label}
               </span>
               <span
-                className={cn('col-start-1 text-xs', active ? 'text-[#75665d]' : 'text-[#75665d]')}
+                className={cn(
+                  'col-start-1 text-xs',
+                  active
+                    ? 'text-[var(--admin-muted-foreground)]'
+                    : 'text-[var(--admin-muted-foreground)]',
+                )}
               >
                 {module.description}
               </span>
               {active ? (
                 <span
                   aria-hidden="true"
-                  className="col-start-2 row-span-2 row-start-1 size-[7px] self-center rounded-full bg-[#c96f54]"
+                  className="col-start-2 row-span-2 row-start-1 size-[7px] self-center rounded-full bg-[var(--admin-selection-indicator)]"
                 />
               ) : null}
             </a>

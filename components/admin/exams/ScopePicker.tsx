@@ -11,6 +11,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import { examCourseScopeLabel } from '@/lib/admin/exam-policy-scope';
 import type { ExamCategory } from '@/lib/admin/exam-policy-presentation';
 import type { EnterpriseCourse } from '@/lib/storage/enterprise-service';
@@ -38,14 +39,16 @@ export function ScopePicker({
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <div>
-        <div className="mb-2 text-xs font-medium text-[#75665d]">课程分类</div>
+        <div className="mb-2 text-xs font-medium text-[var(--admin-muted-foreground)]">
+          课程分类
+        </div>
         <div className="flex flex-wrap gap-2">
           {categories.length === 0 ? (
-            <span className="text-sm text-[#75665d]">暂无课程分类</span>
+            <span className="text-sm text-[var(--admin-muted-foreground)]">暂无课程分类</span>
           ) : (
             categories.map((category) => (
               <label
-                className="inline-flex items-center gap-1.5 rounded-[4px] border border-[#d8c8b9] bg-[#fffaf2] px-2 py-1.5 text-xs"
+                className="inline-flex items-center gap-1.5 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 py-1.5 text-xs"
                 key={category.id}
               >
                 <input
@@ -60,28 +63,33 @@ export function ScopePicker({
         </div>
       </div>
       <div>
-        <div className="mb-2 text-xs font-medium text-[#75665d]">课程范围</div>
+        <div className="mb-2 text-xs font-medium text-[var(--admin-muted-foreground)]">
+          课程范围
+        </div>
         <div>
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 aria-label="搜索并选择课程"
-                className="min-w-[230px] justify-between rounded-[4px] border-[#d8c8b9] bg-[#fffaf2] font-normal"
+                className="min-w-[230px] justify-between rounded-[var(--admin-radius-control)] border-[var(--admin-border)] bg-[var(--admin-surface)] font-normal"
                 type="button"
                 variant="outline"
               >
                 <span className="truncate">{examCourseScopeLabel([...courseIds])}</span>
-                <ChevronsUpDown className="size-4 text-[#75665d]" />
+                <ChevronsUpDown className="size-4 text-[var(--admin-muted-foreground)]" />
               </Button>
             </PopoverTrigger>
             <PopoverContent
+              {...adminThemeAttributes}
               align="start"
-              className="w-[min(360px,calc(100vw-2rem))] rounded-[6px] border-[#d8c8b9] bg-[#fffaf2] p-0 text-[#2b211d]"
+              className="w-[min(360px,calc(100vw-2rem))] rounded-[var(--admin-radius-card)] border-[var(--admin-border)] bg-[var(--admin-surface)] p-0 text-[var(--admin-foreground)]"
             >
-              <Command className="rounded-[6px]! bg-[#fffaf2] text-[#2b211d]">
+              <Command className="rounded-[var(--admin-radius-card)]! bg-[var(--admin-surface)] text-[var(--admin-foreground)]">
                 <CommandInput placeholder="搜索课程名称" />
                 <CommandList>
-                  <CommandEmpty className="text-[#75665d]">{emptyText}</CommandEmpty>
+                  <CommandEmpty className="text-[var(--admin-muted-foreground)]">
+                    {emptyText}
+                  </CommandEmpty>
                   {courses.length > 0 ? (
                     <CommandGroup heading="已发布课程">
                       {courses.map((course) => (
@@ -97,9 +105,9 @@ export function ScopePicker({
                     </CommandGroup>
                   ) : null}
                 </CommandList>
-                <div className="border-t border-[#eaded1] p-2">
+                <div className="border-t border-[var(--admin-border-subtle)] p-2">
                   <Button
-                    className="w-full justify-center rounded-[4px]"
+                    className="w-full justify-center rounded-[var(--admin-radius-control)]"
                     disabled={courseIds.length === 0}
                     onClick={onClearCourses}
                     type="button"
@@ -112,7 +120,7 @@ export function ScopePicker({
             </PopoverContent>
           </Popover>
         </div>
-        <p className="mt-2 text-xs leading-5 text-[#75665d]">
+        <p className="mt-2 text-xs leading-5 text-[var(--admin-muted-foreground)]">
           空选择表示使用所选分类下全部已发布课程。
         </p>
       </div>

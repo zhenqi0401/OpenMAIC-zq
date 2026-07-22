@@ -17,8 +17,8 @@ import {
   AdminStatusBadge,
   adminInputClassName,
   adminSecondaryButtonClassName,
-  adminThemeStyle,
 } from '@/components/admin/AdminSurface';
+import { adminThemeAttributes } from '@/components/admin/admin-theme';
 
 interface CategoryOption {
   id: string;
@@ -45,13 +45,16 @@ export function CategoryDialog({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]" type="button">
+        <Button
+          className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
+          type="button"
+        >
           分类管理
         </Button>
       </DialogTrigger>
       <DialogContent
-        className="max-w-[520px] rounded-[6px] border border-[#d8c8b9] bg-[#fffaf2] text-[#2b211d]"
-        style={adminThemeStyle}
+        {...adminThemeAttributes}
+        className="max-w-[520px] rounded-[var(--admin-radius-card)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)]"
       >
         <DialogHeader>
           <DialogTitle className="text-xl font-normal">分类管理</DialogTitle>
@@ -70,7 +73,7 @@ export function CategoryDialog({
             />
             <Button
               aria-busy={creating}
-              className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]"
+              className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
               disabled={creating || !categoryName.trim()}
               onClick={submit}
               type="button"
@@ -78,13 +81,13 @@ export function CategoryDialog({
               {creating ? '创建中…' : '创建分类'}
             </Button>
           </div>
-          <div className="flex flex-wrap gap-2 rounded-[4px] bg-[#f7eee3] p-3">
+          <div className="flex flex-wrap gap-2 rounded-[var(--admin-radius-control)] bg-[var(--admin-surface-subtle)] p-3">
             {categories.length > 0 ? (
               categories.map((category) => (
                 <AdminStatusBadge key={category.id}>{category.name}</AdminStatusBadge>
               ))
             ) : (
-              <span className="text-sm text-[#75665d]">暂无分类</span>
+              <span className="text-sm text-[var(--admin-muted-foreground)]">暂无分类</span>
             )}
           </div>
         </div>

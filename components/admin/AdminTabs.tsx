@@ -45,7 +45,7 @@ export function AdminTabs<T extends string>({
         {items.map((item) => (
           <TabsTrigger
             aria-label={item.count === undefined ? item.label : `${item.label}，${item.count} 条`}
-            className="h-9 flex-none rounded-[4px] border-[#d8c8b9] bg-[#fffaf2] px-3 text-[#75665d] shadow-none hover:border-[#c96f54]/70 hover:bg-[#f1e2d0]/60 hover:text-[#2b211d] data-[state=active]:!border-[#c96f54] data-[state=active]:!bg-[#f1e2d0] data-[state=active]:!text-[#2b211d] data-[state=active]:shadow-[inset_0_-2px_0_#c96f54] data-active:after:opacity-0 data-[state=active]:after:opacity-0"
+            className="h-9 flex-none rounded-[var(--admin-radius-control)] border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-[var(--admin-muted-foreground)] shadow-none hover:border-[var(--admin-border-interactive)] hover:bg-[var(--admin-selection-background)] hover:text-[var(--admin-selection-foreground)] data-[state=active]:!border-[var(--admin-selection-border)] data-[state=active]:!bg-[var(--admin-selection-background)] data-[state=active]:!text-[var(--admin-selection-foreground)] data-[state=active]:shadow-[inset_0_-2px_0_var(--admin-selection-indicator)] data-active:after:opacity-0 data-[state=active]:after:opacity-0"
             disabled={item.disabled}
             key={item.value}
             value={item.value}

@@ -28,9 +28,11 @@ describe('AdminShell', () => {
     expect(markup).toContain('href="/admin?module=community"');
     expect(markup).toContain('href="/admin?module=access"');
     expect(markup).toContain('aria-current="page"');
-    expect(markup).toContain('data-admin-theme="warm-workbench"');
+    expect(markup).toContain('data-admin-theme="yuanwo-blue"');
     expect(markup).toContain('--primary:');
     expect(markup).toContain('--ring:');
+    expect(markup).toContain('--admin-action-primary:');
+    expect(markup).toContain('--admin-interactive-accent:');
     expect(markup).toContain('用户管理');
     expect(markup).not.toContain('访问与角色');
   });

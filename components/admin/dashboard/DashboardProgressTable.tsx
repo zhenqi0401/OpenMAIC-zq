@@ -31,7 +31,9 @@ interface DashboardProgressTableProps {
 }
 
 function EmptyState({ text }: { text: string }) {
-  return <div className="px-4 py-8 text-center text-sm text-[#75665d]">{text}</div>;
+  return (
+    <div className="px-4 py-8 text-center text-sm text-[var(--admin-muted-foreground)]">{text}</div>
+  );
 }
 
 function formatAdminDate(value: Date | undefined): string {
@@ -55,16 +57,16 @@ export function DashboardProgressTable({
 
   return (
     <AdminCard className="overflow-hidden" data-admin-dashboard-progress-panel="true">
-      <div className="border-b border-[#d8c8b9] px-4 py-4">
-        <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+      <div className="border-b border-[var(--admin-border)] px-4 py-4">
+        <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[var(--admin-foreground)]">
           学习记录
         </div>
-        <p className="mt-1 text-sm text-[#75665d]">
+        <p className="mt-1 text-sm text-[var(--admin-muted-foreground)]">
           按用户 ID、角色或课程筛选学员列表，再查看每门课程的学习明细。
         </p>
       </div>
-      <div className="grid gap-2 border-b border-[#eaded1] p-4 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
-        <label className="grid gap-1.5 text-sm font-medium text-[#4b3d36]">
+      <div className="grid gap-2 border-b border-[var(--admin-border-subtle)] p-4 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
+        <label className="grid gap-1.5 text-sm font-medium text-[var(--admin-foreground)]">
           <span>用户 ID</span>
           <Input
             className={adminInputClassName}
@@ -75,7 +77,7 @@ export function DashboardProgressTable({
             }
           />
         </label>
-        <label className="grid gap-1.5 text-sm font-medium text-[#4b3d36]">
+        <label className="grid gap-1.5 text-sm font-medium text-[var(--admin-foreground)]">
           <span>角色</span>
           <select
             className={adminSelectClassName}
@@ -92,7 +94,7 @@ export function DashboardProgressTable({
             ))}
           </select>
         </label>
-        <label className="grid gap-1.5 text-sm font-medium text-[#4b3d36]">
+        <label className="grid gap-1.5 text-sm font-medium text-[var(--admin-foreground)]">
           <span>课程 ID</span>
           <Input
             className={adminInputClassName}
@@ -104,11 +106,18 @@ export function DashboardProgressTable({
           />
         </label>
         <div className="flex gap-2">
-          <Button className="rounded-[4px] bg-[#c96f54] text-[#fffaf2]" onClick={onSubmit}>
+          <Button
+            className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
+            onClick={onSubmit}
+          >
             应用筛选
           </Button>
           {hasFilters ? (
-            <Button className="rounded-[4px]" onClick={onReset} variant="outline">
+            <Button
+              className="rounded-[var(--admin-radius-control)]"
+              onClick={onReset}
+              variant="outline"
+            >
               重置
             </Button>
           ) : null}
@@ -116,7 +125,7 @@ export function DashboardProgressTable({
       </div>
       <div className="overflow-x-auto md:overflow-visible">
         <div className="min-w-[920px] md:min-w-0">
-          <div className="grid grid-cols-[1fr_0.8fr_1fr_0.7fr_1fr_1fr] gap-3 border-b border-[#d8c8b9] px-4 py-3 text-xs font-semibold uppercase text-[#75665d]">
+          <div className="grid grid-cols-[1fr_0.8fr_1fr_0.7fr_1fr_1fr] gap-3 border-b border-[var(--admin-border)] px-4 py-3 text-xs font-semibold uppercase text-[var(--admin-muted-foreground)]">
             <span>学员</span>
             <span>角色</span>
             <span>课程</span>
@@ -129,17 +138,23 @@ export function DashboardProgressTable({
           ) : (
             pagination.rows.map((row) => (
               <div
-                className="grid grid-cols-[1fr_0.8fr_1fr_0.7fr_1fr_1fr] gap-3 border-b border-[#eaded1] px-4 py-3 text-sm last:border-b-0"
+                className="grid grid-cols-[1fr_0.8fr_1fr_0.7fr_1fr_1fr] gap-3 border-b border-[var(--admin-border-subtle)] px-4 py-3 text-sm last:border-b-0"
                 key={`${row.userId}-${row.courseId}`}
               >
-                <span className="font-medium text-[#2b211d]">{row.displayName}</span>
-                <span className="text-[#75665d]">
+                <span className="font-medium text-[var(--admin-foreground)]">
+                  {row.displayName}
+                </span>
+                <span className="text-[var(--admin-muted-foreground)]">
                   {getDashboardRoleName(row.roleId, row.roleCode, roles)}
                 </span>
-                <span className="text-[#75665d]">{row.courseName}</span>
-                <span className="text-[#75665d]">{row.completed ? '已完成' : '学习中'}</span>
-                <span className="text-[#75665d]">{formatAdminDate(row.startedAt)}</span>
-                <span className="text-[#75665d]">
+                <span className="text-[var(--admin-muted-foreground)]">{row.courseName}</span>
+                <span className="text-[var(--admin-muted-foreground)]">
+                  {row.completed ? '已完成' : '学习中'}
+                </span>
+                <span className="text-[var(--admin-muted-foreground)]">
+                  {formatAdminDate(row.startedAt)}
+                </span>
+                <span className="text-[var(--admin-muted-foreground)]">
                   {formatAdminDate(getDashboardLastActivity(row))}
                 </span>
               </div>
@@ -147,7 +162,7 @@ export function DashboardProgressTable({
           )}
         </div>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#eaded1] px-4 py-3 text-sm text-[#75665d]">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--admin-border-subtle)] px-4 py-3 text-sm text-[var(--admin-muted-foreground)]">
         <span>
           {pagination.total === 0
             ? '显示 0 条，共 0 条'
@@ -159,7 +174,7 @@ export function DashboardProgressTable({
           </span>
           <div className="flex gap-2">
             <Button
-              className="rounded-[4px]"
+              className="rounded-[var(--admin-radius-control)]"
               disabled={pagination.page <= 1}
               onClick={() => onPageChange(pagination.page - 1)}
               variant="outline"
@@ -167,7 +182,7 @@ export function DashboardProgressTable({
               上一页
             </Button>
             <Button
-              className="rounded-[4px]"
+              className="rounded-[var(--admin-radius-control)]"
               disabled={pagination.page >= pagination.totalPages}
               onClick={() => onPageChange(pagination.page + 1)}
               variant="outline"

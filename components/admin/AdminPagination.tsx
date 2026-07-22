@@ -36,11 +36,15 @@ export function AdminPagination({
       className="flex flex-wrap items-center justify-between gap-3"
       data-admin-pagination
     >
-      <span aria-live="polite" className="text-xs text-[#75665d]" data-admin-pagination-summary>
+      <span
+        aria-live="polite"
+        className="text-xs text-[var(--admin-muted-foreground)]"
+        data-admin-pagination-summary
+      >
         {summary}
       </span>
       <div className="flex items-center gap-2">
-        <span className="text-xs tabular-nums text-[#75665d]">
+        <span className="text-xs tabular-nums text-[var(--admin-muted-foreground)]">
           第 {currentPage} / {lastPage} 页
         </span>
         <Button

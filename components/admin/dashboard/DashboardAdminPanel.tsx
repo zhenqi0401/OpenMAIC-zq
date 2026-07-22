@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { BarChart3 } from 'lucide-react';
-import { AdminCard, AdminSectionHeader } from '@/components/admin/AdminSurface';
+import { AdminCard, AdminPage, AdminSectionHeader } from '@/components/admin/AdminSurface';
 import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
 import { DashboardMetric } from '@/components/admin/dashboard/DashboardMetric';
 import {
@@ -50,13 +50,15 @@ function notifyAdminError(error: unknown, fallback: string) {
 }
 
 function EmptyState({ text }: { text: string }) {
-  return <div className="px-4 py-8 text-center text-sm text-[#75665d]">{text}</div>;
+  return (
+    <div className="px-4 py-8 text-center text-sm text-[var(--admin-muted-foreground)]">{text}</div>
+  );
 }
 
 const pendingSeverityClassName: Record<DashboardPendingItem['severity'], string> = {
-  high: 'border-[#9b5b47] bg-[#c96f54]',
-  medium: 'border-[#b68345] bg-[#d8a45c]',
-  info: 'border-[#748274] bg-[#8da08b]',
+  high: 'border-[var(--admin-danger-strong)] bg-[var(--admin-danger)]',
+  medium: 'border-[var(--admin-warning-strong)] bg-[var(--admin-warning)]',
+  info: 'border-[var(--admin-link)] bg-[var(--admin-interactive-accent)]',
 };
 
 export function DashboardAdminPanel() {
@@ -140,13 +142,13 @@ export function DashboardAdminPanel() {
     : null;
 
   return (
-    <section className="scroll-mt-4 space-y-4" id="admin-dashboard">
+    <AdminPage className="space-y-4" id="admin-dashboard">
       <AdminSectionHeader
         action={
           <AdminSessionActions
             leading={
               <Button
-                className="rounded-[4px] border-[#d8c8b9]"
+                className="rounded-[var(--admin-radius-control)] border-[var(--admin-border)]"
                 onClick={() => void loadDashboard()}
                 variant="outline"
               >
@@ -193,10 +195,12 @@ export function DashboardAdminPanel() {
             />
             <AdminCard className="p-4">
               <div className="mb-3">
-                <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[#2b211d]">
+                <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[var(--admin-foreground)]">
                   需要处理
                 </div>
-                <p className="mt-1 text-sm text-[#75665d]">每一项都给出可直接执行的下一步。</p>
+                <p className="mt-1 text-sm text-[var(--admin-muted-foreground)]">
+                  每一项都给出可直接执行的下一步。
+                </p>
               </div>
               {pendingItems.length === 0 ? (
                 <EmptyState text="暂无待处理事项" />
@@ -204,7 +208,7 @@ export function DashboardAdminPanel() {
                 <div className="grid gap-3">
                   {pendingItems.map((item) => (
                     <div
-                      className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 border-b border-[#eaded1] pb-3 text-sm last:border-b-0 last:pb-0"
+                      className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 border-b border-[var(--admin-border-subtle)] pb-3 text-sm last:border-b-0 last:pb-0"
                       key={item.id}
                     >
                       <span
@@ -212,13 +216,17 @@ export function DashboardAdminPanel() {
                         className={`mt-1.5 size-2.5 rounded-full border ${pendingSeverityClassName[item.severity]}`}
                       />
                       <div className="min-w-0">
-                        <div className="font-medium text-[#2b211d]">{item.title}</div>
+                        <div className="font-medium text-[var(--admin-foreground)]">
+                          {item.title}
+                        </div>
                         {item.description ? (
-                          <p className="mt-1 leading-5 text-[#75665d]">{item.description}</p>
+                          <p className="mt-1 leading-5 text-[var(--admin-muted-foreground)]">
+                            {item.description}
+                          </p>
                         ) : null}
                         <Button
                           asChild
-                          className="mt-2 h-8 rounded-[4px] border-[#d8c8b9]"
+                          className="mt-2 h-8 rounded-[var(--admin-radius-control)] border-[var(--admin-border)]"
                           size="sm"
                           variant="outline"
                         >
@@ -249,6 +257,6 @@ export function DashboardAdminPanel() {
           <EmptyState text="看板暂无数据" />
         </AdminCard>
       )}
-    </section>
+    </AdminPage>
   );
 }

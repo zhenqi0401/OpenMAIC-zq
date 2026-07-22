@@ -34,13 +34,15 @@ function StateContent({
     <div className={cn('grid place-items-center text-center', compact ? 'gap-2 p-4' : 'gap-3 p-8')}>
       <span
         aria-hidden="true"
-        className="inline-flex size-10 items-center justify-center rounded-full bg-[#f1e2d0] text-[#9b5b47]"
+        className="inline-flex size-10 items-center justify-center rounded-full bg-[var(--admin-selection-background)] text-[var(--admin-link)]"
       >
         <Icon className="size-5" />
       </span>
       <div className="grid max-w-[52ch] gap-1">
-        <h3 className="text-sm font-semibold text-[#2b211d]">{title}</h3>
-        {description ? <p className="text-sm leading-6 text-[#75665d]">{description}</p> : null}
+        <h3 className="text-sm font-semibold text-[var(--admin-foreground)]">{title}</h3>
+        {description ? (
+          <p className="text-sm leading-6 text-[var(--admin-muted-foreground)]">{description}</p>
+        ) : null}
       </div>
       {action ? <div className="flex flex-wrap justify-center gap-2">{action}</div> : null}
     </div>

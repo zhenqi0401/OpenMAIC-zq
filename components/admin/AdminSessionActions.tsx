@@ -13,7 +13,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { adminSecondaryButtonClassName, adminThemeStyle } from '@/components/admin/AdminSurface';
+import { adminSecondaryButtonClassName } from '@/components/admin/AdminSurface';
+import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import { logoutCurrentSession } from '@/lib/auth/logout-client';
 
 export const adminAccountMenuLabels = {
@@ -62,10 +63,10 @@ export function AdminSessionActions({ leading }: { leading?: ReactNode }) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
+          {...adminThemeAttributes}
           align="end"
           aria-label="账户操作"
-          className="min-w-40 border-[#d8c8b9] bg-[#fffaf2] text-[#2b211d]"
-          style={adminThemeStyle}
+          className="min-w-40 border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)]"
         >
           <DropdownMenuItem asChild>
             <Link href="/">
@@ -73,7 +74,7 @@ export function AdminSessionActions({ leading }: { leading?: ReactNode }) {
               {adminAccountMenuLabels.home}
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-[#eaded1]" />
+          <DropdownMenuSeparator className="bg-[var(--admin-border-subtle)]" />
           <DropdownMenuItem
             disabled={loggingOut}
             onSelect={() => void handleLogout()}
