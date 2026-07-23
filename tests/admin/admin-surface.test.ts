@@ -41,7 +41,7 @@ describe('AdminSurface', () => {
     expect(markup).toContain('刷新看板');
     expect(markup).toContain('data-admin-header-actions');
     expect(markup).toContain('role="group"');
-    expect(markup).toContain('lg:text-[36px]');
+    expect(markup).toContain('sm:text-2xl');
     expect(markup).not.toContain('46px');
   });
 

@@ -93,7 +93,8 @@ docs/plan/CHANGE-01.md
 docs/deployment.md
 docs/host-integration.md
 docs/requirements-by-module.html
-docs/design
+docs/design/*
+!docs/design/admin-design-system.md
 
 # e2e screenshot artifacts
 e2e/screenshots/

@@ -8,6 +8,7 @@ import { ExamPolicyAdminPanel } from '@/components/admin/exams/ExamPolicyAdminPa
 import { CommunityAdminPanel } from '@/components/admin/community/CommunityAdminPanel';
 import { resolveAdminModuleId, type AdminSearchParams } from '@/lib/admin/module';
 import { isDanmakuEnabled, isForumEnabled } from '@/lib/config/feature-flags';
+import { AdminDesignPreview } from '@/components/admin/examples/AdminDesignPreview';
 
 function AdminModuleView({ activeModuleId }: { activeModuleId: AdminModuleId }) {
   if (activeModuleId === 'dashboard') return <DashboardAdminPanel />;
@@ -24,6 +25,7 @@ export default async function AdminPage({
   searchParams?: Promise<AdminSearchParams>;
 }) {
   const requestedModuleId = resolveAdminModuleId(await searchParams);
+  const resolvedSearchParams = await searchParams;
   const activeModuleId =
     requestedModuleId === 'community' && !isDanmakuEnabled() && !isForumEnabled()
       ? 'dashboard'
@@ -32,7 +34,11 @@ export default async function AdminPage({
   return (
     <AdminShell activeModuleId={activeModuleId}>
       <AdminAccessGate>
-        <AdminModuleView activeModuleId={activeModuleId} />
+        {process.env.NODE_ENV !== 'production' && resolvedSearchParams?.designPreview === '1' ? (
+          <AdminDesignPreview module={activeModuleId} />
+        ) : (
+          <AdminModuleView activeModuleId={activeModuleId} />
+        )}
       </AdminAccessGate>
     </AdminShell>
   );

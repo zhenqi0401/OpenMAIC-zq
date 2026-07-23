@@ -39,13 +39,13 @@ export function AdminTabs<T extends string>({
     >
       <TabsList
         aria-label={ariaLabel}
-        className="h-auto max-w-full flex-wrap justify-start gap-2 rounded-none bg-transparent p-0"
+        className="h-auto max-w-full flex-wrap justify-start gap-5 rounded-none border-b border-[var(--admin-border-subtle)] bg-transparent px-1 py-0"
         variant="line"
       >
         {items.map((item) => (
           <TabsTrigger
             aria-label={item.count === undefined ? item.label : `${item.label}，${item.count} 条`}
-            className="h-9 flex-none rounded-[var(--admin-radius-control)] border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-[var(--admin-muted-foreground)] shadow-none hover:border-[var(--admin-border-interactive)] hover:bg-[var(--admin-selection-background)] hover:text-[var(--admin-selection-foreground)] data-[state=active]:!border-[var(--admin-selection-border)] data-[state=active]:!bg-[var(--admin-selection-background)] data-[state=active]:!text-[var(--admin-selection-foreground)] data-[state=active]:shadow-[inset_0_-2px_0_var(--admin-selection-indicator)] data-active:after:opacity-0 data-[state=active]:after:opacity-0"
+            className="h-10 flex-none rounded-none border-0 bg-transparent px-1 text-[var(--admin-muted-foreground)] shadow-none hover:bg-transparent hover:text-[var(--admin-foreground)] data-[state=active]:!border-0 data-[state=active]:!bg-transparent data-[state=active]:!text-[var(--admin-link)] data-[state=active]:shadow-[inset_0_-2px_0_var(--admin-selection-indicator)] data-active:after:opacity-0 data-[state=active]:after:opacity-0"
             disabled={item.disabled}
             key={item.value}
             value={item.value}

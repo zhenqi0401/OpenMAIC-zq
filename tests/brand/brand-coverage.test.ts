@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 const productionBrandTargets = [
   'app/page.tsx',
   'components/auth/auth-layout.tsx',
-  'components/admin/AdminShell.tsx',
+  'components/admin/AdminSidebar.tsx',
+  'components/admin/AdminTopBar.tsx',
   'components/admin/AdminAccessGate.tsx',
   'components/home/LearnerHome.tsx',
   'components/stage/scene-sidebar.tsx',
@@ -24,6 +25,13 @@ describe('元我智脑 production branding', () => {
       expect(source, path).not.toContain('alt="OpenMAIC"');
       expect(source, path).not.toContain('OpenMAIC Open Source Project');
     }
+  });
+
+  it('keeps desktop, tablet, and mobile branding inside the admin shell', () => {
+    const shell = readFileSync('components/admin/AdminShell.tsx', 'utf8');
+
+    expect(shell).toContain('AdminSidebar');
+    expect(shell).toContain('AdminTopBar');
   });
 
   it('removes the authentication placeholder and exposes branded metadata and icons', () => {

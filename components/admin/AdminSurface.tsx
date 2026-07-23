@@ -10,13 +10,19 @@ export { adminThemeStyle } from '@/components/admin/admin-theme';
  * `focus-visible:ring-ring`.
  */
 export const adminSelectClassName =
-  'h-10 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-foreground)] outline-none transition-colors focus-visible:border-[var(--admin-focus-ring)] focus-visible:ring-2 focus-visible:ring-[var(--admin-focus-ring)]/25 disabled:cursor-not-allowed disabled:opacity-60';
+  'h-[var(--admin-control-height)] rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-foreground)] outline-none transition-colors focus-visible:border-[var(--admin-focus-ring)] focus-visible:ring-2 focus-visible:ring-[var(--admin-focus-ring)]/25 disabled:cursor-not-allowed disabled:opacity-60';
 
 export const adminInputClassName =
   'rounded-[var(--admin-radius-control)] border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)] placeholder:text-[var(--admin-disabled-foreground)] focus-visible:border-[var(--admin-focus-ring)] focus-visible:ring-[var(--admin-focus-ring)]/25';
 
 export const adminSecondaryButtonClassName =
-  'rounded-[var(--admin-radius-control)] border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)] shadow-none hover:border-[var(--admin-border-interactive)] hover:bg-[var(--admin-selection-background)] focus-visible:border-[var(--admin-focus-ring)] focus-visible:ring-[var(--admin-focus-ring)]/25';
+  'min-h-[var(--admin-control-height)] rounded-[var(--admin-radius-control)] border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)] shadow-none hover:border-[var(--admin-border-interactive)] hover:bg-[var(--admin-surface-selected)] focus-visible:border-[var(--admin-focus-ring)] focus-visible:ring-[var(--admin-focus-ring)]/25';
+
+export const adminPrimaryButtonClassName =
+  'min-h-[var(--admin-control-height)] rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-white shadow-none hover:bg-[var(--admin-action-primary-hover)] active:bg-[var(--admin-action-primary-active)] focus-visible:ring-[var(--admin-focus-ring)]/30';
+
+export const adminIconButtonClassName =
+  'size-[var(--admin-control-height)] rounded-[var(--admin-radius-control)] border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)] shadow-none hover:bg-[var(--admin-surface-selected)] focus-visible:ring-[var(--admin-focus-ring)]/25';
 
 export const adminDangerOutlineButtonClassName =
   'rounded-[var(--admin-radius-control)] border-[var(--admin-danger)]/70 bg-[var(--admin-surface)] text-[var(--admin-danger-strong)] shadow-none hover:border-[var(--admin-danger)] hover:bg-[var(--admin-danger-background)] focus-visible:border-[var(--admin-danger)] focus-visible:ring-[var(--admin-danger)]/25';
@@ -32,7 +38,7 @@ export interface AdminBreadcrumbItem {
 /** Stable page-level spacing and width contract for every admin module. */
 export function AdminPage({ children, className, ...props }: ComponentProps<'section'>) {
   return (
-    <section className={cn('min-w-0 scroll-mt-4 space-y-5', className)} data-admin-page {...props}>
+    <section className={cn('min-w-0 scroll-mt-4 space-y-6', className)} data-admin-page {...props}>
       {children}
     </section>
   );
@@ -60,10 +66,10 @@ export function AdminSectionHeader({
 
   return (
     <div
-      className="grid gap-4 border-b border-[var(--admin-border)] pb-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start"
+      className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start"
       data-admin-section-header
     >
-      <div className="grid max-w-[760px] gap-2">
+      <div className="grid max-w-[760px] gap-1">
         {hasContext ? (
           <div className="flex min-h-5 flex-wrap items-center gap-2 text-xs font-semibold tracking-[0.04em] text-[var(--admin-muted-foreground)]">
             {icon ? (
@@ -99,13 +105,13 @@ export function AdminSectionHeader({
           </div>
         ) : null}
         <h2
-          className="text-[28px] font-normal leading-[1.08] tracking-[-0.016em] text-[var(--admin-heading)] sm:text-[32px] lg:text-[36px]"
+          className="text-xl font-semibold leading-7 tracking-[-0.01em] text-[var(--admin-heading)] sm:text-2xl sm:leading-8"
           data-admin-section-title
         >
           {title}
         </h2>
         {description ? (
-          <p className="max-w-[64ch] text-sm leading-6 text-[var(--admin-muted-foreground)]">
+          <p className="max-w-[72ch] text-sm leading-5 text-[var(--admin-muted-foreground)]">
             {description}
           </p>
         ) : null}
@@ -123,6 +129,9 @@ export function AdminSectionHeader({
     </div>
   );
 }
+
+/** Preferred name for new pages; retained alias keeps existing modules stable. */
+export const AdminPageHeader = AdminSectionHeader;
 
 export function AdminCard({ children, className, ...props }: ComponentProps<'div'>) {
   return (
