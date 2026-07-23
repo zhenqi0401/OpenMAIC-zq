@@ -492,7 +492,7 @@ describe('Slice-01 API routes', () => {
   test('admin course API lists courses, updates visibility, and publishes courses', async () => {
     const list = await getRoute('@/app/api/admin/courses/route');
     await expect(list.json()).resolves.toMatchObject({
-      courses: [{ id: 'course-draft' }, { id: 'course-published' }],
+      courses: [{ id: 'course-published' }, { id: 'course-draft' }],
     });
 
     const created = await postRoute('@/app/api/admin/courses/route', {

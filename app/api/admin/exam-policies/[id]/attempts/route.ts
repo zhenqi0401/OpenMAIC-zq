@@ -1,31 +1,24 @@
-import { apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentAdmin } from '@/lib/auth/current-session';
+import { apiSuccess } from '@/lib/server/api-response';
 import {
   adminManagementErrorResponse,
   getAdminManagementService,
 } from '@/lib/admin/admin-management-route';
-import { parseAdminEnum, parseAdminPagination, parseAdminText } from '@/lib/admin/admin-query';
+import { parseAdminPagination } from '@/lib/admin/admin-query';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const admin = await requireCurrentAdmin();
   if (admin instanceof Response) return admin;
-
   try {
     const search = new URL(request.url).searchParams;
     const { page, pageSize } = parseAdminPagination(search, {
       defaultPageSize: 20,
       maxPageSize: 100,
     });
-    const result = await getAdminManagementService().queryUsers({
-      q: parseAdminText(search, 'q'),
-      roleId: parseAdminText(search, 'roleId'),
-      status: parseAdminEnum(search, 'status', ['all', 'active', 'disabled'] as const, 'all'),
-      page,
-      pageSize,
-    });
-    return apiSuccess(result);
+    const { id } = await context.params;
+    return apiSuccess(await getAdminManagementService().getExamPolicyAttempts(id, page, pageSize));
   } catch (error) {
     return adminManagementErrorResponse(error);
   }

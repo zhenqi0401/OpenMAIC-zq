@@ -194,4 +194,21 @@ describe('GOV-03 management filters and GOV-04 audit persistence', () => {
     expect(() => parseCommunityAdminFilters(new URLSearchParams({ type: 'unknown' }))).toThrow();
     expect(() => parseCommunityAdminFilters(new URLSearchParams({ pageSize: '51' }))).toThrow();
   });
+
+  test('rejects invalid type-specific statuses and date ranges', () => {
+    expect(() =>
+      parseCommunityAdminFilters(new URLSearchParams({ type: 'replies', status: 'archived' })),
+    ).toThrow('Invalid status for replies');
+    expect(() => parseCommunityAdminFilters(new URLSearchParams({ from: 'not-a-date' }))).toThrow(
+      'from must be a valid date',
+    );
+    expect(() =>
+      parseCommunityAdminFilters(
+        new URLSearchParams({
+          from: '2026-07-23T00:00:00.000Z',
+          to: '2026-07-22T00:00:00.000Z',
+        }),
+      ),
+    ).toThrow('from must not be later than to');
+  });
 });

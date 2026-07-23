@@ -6,6 +6,11 @@ import {
   readJsonBody,
   requiredString,
 } from '@/lib/storage/enterprise-route-utils';
+import {
+  adminManagementErrorResponse,
+  getAdminManagementService,
+} from '@/lib/admin/admin-management-route';
+import { parseAdminEnum, parseAdminPagination, parseAdminText } from '@/lib/admin/admin-query';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,15 +24,38 @@ interface CourseBody {
   generationComplete?: boolean;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const admin = await requireCurrentAdmin();
   if (admin instanceof Response) return admin;
 
   try {
-    const courses = await getEnterpriseService().listAdminCourses();
-    return apiSuccess({ courses });
+    const search = new URL(request.url).searchParams;
+    const { page, pageSize } = parseAdminPagination(search, {
+      defaultPageSize: 12,
+      maxPageSize: 100,
+    });
+    const result = await getAdminManagementService().queryCourses({
+      q: parseAdminText(search, 'q'),
+      status: parseAdminEnum(
+        search,
+        'status',
+        ['all', 'draft', 'published', 'archived', 'review'] as const,
+        'all',
+      ),
+      categoryId: parseAdminText(search, 'categoryId'),
+      visibilityMode: parseAdminEnum(
+        search,
+        'visibilityMode',
+        ['any', 'all', 'roles'] as const,
+        'any',
+      ),
+      page,
+      pageSize,
+      sort: parseAdminEnum(search, 'sort', ['updatedAt:desc'] as const, 'updatedAt:desc'),
+    });
+    return apiSuccess(result);
   } catch (error) {
-    return enterpriseErrorResponse(error);
+    return adminManagementErrorResponse(error);
   }
 }
 

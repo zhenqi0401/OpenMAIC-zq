@@ -26,6 +26,45 @@ vi.mock('@/lib/auth/repository', () => ({
   getAuthRepository: () => mocks.repository,
 }));
 
+vi.mock('@/lib/admin/admin-data-repository', () => ({
+  getAdminDataRepository: () => ({
+    async queryUsers(input: {
+      q?: string;
+      roleId?: string;
+      status: string;
+      page: number;
+      pageSize: number;
+    }) {
+      const records = (await mocks.repository!.listUsersWithRoles()).filter(({ user, role }) => {
+        if (input.q) {
+          const q = input.q.toLowerCase();
+          if (
+            !user.displayName.toLowerCase().includes(q) &&
+            !user.phone?.includes(q) &&
+            !user.hostUserId?.toLowerCase().includes(q)
+          ) {
+            return false;
+          }
+        }
+        if (input.roleId && role.id !== input.roleId) return false;
+        return input.status === 'all' || user.status === input.status;
+      });
+      const offset = (input.page - 1) * input.pageSize;
+      return {
+        users: records.slice(offset, offset + input.pageSize).map(({ user, role }) => ({
+          id: user.id,
+          phone: user.phone,
+          hostUserId: user.hostUserId,
+          displayName: user.displayName,
+          status: user.status,
+          role,
+        })),
+        total: records.length,
+      };
+    },
+  }),
+}));
+
 const adminRole: AuthRole = {
   id: 'role-admin',
   code: 'admin',
@@ -231,11 +270,9 @@ describe('Slice-07 auth routes', () => {
     };
     const signature = verifyHostSsoSignature.sign(body, 'host-secret');
 
-    const res = await postRoute(
-      '@/app/api/auth/host-sso/route',
-      body,
-      { 'x-openmaic-signature': signature },
-    );
+    const res = await postRoute('@/app/api/auth/host-sso/route', body, {
+      'x-openmaic-signature': signature,
+    });
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -254,19 +291,15 @@ describe('Slice-07 auth routes', () => {
       expect.objectContaining({ httpOnly: true }),
     );
 
-    const rejected = await postRoute(
-      '@/app/api/auth/host-sso/route',
-      body,
-      { 'x-openmaic-signature': 'bad' },
-    );
+    const rejected = await postRoute('@/app/api/auth/host-sso/route', body, {
+      'x-openmaic-signature': 'bad',
+    });
     expect(rejected.status).toBe(401);
 
     const expiredBody = { ...body, timestamp: body.timestamp - 301 };
-    const expired = await postRoute(
-      '@/app/api/auth/host-sso/route',
-      expiredBody,
-      { 'x-openmaic-signature': verifyHostSsoSignature.sign(expiredBody, 'host-secret') },
-    );
+    const expired = await postRoute('@/app/api/auth/host-sso/route', expiredBody, {
+      'x-openmaic-signature': verifyHostSsoSignature.sign(expiredBody, 'host-secret'),
+    });
     expect(expired.status).toBe(401);
   });
 

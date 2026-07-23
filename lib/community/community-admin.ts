@@ -53,7 +53,7 @@ export function parseCommunityAdminFilters(search: URLSearchParams): CommunityAd
     return date;
   };
   const clean = (name: string) => search.get(name)?.trim() || undefined;
-  return {
+  const filters = {
     type: type as CommunityAdminContentType,
     authorId: clean('authorId'),
     courseId: clean('courseId'),
@@ -64,6 +64,19 @@ export function parseCommunityAdminFilters(search: URLSearchParams): CommunityAd
     page,
     pageSize,
   };
+  const allowedStatuses: Record<CommunityAdminContentType, readonly string[]> = {
+    danmaku: ['visible', 'hidden', 'deleted_by_author', 'deleted_by_admin'],
+    posts: ['visible', 'hidden', 'deleted_by_author', 'deleted_by_admin', 'archived'],
+    replies: ['visible', 'hidden', 'deleted_by_author', 'deleted_by_admin'],
+    audit: ['danmaku', 'forum_post', 'forum_reply'],
+  };
+  if (filters.status && !allowedStatuses[filters.type].includes(filters.status)) {
+    throw new Error(`Invalid status for ${filters.type}`);
+  }
+  if (filters.from && filters.to && filters.from.getTime() > filters.to.getTime()) {
+    throw new Error('from must not be later than to');
+  }
+  return filters;
 }
 
 export class CommunityAdminRepository {

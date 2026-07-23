@@ -5,6 +5,10 @@ import {
   getEnterpriseService,
   readJsonBody,
 } from '@/lib/storage/enterprise-route-utils';
+import {
+  adminManagementErrorResponse,
+  getAdminManagementService,
+} from '@/lib/admin/admin-management-route';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,5 +30,17 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return apiSuccess({ category });
   } catch (error) {
     return enterpriseErrorResponse(error);
+  }
+}
+
+export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const admin = await requireCurrentAdmin();
+  if (admin instanceof Response) return admin;
+  try {
+    const { id } = await context.params;
+    const category = await getAdminManagementService().deleteCategory(id);
+    return apiSuccess({ category });
+  } catch (error) {
+    return adminManagementErrorResponse(error);
   }
 }

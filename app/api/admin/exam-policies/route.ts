@@ -6,6 +6,11 @@ import {
   readJsonBody,
   requiredString,
 } from '@/lib/storage/enterprise-route-utils';
+import {
+  adminManagementErrorResponse,
+  getAdminManagementService,
+} from '@/lib/admin/admin-management-route';
+import { parseAdminEnum, parseAdminPagination, parseAdminText } from '@/lib/admin/admin-query';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,15 +24,31 @@ interface ExamPolicyBody {
   timeLimitMinutes?: number | null;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const admin = await requireCurrentAdmin();
   if (admin instanceof Response) return admin;
 
   try {
-    const examPolicies = await getEnterpriseService().listExamPolicies();
-    return apiSuccess({ examPolicies });
+    const search = new URL(request.url).searchParams;
+    const { page, pageSize } = parseAdminPagination(search, {
+      defaultPageSize: 20,
+      maxPageSize: 100,
+    });
+    const result = await getAdminManagementService().queryExamPolicies({
+      q: parseAdminText(search, 'q'),
+      status: parseAdminEnum(
+        search,
+        'status',
+        ['all', 'draft', 'published', 'archived'] as const,
+        'all',
+      ),
+      targetRoleId: parseAdminText(search, 'targetRoleId'),
+      page,
+      pageSize,
+    });
+    return apiSuccess(result);
   } catch (error) {
-    return enterpriseErrorResponse(error);
+    return adminManagementErrorResponse(error);
   }
 }
 

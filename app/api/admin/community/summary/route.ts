@@ -11,16 +11,15 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   const admin = await requireCurrentAdmin();
   if (admin instanceof Response) return admin;
-
   try {
     const range = parseAdminEnum(
       new URL(request.url).searchParams,
       'range',
-      ['week', 'month', 'year'] as const,
-      'month',
+      ['today', 'week', 'month'] as const,
+      'today',
     );
-    const dashboard = await getAdminManagementService().getDashboard(range);
-    return apiSuccess(dashboard);
+    const summary = await getAdminManagementService().getCommunitySummary(range);
+    return apiSuccess({ summary });
   } catch (error) {
     return adminManagementErrorResponse(error);
   }

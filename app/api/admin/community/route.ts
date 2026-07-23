@@ -30,7 +30,17 @@ export async function GET(request: Request) {
 
   try {
     const result = await getCommunityAdminRepository().list(filters);
-    return apiSuccess({ ...result, page: filters.page, pageSize: filters.pageSize });
+    return apiSuccess({
+      ...result,
+      page: filters.page,
+      pageSize: filters.pageSize,
+      pagination: {
+        page: filters.page,
+        pageSize: filters.pageSize,
+        total: result.total,
+        totalPages: Math.max(1, Math.ceil(result.total / filters.pageSize)),
+      },
+    });
   } catch (error) {
     const details = error instanceof Error ? error.message : String(error);
     return apiError('INTERNAL_ERROR', 500, 'Community management query failed', details);
