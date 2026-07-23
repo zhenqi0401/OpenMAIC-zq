@@ -25,14 +25,13 @@ describe('Slice-08 admin client helpers', () => {
         return Response.json({
           summary: {
             courseCompletionRate: 75,
-            assessmentPassRate: 80,
             examPassRate: 60,
             learnerCount: 2,
-            courseCount: 3,
-            assessmentAttemptCount: 4,
+            activeCourseCount: 3,
             examAttemptCount: 5,
           },
-          progress: [],
+          communityActivity: { totals: {}, points: [] },
+          pending: { total: 0, items: [] },
         });
       }
       return new Response('nope', { status: 500 });
@@ -42,10 +41,8 @@ describe('Slice-08 admin client helpers', () => {
     await expect(client.getDashboard()).resolves.toMatchObject({
       summary: {
         courseCompletionRate: 75,
-        assessmentPassRate: 80,
         examPassRate: 60,
       },
-      progress: [],
     });
 
     fetcher.mockResolvedValueOnce(new Response('forbidden', { status: 403 }));
@@ -67,14 +64,14 @@ describe('Slice-08 admin client helpers', () => {
     const client = createAdminClient(fetcher);
 
     await Promise.all([
-      client.getDashboard({ userId: 'user-1', roleId: '', courseId: 'course-1' }),
+      client.getDashboard('week'),
       client.listRoles(),
       client.listInviteCodes(),
       client.listUsers(),
     ]);
 
     expect(calls).toEqual([
-      '/api/admin/dashboard?userId=user-1&courseId=course-1',
+      '/api/admin/dashboard?range=week',
       '/api/admin/roles',
       '/api/admin/invite-codes',
       '/api/admin/users',

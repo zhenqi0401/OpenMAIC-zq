@@ -1,4 +1,5 @@
-import type { AdminDashboard, AdminInviteCode, AdminRole, AdminUser } from '@/lib/admin/client';
+import type { AdminInviteCode, AdminRole, AdminUser } from '@/lib/admin/client';
+import type { EnterpriseProgressDetail } from '@/lib/storage/enterprise-service';
 
 export interface DashboardMetricDisplay {
   value: string;
@@ -60,7 +61,7 @@ export function isActiveDashboardInviteCode(
 }
 
 export function buildDashboardPendingItems(
-  dashboard: AdminDashboard | null,
+  dashboard: { progress: EnterpriseProgressDetail[] } | null,
   roles: readonly AdminRole[],
   inviteCodes: readonly AdminInviteCode[],
   users: readonly AdminUser[],

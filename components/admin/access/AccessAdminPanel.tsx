@@ -14,6 +14,7 @@ import {
   type AdminInviteCode,
   type AdminRole,
   type AdminUser,
+  type AdminPagination,
 } from '@/lib/admin/client';
 import { AccessInvitesTab, type InviteDraft } from './AccessInvitesTab';
 import { AccessRolesTab, type RoleDraft } from './AccessRolesTab';
@@ -27,11 +28,6 @@ const accessTabs = [
   { value: 'invites', label: '邀请码' },
 ] as const;
 
-type AccessAdminClient = Pick<
-  ReturnType<typeof createAdminClient>,
-  'listRoles' | 'listInviteCodes' | 'listUsers'
->;
-
 export function resolveAccessSection(value: string | null | undefined): AccessSection {
   return value === 'roles' || value === 'invites' ? value : 'users';
 }
@@ -43,7 +39,9 @@ export function buildAccessSectionUrl(search: string, section: AccessSection): s
   return `/admin?${params.toString()}`;
 }
 
-export async function loadAccessAdminData(client: AccessAdminClient) {
+export async function loadAccessAdminData(
+  client: Pick<ReturnType<typeof createAdminClient>, 'listRoles' | 'listInviteCodes' | 'listUsers'>,
+) {
   const [roles, inviteCodes, users] = await Promise.all([
     client.listRoles(),
     client.listInviteCodes(),
@@ -80,8 +78,18 @@ export function AccessAdminPanel({
   const [savingInviteCodeId, setSavingInviteCodeId] = useState<string | null>(null);
   const [deletingInviteCodeId, setDeletingInviteCodeId] = useState<string | null>(null);
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
+  const [changingStatusUserId, setChangingStatusUserId] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [userRolePage, setUserRolePage] = useState(1);
+  const [userQuery, setUserQuery] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState('');
+  const [userStatusFilter, setUserStatusFilter] = useState<'all' | 'active' | 'disabled'>('all');
+  const [userPagination, setUserPagination] = useState<AdminPagination>({
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    totalPages: 1,
+  });
 
   const roleOptions = useMemo(() => buildRoleOptions(roles), [roles]);
 
@@ -89,11 +97,22 @@ export function AccessAdminPanel({
     async (notify = false) => {
       setLoading(true);
       try {
-        const data = await loadAccessAdminData(client);
-        setRoles(data.roles);
-        setInviteCodes(data.inviteCodes);
-        setUsers(data.users);
-        setUserRoleDrafts(createUserRoleDrafts(data.users));
+        const [roles, inviteCodes, userResult] = await Promise.all([
+          client.listRoles(),
+          client.listInviteCodes(),
+          client.queryUsers({
+            q: userQuery || undefined,
+            roleId: userRoleFilter || undefined,
+            status: userStatusFilter,
+            page: userRolePage,
+            pageSize: 20,
+          }),
+        ]);
+        setRoles(roles);
+        setInviteCodes(inviteCodes);
+        setUsers(userResult.items);
+        setUserPagination(userResult.pagination);
+        setUserRoleDrafts(createUserRoleDrafts(userResult.items));
         if (notify) adminToast.success('用户管理数据已刷新');
       } catch (loadError) {
         notifyAdminError(loadError, '后台数据加载失败');
@@ -101,7 +120,7 @@ export function AccessAdminPanel({
         setLoading(false);
       }
     },
-    [client],
+    [client, userQuery, userRoleFilter, userRolePage, userStatusFilter],
   );
 
   useEffect(() => {
@@ -273,6 +292,20 @@ export function AccessAdminPanel({
     }
   }
 
+  async function changeUserStatus(user: AdminUser) {
+    const status = user.status === 'disabled' ? 'active' : 'disabled';
+    setChangingStatusUserId(user.id);
+    try {
+      await client.updateUserStatus(user.id, status);
+      adminToast.success(status === 'disabled' ? '用户已冻结' : '用户已恢复');
+      await loadAll();
+    } catch (statusError) {
+      notifyAdminError(statusError, status === 'disabled' ? '用户冻结失败' : '用户恢复失败');
+    } finally {
+      setChangingStatusUserId(null);
+    }
+  }
+
   return (
     <AdminPage
       className="w-[calc(100vw-1.5rem)] space-y-4 sm:w-[calc(100vw-2rem)] lg:w-auto"
@@ -318,15 +351,24 @@ export function AccessAdminPanel({
       <div className="min-w-0" data-admin-access-layout>
         {section === 'users' ? (
           <AccessUsersTab
+            changingStatusUserId={changingStatusUserId}
             deletingUserId={deletingUserId}
+            filters={{ q: userQuery, roleId: userRoleFilter, status: userStatusFilter }}
             loading={loading}
             onDeleteUser={(user) => void deleteUser(user)}
+            onFiltersChange={(next) => {
+              setUserQuery(next.q);
+              setUserRoleFilter(next.roleId);
+              setUserStatusFilter(next.status);
+              setUserRolePage(1);
+            }}
             onPageChange={setUserRolePage}
             onRoleChange={(userId, roleId) =>
               setUserRoleDrafts((drafts) => ({ ...drafts, [userId]: roleId }))
             }
             onSaveUserRole={(user) => void saveUserRole(user)}
-            page={userRolePage}
+            onToggleStatus={(user) => void changeUserStatus(user)}
+            pagination={userPagination}
             roleOptions={roleOptions}
             savingUserId={savingUserId}
             userRoleDrafts={userRoleDrafts}

@@ -18,9 +18,17 @@ import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
 import { ExamPolicyDialog } from '@/components/admin/exams/ExamPolicyDialog';
 import { ExamPolicyTable } from '@/components/admin/exams/ExamPolicyTable';
 import { ExamReadinessSummary } from '@/components/admin/exams/ExamReadinessSummary';
+import { ExamResultsDrawer } from '@/components/admin/exams/ExamResultsDrawer';
+import { AdminPagination } from '@/components/admin/AdminPagination';
+import { AdminMetricCard } from '@/components/admin/AdminPatterns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { createAdminClient, type AdminExamPolicy } from '@/lib/admin/client';
+import {
+  createAdminClient,
+  type AdminExamPolicy,
+  type AdminExamSummary,
+  type AdminPagination as Pagination,
+} from '@/lib/admin/client';
 import {
   changeExamCategoryScope,
   filterExamScopeCourses,
@@ -29,7 +37,6 @@ import {
 import {
   countDraftCandidateQuestions,
   createEmptyPolicyDraft,
-  getExamReadiness,
   toPolicyDraft,
   toPolicyInput,
   type ExamCategory,
@@ -52,13 +59,34 @@ export function ExamPolicyAdminPanel() {
   const [statusFilter, setStatusFilter] = useState<'all' | AdminExamPolicy['status']>('all');
   const [saving, setSaving] = useState(false);
   const [deletingPolicyId, setDeletingPolicyId] = useState<string | null>(null);
+  const [resultPolicy, setResultPolicy] = useState<AdminExamPolicy | null>(null);
+  const [targetRoleId, setTargetRoleId] = useState('');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<Pagination>({
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    totalPages: 1,
+  });
+  const [summary, setSummary] = useState<AdminExamSummary>({
+    publishedCourseCount: 0,
+    readyCourseCount: 0,
+    missingQuestionCourseCount: 0,
+    examAttemptCount: 0,
+    passRate: null,
+    averageScore: null,
+  });
 
   const learnerRoles = useMemo(() => roles.filter((role) => !role.isAdmin), [roles]);
   const publishedCourses = useMemo(
     () => courses.filter((course) => course.status === 'published'),
     [courses],
   );
-  const readiness = useMemo(() => getExamReadiness(courses), [courses]);
+  const readiness = {
+    publishedCourseCount: summary.publishedCourseCount,
+    readyCourseCount: summary.readyCourseCount,
+    missingQuestionCourseCount: summary.missingQuestionCourseCount,
+  };
   const roleNames = useMemo(
     () => new Map(learnerRoles.map((role) => [role.id, role.name] as const)),
     [learnerRoles],
@@ -85,25 +113,20 @@ export function ExamPolicyAdminPanel() {
     }
     return countDraftCandidateQuestions(publishedCourses, dialogDraft);
   }, [dialogDraft, dialogMode, dialogPolicyId, policies, publishedCourses]);
-  const filteredPolicies = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase();
-    return policies.filter(
-      (policy) =>
-        (statusFilter === 'all' || policy.status === statusFilter) &&
-        (!normalizedQuery ||
-          policy.title.toLocaleLowerCase().includes(normalizedQuery) ||
-          (roleNames.get(policy.targetRoleId) ?? '').toLocaleLowerCase().includes(normalizedQuery)),
-    );
-  }, [policies, query, roleNames, statusFilter]);
-
   const loadAll = useCallback(
     async (notify = false) => {
       try {
         const [roleData, categoriesResponse, coursesResponse, policyData] = await Promise.all([
           client.listRoles(),
           fetch('/api/admin/categories'),
-          fetch('/api/admin/courses'),
-          client.listExamPolicies(),
+          fetch('/api/admin/courses?pageSize=100'),
+          client.queryExamPolicies({
+            q: query || undefined,
+            status: statusFilter,
+            targetRoleId: targetRoleId || undefined,
+            page,
+            pageSize: 20,
+          }),
         ]);
         if (!categoriesResponse.ok || !coursesResponse.ok) throw new Error('分类或课程加载失败');
         const categoriesData = (await categoriesResponse.json()) as { categories: ExamCategory[] };
@@ -111,13 +134,15 @@ export function ExamPolicyAdminPanel() {
         setRoles(roleData);
         setCategories(categoriesData.categories);
         setCourses(coursesData.courses);
-        setPolicies(policyData);
+        setPolicies(policyData.items);
+        setSummary(policyData.summary);
+        setPagination(policyData.pagination);
         if (notify) notifySuccess('考核列表已刷新');
       } catch (loadError) {
         notifyError(loadError, '考核策略加载失败');
       }
     },
-    [client],
+    [client, page, query, statusFilter, targetRoleId],
   );
 
   useEffect(() => {
@@ -227,6 +252,15 @@ export function ExamPolicyAdminPanel() {
 
       <ExamReadinessSummary readiness={readiness} />
 
+      <div className="grid gap-3 sm:grid-cols-3">
+        <AdminMetricCard label="考核次数" value={summary.examAttemptCount} />
+        <AdminMetricCard
+          label="通过率"
+          value={summary.passRate === null ? '暂无记录' : `${summary.passRate}%`}
+        />
+        <AdminMetricCard label="平均分" value={summary.averageScore ?? '暂无记录'} />
+      </div>
+
       <AdminCard className="overflow-hidden" data-exam-policy-list>
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--admin-border)] px-4 py-4">
           <div>
@@ -234,7 +268,7 @@ export function ExamPolicyAdminPanel() {
               考核策略列表
             </div>
             <p className="mt-1 text-sm text-[var(--admin-muted-foreground)]">
-              共 {filteredPolicies.length} 项；编辑配置后，再按状态发布、下架或删除草稿。
+              共 {pagination.total} 项；编辑配置后，再按状态发布、下架或删除草稿。
             </p>
           </div>
           <Button
@@ -247,20 +281,24 @@ export function ExamPolicyAdminPanel() {
           </Button>
         </div>
         <div className="border-b border-[var(--admin-border-subtle)] p-4" data-exam-policy-filters>
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px_220px]">
             <Input
               aria-label="搜索考核"
               className={adminInputClassName}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setPage(1);
+              }}
               placeholder="搜索考核名称或目标角色"
               value={query}
             />
             <select
               aria-label="筛选考核状态"
               className={adminSelectClassName}
-              onChange={(event) =>
-                setStatusFilter(event.target.value as 'all' | AdminExamPolicy['status'])
-              }
+              onChange={(event) => {
+                setStatusFilter(event.target.value as 'all' | AdminExamPolicy['status']);
+                setPage(1);
+              }}
               value={statusFilter}
             >
               <option value="all">全部状态</option>
@@ -268,15 +306,27 @@ export function ExamPolicyAdminPanel() {
               <option value="published">已发布</option>
               <option value="archived">已归档</option>
             </select>
+            <select
+              aria-label="筛选目标角色"
+              className={adminSelectClassName}
+              onChange={(event) => {
+                setTargetRoleId(event.target.value);
+                setPage(1);
+              }}
+              value={targetRoleId}
+            >
+              <option value="">全部目标角色</option>
+              {learnerRoles.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
         {policies.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-[var(--admin-muted-foreground)]">
             暂无阶段考核
-          </div>
-        ) : filteredPolicies.length === 0 ? (
-          <div className="px-4 py-10 text-center text-sm text-[var(--admin-muted-foreground)]">
-            没有符合当前筛选条件的考核
           </div>
         ) : (
           <ExamPolicyTable
@@ -286,11 +336,27 @@ export function ExamPolicyAdminPanel() {
             onDelete={deletePolicy}
             onEdit={openEditDialog}
             onPublish={publishPolicy}
-            policies={filteredPolicies}
+            onView={setResultPolicy}
+            policies={policies}
             roleNames={roleNames}
           />
         )}
+        <div className="border-t border-[var(--admin-border-subtle)] p-4">
+          <AdminPagination
+            end={Math.min(pagination.page * pagination.pageSize, pagination.total)}
+            onPageChange={setPage}
+            page={pagination.page}
+            start={pagination.total ? (pagination.page - 1) * pagination.pageSize + 1 : 0}
+            total={pagination.total}
+            totalPages={pagination.totalPages}
+          />
+        </div>
       </AdminCard>
+
+      <ExamResultsDrawer
+        policy={resultPolicy}
+        onOpenChange={(open) => !open && setResultPolicy(null)}
+      />
 
       <ExamPolicyDialog
         candidateQuestionCount={dialogCandidateQuestionCount}

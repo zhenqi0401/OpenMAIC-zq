@@ -188,6 +188,7 @@ describe('ExamPolicyAdminPanel', () => {
         onPublish: () => {},
         onArchive: () => {},
         onDelete: () => {},
+        onView: () => {},
       }),
     );
     for (const heading of [

@@ -31,6 +31,7 @@ import {
 import { adminErrorMessage, adminToast } from '@/lib/admin/toast';
 import { isDanmakuEnabled, isForumEnabled } from '@/lib/config/feature-flags';
 import { cn } from '@/lib/utils';
+import { AdminMetricCard } from '@/components/admin/AdminPatterns';
 
 interface CommunityResponse {
   items: AdminCommunityItem[];
@@ -38,6 +39,17 @@ interface CommunityResponse {
   page: number;
   pageSize: number;
   error?: string;
+}
+
+interface CommunitySummary {
+  posts: { count: number; changeRate: number | null };
+  replies: { count: number; changeRate: number | null };
+  moderationActions: { count: number; changeRate: number | null };
+}
+
+function trendLabel(rate: number | null) {
+  if (rate === null) return '暂无可比数据';
+  return `${rate >= 0 ? '+' : ''}${rate}% 较上一周期`;
 }
 
 const STATUS_OPTIONS: Record<CommunityContentType, Array<{ value: string; label: string }>> = {
@@ -71,6 +83,7 @@ export function CommunityAdminPanel() {
   const [moderationAction, setModerationAction] = useState<CommunityModerationAction | null>(null);
   const [moderationError, setModerationError] = useState<string | null>(null);
   const [pendingItemId, setPendingItemId] = useState<string | null>(null);
+  const [summary, setSummary] = useState<CommunitySummary | null>(null);
   const pageSize = 20;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const hasActiveFilters = Boolean(keyword || authorId || courseId || status || from || to);
@@ -108,9 +121,24 @@ export function CommunityAdminPanel() {
     [query],
   );
 
+  const loadSummary = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/community/summary?range=today');
+      if (!response.ok) throw new Error();
+      const data = (await response.json()) as { summary: CommunitySummary };
+      setSummary(data.summary);
+    } catch {
+      setSummary(null);
+    }
+  }, []);
+
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void loadSummary();
+  }, [loadSummary]);
 
   function changeType(next: CommunityContentType) {
     setType(next);
@@ -159,6 +187,7 @@ export function CommunityAdminPanel() {
       adminToast.success(`${communityActionLabel(moderationAction)}操作成功`);
       closeModeration();
       await load();
+      await loadSummary();
     } catch (cause) {
       const message = adminErrorMessage(cause, '管理操作失败');
       setModerationError(message);
@@ -184,6 +213,24 @@ export function CommunityAdminPanel() {
         onValueChange={changeType}
         value={type}
       />
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <AdminMetricCard
+          label="今日新帖"
+          value={summary?.posts.count ?? '—'}
+          detail={summary ? trendLabel(summary.posts.changeRate) : '统计加载失败'}
+        />
+        <AdminMetricCard
+          label="今日回复"
+          value={summary?.replies.count ?? '—'}
+          detail={summary ? trendLabel(summary.replies.changeRate) : '统计加载失败'}
+        />
+        <AdminMetricCard
+          label="管理操作"
+          value={summary?.moderationActions.count ?? '—'}
+          detail={summary ? trendLabel(summary.moderationActions.changeRate) : '统计加载失败'}
+        />
+      </div>
 
       <AdminCard className="grid gap-3 p-4">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

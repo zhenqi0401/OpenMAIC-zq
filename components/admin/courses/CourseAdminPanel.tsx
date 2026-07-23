@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BookOpen } from 'lucide-react';
 import { adminToast } from '@/lib/admin/toast';
 import {
@@ -17,13 +17,11 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import type { EnterpriseCourse } from '@/lib/storage/enterprise-service';
 import type { AuthRole } from '@/lib/auth/service';
-import { paginateAdminRows } from '@/lib/admin/pagination';
+import { createAdminClient, type AdminPagination as Pagination } from '@/lib/admin/client';
 import {
   buildCourseVisibilityRequest,
   DEFAULT_COURSE_ADMIN_FILTERS,
-  filterAdminCourses,
   getCourseContentStatus,
-  shouldApplyCourseAdminFilters,
   type CourseAdminFilters,
   type CourseAdminStatusFilter,
 } from '@/lib/admin/course-presentation';
@@ -38,7 +36,11 @@ interface Category {
   sortOrder: number;
 }
 
-export { DEFAULT_COURSE_ADMIN_FILTERS, filterAdminCourses, shouldApplyCourseAdminFilters };
+export {
+  DEFAULT_COURSE_ADMIN_FILTERS,
+  filterAdminCourses,
+  shouldApplyCourseAdminFilters,
+} from '@/lib/admin/course-presentation';
 export type { CourseAdminFilters };
 
 export function courseGenerationStatusLabel(course: EnterpriseCourse): string | null {
@@ -119,10 +121,12 @@ export function CourseListEmptyState({
 }
 
 export function CourseAdminPanel() {
+  const client = useMemo(() => createAdminClient(), []);
   const [roles, setRoles] = useState<AuthRole[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [courses, setCourses] = useState<EnterpriseCourse[]>([]);
   const [creatingCategory, setCreatingCategory] = useState(false);
+  const [categoryBusyId, setCategoryBusyId] = useState<string | null>(null);
   const [visibilityCourse, setVisibilityCourse] = useState<EnterpriseCourse | null>(null);
   const [savingVisibility, setSavingVisibility] = useState(false);
   const [statusChangingCourseId, setStatusChangingCourseId] = useState<string | null>(null);
@@ -131,43 +135,63 @@ export function CourseAdminPanel() {
   const [filters, setFilters] = useState<CourseAdminFilters>(DEFAULT_COURSE_ADMIN_FILTERS);
   const [filterDraft, setFilterDraft] = useState<CourseAdminFilters>(DEFAULT_COURSE_ADMIN_FILTERS);
   const [coursePage, setCoursePage] = useState(1);
+  const [coursePagination, setCoursePagination] = useState<Pagination>({
+    page: 1,
+    pageSize: 12,
+    total: 0,
+    totalPages: 1,
+  });
+  const [previews, setPreviews] = useState<Record<string, { canvas: unknown } | null>>({});
 
   const learnerRoles = useMemo(() => roles.filter((role) => !role.isAdmin), [roles]);
   const roleNames = useMemo(
     () => new Map(learnerRoles.map((role) => [role.id, role.name])),
     [learnerRoles],
   );
-  const filteredCourses = useMemo(() => filterAdminCourses(courses, filters), [courses, filters]);
-  const coursePagination = useMemo(
-    () => paginateAdminRows(filteredCourses, coursePage),
-    [coursePage, filteredCourses],
-  );
-
-  async function loadAll(notify = false) {
-    try {
-      const [rolesResponse, categoriesResponse, coursesResponse] = await Promise.all([
-        fetch('/api/admin/roles'),
-        fetch('/api/admin/categories'),
-        fetch('/api/admin/courses'),
-      ]);
-      if (!rolesResponse.ok || !categoriesResponse.ok || !coursesResponse.ok) {
-        throw new Error('课程后台加载失败');
+  const loadAll = useCallback(
+    async (notify = false) => {
+      try {
+        const [rolesResponse, categoriesResponse, courseResult] = await Promise.all([
+          fetch('/api/admin/roles'),
+          fetch('/api/admin/categories'),
+          client.queryCourses({
+            q: filters.query || undefined,
+            status: filters.status,
+            categoryId: filters.categoryId || undefined,
+            visibilityMode: filters.visibilityMode,
+            page: coursePage,
+            pageSize: 12,
+            sort: 'updatedAt:desc',
+          }),
+        ]);
+        if (!rolesResponse.ok || !categoriesResponse.ok) {
+          throw new Error('课程后台加载失败');
+        }
+        const rolesData = (await rolesResponse.json()) as { roles: AuthRole[] };
+        const categoriesData = (await categoriesResponse.json()) as { categories: Category[] };
+        setRoles(rolesData.roles);
+        setCategories(categoriesData.categories);
+        setCourses(courseResult.items);
+        setCoursePagination(courseResult.pagination);
+        try {
+          const previewResult = await client.getCoursePreviews(
+            courseResult.items.map((course) => course.id),
+          );
+          setPreviews(previewResult.previews);
+        } catch {
+          setPreviews({});
+        }
+        if (notify) adminToast.success('课程列表已刷新');
+      } catch {
+        adminToast.error('课程后台加载失败');
       }
-      const rolesData = (await rolesResponse.json()) as { roles: AuthRole[] };
-      const categoriesData = (await categoriesResponse.json()) as { categories: Category[] };
-      const coursesData = (await coursesResponse.json()) as { courses: EnterpriseCourse[] };
-      setRoles(rolesData.roles);
-      setCategories(categoriesData.categories);
-      setCourses(coursesData.courses);
-      if (notify) adminToast.success('课程列表已刷新');
-    } catch {
-      adminToast.error('课程后台加载失败');
-    }
-  }
+    },
+    [client, coursePage, filters],
+  );
 
   useEffect(() => {
     queueMicrotask(() => void loadAll());
-  }, []);
+  }, [loadAll]);
 
   async function createCategory(categoryName: string): Promise<boolean> {
     setCreatingCategory(true);
@@ -186,6 +210,67 @@ export function CourseAdminPanel() {
       return true;
     } finally {
       setCreatingCategory(false);
+    }
+  }
+
+  async function renameCategory(id: string, name: string): Promise<boolean> {
+    setCategoryBusyId(id);
+    try {
+      const response = await fetch(`/api/admin/categories/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!response.ok) throw new Error();
+      adminToast.success('分类已重命名');
+      await loadAll();
+      return true;
+    } catch {
+      adminToast.error('分类重命名失败');
+      return false;
+    } finally {
+      setCategoryBusyId(null);
+    }
+  }
+
+  async function reorderCategories(categoryIds: string[]): Promise<boolean> {
+    setCategoryBusyId('reorder');
+    try {
+      const response = await fetch('/api/admin/categories/reorder', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categoryIds }),
+      });
+      if (!response.ok) throw new Error();
+      adminToast.success('分类顺序已保存');
+      await loadAll();
+      return true;
+    } catch {
+      adminToast.error('分类排序失败');
+      return false;
+    } finally {
+      setCategoryBusyId(null);
+    }
+  }
+
+  async function deleteCategory(id: string): Promise<boolean> {
+    setCategoryBusyId(id);
+    try {
+      const response = await fetch(`/api/admin/categories/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        throw new Error(data.error || '分类删除失败');
+      }
+      adminToast.success('分类已删除');
+      await loadAll();
+      return true;
+    } catch (error) {
+      adminToast.error(error instanceof Error ? error.message : '分类删除失败');
+      return false;
+    } finally {
+      setCategoryBusyId(null);
     }
   }
 
@@ -294,9 +379,13 @@ export function CourseAdminPanel() {
           </div>
           <div className="shrink-0" data-course-category-action>
             <CategoryDialog
+              busyId={categoryBusyId}
               categories={categories}
               creating={creatingCategory}
               onCreate={createCategory}
+              onDelete={deleteCategory}
+              onRename={renameCategory}
+              onReorder={reorderCategories}
             />
           </div>
         </div>
@@ -315,27 +404,41 @@ export function CourseAdminPanel() {
           onStatusChange={changeStatusFilter}
         />
 
-        {courses.length === 0 ? (
-          <CourseListEmptyState hasCourses={false} onClear={clearFilters} />
-        ) : coursePagination.total === 0 ? (
-          <CourseListEmptyState hasCourses onClear={clearFilters} />
+        {coursePagination.total === 0 ? (
+          <CourseListEmptyState
+            hasCourses={Boolean(
+              filters.query ||
+              filters.categoryId ||
+              filters.status !== 'all' ||
+              filters.visibilityMode !== 'any',
+            )}
+            onClear={clearFilters}
+          />
         ) : (
           <CourseTable
-            courses={coursePagination.rows}
+            courses={courses}
             onChangeStatus={changeStatus}
             onDelete={setCourseToDelete}
             onEditVisibility={setVisibilityCourse}
             roleNames={roleNames}
             statusChangingCourseId={statusChangingCourseId}
+            previews={previews}
           />
         )}
 
         <div className="border-t border-[var(--admin-border-subtle)] px-4 py-3">
           <AdminPagination
-            end={coursePagination.end}
+            end={Math.min(
+              coursePagination.page * coursePagination.pageSize,
+              coursePagination.total,
+            )}
             onPageChange={setCoursePage}
             page={coursePagination.page}
-            start={coursePagination.start}
+            start={
+              coursePagination.total
+                ? (coursePagination.page - 1) * coursePagination.pageSize + 1
+                : 0
+            }
             total={coursePagination.total}
             totalPages={coursePagination.totalPages}
           />

@@ -31,6 +31,7 @@ export function ExamPolicyTable({
   onPublish,
   onArchive,
   onDelete,
+  onView,
 }: {
   policies: readonly AdminExamPolicy[];
   roleNames: ReadonlyMap<string, string>;
@@ -40,6 +41,7 @@ export function ExamPolicyTable({
   onPublish: (policyId: string) => void;
   onArchive: (policyId: string) => void;
   onDelete: (policyId: string) => void;
+  onView: (policy: AdminExamPolicy) => void;
 }) {
   const [deleteTarget, setDeleteTarget] = useState<AdminExamPolicy | null>(null);
 
@@ -139,11 +141,13 @@ export function ExamPolicyTable({
                       primaryAction={
                         <Button
                           className={adminSecondaryButtonClassName}
-                          onClick={() => onEdit(policy)}
+                          onClick={() =>
+                            policy.status === 'published' ? onView(policy) : onEdit(policy)
+                          }
                           type="button"
                           variant="outline"
                         >
-                          编辑
+                          {policy.status === 'published' ? '查看' : '编辑'}
                         </Button>
                       }
                       triggerAriaLabel={`${policy.title}的更多操作`}

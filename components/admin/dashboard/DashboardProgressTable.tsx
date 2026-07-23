@@ -8,7 +8,8 @@ import {
 } from '@/components/admin/AdminSurface';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { buildRoleOptions, type AdminDashboard, type AdminRole } from '@/lib/admin/client';
+import { buildRoleOptions, type AdminRole } from '@/lib/admin/client';
+import type { EnterpriseProgressDetail } from '@/lib/storage/enterprise-service';
 import { paginateAdminRows } from '@/lib/admin/pagination';
 import { getDashboardLastActivity, getDashboardRoleName } from '@/lib/admin/presentation';
 
@@ -19,7 +20,7 @@ export interface DashboardFilters {
 }
 
 interface DashboardProgressTableProps {
-  progress: AdminDashboard['progress'];
+  progress: EnterpriseProgressDetail[];
   emptyText: string;
   dashboardFilters: DashboardFilters;
   roles: readonly AdminRole[];

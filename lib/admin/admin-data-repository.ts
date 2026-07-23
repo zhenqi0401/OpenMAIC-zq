@@ -182,7 +182,7 @@ export class AdminDataRepository {
       .select({
         courseId: courseScenes.courseId,
         sceneKey: courseScenes.sceneKey,
-        canvas: courseScenes.sceneData,
+        canvas: courseScenes.content,
         sceneOrder: courseScenes.sceneOrder,
       })
       .from(courseScenes)
@@ -194,7 +194,10 @@ export class AdminDataRepository {
         firstByCourse.set(row.courseId, {
           courseId: row.courseId,
           sceneKey: row.sceneKey,
-          canvas: row.canvas,
+          canvas:
+            row.canvas && typeof row.canvas === 'object' && 'canvas' in row.canvas
+              ? row.canvas.canvas
+              : row.canvas,
         });
       }
     }

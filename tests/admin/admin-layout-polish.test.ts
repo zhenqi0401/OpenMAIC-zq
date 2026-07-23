@@ -44,19 +44,20 @@ describe('admin layout polish', () => {
     expect(adminAccountMenuLabels.logout).toBe('退出登录');
   });
 
-  it('puts dashboard filters and learner rows in one continuous panel', () => {
+  it('uses the new dashboard periods without the removed learning table', () => {
     const markup = renderToStaticMarkup(React.createElement(DashboardAdminPanel));
 
-    expect(markup).toContain('刷新看板');
+    expect(markup).toContain('数据看板');
     expect(markup).toContain('账户');
     expect(markup).not.toContain('返回首页');
     expect(markup).not.toContain('退出登录');
-    expect(markup).toContain('data-admin-dashboard-progress-panel');
-    expect(markup).toContain('学员列表');
-    expect(markup).toContain('按用户 ID 筛选');
-    expect(markup).toContain('显示 0 条，共 0 条');
-    expect(markup).toContain('上一页');
-    expect(markup).toContain('下一页');
+    expect(markup).toContain('趋势周期');
+    expect(markup).toContain('周');
+    expect(markup).toContain('月');
+    expect(markup).toContain('年');
+    expect(markup).not.toContain('data-admin-dashboard-progress-panel');
+    expect(markup).not.toContain('学习记录');
+    expect(markup).not.toContain('测评通过率');
   });
 
   it('keeps course and exam module action buttons textual', () => {

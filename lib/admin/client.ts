@@ -1,9 +1,9 @@
 import type { AuthRole, PublicUser } from '@/lib/auth/service';
-import type { DashboardSummary, HostQueryFilters } from '@/lib/host-api/types';
+import type { HostQueryFilters } from '@/lib/host-api/types';
 import type {
+  EnterpriseCourse,
   EnterpriseExamPolicy,
   EnterpriseInviteCode,
-  EnterpriseProgressDetail,
 } from '@/lib/storage/enterprise-service';
 
 export type AdminRole = AuthRole;
@@ -13,6 +13,56 @@ export type AdminInviteCode = Omit<EnterpriseInviteCode, 'createdAt' | 'expiresA
   expiresAt: string | Date | null;
 };
 export type AdminExamPolicy = EnterpriseExamPolicy;
+
+export interface AdminPagination {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface AdminPageResult<T> {
+  items: T[];
+  pagination: AdminPagination;
+}
+
+export type AdminCourse = EnterpriseCourse & {
+  contentStatus: 'generating' | 'incomplete' | 'missing_assessment' | 'ready';
+};
+
+export interface AdminExamSummary {
+  publishedCourseCount: number;
+  readyCourseCount: number;
+  missingQuestionCourseCount: number;
+  examAttemptCount: number;
+  passRate: number | null;
+  averageScore: number | null;
+}
+
+export interface AdminExamAttemptDetail {
+  id: string;
+  userId: string;
+  displayName: string;
+  roleName: string;
+  score: number;
+  passed: boolean;
+  attemptNumber: number;
+  submittedAt: string;
+}
+
+export interface AdminExamAttemptResponse {
+  policy: Pick<AdminExamPolicy, 'id' | 'title' | 'passThreshold' | 'questionCount'> & {
+    timeLimitMinutes: number | null;
+  };
+  summary: {
+    participantCount: number;
+    attemptCount: number;
+    passRate: number | null;
+    averageScore: number | null;
+  };
+  attempts: AdminExamAttemptDetail[];
+  pagination: AdminPagination;
+}
 
 export interface ExamPolicyInput {
   title: string;
@@ -29,8 +79,36 @@ export type ExamPolicyPatch = Partial<ExamPolicyInput> & {
 };
 
 export interface AdminDashboard {
-  summary: DashboardSummary;
-  progress: EnterpriseProgressDetail[];
+  summary: {
+    learnerCount: number;
+    activeCourseCount: number;
+    courseCompletionRate: number | null;
+    examPassRate: number | null;
+    examAttemptCount: number;
+  };
+  communityActivity: {
+    totals: { interactions: number; posts: number; replies: number; danmaku: number };
+    points: Array<{
+      date: string;
+      interactions: number;
+      posts: number;
+      replies: number;
+      danmaku: number;
+    }>;
+  };
+  pending: {
+    total: number;
+    items: Array<{
+      id: string;
+      type: string;
+      severity: 'high' | 'medium' | 'info';
+      title: string;
+      description: string;
+      count: number;
+      href: string;
+      actionLabel: string;
+    }>;
+  };
 }
 
 export interface RoleOption {
@@ -92,10 +170,16 @@ function buildQuery(filters?: HostQueryFilters): string {
   return text ? `?${text}` : '';
 }
 
+function buildAdminQuery(filters?: Record<string, string | number | undefined>): string {
+  return buildQuery(filters as HostQueryFilters);
+}
+
 export function createAdminClient(fetcher: AdminFetch = fetch) {
   return {
-    async getDashboard(filters?: HostQueryFilters): Promise<AdminDashboard> {
-      const response = await fetcher(`/api/admin/dashboard${buildQuery(filters)}`);
+    async getDashboard(range?: 'week' | 'month' | 'year'): Promise<AdminDashboard> {
+      const response = await fetcher(
+        `/api/admin/dashboard${range ? buildAdminQuery({ range }) : ''}`,
+      );
       return readJson<AdminDashboard>(response, '看板加载失败');
     },
 
@@ -167,6 +251,58 @@ export function createAdminClient(fetcher: AdminFetch = fetch) {
       return data.users;
     },
 
+    async queryUsers(filters: {
+      q?: string;
+      roleId?: string;
+      status?: 'all' | 'active' | 'disabled';
+      page?: number;
+      pageSize?: number;
+    }): Promise<AdminPageResult<AdminUser>> {
+      const response = await fetcher(`/api/admin/users${buildAdminQuery(filters)}`);
+      const data = await readJson<{ users: AdminUser[]; pagination: AdminPagination }>(
+        response,
+        '用户列表加载失败',
+      );
+      return { items: data.users, pagination: data.pagination };
+    },
+
+    async updateUserStatus(userId: string, status: 'active' | 'disabled') {
+      const response = await fetcher(
+        `/api/admin/users/${encodeURIComponent(userId)}/status`,
+        jsonRequest('PATCH', { status }),
+      );
+      return readJson<{ user: AdminUser }>(
+        response,
+        status === 'disabled' ? '用户冻结失败' : '用户恢复失败',
+      );
+    },
+
+    async queryCourses(filters: {
+      q?: string;
+      status?: 'all' | 'draft' | 'published' | 'archived' | 'review';
+      categoryId?: string;
+      visibilityMode?: 'any' | 'all' | 'roles';
+      page?: number;
+      pageSize?: number;
+      sort?: 'updatedAt:desc';
+    }): Promise<AdminPageResult<AdminCourse>> {
+      const response = await fetcher(`/api/admin/courses${buildAdminQuery(filters)}`);
+      const data = await readJson<{ courses: AdminCourse[]; pagination: AdminPagination }>(
+        response,
+        '课程列表加载失败',
+      );
+      return { items: data.courses, pagination: data.pagination };
+    },
+
+    async getCoursePreviews(ids: string[]) {
+      const response = await fetcher(
+        `/api/admin/courses/previews${buildAdminQuery({ ids: ids.join(',') })}`,
+      );
+      return readJson<{
+        previews: Record<string, { courseId: string; sceneKey: string; canvas: unknown } | null>;
+      }>(response, '课程预览加载失败');
+    },
+
     async updateUserRole(userId: string, roleId: string) {
       const response = await fetcher(
         `/api/admin/users/${encodeURIComponent(userId)}/role`,
@@ -190,6 +326,29 @@ export function createAdminClient(fetcher: AdminFetch = fetch) {
         '考核策略列表加载失败',
       );
       return data.examPolicies;
+    },
+
+    async queryExamPolicies(filters: {
+      q?: string;
+      status?: 'all' | AdminExamPolicy['status'];
+      targetRoleId?: string;
+      page?: number;
+      pageSize?: number;
+    }) {
+      const response = await fetcher(`/api/admin/exam-policies${buildAdminQuery(filters)}`);
+      const data = await readJson<{
+        examPolicies: AdminExamPolicy[];
+        summary: AdminExamSummary;
+        pagination: AdminPagination;
+      }>(response, '考核策略列表加载失败');
+      return { items: data.examPolicies, summary: data.summary, pagination: data.pagination };
+    },
+
+    async getExamPolicyAttempts(id: string, page = 1, pageSize = 20) {
+      const response = await fetcher(
+        `/api/admin/exam-policies/${encodeURIComponent(id)}/attempts${buildAdminQuery({ page, pageSize })}`,
+      );
+      return readJson<AdminExamAttemptResponse>(response, '考核结果加载失败');
     },
 
     async createExamPolicy(input: ExamPolicyInput) {

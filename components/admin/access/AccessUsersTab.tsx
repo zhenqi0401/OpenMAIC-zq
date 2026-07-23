@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,18 +13,21 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import {
   AdminCard,
   adminDangerButtonClassName,
   adminDangerOutlineButtonClassName,
+  adminInputClassName,
   adminSecondaryButtonClassName,
   adminSelectClassName,
 } from '@/components/admin/AdminSurface';
 import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
 import { AdminPagination } from '@/components/admin/AdminPagination';
-import type { AdminUser, RoleOption } from '@/lib/admin/client';
-import { paginateAdminRows } from '@/lib/admin/pagination';
+import { AdminRowActions } from '@/components/admin/AdminRowActions';
+import { AdminFilterBar, AdminStatusChip } from '@/components/admin/AdminPatterns';
+import type { AdminPagination as Pagination, AdminUser, RoleOption } from '@/lib/admin/client';
 
 export function AccessDangerDialog({
   busy,
@@ -151,51 +154,123 @@ function UserFacts({ user }: { user: AdminUser }) {
 function UserDeleteAction({
   busy,
   onDelete,
+  onOpenChange,
+  open,
   user,
 }: {
   busy: boolean;
   onDelete: () => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
   user: AdminUser;
 }) {
   return (
-    <AccessDangerDialog
-      busy={busy}
-      confirmLabel="确认永久删除"
-      description={`确认永久删除用户「${user.displayName}」？该操作会删除账号，并清理其学习进度、测评记录和阶段考试记录，且不可恢复。`}
-      onConfirm={onDelete}
-      title="永久删除用户"
-      triggerLabel="永久删除用户"
-    />
+    <AlertDialog onOpenChange={onOpenChange} open={open}>
+      <AlertDialogContent
+        {...adminThemeAttributes}
+        className="max-w-[420px] rounded-[var(--admin-radius-dialog)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)]"
+      >
+        <AlertDialogHeader>
+          <AlertDialogTitle>永久删除用户</AlertDialogTitle>
+          <AlertDialogDescription>{`确认永久删除用户「${user.displayName}」？该操作会删除账号，并清理其学习进度、测评记录和阶段考试记录，且不可恢复。`}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={busy}>取消</AlertDialogCancel>
+          <AlertDialogAction
+            className={adminDangerButtonClassName}
+            disabled={busy}
+            onClick={onDelete}
+            variant="destructive"
+          >
+            {busy ? '处理中…' : '确认永久删除'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function UserActions({
+  busy,
+  deleting,
+  onDelete,
+  onToggleStatus,
+  user,
+}: {
+  busy: boolean;
+  deleting: boolean;
+  onDelete: () => void;
+  onToggleStatus: () => void;
+  user: AdminUser;
+}) {
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  return (
+    <>
+      <AdminRowActions
+        actions={[
+          {
+            id: 'status',
+            label: user.status === 'disabled' ? '恢复账号' : '冻结账号',
+            disabled: busy,
+            onSelect: onToggleStatus,
+          },
+          {
+            id: 'delete',
+            label: '永久删除',
+            destructive: true,
+            onSelect: () => setDeleteOpen(true),
+          },
+        ]}
+        triggerAriaLabel={`${user.displayName}的账号操作`}
+      />
+      <UserDeleteAction
+        busy={deleting}
+        onDelete={onDelete}
+        onOpenChange={setDeleteOpen}
+        open={deleteOpen}
+        user={user}
+      />
+    </>
   );
 }
 
 export function AccessUsersTab({
+  changingStatusUserId,
   deletingUserId,
+  filters,
   loading,
   onDeleteUser,
+  onFiltersChange,
   onPageChange,
   onRoleChange,
   onSaveUserRole,
-  page,
+  onToggleStatus,
+  pagination,
   roleOptions,
   savingUserId,
   userRoleDrafts,
   users,
 }: {
+  changingStatusUserId: string | null;
   deletingUserId: string | null;
+  filters: { q: string; roleId: string; status: 'all' | 'active' | 'disabled' };
   loading: boolean;
   onDeleteUser: (user: AdminUser) => void;
+  onFiltersChange: (filters: {
+    q: string;
+    roleId: string;
+    status: 'all' | 'active' | 'disabled';
+  }) => void;
   onPageChange: (page: number) => void;
   onRoleChange: (userId: string, roleId: string) => void;
   onSaveUserRole: (user: AdminUser) => void;
-  page: number;
+  onToggleStatus: (user: AdminUser) => void;
+  pagination: Pagination;
   roleOptions: readonly RoleOption[];
   savingUserId: string | null;
   userRoleDrafts: Record<string, string>;
   users: readonly AdminUser[];
 }) {
-  const pagination = paginateAdminRows(users, page);
-
   let content: ReactNode;
   if (loading && users.length === 0) {
     content = (
@@ -206,7 +281,7 @@ export function AccessUsersTab({
   } else {
     content = (
       <>
-        <div className="hidden xl:block" data-admin-access-user-table>
+        <div className="hidden md:block" data-admin-access-user-table>
           <table className="w-full table-auto border-collapse text-left text-sm">
             <thead className="border-b border-[var(--admin-border-subtle)] text-xs font-semibold uppercase tracking-[0.08em] text-[var(--admin-muted-foreground)]">
               <tr>
@@ -214,11 +289,12 @@ export function AccessUsersTab({
                 <th className="pb-2 pr-3">手机号</th>
                 <th className="pb-2 pr-3">外部用户 ID</th>
                 <th className="pb-2 pr-3">当前角色</th>
+                <th className="pb-2 pr-3">账号状态</th>
                 <th className="pb-2 text-right">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--admin-border-subtle)]">
-              {pagination.rows.map((user) => {
+              {users.map((user) => {
                 const saving = savingUserId === user.id;
                 return (
                   <tr key={user.id}>
@@ -240,10 +316,17 @@ export function AccessUsersTab({
                         roleOptions={roleOptions}
                       />
                     </td>
+                    <td className="py-3 pr-3">
+                      <AdminStatusChip tone={user.status === 'disabled' ? 'danger' : 'success'}>
+                        {user.status === 'disabled' ? '已冻结' : '正常'}
+                      </AdminStatusChip>
+                    </td>
                     <td className="py-3 text-right">
-                      <UserDeleteAction
-                        busy={deletingUserId === user.id}
+                      <UserActions
+                        busy={changingStatusUserId === user.id}
+                        deleting={deletingUserId === user.id}
                         onDelete={() => onDeleteUser(user)}
+                        onToggleStatus={() => onToggleStatus(user)}
                         user={user}
                       />
                     </td>
@@ -254,8 +337,8 @@ export function AccessUsersTab({
           </table>
         </div>
 
-        <div className="grid gap-3 xl:hidden" data-admin-access-user-cards>
-          {pagination.rows.map((user) => {
+        <div className="grid gap-3 md:hidden" data-admin-access-user-cards>
+          {users.map((user) => {
             const saving = savingUserId === user.id;
             return (
               <article
@@ -265,6 +348,9 @@ export function AccessUsersTab({
                 <div className="grid min-w-0 gap-1 text-sm">
                   <UserFacts user={user} />
                 </div>
+                <AdminStatusChip tone={user.status === 'disabled' ? 'danger' : 'success'}>
+                  {user.status === 'disabled' ? '已冻结' : '正常'}
+                </AdminStatusChip>
                 <UserRoleEditor
                   disabled={saving}
                   onChange={(roleId) => onRoleChange(user.id, roleId)}
@@ -273,9 +359,11 @@ export function AccessUsersTab({
                   roleOptions={roleOptions}
                 />
                 <div className="flex justify-end">
-                  <UserDeleteAction
-                    busy={deletingUserId === user.id}
+                  <UserActions
+                    busy={changingStatusUserId === user.id}
+                    deleting={deletingUserId === user.id}
                     onDelete={() => onDeleteUser(user)}
+                    onToggleStatus={() => onToggleStatus(user)}
                     user={user}
                   />
                 </div>
@@ -302,14 +390,48 @@ export function AccessUsersTab({
           查看用户基本信息并调整所属角色；删除用户会同时移除其关联学习记录。
         </p>
       </div>
+      <AdminFilterBar className="rounded-[var(--admin-radius-control)] border border-[var(--admin-border-subtle)]">
+        <Input
+          aria-label="搜索用户"
+          className={`${adminInputClassName} min-w-[220px] flex-1`}
+          onChange={(event) => onFiltersChange({ ...filters, q: event.target.value })}
+          placeholder="搜索名称、手机号或 Host User ID"
+          value={filters.q}
+        />
+        <select
+          aria-label="筛选用户角色"
+          className={adminSelectClassName}
+          onChange={(event) => onFiltersChange({ ...filters, roleId: event.target.value })}
+          value={filters.roleId}
+        >
+          <option value="">全部角色</option>
+          {roleOptions.map((role) => (
+            <option key={role.value} value={role.value}>
+              {role.label}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="筛选账号状态"
+          className={adminSelectClassName}
+          onChange={(event) =>
+            onFiltersChange({ ...filters, status: event.target.value as typeof filters.status })
+          }
+          value={filters.status}
+        >
+          <option value="all">全部状态</option>
+          <option value="active">正常</option>
+          <option value="disabled">已冻结</option>
+        </select>
+      </AdminFilterBar>
       {content}
       <div className="border-t border-[var(--admin-border-subtle)] pt-3">
         <AdminPagination
-          end={pagination.end}
+          end={Math.min(pagination.page * pagination.pageSize, pagination.total)}
           loading={loading}
           onPageChange={onPageChange}
           page={pagination.page}
-          start={pagination.start}
+          start={pagination.total ? (pagination.page - 1) * pagination.pageSize + 1 : 0}
           total={pagination.total}
           totalPages={pagination.totalPages}
         />

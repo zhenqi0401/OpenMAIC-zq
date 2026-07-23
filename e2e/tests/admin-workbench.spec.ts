@@ -44,7 +44,10 @@ async function mockAccessApis(page: Page, revokedRequests: string[] = []) {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ users }),
+        body: JSON.stringify({
+          users,
+          pagination: { page: 1, pageSize: 20, total: users.length, totalPages: 1 },
+        }),
       });
     }
     if (request.method() === 'GET' && pathname === '/api/admin/invite-codes') {
@@ -172,21 +175,48 @@ async function mockAdminModuleReadApis(page: Page) {
       '/api/admin/dashboard': {
         summary: {
           courseCompletionRate: 0,
-          assessmentPassRate: 0,
-          examPassRate: 0,
+          examPassRate: null,
           learnerCount: 0,
-          courseCount: 0,
-          assessmentAttemptCount: 0,
+          activeCourseCount: 0,
           examAttemptCount: 0,
         },
-        progress: [],
+        communityActivity: {
+          totals: { interactions: 0, posts: 0, replies: 0, danmaku: 0 },
+          points: [],
+        },
+        pending: { total: 0, items: [] },
       },
       '/api/admin/roles': { roles },
       '/api/admin/invite-codes': { inviteCodes },
-      '/api/admin/users': { users },
+      '/api/admin/users': {
+        users,
+        pagination: { page: 1, pageSize: 20, total: users.length, totalPages: 1 },
+      },
       '/api/admin/categories': { categories: [] },
-      '/api/admin/courses': { courses: [] },
-      '/api/admin/exam-policies': { examPolicies: [] },
+      '/api/admin/courses': {
+        courses: [],
+        pagination: { page: 1, pageSize: 12, total: 0, totalPages: 1 },
+      },
+      '/api/admin/courses/previews': { previews: {} },
+      '/api/admin/exam-policies': {
+        examPolicies: [],
+        summary: {
+          publishedCourseCount: 0,
+          readyCourseCount: 0,
+          missingQuestionCourseCount: 0,
+          examAttemptCount: 0,
+          passRate: null,
+          averageScore: null,
+        },
+        pagination: { page: 1, pageSize: 20, total: 0, totalPages: 1 },
+      },
+      '/api/admin/community/summary': {
+        summary: {
+          posts: { count: 0, changeRate: null },
+          replies: { count: 0, changeRate: null },
+          moderationActions: { count: 0, changeRate: null },
+        },
+      },
       '/api/admin/community': {
         success: true,
         items: [],
@@ -210,7 +240,7 @@ test.describe('P0 overall acceptance', () => {
   }) => {
     await mockAdminModuleReadApis(page);
     const modules = [
-      { id: 'dashboard', heading: '运营状态一眼看清' },
+      { id: 'dashboard', heading: '数据看板' },
       { id: 'courses', heading: '课程管理' },
       { id: 'exams', heading: '阶段考核' },
       { id: 'community', heading: '社区内容' },
@@ -218,8 +248,12 @@ test.describe('P0 overall acceptance', () => {
     ];
 
     for (const viewport of [
-      { width: 1920, height: 900 },
+      { width: 1920, height: 1080 },
       { width: 1440, height: 900 },
+      { width: 1280, height: 800 },
+      { width: 1024, height: 768 },
+      { width: 768, height: 1024 },
+      { width: 390, height: 844 },
     ]) {
       await page.setViewportSize(viewport);
       for (const adminModule of modules) {
@@ -293,14 +327,9 @@ test.describe('P0-03 access workbench', () => {
     await mockAccessApis(page, revokedRequests);
     await openAccess(page);
 
-    const activeUserTabColors = await page
-      .getByRole('tab', { name: /^用户，/, selected: true })
-      .evaluate((tab) => {
-        const style = window.getComputedStyle(tab);
-        return { backgroundColor: style.backgroundColor, color: style.color };
-      });
-    expect(activeUserTabColors.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
-    expect(activeUserTabColors.color).toBe('rgb(43, 33, 29)');
+    const activeUserTab = page.getByRole('tab', { name: /^用户，/, selected: true });
+    await expect(activeUserTab).toBeVisible();
+    await expect(activeUserTab).toHaveAttribute('aria-selected', 'true');
 
     const usersWorkspace = page.locator('[data-admin-access-workspace="users"]');
     await expect(usersWorkspace).toContainText('13800138000');
@@ -312,7 +341,8 @@ test.describe('P0-03 access workbench', () => {
     await expect(page.locator('[data-admin-current-identity]')).toContainText(
       '当前角色：管理员（admin）',
     );
-    await usersWorkspace.getByRole('button', { name: '永久删除用户' }).click();
+    await usersWorkspace.getByRole('button', { name: '张三的账号操作' }).click();
+    await page.getByRole('menuitem', { name: '永久删除' }).click();
     await expect(page.getByRole('heading', { name: '永久删除用户' })).toBeVisible();
     await page.getByRole('button', { name: '取消' }).click();
 
