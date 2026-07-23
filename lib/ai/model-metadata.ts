@@ -163,6 +163,17 @@ const glm52Effort: ThinkingCapability = {
   defaultEnabled: true,
 };
 
+const kimiK3Effort: ThinkingCapability = {
+  control: 'effort',
+  requestAdapter: 'kimi',
+  effortValues: ['low', 'high', 'max'],
+  defaultEffort: 'max',
+  defaultMode: 'enabled',
+  toggleable: false,
+  budgetAdjustable: true,
+  defaultEnabled: true,
+};
+
 const hunyuanHy3Effort: ThinkingCapability = {
   control: 'effort',
   requestAdapter: 'hunyuan',
@@ -318,6 +329,7 @@ const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
   [getModelMetadataKey('deepseek', 'deepseek-v4-pro')]: deepseekEffort,
   [getModelMetadataKey('deepseek', 'deepseek-v4-flash')]: deepseekEffort,
 
+  [getModelMetadataKey('kimi', 'kimi-k3')]: kimiK3Effort,
   [getModelMetadataKey('kimi', 'kimi-k2.7-code')]: fixedThinkingCapability,
   [getModelMetadataKey('kimi', 'kimi-k2.7-code-highspeed')]: fixedThinkingCapability,
   [getModelMetadataKey('kimi', 'kimi-k2.6')]: toggleCapability('kimi'),
@@ -331,6 +343,7 @@ const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
   [getModelMetadataKey('siliconflow', 'THUDM/GLM-4.1V-9B-Thinking')]: siliconflowBudget,
   [getModelMetadataKey('siliconflow', 'THUDM/GLM-Z1-Rumination-32B-0414')]: siliconflowBudget,
 
+  [getModelMetadataKey('doubao', 'doubao-seed-evolving')]: doubaoMode,
   [getModelMetadataKey('doubao', 'doubao-seed-2-0-pro-260215')]: doubaoSeed20Effort,
   [getModelMetadataKey('doubao', 'doubao-seed-2-0-lite-260215')]: doubaoSeed20Effort,
   [getModelMetadataKey('doubao', 'doubao-seed-2-0-mini-260215')]: doubaoSeed20Effort,

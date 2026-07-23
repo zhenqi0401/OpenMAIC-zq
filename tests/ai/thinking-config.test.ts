@@ -227,6 +227,21 @@ describe('thinking config normalization', () => {
     expect(thinking?.effortValues).toEqual(['minimal', 'low', 'medium', 'high']);
   });
 
+  it('normalizes Kimi K3 as always-on reasoning effort levels', () => {
+    const thinking = getThinking('kimi', 'kimi-k3');
+
+    expect(getDefaultThinkingConfig(thinking)).toEqual({
+      mode: 'enabled',
+      effort: 'max',
+    });
+    expect(normalizeThinkingConfig(thinking, { effort: 'high' })).toEqual({
+      mode: 'enabled',
+      effort: 'high',
+    });
+    expect(thinking?.effortValues).toEqual(['low', 'high', 'max']);
+    expect(thinking?.toggleable).toBe(false);
+  });
+
   it('preserves dynamic Gemini budgets and display labels', () => {
     const thinking = getThinking('google', 'gemini-2.5-flash');
 

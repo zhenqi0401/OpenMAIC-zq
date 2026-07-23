@@ -117,6 +117,17 @@ describe('OpenAI provider defaults', () => {
         vision: false,
       },
     });
+    expect(getModelInfo('kimi', 'kimi-k3')).toMatchObject({
+      id: 'kimi-k3',
+      name: 'Kimi K3',
+      contextWindow: 1048576,
+      outputWindow: 1048576,
+      capabilities: {
+        streaming: true,
+        tools: true,
+        vision: true,
+      },
+    });
     expect(getModelInfo('kimi', 'kimi-k2.7-code')).toMatchObject({
       id: 'kimi-k2.7-code',
       name: 'Kimi K2.7 Code',
@@ -141,7 +152,20 @@ describe('OpenAI provider defaults', () => {
     });
   });
 
+  it('includes the rolling Doubao Seed Evolving model', () => {
+    expect(getModelInfo('doubao', 'doubao-seed-evolving')).toMatchObject({
+      id: 'doubao-seed-evolving',
+      name: 'Doubao Seed Evolving',
+      capabilities: {
+        streaming: true,
+        tools: true,
+        vision: true,
+      },
+    });
+  });
+
   it.each([
+    ['kimi', 'kimi-k3', { mode: 'enabled', effort: 'high' }, { reasoning_effort: 'high' }],
     ['kimi', 'kimi-k2.6', { mode: 'disabled' }, { thinking: { type: 'disabled' } }],
     ['glm', 'glm-5.1', { mode: 'enabled' }, { thinking: { type: 'enabled' } }],
     [

@@ -685,6 +685,22 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
     icon: '/logos/kimi.png',
     models: [
       {
+        id: 'kimi-k3',
+        name: 'Kimi K3',
+        contextWindow: 1048576,
+        outputWindow: 1048576,
+        capabilities: {
+          streaming: true,
+          tools: true,
+          vision: true,
+          thinking: {
+            toggleable: false,
+            budgetAdjustable: true,
+            defaultEnabled: true,
+          },
+        },
+      },
+      {
         id: 'kimi-k2.7-code',
         name: 'Kimi K2.7 Code',
         contextWindow: 256000,
@@ -869,6 +885,11 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
     requiresApiKey: true,
     icon: '/logos/doubao.svg',
     models: [
+      {
+        id: 'doubao-seed-evolving',
+        name: 'Doubao Seed Evolving',
+        capabilities: { streaming: true, tools: true, vision: true },
+      },
       {
         id: 'doubao-seed-2-0-pro-260215',
         name: 'Doubao Seed 2.0 Pro',
@@ -1244,7 +1265,21 @@ function getCompatThinkingBodyParams(
   const budget = pickThinkingBudget(capability, config);
 
   switch (capability.requestAdapter) {
-    case 'kimi':
+    case 'kimi': {
+      if (capability.control === 'effort') {
+        const effort =
+          config.effort && capability.effortValues?.includes(config.effort)
+            ? config.effort
+            : mode === 'enabled'
+              ? capability.defaultEffort
+              : undefined;
+        return effort ? { reasoning_effort: effort } : undefined;
+      }
+      if (mode === 'disabled') return { thinking: { type: 'disabled' } };
+      if (mode === 'enabled') return { thinking: { type: 'enabled' } };
+      return undefined;
+    }
+
     case 'xiaomi':
       if (mode === 'disabled') return { thinking: { type: 'disabled' } };
       if (mode === 'enabled') return { thinking: { type: 'enabled' } };
