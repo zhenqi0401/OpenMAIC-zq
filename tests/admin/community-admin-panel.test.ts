@@ -71,7 +71,7 @@ describe('community admin panel presentation', () => {
     expect(moderationEndpoint('replies', 'reply/1')).toBe('/api/admin/forum/replies/reply%2F1');
   });
 
-  it('renders posts as an author-led content flow without pin controls', () => {
+  it('renders posts as an author-led content flow with the latest moderation details', () => {
     const markup = renderToStaticMarkup(
       React.createElement(CommunityContentList, {
         type: 'posts',
@@ -87,6 +87,9 @@ describe('community admin panel presentation', () => {
             replyCount: 3,
             locked: false,
             pinned: true,
+            action: 'lock',
+            reason: null,
+            moderator: { id: 'admin-1', displayName: '系统管理员' },
             createdAt: '2026-07-23T08:09:10.000Z',
             author: {
               id: 'user-1',
@@ -107,7 +110,33 @@ describe('community admin panel presentation', () => {
     expect(markup).toContain('所属课程：入职课程');
     expect(markup).toContain('回复数：3');
     expect(markup).toContain('关闭回复');
+    expect(markup).toContain('data-community-post-moderation');
+    expect(markup).toContain('操作类型：关闭回复');
+    expect(markup).toContain('操作原因：未填写');
+    expect(markup).toContain('操作人：系统管理员');
     expect(markup).not.toContain('置顶');
+  });
+
+  it('does not render moderation details for untouched posts', () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(CommunityContentList, {
+        type: 'posts',
+        pendingItemId: null,
+        onModerate: () => undefined,
+        items: [
+          {
+            id: 'post-untouched',
+            status: 'visible',
+            title: '普通帖子',
+            body: '尚未经过管理员操作。',
+            createdAt: '2026-07-23T08:09:10.000Z',
+          },
+        ],
+      }),
+    );
+
+    expect(markup).not.toContain('data-community-post-moderation');
+    expect(markup).not.toContain('操作原因：');
   });
 
   it('renders a six-column danmaku table and matching mobile fields with actionOffsetMs', () => {
@@ -150,11 +179,74 @@ describe('community admin panel presentation', () => {
     expect(markup).toContain('下架');
   });
 
+  it('renders replies and audit records as semantic desktop tables with mobile cards', () => {
+    const replyMarkup = renderToStaticMarkup(
+      React.createElement(CommunityContentList, {
+        type: 'replies',
+        pendingItemId: null,
+        onModerate: () => undefined,
+        items: [
+          {
+            id: 'reply-1',
+            status: 'visible',
+            body: '这是一条回复',
+            postTitle: '课程讨论帖',
+            courseName: '入职课程',
+            createdAt: '2026-07-23T08:09:10.000Z',
+            author: {
+              id: 'user-2',
+              displayName: '王五',
+              roleName: '学员',
+              roleCode: 'learner',
+            },
+          },
+        ],
+      }),
+    );
+    for (const heading of [
+      '回复者',
+      '回复内容',
+      '所属帖子',
+      '所属课程',
+      '回复时间',
+      '状态',
+      '操作',
+    ]) {
+      expect(replyMarkup).toContain(heading);
+    }
+    expect(replyMarkup).toContain('data-community-reply-table');
+    expect(replyMarkup).toContain('data-community-reply-cards');
+
+    const auditMarkup = renderToStaticMarkup(
+      React.createElement(CommunityContentList, {
+        type: 'audit',
+        pendingItemId: null,
+        onModerate: () => undefined,
+        items: [
+          {
+            id: 'audit-1',
+            targetType: 'forum_post',
+            action: 'hide',
+            reason: null,
+            createdAt: '2026-07-23T08:09:10.000Z',
+            moderator: { id: 'admin-1', displayName: '系统管理员' },
+          },
+        ],
+      }),
+    );
+    for (const heading of ['操作人', '操作对象', '操作类型', '操作原因', '操作时间']) {
+      expect(auditMarkup).toContain(heading);
+    }
+    expect(auditMarkup).toContain('data-community-audit-table');
+    expect(auditMarkup).toContain('data-community-audit-cards');
+    expect(auditMarkup).toContain('未填写');
+  });
+
   it('keeps feature flags in control of the available tabs', () => {
     expect(availableCommunityTabs(true, true).map((tab) => tab.label)).toEqual([
-      '弹幕',
       '帖子',
       '回复',
+      '弹幕',
       '操作审计',
     ]);
     expect(availableCommunityTabs(false, true).map((tab) => tab.label)).toEqual([
@@ -191,6 +283,19 @@ describe('community admin panel presentation', () => {
     expect(rowSource).not.toContain('记录 ID：{item.id}');
     expect(rowSource).not.toContain('作者 ID：{item.author.id}');
     expect(panelSource).not.toContain('moderationScrollPosition');
+    expect(panelSource).toContain('data-community-workbench');
+    expect(panelSource.indexOf('label="今日新帖"')).toBeLessThan(
+      panelSource.indexOf('data-community-workbench'),
+    );
+    expect(panelSource.indexOf('ariaLabel="社区内容类型"')).toBeLessThan(
+      panelSource.indexOf('data-community-filters'),
+    );
+    expect(panelSource.indexOf('data-community-filters')).toBeLessThan(
+      panelSource.indexOf('data-community-content'),
+    );
+    expect(panelSource).toContain(
+      "isForumEnabled() ? 'posts' : isDanmakuEnabled() ? 'danmaku' : 'audit'",
+    );
     expect(panelSource).toContain('aria-label="关键词"');
     expect(panelSource).toContain(
       "aria-label={type === 'audit' ? '管理员用户 ID' : '作者用户 ID'}",
@@ -202,6 +307,7 @@ describe('community admin panel presentation', () => {
     expect(panelSource).not.toContain('社区正文按纯文本安全输出');
     expect(contentSource).not.toContain("onModerate('pin')");
     expect(contentSource).not.toContain("onModerate('unpin')");
+    expect(contentSource).toContain('min-h-[var(--admin-control-height)]');
     expect(dialogSource).toContain('modal={false}');
     expect(dialogSource).toContain('focus({ preventScroll: true })');
     expect(dialogSource).toContain('value={detail}');

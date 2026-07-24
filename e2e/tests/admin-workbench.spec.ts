@@ -189,6 +189,8 @@ async function mockCommunityApis(
 async function openCommunity(page: Page) {
   await page.goto('/admin?module=community');
   await expect(page.getByRole('heading', { name: '社区内容' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: '帖子' })).toHaveAttribute('data-state', 'active');
+  await page.getByRole('tab', { name: '弹幕' }).click();
   await expect(page.locator('[data-community-danmaku-list]').first()).toContainText(
     '这是一条需要审核的课程弹幕',
   );
@@ -650,6 +652,23 @@ test.describe('P0-07 community moderation', () => {
         .getByRole('tablist', { name: '社区内容类型' })
         .evaluate((element) => getComputedStyle(element).borderBottomWidth),
     ).toBe('0px');
+    await expect(page.getByRole('tablist', { name: '社区内容类型' }).getByRole('tab')).toHaveText([
+      '帖子',
+      '回复',
+      '弹幕',
+      '操作审计',
+    ]);
+    const buttonHeights = await Promise.all([
+      page
+        .getByRole('button', { name: '下架' })
+        .first()
+        .evaluate((element) => element.clientHeight),
+      page
+        .getByRole('button', { name: '删除', exact: true })
+        .first()
+        .evaluate((element) => element.clientHeight),
+    ]);
+    expect(buttonHeights[0]).toBe(buttonHeights[1]);
     await page.getByRole('button', { name: '删除', exact: true }).click();
     const deleteDialog = page.getByRole('dialog');
     await expect(deleteDialog.getByRole('heading', { name: '确认删除' })).toBeVisible();
@@ -665,6 +684,70 @@ test.describe('P0-07 community moderation', () => {
         () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
       ),
     ).toBe(true);
+  });
+
+  test('keeps tabs, filters, content and pagination in one ordered community workbench', async ({
+    page,
+  }) => {
+    await mockCommunityApis(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openCommunity(page);
+
+    const workbench = page.locator('[data-community-workbench]');
+    await expect(workbench).toBeVisible();
+    await expect(workbench.getByRole('tablist', { name: '社区内容类型' })).toBeVisible();
+    await expect(workbench.locator('[data-community-filters]')).toBeVisible();
+    await expect(workbench.locator('[data-community-content]')).toBeVisible();
+    await expect(workbench.locator('[data-admin-pagination]')).toBeVisible();
+
+    const positions = await page.evaluate(() => {
+      const top = (selector: string) =>
+        document.querySelector(selector)?.getBoundingClientRect().top ?? Number.NaN;
+      return {
+        metric: top('[data-admin-metric-card]'),
+        tabs: top('[data-community-workbench] [role="tablist"]'),
+        filters: top('[data-community-filters]'),
+        content: top('[data-community-content]'),
+        pagination: top('[data-community-workbench] [data-admin-pagination]'),
+      };
+    });
+    expect(positions.metric).toBeLessThan(positions.tabs);
+    expect(positions.tabs).toBeLessThan(positions.filters);
+    expect(positions.filters).toBeLessThan(positions.content);
+    expect(positions.content).toBeLessThan(positions.pagination);
+  });
+
+  test('shows post moderation type, empty reason and moderator, then uses tables for replies and audit', async ({
+    page,
+  }) => {
+    await mockCommunityApis(page, {
+      items: [
+        {
+          ...communityItem,
+          id: 'post-1',
+          title: '需要复核的帖子',
+          body: '帖子正文',
+          action: 'lock',
+          reason: null,
+          moderator: { id: 'admin-1', displayName: '系统管理员' },
+        },
+      ],
+    });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/admin?module=community');
+
+    const moderation = page.locator('[data-community-post-moderation]');
+    await expect(moderation).toContainText('操作类型：关闭回复');
+    await expect(moderation).toContainText('操作原因：未填写');
+    await expect(moderation).toContainText('操作人：系统管理员');
+
+    await page.getByRole('tab', { name: '回复' }).click();
+    await expect(page.locator('[data-community-reply-table]')).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '回复内容' })).toBeVisible();
+
+    await page.getByRole('tab', { name: '操作审计' }).click();
+    await expect(page.locator('[data-community-audit-table]')).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '操作原因' })).toBeVisible();
   });
 
   test('keeps the page and sticky navigation in place when opening the hide dialog', async ({

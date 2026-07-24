@@ -22,8 +22,7 @@ export async function GET(request: Request) {
 
   if (
     (!isDanmakuEnabled() && filters.type === 'danmaku') ||
-    (!isForumEnabled() && (filters.type === 'posts' || filters.type === 'replies')) ||
-    (!isDanmakuEnabled() && !isForumEnabled())
+    (!isForumEnabled() && (filters.type === 'posts' || filters.type === 'replies'))
   ) {
     return apiError('INVALID_REQUEST', 404, 'Community feature is disabled');
   }

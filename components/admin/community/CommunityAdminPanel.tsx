@@ -70,7 +70,7 @@ const STATUS_OPTIONS: Record<CommunityContentType, Array<{ value: string; label:
 export function CommunityAdminPanel() {
   const availableTabs = availableCommunityTabs(isDanmakuEnabled(), isForumEnabled());
   const [type, setType] = useState<CommunityContentType>(() =>
-    isDanmakuEnabled() ? 'danmaku' : isForumEnabled() ? 'posts' : 'audit',
+    isForumEnabled() ? 'posts' : isDanmakuEnabled() ? 'danmaku' : 'audit',
   );
   const [items, setItems] = useState<AdminCommunityItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -247,14 +247,6 @@ export function CommunityAdminPanel() {
         title="社区内容"
       />
 
-      <AdminTabs
-        ariaLabel="社区内容类型"
-        items={availableTabs}
-        onValueChange={changeType}
-        showDivider={false}
-        value={type}
-      />
-
       <div className="grid gap-3 sm:grid-cols-3">
         <AdminMetricCard
           label="今日新帖"
@@ -273,156 +265,181 @@ export function CommunityAdminPanel() {
         />
       </div>
 
-      <AdminCard className="grid gap-3 p-4">
-        <div
-          className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(180px,1fr)_minmax(160px,0.8fr)_minmax(150px,0.7fr)_170px_auto_auto] xl:items-center"
-          data-community-filters
-        >
-          <Input
-            aria-label="关键词"
-            className={adminInputClassName}
-            onChange={(event) => setKeywordDraft(event.target.value)}
-            onKeyDown={(event) => event.key === 'Enter' && applyFilters()}
-            placeholder={type === 'audit' ? '操作或原因关键词' : '内容关键词'}
-            value={keywordDraft}
+      <AdminCard className="overflow-hidden" data-community-workbench>
+        <div className="border-b border-[var(--admin-border-subtle)] px-4">
+          <AdminTabs
+            ariaLabel="社区内容类型"
+            items={availableTabs}
+            onValueChange={changeType}
+            showDivider={false}
+            value={type}
           />
-          <Input
-            aria-label={type === 'audit' ? '管理员用户 ID' : '作者用户 ID'}
-            className={adminInputClassName}
-            onChange={(event) => setAuthorIdDraft(event.target.value)}
-            placeholder={type === 'audit' ? '管理员用户 ID' : '作者用户 ID'}
-            value={authorIdDraft}
-          />
-          {type !== 'audit' ? (
-            <Input
-              aria-label="课程 ID"
-              className={adminInputClassName}
-              onChange={(event) => setCourseIdDraft(event.target.value)}
-              placeholder="课程 ID"
-              value={courseIdDraft}
-            />
-          ) : null}
-          <select
-            aria-label={type === 'audit' ? '审计目标类型' : '内容状态'}
-            className={adminSelectClassName}
-            onChange={(event) => setStatusDraft(event.target.value)}
-            value={statusDraft}
+        </div>
+
+        <div className="grid gap-3 border-b border-[var(--admin-border-subtle)] p-4">
+          <div
+            className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(180px,1fr)_minmax(160px,0.8fr)_minmax(150px,0.7fr)_170px_auto_auto] xl:items-center"
+            data-community-filters
           >
-            <option value="">全部{type === 'audit' ? '目标' : '状态'}</option>
-            {STATUS_OPTIONS[type].map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button className={adminSecondaryButtonClassName} type="button" variant="outline">
-                <CalendarRange aria-hidden="true" className="size-4" />
-                选择日期范围
+            <Input
+              aria-label="关键词"
+              className={adminInputClassName}
+              onChange={(event) => setKeywordDraft(event.target.value)}
+              onKeyDown={(event) => event.key === 'Enter' && applyFilters()}
+              placeholder={type === 'audit' ? '操作或原因关键词' : '内容关键词'}
+              value={keywordDraft}
+            />
+            <Input
+              aria-label={type === 'audit' ? '管理员用户 ID' : '作者用户 ID'}
+              className={adminInputClassName}
+              onChange={(event) => setAuthorIdDraft(event.target.value)}
+              placeholder={type === 'audit' ? '管理员用户 ID' : '作者用户 ID'}
+              value={authorIdDraft}
+            />
+            {type !== 'audit' ? (
+              <Input
+                aria-label="课程 ID"
+                className={adminInputClassName}
+                onChange={(event) => setCourseIdDraft(event.target.value)}
+                placeholder="课程 ID"
+                value={courseIdDraft}
+              />
+            ) : null}
+            <select
+              aria-label={type === 'audit' ? '审计目标类型' : '内容状态'}
+              className={adminSelectClassName}
+              onChange={(event) => setStatusDraft(event.target.value)}
+              value={statusDraft}
+            >
+              <option value="">全部{type === 'audit' ? '目标' : '状态'}</option>
+              {STATUS_OPTIONS[type].map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button className={adminSecondaryButtonClassName} type="button" variant="outline">
+                  <CalendarRange aria-hidden="true" className="size-4" />
+                  选择日期范围
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                {...adminThemeAttributes}
+                align="end"
+                className="grid w-[min(92vw,360px)] gap-3 border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 text-[var(--admin-foreground)]"
+              >
+                <label className="grid gap-1.5 text-sm">
+                  <span>开始时间</span>
+                  <Input
+                    aria-label="开始时间"
+                    className={adminInputClassName}
+                    onChange={(event) => setFromDraft(event.target.value)}
+                    type="datetime-local"
+                    value={fromDraft}
+                  />
+                </label>
+                <label className="grid gap-1.5 text-sm">
+                  <span>结束时间</span>
+                  <Input
+                    aria-label="结束时间"
+                    className={adminInputClassName}
+                    onChange={(event) => setToDraft(event.target.value)}
+                    type="datetime-local"
+                    value={toDraft}
+                  />
+                </label>
+                <p className="text-xs text-[var(--admin-muted-foreground)]">
+                  日期范围会在点击筛选后应用。
+                </p>
+              </PopoverContent>
+            </Popover>
+            <div className="flex gap-2 md:col-span-2 xl:col-span-1 xl:justify-end">
+              <Button
+                className={adminSecondaryButtonClassName}
+                onClick={resetFilters}
+                type="button"
+                variant="outline"
+              >
+                清空
               </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              {...adminThemeAttributes}
-              align="end"
-              className="grid w-[min(92vw,360px)] gap-3 border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 text-[var(--admin-foreground)]"
-            >
-              <label className="grid gap-1.5 text-sm">
-                <span>开始时间</span>
-                <Input
-                  aria-label="开始时间"
-                  className={adminInputClassName}
-                  onChange={(event) => setFromDraft(event.target.value)}
-                  type="datetime-local"
-                  value={fromDraft}
-                />
-              </label>
-              <label className="grid gap-1.5 text-sm">
-                <span>结束时间</span>
-                <Input
-                  aria-label="结束时间"
-                  className={adminInputClassName}
-                  onChange={(event) => setToDraft(event.target.value)}
-                  type="datetime-local"
-                  value={toDraft}
-                />
-              </label>
-              <p className="text-xs text-[var(--admin-muted-foreground)]">
-                日期范围会在点击筛选后应用。
-              </p>
-            </PopoverContent>
-          </Popover>
-          <div className="flex gap-2 md:col-span-2 xl:col-span-1 xl:justify-end">
-            <Button
-              className={adminSecondaryButtonClassName}
-              onClick={resetFilters}
-              type="button"
-              variant="outline"
-            >
-              清空
-            </Button>
-            <Button className={adminPrimaryButtonClassName} onClick={applyFilters} type="button">
-              筛选
-            </Button>
+              <Button className={adminPrimaryButtonClassName} onClick={applyFilters} type="button">
+                筛选
+              </Button>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-2 text-xs text-[var(--admin-muted-foreground)]">
+              <Search className="size-3.5" /> 共 {total} 条记录
+            </span>
+            {from || to ? (
+              <span className="text-xs text-[var(--admin-muted-foreground)]">
+                日期：{from ? from.replace('T', ' ') : '不限'} 至{' '}
+                {to ? to.replace('T', ' ') : '不限'}
+              </span>
+            ) : null}
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-2 text-xs text-[var(--admin-muted-foreground)]">
-            <Search className="size-3.5" /> 共 {total} 条记录
-          </span>
-          {from || to ? (
-            <span className="text-xs text-[var(--admin-muted-foreground)]">
-              日期：{from ? from.replace('T', ' ') : '不限'} 至 {to ? to.replace('T', ' ') : '不限'}
-            </span>
-          ) : null}
+
+        {loadError && items.length ? (
+          <div className="border-b border-[var(--admin-border-subtle)] p-4">
+            <AdminNotice tone="error">{loadError}</AdminNotice>
+          </div>
+        ) : null}
+
+        <div aria-live="polite" data-community-content>
+          {loading && !items.length ? (
+            <div className="p-8 text-center text-sm text-[var(--admin-muted-foreground)]">
+              正在加载社区内容…
+            </div>
+          ) : loadError && !items.length ? (
+            <div className="p-4">
+              <AdminEmptyState
+                action={
+                  <Button onClick={() => void load()} type="button" variant="outline">
+                    重新加载
+                  </Button>
+                }
+                compact
+                description={loadError}
+                kind="error"
+                title="社区内容加载失败"
+              />
+            </div>
+          ) : !items.length ? (
+            <div className="p-4">
+              <AdminEmptyState
+                compact
+                description={
+                  hasActiveFilters ? '请调整筛选条件后再试。' : '这个类型下暂时没有需要展示的记录。'
+                }
+                kind={hasActiveFilters ? 'filtered' : 'empty'}
+                title={hasActiveFilters ? '当前筛选没有结果' : '当前类型暂无记录'}
+              />
+            </div>
+          ) : (
+            <CommunityContentList
+              items={items}
+              onModerate={openModeration}
+              pendingItemId={pendingItemId}
+              type={type}
+            />
+          )}
+        </div>
+
+        <div className="border-t border-[var(--admin-border-subtle)] p-4">
+          <AdminPagination
+            end={Math.min(page * pageSize, total)}
+            loading={loading}
+            onPageChange={setPage}
+            page={page}
+            start={total ? (page - 1) * pageSize + 1 : 0}
+            total={total}
+            totalPages={pageCount}
+          />
         </div>
       </AdminCard>
-
-      {loadError && items.length ? <AdminNotice tone="error">{loadError}</AdminNotice> : null}
-
-      <div className="grid gap-3" aria-live="polite">
-        {loading && !items.length ? (
-          <AdminCard className="p-8 text-center text-sm text-[var(--admin-muted-foreground)]">
-            正在加载社区内容…
-          </AdminCard>
-        ) : loadError && !items.length ? (
-          <AdminEmptyState
-            action={
-              <Button onClick={() => void load()} type="button" variant="outline">
-                重新加载
-              </Button>
-            }
-            description={loadError}
-            kind="error"
-            title="社区内容加载失败"
-          />
-        ) : !items.length ? (
-          <AdminEmptyState
-            description={
-              hasActiveFilters ? '请调整筛选条件后再试。' : '这个类型下暂时没有需要展示的记录。'
-            }
-            kind={hasActiveFilters ? 'filtered' : 'empty'}
-            title={hasActiveFilters ? '当前筛选没有结果' : '当前类型暂无记录'}
-          />
-        ) : (
-          <CommunityContentList
-            items={items}
-            onModerate={openModeration}
-            pendingItemId={pendingItemId}
-            type={type}
-          />
-        )}
-      </div>
-
-      <AdminPagination
-        end={Math.min(page * pageSize, total)}
-        loading={loading}
-        onPageChange={setPage}
-        page={page}
-        start={total ? (page - 1) * pageSize + 1 : 0}
-        total={total}
-        totalPages={pageCount}
-      />
 
       <CommunityModerationDialog
         action={moderationAction}

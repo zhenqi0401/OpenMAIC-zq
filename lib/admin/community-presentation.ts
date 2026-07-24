@@ -68,9 +68,9 @@ export const COMMUNITY_REASON_PRESETS = [
 ] as const;
 
 const COMMUNITY_TABS: Array<{ value: CommunityContentType; label: string }> = [
-  { value: 'danmaku', label: '弹幕' },
   { value: 'posts', label: '帖子' },
   { value: 'replies', label: '回复' },
+  { value: 'danmaku', label: '弹幕' },
   { value: 'audit', label: '操作审计' },
 ];
 

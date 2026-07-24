@@ -12,10 +12,11 @@ import {
   type AdminCommunityItem,
   type CommunityContentType,
   type CommunityModerationAction,
+  communityActionLabel,
   communityStatusLabel,
+  communityTargetLabel,
 } from '@/lib/admin/community-presentation';
 import { formatAdminDateTime } from '@/lib/admin/date-time';
-import { CommunityItemRow } from '@/components/admin/community/CommunityItemRow';
 
 function statusTone(status: string | undefined): 'success' | 'warning' | 'danger' | 'neutral' {
   if (status === 'visible') return 'success';
@@ -37,10 +38,16 @@ export function formatDanmakuOffset(actionOffsetMs: number | undefined): string 
     : `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
 }
 
-function DanmakuStatus({ status }: { status: string | undefined }) {
+function ContentStatus({
+  status,
+  normalLabel,
+}: {
+  status: string | undefined;
+  normalLabel?: string;
+}) {
   return (
     <AdminStatusBadge tone={statusTone(status)}>
-      {status === 'visible' ? '正常' : communityStatusLabel(status)}
+      {status === 'visible' && normalLabel ? normalLabel : communityStatusLabel(status)}
     </AdminStatusBadge>
   );
 }
@@ -53,7 +60,7 @@ function ModerationButtons({
 }: {
   item: AdminCommunityItem;
   pending: boolean;
-  type: 'danmaku' | 'posts';
+  type: 'danmaku' | 'posts' | 'replies';
   onModerate: (action: CommunityModerationAction) => void;
 }) {
   const visibilityAction =
@@ -63,7 +70,7 @@ function ModerationButtons({
         ? ('restore' as const)
         : null;
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap items-center gap-2" data-community-moderation-buttons>
       {visibilityAction ? (
         <Button
           className={adminSecondaryButtonClassName}
@@ -91,7 +98,7 @@ function ModerationButtons({
       ) : null}
       {item.status === 'visible' || item.status === 'hidden' ? (
         <Button
-          className={adminDangerOutlineButtonClassName}
+          className={`${adminDangerOutlineButtonClassName} min-h-[var(--admin-control-height)]`}
           disabled={pending}
           onClick={() => onModerate('delete')}
           size="sm"
@@ -116,6 +123,7 @@ function PostCard({
 }) {
   const authorName = item.author?.displayName ?? '未知作者';
   const initial = authorName.trim().slice(0, 1).toUpperCase() || '用';
+  const hasModeration = Boolean(item.action && item.moderator);
   return (
     <AdminCard className="p-4 sm:p-5" data-community-post-card>
       <div className="flex items-start justify-between gap-3">
@@ -134,9 +142,7 @@ function PostCard({
             </div>
           </div>
         </div>
-        <AdminStatusBadge tone={statusTone(item.status)}>
-          {communityStatusLabel(item.status)}
-        </AdminStatusBadge>
+        <ContentStatus status={item.status} />
       </div>
 
       <div className="mt-4">
@@ -153,6 +159,17 @@ function PostCard({
         <span>回复数：{item.replyCount ?? 0}</span>
         {item.locked ? <span>回复状态：已关闭</span> : <span>回复状态：开放</span>}
       </div>
+
+      {hasModeration ? (
+        <div
+          className="mt-4 flex flex-wrap gap-x-5 gap-y-1 border-l-2 border-[var(--admin-danger)] bg-[var(--admin-danger-background)] px-3 py-2 text-xs text-[var(--admin-danger-strong)]"
+          data-community-post-moderation
+        >
+          <span>操作类型：{communityActionLabel(item.action)}</span>
+          <span>操作原因：{item.reason?.trim() || '未填写'}</span>
+          <span>操作人：{item.moderator?.displayName}</span>
+        </div>
+      ) : null}
 
       <div className="mt-4 border-t border-[var(--admin-border-subtle)] pt-3">
         <ModerationButtons item={item} onModerate={onModerate} pending={pending} type="posts" />
@@ -171,7 +188,7 @@ function DanmakuList({
   onModerate: (item: AdminCommunityItem, action: CommunityModerationAction) => void;
 }) {
   return (
-    <AdminCard className="overflow-hidden" data-community-danmaku-list>
+    <div className="overflow-hidden" data-community-danmaku-list>
       <div className="hidden lg:block" data-community-danmaku-table>
         <table className="w-full table-fixed border-collapse text-left text-sm">
           <caption className="sr-only">
@@ -185,7 +202,7 @@ function DanmakuList({
             <col className="w-[11%]" />
             <col className="w-[17%]" />
           </colgroup>
-          <thead>
+          <thead className="bg-[var(--admin-surface-subtle)]">
             <tr className="border-b border-[var(--admin-border)] text-xs font-semibold text-[var(--admin-muted-foreground)]">
               <th className="px-4 py-3">发送者</th>
               <th className="px-3 py-3">弹幕文本</th>
@@ -215,7 +232,7 @@ function DanmakuList({
                   {item.courseName ?? '—'}
                 </td>
                 <td className="px-3 py-4">
-                  <DanmakuStatus status={item.status} />
+                  <ContentStatus normalLabel="正常" status={item.status} />
                 </td>
                 <td className="px-4 py-4">
                   <ModerationButtons
@@ -244,7 +261,7 @@ function DanmakuList({
                   {item.author?.roleName ?? '未知角色'}
                 </div>
               </div>
-              <DanmakuStatus status={item.status} />
+              <ContentStatus normalLabel="正常" status={item.status} />
             </div>
             <dl className="grid gap-3 text-sm sm:grid-cols-2">
               <div className="sm:col-span-2">
@@ -271,7 +288,210 @@ function DanmakuList({
           </article>
         ))}
       </div>
-    </AdminCard>
+    </div>
+  );
+}
+
+function ReplyList({
+  items,
+  pendingItemId,
+  onModerate,
+}: {
+  items: readonly AdminCommunityItem[];
+  pendingItemId: string | null;
+  onModerate: (item: AdminCommunityItem, action: CommunityModerationAction) => void;
+}) {
+  return (
+    <div className="overflow-hidden" data-community-reply-list>
+      <div className="hidden lg:block" data-community-reply-table>
+        <table className="w-full table-fixed border-collapse text-left text-sm">
+          <caption className="sr-only">
+            回复者、回复内容、所属帖子、所属课程、回复时间、状态和操作
+          </caption>
+          <colgroup>
+            <col className="w-[13%]" />
+            <col className="w-[22%]" />
+            <col className="w-[15%]" />
+            <col className="w-[14%]" />
+            <col className="w-[14%]" />
+            <col className="w-[9%]" />
+            <col className="w-[13%]" />
+          </colgroup>
+          <thead className="bg-[var(--admin-surface-subtle)]">
+            <tr className="border-b border-[var(--admin-border)] text-xs font-semibold text-[var(--admin-muted-foreground)]">
+              <th className="px-4 py-3">回复者</th>
+              <th className="px-3 py-3">回复内容</th>
+              <th className="px-3 py-3">所属帖子</th>
+              <th className="px-3 py-3">所属课程</th>
+              <th className="px-3 py-3">回复时间</th>
+              <th className="px-3 py-3">状态</th>
+              <th className="px-4 py-3">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr
+                className="border-b border-[var(--admin-border-subtle)] align-top last:border-b-0"
+                key={item.id}
+              >
+                <td className="break-words px-4 py-4">
+                  <div className="font-medium">{item.author?.displayName ?? '未知作者'}</div>
+                  <div className="mt-1 text-xs text-[var(--admin-muted-foreground)]">
+                    {item.author?.roleName ?? '未知角色'}
+                  </div>
+                </td>
+                <td className="break-words px-3 py-4 leading-6">{item.body ?? '无回复内容'}</td>
+                <td className="break-words px-3 py-4 text-[var(--admin-muted-foreground)]">
+                  {item.postTitle ?? '—'}
+                </td>
+                <td className="break-words px-3 py-4 text-[var(--admin-muted-foreground)]">
+                  {item.courseName ?? '全局社区'}
+                </td>
+                <td className="px-3 py-4 text-xs text-[var(--admin-muted-foreground)]">
+                  <time dateTime={item.createdAt}>{formatAdminDateTime(item.createdAt)}</time>
+                </td>
+                <td className="px-3 py-4">
+                  <ContentStatus status={item.status} />
+                </td>
+                <td className="px-4 py-4">
+                  <ModerationButtons
+                    item={item}
+                    onModerate={(action) => onModerate(item, action)}
+                    pending={pendingItemId === item.id}
+                    type="replies"
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="grid gap-3 p-3 lg:hidden" data-community-reply-cards>
+        {items.map((item) => (
+          <article
+            className="grid gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border-subtle)] p-3"
+            key={item.id}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="font-medium">{item.author?.displayName ?? '未知作者'}</div>
+                <div className="text-xs text-[var(--admin-muted-foreground)]">
+                  {item.author?.roleName ?? '未知角色'}
+                </div>
+              </div>
+              <ContentStatus status={item.status} />
+            </div>
+            <dl className="grid gap-3 text-sm sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <dt className="text-xs text-[var(--admin-muted-foreground)]">回复内容</dt>
+                <dd className="mt-1 break-words leading-6">{item.body ?? '无回复内容'}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-[var(--admin-muted-foreground)]">所属帖子</dt>
+                <dd className="mt-1 break-words">{item.postTitle ?? '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-[var(--admin-muted-foreground)]">所属课程</dt>
+                <dd className="mt-1 break-words">{item.courseName ?? '全局社区'}</dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-xs text-[var(--admin-muted-foreground)]">回复时间</dt>
+                <dd className="mt-1">
+                  <time dateTime={item.createdAt}>{formatAdminDateTime(item.createdAt)}</time>
+                </dd>
+              </div>
+            </dl>
+            <ModerationButtons
+              item={item}
+              onModerate={(action) => onModerate(item, action)}
+              pending={pendingItemId === item.id}
+              type="replies"
+            />
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AuditList({ items }: { items: readonly AdminCommunityItem[] }) {
+  return (
+    <div className="overflow-hidden" data-community-audit-list>
+      <div className="hidden lg:block" data-community-audit-table>
+        <table className="w-full table-fixed border-collapse text-left text-sm">
+          <caption className="sr-only">操作人、操作对象、操作类型、操作原因和操作时间</caption>
+          <colgroup>
+            <col className="w-[18%]" />
+            <col className="w-[16%]" />
+            <col className="w-[18%]" />
+            <col className="w-[28%]" />
+            <col className="w-[20%]" />
+          </colgroup>
+          <thead className="bg-[var(--admin-surface-subtle)]">
+            <tr className="border-b border-[var(--admin-border)] text-xs font-semibold text-[var(--admin-muted-foreground)]">
+              <th className="px-4 py-3">操作人</th>
+              <th className="px-3 py-3">操作对象</th>
+              <th className="px-3 py-3">操作类型</th>
+              <th className="px-3 py-3">操作原因</th>
+              <th className="px-4 py-3">操作时间</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr
+                className="border-b border-[var(--admin-border-subtle)] align-top last:border-b-0"
+                key={item.id}
+              >
+                <td className="break-words px-4 py-4 font-medium">
+                  {item.moderator?.displayName ?? '未知管理员'}
+                </td>
+                <td className="px-3 py-4">
+                  <AdminStatusBadge>{communityTargetLabel(item.targetType)}</AdminStatusBadge>
+                </td>
+                <td className="break-words px-3 py-4">{communityActionLabel(item.action)}</td>
+                <td className="break-words px-3 py-4 leading-6">
+                  {item.reason?.trim() || '未填写'}
+                </td>
+                <td className="px-4 py-4 text-xs text-[var(--admin-muted-foreground)]">
+                  <time dateTime={item.createdAt}>{formatAdminDateTime(item.createdAt)}</time>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="grid gap-3 p-3 lg:hidden" data-community-audit-cards>
+        {items.map((item) => (
+          <article
+            className="grid gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border-subtle)] p-3"
+            key={item.id}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="font-medium">{item.moderator?.displayName ?? '未知管理员'}</div>
+              <AdminStatusBadge>{communityTargetLabel(item.targetType)}</AdminStatusBadge>
+            </div>
+            <dl className="grid gap-3 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-xs text-[var(--admin-muted-foreground)]">操作类型</dt>
+                <dd className="mt-1">{communityActionLabel(item.action)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-[var(--admin-muted-foreground)]">操作时间</dt>
+                <dd className="mt-1">
+                  <time dateTime={item.createdAt}>{formatAdminDateTime(item.createdAt)}</time>
+                </dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-xs text-[var(--admin-muted-foreground)]">操作原因</dt>
+                <dd className="mt-1 break-words leading-6">{item.reason?.trim() || '未填写'}</dd>
+              </div>
+            </dl>
+          </article>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -291,7 +511,7 @@ export function CommunityContentList({
   }
   if (type === 'posts') {
     return (
-      <div className="grid gap-3" data-community-post-flow>
+      <div className="grid gap-3 p-4" data-community-post-flow>
         {items.map((item) => (
           <PostCard
             item={item}
@@ -303,17 +523,8 @@ export function CommunityContentList({
       </div>
     );
   }
-  return (
-    <div className="grid gap-3">
-      {items.map((item) => (
-        <CommunityItemRow
-          item={item}
-          key={item.id}
-          onModerate={(action) => onModerate(item, action)}
-          pending={pendingItemId === item.id}
-          type={type}
-        />
-      ))}
-    </div>
-  );
+  if (type === 'replies') {
+    return <ReplyList items={items} onModerate={onModerate} pendingItemId={pendingItemId} />;
+  }
+  return <AuditList items={items} />;
 }

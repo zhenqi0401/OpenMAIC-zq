@@ -19,6 +19,10 @@ const mocks = vi.hoisted(() => ({
   communityRepository: {
     list: vi.fn(),
   },
+  communityFlags: {
+    danmaku: true,
+    forum: true,
+  },
 }));
 
 vi.mock('@/lib/auth/current-session', () => ({
@@ -36,8 +40,8 @@ vi.mock('@/lib/community/community-admin', async (importOriginal) => {
 });
 
 vi.mock('@/lib/config/feature-flags', () => ({
-  isDanmakuEnabled: () => true,
-  isForumEnabled: () => true,
+  isDanmakuEnabled: () => mocks.communityFlags.danmaku,
+  isForumEnabled: () => mocks.communityFlags.forum,
 }));
 
 const admin: AuthResult = {
@@ -63,6 +67,8 @@ const admin: AuthResult = {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.admin = admin;
+  mocks.communityFlags.danmaku = true;
+  mocks.communityFlags.forum = true;
 });
 
 describe('stage 2 admin routes', () => {
@@ -234,6 +240,17 @@ describe('stage 2 admin routes', () => {
     });
     expect(mocks.communityRepository.list).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'replies', status: 'hidden', page: 2, pageSize: 20 }),
+    );
+
+    mocks.communityFlags.danmaku = false;
+    mocks.communityFlags.forum = false;
+    mocks.communityRepository.list.mockResolvedValue({ items: [], total: 0 });
+    const auditResponse = await community.GET(
+      new Request('http://localhost/api/admin/community?type=audit'),
+    );
+    expect(auditResponse.status).toBe(200);
+    expect(mocks.communityRepository.list).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: 'audit' }),
     );
 
     const invalidStatus = await community.GET(

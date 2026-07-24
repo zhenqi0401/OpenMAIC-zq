@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, ilike, lte, or } from 'drizzle-orm';
+import { and, count, desc, eq, gte, ilike, inArray, lte, or } from 'drizzle-orm';
 
 import { getDb } from '@/lib/storage/db';
 import {
@@ -136,7 +136,8 @@ export class CommunityAdminRepository {
       input.from ? gte(forumPosts.createdAt, input.from) : undefined,
       input.to ? lte(forumPosts.createdAt, input.to) : undefined,
     );
-    const rows = await getDb()
+    const db = getDb();
+    const rows = await db
       .select({ content: forumPosts, author: users, role: roles, courseName: courses.name })
       .from(forumPosts)
       .innerJoin(users, eq(forumPosts.authorId, users.id))
@@ -146,18 +147,64 @@ export class CommunityAdminRepository {
       .orderBy(desc(forumPosts.createdAt), desc(forumPosts.id))
       .limit(input.pageSize)
       .offset((input.page - 1) * input.pageSize);
-    const [total] = await getDb().select({ value: count() }).from(forumPosts).where(where);
+    const postIds = rows.map((row) => row.content.id);
+    const auditRows = postIds.length
+      ? await db
+          .selectDistinctOn([communityModerationAudit.targetId], {
+            audit: communityModerationAudit,
+            moderator: users,
+          })
+          .from(communityModerationAudit)
+          .innerJoin(users, eq(communityModerationAudit.moderatorId, users.id))
+          .where(
+            and(
+              eq(communityModerationAudit.targetType, 'forum_post'),
+              inArray(communityModerationAudit.targetId, postIds),
+            ),
+          )
+          .orderBy(
+            communityModerationAudit.targetId,
+            desc(communityModerationAudit.createdAt),
+            desc(communityModerationAudit.id),
+          )
+      : [];
+    const latestAuditByPost = new Map<
+      string,
+      {
+        audit: (typeof auditRows)[number]['audit'];
+        moderator: (typeof auditRows)[number]['moderator'];
+      }
+    >();
+    for (const row of auditRows) {
+      if (!latestAuditByPost.has(row.audit.targetId)) {
+        latestAuditByPost.set(row.audit.targetId, row);
+      }
+    }
+    const [total] = await db.select({ value: count() }).from(forumPosts).where(where);
     return {
-      items: rows.map((row) => ({
-        ...row.content,
-        courseName: row.courseName,
-        author: {
-          id: row.author.id,
-          displayName: row.author.displayName,
-          roleCode: row.role.code,
-          roleName: row.role.name,
-        },
-      })),
+      items: rows.map((row) => {
+        const latestAudit = latestAuditByPost.get(row.content.id);
+        return {
+          ...row.content,
+          courseName: row.courseName,
+          author: {
+            id: row.author.id,
+            displayName: row.author.displayName,
+            roleCode: row.role.code,
+            roleName: row.role.name,
+          },
+          ...(latestAudit
+            ? {
+                action: latestAudit.audit.action,
+                reason: latestAudit.audit.reason,
+                moderator: {
+                  id: latestAudit.moderator.id,
+                  displayName: latestAudit.moderator.displayName,
+                },
+              }
+            : {}),
+        };
+      }),
       total: total?.value ?? 0,
     };
   }
