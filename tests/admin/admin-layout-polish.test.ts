@@ -39,10 +39,20 @@ describe('admin layout polish', () => {
     expect(markup).toContain('账户');
     expect(markup).toContain('aria-haspopup="menu"');
     expect(markup).toContain('aria-expanded="false"');
+    expect(readFileSync('components/admin/AdminSessionActions.tsx', 'utf8')).toContain(
+      '<DropdownMenu modal={false}>',
+    );
     expect(markup).not.toContain('返回首页');
     expect(markup).not.toContain('退出登录');
     expect(adminAccountMenuLabels.home).toBe('返回首页');
     expect(adminAccountMenuLabels.logout).toBe('退出登录');
+  });
+
+  it('keeps shared row-action menus non-modal across admin modules', () => {
+    const rowActionsSource = readFileSync('components/admin/AdminRowActions.tsx', 'utf8');
+
+    expect(rowActionsSource).toContain('menuModal = false');
+    expect(rowActionsSource).toContain('<DropdownMenu modal={menuModal}>');
   });
 
   it('uses the new dashboard periods without the removed learning table', () => {

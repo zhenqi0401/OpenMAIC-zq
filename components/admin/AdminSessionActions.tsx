@@ -41,7 +41,7 @@ export function AdminSessionActions({ leading }: { leading?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
       {leading}
-      <DropdownMenu>
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button
             aria-busy={loggingOut}

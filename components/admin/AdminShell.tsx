@@ -21,7 +21,7 @@ export function AdminShell({ activeModuleId = 'dashboard', children }: AdminShel
     >
       <div className="min-h-[100dvh] md:grid md:grid-cols-[var(--admin-sidebar-compact-width)_minmax(0,1fr)] xl:grid-cols-[var(--admin-sidebar-width)_minmax(0,1fr)]">
         <AdminSidebar activeModuleId={activeModuleId} />
-        <div className="min-w-0">
+        <div className="min-w-0 md:col-start-2">
           <AdminTopBar activeModuleId={activeModuleId} />
           <main className="min-w-0" data-admin-shell="yuanwo-saas-admin">
             <div className="mx-auto grid w-full max-w-[1680px] gap-6 px-4 py-5 sm:px-5 md:px-6 md:py-6">

@@ -53,7 +53,7 @@ const inviteCodes = [
   },
 ];
 
-async function mockAccessApis(page: Page, revokedRequests: string[] = []) {
+async function mockAccessApis(page: Page, revokedRequests: string[] = [], accessUsers = users) {
   await page.route('**/api/admin/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -71,8 +71,8 @@ async function mockAccessApis(page: Page, revokedRequests: string[] = []) {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          users,
-          pagination: { page: 1, pageSize: 20, total: users.length, totalPages: 1 },
+          users: accessUsers,
+          pagination: { page: 1, pageSize: 20, total: accessUsers.length, totalPages: 1 },
         }),
       });
     }
@@ -305,10 +305,58 @@ test.describe('P0 overall acceptance', () => {
       }
     }
   });
+
+  test('keeps the shared desktop navigation fixed during scroll lock in all five modules', async ({
+    page,
+  }) => {
+    await mockAdminModuleReadApis(page);
+    await page.setViewportSize({ width: 1440, height: 600 });
+
+    for (const module of ['dashboard', 'courses', 'exams', 'community', 'access'] as const) {
+      await page.goto(`/admin?module=${module}`);
+      await expect(page.locator('[data-admin-sidebar]')).toBeVisible();
+      await expect(page.locator('[data-admin-refresh-button]')).toBeEnabled();
+      await page.evaluate(() => {
+        const spacer = document.createElement('div');
+        spacer.setAttribute('data-admin-scroll-fixture', 'true');
+        spacer.style.height = '1200px';
+        document.querySelector('main')?.append(spacer);
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+
+      const before = await page.evaluate(() => ({
+        scrollY: window.scrollY,
+        sidebarTop:
+          document.querySelector('[data-admin-sidebar]')?.getBoundingClientRect().top ?? null,
+        sidebarPosition: getComputedStyle(
+          document.querySelector('[data-admin-sidebar]') as HTMLElement,
+        ).position,
+      }));
+      expect(before.scrollY).toBeGreaterThan(0);
+      expect(before.sidebarTop).toBe(0);
+      expect(before.sidebarPosition).toBe('fixed');
+
+      await page.evaluate(() => {
+        document.body.style.overflow = 'hidden';
+      });
+
+      const after = await page.evaluate(() => ({
+        scrollY: window.scrollY,
+        sidebarTop:
+          document.querySelector('[data-admin-sidebar]')?.getBoundingClientRect().top ?? null,
+        sidebarPosition: getComputedStyle(
+          document.querySelector('[data-admin-sidebar]') as HTMLElement,
+        ).position,
+      }));
+      expect(after.scrollY).toBeGreaterThan(0);
+      expect(after.sidebarTop).toBe(0);
+      expect(after.sidebarPosition).toBe('fixed');
+    }
+  });
 });
 
 test.describe('course administration interactions', () => {
-  test('keeps the page and sticky navigation in place when opening course actions', async ({
+  test('keeps the fixed navigation in place when opening course menus and dialogs', async ({
     page,
   }) => {
     const courses = Array.from({ length: 9 }, (_, index) => ({
@@ -375,6 +423,20 @@ test.describe('course administration interactions', () => {
     expect(after.scrollY).toBe(before.scrollY);
     expect(after.sidebarTop).toBe(before.sidebarTop);
     expect(after.scrollLocked).toBe(false);
+
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: '修改可见范围' }).last().click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+
+    const dialogOpen = await page.evaluate(() => ({
+      scrollY: window.scrollY,
+      sidebarTop:
+        document.querySelector('[data-admin-sidebar]')?.getBoundingClientRect().top ?? null,
+      scrollLocked: document.body.hasAttribute('data-scroll-locked'),
+    }));
+    expect(dialogOpen.scrollY).toBe(before.scrollY);
+    expect(dialogOpen.sidebarTop).toBe(0);
+    expect(dialogOpen.scrollLocked).toBe(true);
   });
 });
 
@@ -515,6 +577,41 @@ test.describe('exam workbench filters', () => {
 });
 
 test.describe('P0-03 access workbench', () => {
+  test('keeps navigation fixed when a scrolled user row opens its more menu', async ({ page }) => {
+    const accessUsers = Array.from({ length: 12 }, (_, index) => ({
+      ...users[0],
+      id: `user-${index + 1}`,
+      phone: `13800138${String(index).padStart(3, '0')}`,
+      hostUserId: `host-user-${index + 1}`,
+      displayName: `用户 ${index + 1}`,
+    }));
+    await page.setViewportSize({ width: 1440, height: 600 });
+    await mockAccessApis(page, [], accessUsers);
+    await openAccess(page);
+
+    const trigger = page.getByRole('button', { name: '用户 12的账号操作' });
+    await trigger.scrollIntoViewIfNeeded();
+    const before = await page.evaluate(() => ({
+      scrollY: window.scrollY,
+      sidebarTop:
+        document.querySelector('[data-admin-sidebar]')?.getBoundingClientRect().top ?? null,
+    }));
+    expect(before.scrollY).toBeGreaterThan(0);
+    expect(before.sidebarTop).toBe(0);
+
+    await trigger.click();
+    await expect(page.getByRole('menu')).toBeVisible();
+    const after = await page.evaluate(() => ({
+      scrollY: window.scrollY,
+      sidebarTop:
+        document.querySelector('[data-admin-sidebar]')?.getBoundingClientRect().top ?? null,
+      scrollLocked: document.body.hasAttribute('data-scroll-locked'),
+    }));
+    expect(after.scrollY).toBe(before.scrollY);
+    expect(after.sidebarTop).toBe(0);
+    expect(after.scrollLocked).toBe(false);
+  });
+
   test('keeps the invitation workspace free of internal horizontal scrolling at 1920x900', async ({
     page,
   }) => {
@@ -821,7 +918,7 @@ test.describe('P0-07 community moderation', () => {
     await expect(page.getByRole('columnheader', { name: '操作原因' })).toBeVisible();
   });
 
-  test('keeps the page and sticky navigation in place when opening the hide dialog', async ({
+  test('keeps the page and fixed navigation in place when opening the hide dialog', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 600 });

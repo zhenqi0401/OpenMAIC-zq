@@ -72,7 +72,7 @@ export function AdminRowActions({
   primaryAction,
   triggerLabel = '更多',
   triggerAriaLabel = '更多操作',
-  menuModal = true,
+  menuModal = false,
 }: AdminRowActionsProps) {
   const { standard, destructive } = partitionAdminRowActions(actions);
 

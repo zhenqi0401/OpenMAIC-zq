@@ -72,6 +72,11 @@ describe('AdminShell', () => {
     expect(markup).toContain('打开后台导航');
     expect(markup).toContain('md:grid-cols-[var(--admin-sidebar-compact-width)_minmax(0,1fr)]');
     expect(markup).toContain('xl:grid-cols-[var(--admin-sidebar-width)_minmax(0,1fr)]');
+    expect(markup).toContain('fixed inset-y-0 left-0');
+    expect(markup).toContain('w-[var(--admin-sidebar-compact-width)]');
+    expect(markup).toContain('xl:w-[var(--admin-sidebar-width)]');
+    expect(markup).toContain('md:col-start-2');
+    expect(markup).not.toContain('<aside class="sticky');
     expect(markup).not.toContain('max-w-[1280px]');
     expect(markup).not.toContain('运营状态一屏处理');
   });

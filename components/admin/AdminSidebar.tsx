@@ -57,7 +57,7 @@ export function AdminNavigation({
 export function AdminSidebar({ activeModuleId }: { activeModuleId: AdminModuleId }) {
   return (
     <aside
-      className="sticky top-0 hidden h-[100dvh] min-w-0 flex-col border-r border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-6 md:flex xl:px-6"
+      className="fixed inset-y-0 left-0 z-20 hidden h-[100dvh] w-[var(--admin-sidebar-compact-width)] min-w-0 flex-col border-r border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-6 md:flex xl:w-[var(--admin-sidebar-width)] xl:px-6"
       data-admin-sidebar
     >
       <div className="mb-8 min-h-14" data-admin-brand="desktop">
