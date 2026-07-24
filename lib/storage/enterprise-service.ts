@@ -50,6 +50,7 @@ export interface EnterpriseCourse {
   generationComplete?: boolean;
   assessmentQuestions: unknown[];
   learnerCount?: number;
+  sceneCount?: number;
   publishedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;

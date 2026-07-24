@@ -31,6 +31,7 @@ describe('CHANGE-01 home enterprise course list', () => {
               createdAt: '2026-07-05T06:00:00.000Z',
               generationComplete: true,
               learnerCount: 12,
+              sceneCount: 6,
             },
           ],
           categories: [
@@ -50,7 +51,7 @@ describe('CHANGE-01 home enterprise course list', () => {
           description: 'Motivation and hygiene factors',
           categoryId: 'cat-handbook',
           categoryName: '员工手册',
-          sceneCount: 0,
+          sceneCount: 6,
           createdAt: Date.parse('2026-07-05T06:00:00.000Z'),
           updatedAt: Date.parse('2026-07-06T06:00:00.000Z'),
           source: 'enterprise',

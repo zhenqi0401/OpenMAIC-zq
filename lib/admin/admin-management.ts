@@ -80,6 +80,7 @@ function courseForList(course: EnterpriseCourse) {
     visibilityMode: course.visibilityMode,
     visibleRoleIds: course.visibleRoleIds,
     learnerCount: course.learnerCount ?? 0,
+    sceneCount: course.sceneCount ?? 0,
     updatedAt: course.updatedAt.toISOString(),
     stageSnapshot: course.stageSnapshot,
     generationStatus: course.generationStatus,

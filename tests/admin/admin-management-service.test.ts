@@ -24,6 +24,7 @@ function course(patch: Partial<EnterpriseCourse> = {}): EnterpriseCourse {
     generationComplete: true,
     assessmentQuestions: [{ id: 'q-1' }],
     learnerCount: 12,
+    sceneCount: 6,
     publishedAt: baseDate,
     createdAt: baseDate,
     updatedAt: baseDate,
@@ -137,6 +138,7 @@ describe('stage 2 admin management service', () => {
     expect(result.pagination).toEqual({ page: 1, pageSize: 12, total: 2, totalPages: 1 });
     expect(result.courses[0]).toHaveProperty('generationStatus');
     expect(result.courses[0]).toHaveProperty('assessmentQuestions');
+    expect(result.courses[0]).toHaveProperty('sceneCount', 6);
   });
 
   it('bounds previews, suppresses generating previews, and preserves missing results as null', async () => {

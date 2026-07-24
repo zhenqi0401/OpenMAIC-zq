@@ -58,6 +58,7 @@ interface EnterpriseCourseListResponse {
     updatedAt?: unknown;
     generationComplete?: unknown;
     learnerCount?: unknown;
+    sceneCount?: unknown;
   }>;
   categories?: Array<{
     id?: unknown;
@@ -111,7 +112,10 @@ export async function loadEnterpriseHomeCatalog(
         description: typeof course.description === 'string' ? course.description : undefined,
         categoryId: course.categoryId as string,
         categoryName: typeof course.categoryName === 'string' ? course.categoryName : null,
-        sceneCount: 0,
+        sceneCount:
+          typeof course.sceneCount === 'number' && Number.isFinite(course.sceneCount)
+            ? Math.max(0, Math.trunc(course.sceneCount))
+            : 0,
         createdAt: toTimestamp(course.createdAt),
         updatedAt: toTimestamp(course.updatedAt),
         source: 'enterprise' as const,

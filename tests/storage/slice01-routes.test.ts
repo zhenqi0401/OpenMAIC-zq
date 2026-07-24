@@ -73,6 +73,7 @@ function makeCourse(id: string, status: EnterpriseCourse['status']): EnterpriseC
     visibilityMode: 'all',
     visibleRoleIds: [],
     assessmentQuestions: [],
+    sceneCount: status === 'published' ? 4 : 0,
     publishedAt: status === 'published' ? new Date('2026-07-01T00:00:00Z') : null,
     createdAt: new Date('2026-07-01T00:00:00Z'),
     updatedAt: new Date('2026-07-01T00:00:00Z'),
@@ -556,7 +557,7 @@ describe('Slice-01 API routes', () => {
   test('learner course API only returns published visible courses and saves progress', async () => {
     const list = await getRoute('@/app/api/courses/route');
     await expect(list.json()).resolves.toMatchObject({
-      courses: [{ id: 'course-published' }],
+      courses: [{ id: 'course-published', sceneCount: 4 }],
       categories: [{ id: 'cat-1', name: 'Default', sortOrder: 0 }],
     });
 

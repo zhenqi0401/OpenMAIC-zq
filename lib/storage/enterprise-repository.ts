@@ -184,6 +184,7 @@ function toCourse(
   row: CourseRow,
   visibleRoleIds: string[],
   learnerCount: number = 0,
+  sceneCount: number = 0,
 ): EnterpriseCourse {
   return {
     id: row.id,
@@ -199,6 +200,7 @@ function toCourse(
     generationComplete: row.generationComplete,
     assessmentQuestions: row.assessmentQuestions,
     learnerCount,
+    sceneCount,
     publishedAt: row.publishedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -401,21 +403,32 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
       .where(eq(roles.isAdmin, false))
       .groupBy(courseProgress.courseId)
       .as('course_learner_counts');
+    const sceneCounts = getDb()
+      .select({
+        courseId: scenes.courseId,
+        sceneCount: count(scenes.id).as('scene_count'),
+      })
+      .from(scenes)
+      .groupBy(scenes.courseId)
+      .as('course_scene_counts');
     const rows = await getDb()
       .select({
         course: courses,
         categoryName: courseCategories.name,
         learnerCount: learnerCounts.learnerCount,
+        sceneCount: sceneCounts.sceneCount,
       })
       .from(courses)
       .leftJoin(courseCategories, eq(courses.categoryId, courseCategories.id))
-      .leftJoin(learnerCounts, eq(courses.id, learnerCounts.courseId));
+      .leftJoin(learnerCounts, eq(courses.id, learnerCounts.courseId))
+      .leftJoin(sceneCounts, eq(courses.id, sceneCounts.courseId));
     const roleIds = await loadVisibleRoleIds(rows.map((row) => row.course.id));
     return rows.map((row) =>
       toCourse(
         { ...row.course, categoryName: row.categoryName },
         roleIds.get(row.course.id) ?? [],
         Number(row.learnerCount ?? 0),
+        Number(row.sceneCount ?? 0),
       ),
     );
   }
