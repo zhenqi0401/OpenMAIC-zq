@@ -132,6 +132,7 @@ export function CourseTable({
                       修改可见范围
                     </Button>
                   }
+                  menuModal={false}
                   triggerAriaLabel={`${course.name}的更多操作`}
                 />
               </div>

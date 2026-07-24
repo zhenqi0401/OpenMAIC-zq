@@ -35,6 +35,7 @@ import type { CourseSaveStatus } from '@/lib/authoring/course-edit-persistence';
 interface HeaderControlsProps {
   readonly mode?: StageMode;
   readonly canEdit?: boolean;
+  readonly canConfigureModels?: boolean;
   readonly onToggleEditMode?: () => void;
   readonly saveStatus?: CourseSaveStatus;
   readonly onSave?: () => Promise<boolean>;
@@ -63,6 +64,7 @@ interface HeaderControlsProps {
 export function HeaderControls({
   mode,
   canEdit,
+  canConfigureModels = false,
   onToggleEditMode,
   saveStatus = 'saved',
   onSave,
@@ -179,14 +181,18 @@ export function HeaderControls({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Settings */}
-        <button
-          onClick={() => setSettingsOpen(true)}
-          className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all group"
-          aria-label={t('settings.title')}
-        >
-          <Settings className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
-        </button>
+        {/* Model/provider settings are administrative configuration, not a
+            learner classroom control. Keep the dialog out of the learner DOM
+            as well as hiding its trigger. */}
+        {canConfigureModels ? (
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all group"
+            aria-label={t('settings.title')}
+          >
+            <Settings className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
+          </button>
+        ) : null}
       </div>
 
       {/* Pro Switch — toggle property: on/off both clickable, not a
@@ -351,7 +357,9 @@ export function HeaderControls({
         )}
       </div>
 
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      {canConfigureModels ? (
+        <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      ) : null}
     </div>
   );
 }

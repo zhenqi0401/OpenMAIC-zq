@@ -155,6 +155,7 @@ export function Stage({
             <EditChromeRoot
               scene={currentScene}
               isEditable={canEnterProMode}
+              canConfigureModels={authoringIdentity?.isAdmin === true}
               onToggleEditMode={toggleHandler}
               saveStatus={courseSaveStatus}
               onSave={onSaveCourse}
@@ -176,6 +177,7 @@ export function Stage({
               enterpriseCourseId={enterpriseCourseId}
               trackCourseStart={isCoursePopularityEnabled() && authoringIdentity?.isAdmin === false}
               canEnterProMode={canEnterProMode}
+              canConfigureModels={authoringIdentity?.isAdmin === true}
               onEnterProMode={toggleHandler}
             />
           </motion.div>

@@ -70,6 +70,8 @@ interface PlaybackChromeRootProps {
   readonly trackCourseStart?: boolean;
   /** Whether the Pro Switch in Header should be enabled. */
   readonly canEnterProMode?: boolean;
+  /** Whether the current session may configure model/provider settings. */
+  readonly canConfigureModels?: boolean;
   /** Pro Switch click handler — parent coordinates editLock + teardown. */
   readonly onEnterProMode?: () => void;
 }
@@ -88,6 +90,7 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
       enterpriseCourseId,
       trackCourseStart = false,
       canEnterProMode,
+      canConfigureModels,
       onEnterProMode,
     },
     ref,
@@ -1171,6 +1174,7 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
                 }
                 mode={mode}
                 canEdit={!!canEnterProMode}
+                canConfigureModels={canConfigureModels}
                 onToggleEditMode={onEnterProMode}
                 discussionCourseId={trackCourseStart ? enterpriseCourseId : null}
               />

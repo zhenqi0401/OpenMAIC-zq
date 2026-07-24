@@ -11,6 +11,7 @@ interface HeaderProps {
   readonly currentSceneTitle: string;
   readonly mode?: StageMode;
   readonly canEdit?: boolean;
+  readonly canConfigureModels?: boolean;
   readonly onToggleEditMode?: () => void;
   readonly discussionCourseId?: string | null;
 }
@@ -19,6 +20,7 @@ export function Header({
   currentSceneTitle,
   mode,
   canEdit,
+  canConfigureModels,
   onToggleEditMode,
   discussionCourseId,
 }: HeaderProps) {
@@ -76,7 +78,12 @@ export function Header({
               <span className="hidden xl:inline">讨论本课程</span>
             </button>
           )}
-          <HeaderControls mode={mode} canEdit={canEdit} onToggleEditMode={onToggleEditMode} />
+          <HeaderControls
+            mode={mode}
+            canEdit={canEdit}
+            canConfigureModels={canConfigureModels}
+            onToggleEditMode={onToggleEditMode}
+          />
         </div>
       </header>
     </>

@@ -17,6 +17,7 @@ import { shouldRenderAgentPanel } from './agent-panel-visibility';
 interface EditChromeRootProps {
   readonly scene: Scene;
   readonly isEditable: boolean;
+  readonly canConfigureModels?: boolean;
   readonly onToggleEditMode?: () => void;
   readonly saveStatus?: CourseSaveStatus;
   readonly onSave?: () => Promise<boolean>;
@@ -46,6 +47,7 @@ interface EditChromeRootProps {
 export function EditChromeRoot({
   scene,
   isEditable,
+  canConfigureModels,
   onToggleEditMode,
   saveStatus,
   onSave,
@@ -120,6 +122,7 @@ export function EditChromeRoot({
         <HeaderControls
           mode="edit"
           canEdit={isEditable}
+          canConfigureModels={canConfigureModels}
           onToggleEditMode={isMaicEditorEnabled() ? onToggleEditMode : undefined}
           saveStatus={saveStatus}
           onSave={onSave}

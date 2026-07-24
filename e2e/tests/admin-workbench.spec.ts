@@ -307,6 +307,77 @@ test.describe('P0 overall acceptance', () => {
   });
 });
 
+test.describe('course administration interactions', () => {
+  test('keeps the page and sticky navigation in place when opening course actions', async ({
+    page,
+  }) => {
+    const courses = Array.from({ length: 9 }, (_, index) => ({
+      id: `course-${index + 1}`,
+      name: `课程 ${index + 1}`,
+      description: `用于验证滚动位置的课程 ${index + 1}`,
+      categoryId: 'category-training',
+      categoryName: '培训课程',
+      status: index % 2 === 0 ? 'draft' : 'published',
+      visibilityMode: 'all',
+      visibleRoleIds: [],
+      assessmentQuestions: [],
+      learnerCount: index,
+      generationStatus: 'ready',
+      generationComplete: true,
+      publishedAt: null,
+      createdAt: '2026-07-01T00:00:00.000Z',
+      updatedAt: `2026-07-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+    }));
+
+    await page.route('**/api/admin/**', async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      const payloads: Record<string, unknown> = {
+        '/api/admin/roles': { roles },
+        '/api/admin/categories': {
+          categories: [{ id: 'category-training', name: '培训课程', sortOrder: 0 }],
+        },
+        '/api/admin/courses': {
+          courses,
+          pagination: { page: 1, pageSize: 12, total: courses.length, totalPages: 1 },
+        },
+        '/api/admin/courses/previews': { previews: {} },
+      };
+      if (!(pathname in payloads)) return route.fallback();
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(payloads[pathname]),
+      });
+    });
+
+    await page.setViewportSize({ width: 1440, height: 600 });
+    await page.goto('/admin?module=courses');
+    await expect(page.getByRole('heading', { name: '课程管理' })).toBeVisible();
+    const trigger = page.getByRole('button', { name: '课程 9的更多操作' });
+    await trigger.scrollIntoViewIfNeeded();
+
+    const before = await page.evaluate(() => ({
+      scrollY: window.scrollY,
+      sidebarTop:
+        document.querySelector('[data-admin-sidebar]')?.getBoundingClientRect().top ?? null,
+    }));
+    expect(before.scrollY).toBeGreaterThan(0);
+
+    await trigger.click();
+    await expect(page.getByRole('menu')).toBeVisible();
+
+    const after = await page.evaluate(() => ({
+      scrollY: window.scrollY,
+      sidebarTop:
+        document.querySelector('[data-admin-sidebar]')?.getBoundingClientRect().top ?? null,
+      scrollLocked: document.body.hasAttribute('data-scroll-locked'),
+    }));
+    expect(after.scrollY).toBe(before.scrollY);
+    expect(after.sidebarTop).toBe(before.sidebarTop);
+    expect(after.scrollLocked).toBe(false);
+  });
+});
+
 test.describe('dashboard activity chart', () => {
   test('renders SVG series, exposes precise keyboard tooltips and keeps period API parameters', async ({
     page,

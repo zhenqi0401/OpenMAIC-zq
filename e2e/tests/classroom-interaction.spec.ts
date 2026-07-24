@@ -209,4 +209,41 @@ test.describe('Classroom Interaction', () => {
     await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
     await expectBodyScrollState(true);
   });
+
+  test('shows model settings to administrators but not learners', async ({ page }) => {
+    await page.route('**/api/auth/session', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          authenticated: true,
+          user: {
+            id: 'learner-e2e',
+            displayName: 'E2E 学员',
+            role: {
+              id: 'role-learner',
+              code: 'learner',
+              name: '学员',
+              isAdmin: false,
+            },
+          },
+          identity: {
+            userId: 'learner-e2e',
+            roleId: 'role-learner',
+            roleCode: 'learner',
+            isAdmin: false,
+            authSource: 'password',
+          },
+        }),
+      }),
+    );
+
+    const classroom = new ClassroomPage(page);
+    await classroom.goto(TEST_STAGE_ID);
+    await classroom.waitForLoaded();
+
+    await expect(page.getByRole('button', { name: 'Theme' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Settings', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('dialog', { name: 'Settings' })).toHaveCount(0);
+  });
 });
