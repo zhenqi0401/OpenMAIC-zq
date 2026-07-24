@@ -1,7 +1,15 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { loadDashboardAdminData } from '@/components/admin/dashboard/DashboardAdminPanel';
+import {
+  DashboardPendingItems,
+  loadDashboardAdminData,
+} from '@/components/admin/dashboard/DashboardAdminPanel';
+import {
+  AdminActivityChart,
+  buildAdminActivityChartOption,
+  formatActivityTooltip,
+} from '@/components/admin/dashboard/AdminActivityChart';
 import { DashboardMetric } from '@/components/admin/dashboard/DashboardMetric';
 import { DashboardProgressTable } from '@/components/admin/dashboard/DashboardProgressTable';
 import type { AdminInviteCode, AdminRole } from '@/lib/admin/client';
@@ -149,6 +157,140 @@ describe('dashboard pending items', () => {
         href: '/admin?module=access&section=invites',
       }),
     ]);
+  });
+
+  it('uses a warning badge only for real pending work and removes the old detached copy', () => {
+    const pending = {
+      total: 2,
+      items: [
+        {
+          id: 'courses',
+          type: 'course',
+          severity: 'high' as const,
+          title: '课程待补充',
+          description: '仍有课程缺少题目。',
+          count: 2,
+          href: '/admin?module=courses',
+          actionLabel: '查看课程',
+        },
+      ],
+    };
+    const warningMarkup = renderToStaticMarkup(
+      React.createElement(DashboardPendingItems, { pending }),
+    );
+    const zeroMarkup = renderToStaticMarkup(
+      React.createElement(DashboardPendingItems, {
+        pending: { total: 0, items: [] },
+      }),
+    );
+
+    expect(warningMarkup).toContain('2个待处理');
+    expect(warningMarkup).toContain('bg-[var(--admin-danger-background)]');
+    expect(zeroMarkup).toContain('0个待处理');
+    expect(zeroMarkup).toContain('bg-[var(--admin-success-background)]');
+    expect(`${warningMarkup}${zeroMarkup}`).not.toContain('只列出已确认的配置或内容异常');
+    expect(`${warningMarkup}${zeroMarkup}`).not.toContain('text-2xl font-semibold tabular-nums');
+  });
+});
+
+describe('dashboard community activity chart', () => {
+  const activity = {
+    totals: { interactions: 20, posts: 3, replies: 7, danmaku: 10 },
+    points: [
+      { date: '2026-07-22', interactions: 8, posts: 1, replies: 2, danmaku: 5 },
+      { date: '2026-07-23', interactions: 12, posts: 2, replies: 5, danmaku: 5 },
+    ],
+  };
+
+  it('builds four real SVG line series, coordinates, grid and interaction tooltip', () => {
+    const option = buildAdminActivityChartOption(activity);
+    const series = option.series as Array<{
+      name: string;
+      data: number[];
+      areaStyle?: {
+        opacity?: number;
+        color?: {
+          type?: string;
+          y?: number;
+          y2?: number;
+          colorStops?: Array<{ offset: number; color: string }>;
+        };
+      };
+      symbol?: string;
+      showSymbol?: boolean;
+      smooth?: number;
+      emphasis?: {
+        focus?: string;
+        blurScope?: string;
+        lineStyle?: { opacity?: number };
+      };
+      blur?: {
+        lineStyle?: { opacity?: number };
+      };
+    }>;
+    const xAxis = option.xAxis as { data: string[] };
+    const tooltip = formatActivityTooltip(activity.points[1]);
+
+    expect(series.map((item) => item.name)).toEqual(['总互动', '帖子', '回复', '弹幕']);
+    expect(series[0].data).toEqual([8, 12]);
+    expect(series[0].areaStyle).toBeDefined();
+    expect(series[0].areaStyle?.color).toEqual({
+      type: 'linear',
+      x: 0,
+      y: 0,
+      x2: 0,
+      y2: 1,
+      colorStops: [
+        { offset: 0, color: 'var(--admin-chart-interactions-fill)' },
+        { offset: 0.68, color: 'var(--admin-chart-interactions-fill-soft)' },
+        { offset: 1, color: 'var(--admin-chart-interactions-fill-transparent)' },
+      ],
+    });
+    expect(series.slice(1).every((item) => item.areaStyle === undefined)).toBe(true);
+    expect(series.every((item) => item.symbol === 'circle')).toBe(true);
+    expect(series.every((item) => item.showSymbol === false)).toBe(true);
+    expect(series.every((item) => item.smooth === 0.25)).toBe(true);
+    expect(series.every((item) => item.emphasis?.focus === 'series')).toBe(true);
+    expect(series.every((item) => item.emphasis?.blurScope === 'coordinateSystem')).toBe(true);
+    expect(series.every((item) => item.emphasis?.lineStyle?.opacity === 1)).toBe(true);
+    expect(series.every((item) => item.blur?.lineStyle?.opacity === 0.16)).toBe(true);
+    expect(xAxis.data).toEqual(['2026-07-22', '2026-07-23']);
+    expect(option.grid).toBeDefined();
+    expect(tooltip).toContain('2026-07-23');
+    expect(tooltip).toContain('总互动');
+    expect(tooltip).toContain('<strong>12</strong>');
+    expect(tooltip).toContain('<strong>5</strong>');
+  });
+
+  it('keeps complete zero axes for empty data and exposes week, month and year controls', () => {
+    const option = buildAdminActivityChartOption({
+      totals: { interactions: 0, posts: 0, replies: 0, danmaku: 0 },
+      points: [],
+    });
+    const series = option.series as Array<{ data: number[] }>;
+    const xAxis = option.xAxis as { data: string[] };
+    const markup = renderToStaticMarkup(
+      React.createElement(AdminActivityChart, {
+        activity,
+        loading: false,
+        onRangeChange: vi.fn(),
+        range: 'month',
+      }),
+    );
+
+    expect(xAxis.data).toEqual(['暂无数据']);
+    expect(series.every((item) => item.data[0] === 0)).toBe(true);
+    expect(markup).toContain('aria-label="趋势周期"');
+    expect(markup).toContain('>周</button>');
+    expect(markup).toContain('>月</button>');
+    expect(markup).toContain('>年</button>');
+    expect(markup).toContain('总互动');
+    expect(markup).toContain('20');
+    expect(markup).toContain('tabindex="0"');
+    expect(markup).toContain('data-admin-activity-legend="interactions"');
+    expect(markup).toContain('data-admin-activity-legend="posts"');
+    expect(markup).toContain('data-admin-activity-legend="replies"');
+    expect(markup).toContain('data-admin-activity-legend="danmaku"');
   });
 });
 

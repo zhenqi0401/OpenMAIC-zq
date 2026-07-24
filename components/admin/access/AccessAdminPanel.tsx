@@ -5,8 +5,9 @@ import { Shield } from 'lucide-react';
 import { AdminPage, AdminSectionHeader } from '@/components/admin/AdminSurface';
 import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
 import { AdminTabs } from '@/components/admin/AdminTabs';
-import { Button } from '@/components/ui/button';
+import { AdminRefreshButton } from '@/components/admin/AdminRefreshButton';
 import { adminErrorMessage, adminToast } from '@/lib/admin/toast';
+import { normalizeInviteCode } from '@/lib/auth/invite-code';
 import {
   buildRoleOptions,
   createAdminClient,
@@ -59,11 +60,7 @@ function notifyAdminError(error: unknown, fallback: string) {
   adminToast.error(adminErrorMessage(error, fallback));
 }
 
-export function AccessAdminPanel({
-  initialSection = 'users',
-}: {
-  initialSection?: AccessSection;
-} = {}) {
+export function AccessAdminPanel({ initialSection = 'users' }: { initialSection?: AccessSection }) {
   const client = useMemo(() => createAdminClient(), []);
   const [section, setSection] = useState<AccessSection>(initialSection);
   const [roles, setRoles] = useState<AdminRole[]>([]);
@@ -77,6 +74,7 @@ export function AccessAdminPanel({
   const [creatingInvite, setCreatingInvite] = useState(false);
   const [savingInviteCodeId, setSavingInviteCodeId] = useState<string | null>(null);
   const [deletingInviteCodeId, setDeletingInviteCodeId] = useState<string | null>(null);
+  const [cleartextInviteCodes, setCleartextInviteCodes] = useState<Record<string, string>>({});
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const [changingStatusUserId, setChangingStatusUserId] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
@@ -211,13 +209,18 @@ export function AccessAdminPanel({
   async function createInviteCode(draft: InviteDraft): Promise<boolean> {
     setCreatingInvite(true);
     try {
-      await client.createInviteCode({
-        code: draft.code,
+      const cleartextCode = normalizeInviteCode(draft.code);
+      const result = await client.createInviteCode({
+        code: cleartextCode,
         roleId: draft.roleId,
         enabled: draft.enabled,
         expiresAt: normalizeExpiresAt(draft.expiresAt),
       });
-      adminToast.success('邀请码已创建。请妥善保存明文，列表不会再次展示。');
+      setCleartextInviteCodes((current) => ({
+        ...current,
+        [result.inviteCode.id]: cleartextCode,
+      }));
+      adminToast.success('邀请码已创建。本次页面会话内可查看并复制明文。');
       await loadAll();
       return true;
     } catch (saveError) {
@@ -254,6 +257,11 @@ export function AccessAdminPanel({
     setDeletingInviteCodeId(inviteCode.id);
     try {
       await client.deleteInviteCode(inviteCode.id);
+      setCleartextInviteCodes((current) => {
+        const next = { ...current };
+        delete next[inviteCode.id];
+        return next;
+      });
       adminToast.success('邀请码已撤销');
       await loadAll();
     } catch (deleteError) {
@@ -314,17 +322,7 @@ export function AccessAdminPanel({
       <AdminSectionHeader
         action={
           <AdminSessionActions
-            leading={
-              <Button
-                aria-busy={loading}
-                className="rounded-[var(--admin-radius-control)] border-[var(--admin-border)]"
-                disabled={loading}
-                onClick={() => void loadAll(true)}
-                variant="outline"
-              >
-                {loading ? '刷新中…' : '刷新'}
-              </Button>
-            }
+            leading={<AdminRefreshButton loading={loading} onRefresh={() => void loadAll(true)} />}
           />
         }
         description="集中管理用户资料、角色分配和邀请码，所有变更继续遵循现有权限规则。"
@@ -345,6 +343,7 @@ export function AccessAdminPanel({
                 : inviteCodes.length,
         }))}
         onValueChange={changeSection}
+        showDivider={false}
         value={section}
       />
 
@@ -391,6 +390,7 @@ export function AccessAdminPanel({
         ) : null}
         {section === 'invites' ? (
           <AccessInvitesTab
+            cleartextInviteCodes={cleartextInviteCodes}
             creatingInvite={creatingInvite}
             deletingInviteCodeId={deletingInviteCodeId}
             inviteCodes={inviteCodes}

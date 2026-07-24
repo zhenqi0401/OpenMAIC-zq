@@ -17,6 +17,7 @@ import {
   type AdminExamAttemptResponse,
   type AdminExamPolicy,
 } from '@/lib/admin/client';
+import { formatAdminDateTime } from '@/lib/admin/date-time';
 
 function displayPercent(value: number | null) {
   return value === null ? '暂无记录' : `${value}%`;
@@ -95,7 +96,7 @@ export function ExamResultsDrawer({
                         <td className="p-3">第 {attempt.attemptNumber} 次</td>
                         <td className="p-3">
                           <time dateTime={attempt.submittedAt}>
-                            {new Date(attempt.submittedAt).toLocaleString()}
+                            {formatAdminDateTime(attempt.submittedAt)}
                           </time>
                         </td>
                       </tr>

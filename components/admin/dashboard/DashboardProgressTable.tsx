@@ -12,6 +12,7 @@ import { buildRoleOptions, type AdminRole } from '@/lib/admin/client';
 import type { EnterpriseProgressDetail } from '@/lib/storage/enterprise-service';
 import { paginateAdminRows } from '@/lib/admin/pagination';
 import { getDashboardLastActivity, getDashboardRoleName } from '@/lib/admin/presentation';
+import { formatAdminDateTime } from '@/lib/admin/date-time';
 
 export interface DashboardFilters {
   userId: string;
@@ -35,10 +36,6 @@ function EmptyState({ text }: { text: string }) {
   return (
     <div className="px-4 py-8 text-center text-sm text-[var(--admin-muted-foreground)]">{text}</div>
   );
-}
-
-function formatAdminDate(value: Date | undefined): string {
-  return value ? new Date(value).toLocaleString() : '—';
 }
 
 export function DashboardProgressTable({
@@ -153,10 +150,10 @@ export function DashboardProgressTable({
                   {row.completed ? '已完成' : '学习中'}
                 </span>
                 <span className="text-[var(--admin-muted-foreground)]">
-                  {formatAdminDate(row.startedAt)}
+                  {formatAdminDateTime(row.startedAt)}
                 </span>
                 <span className="text-[var(--admin-muted-foreground)]">
-                  {formatAdminDate(getDashboardLastActivity(row))}
+                  {formatAdminDateTime(getDashboardLastActivity(row))}
                 </span>
               </div>
             ))

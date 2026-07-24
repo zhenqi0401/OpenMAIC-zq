@@ -28,7 +28,7 @@ export const adminDangerOutlineButtonClassName =
   'rounded-[var(--admin-radius-control)] border-[var(--admin-danger)]/70 bg-[var(--admin-surface)] text-[var(--admin-danger-strong)] shadow-none hover:border-[var(--admin-danger)] hover:bg-[var(--admin-danger-background)] focus-visible:border-[var(--admin-danger)] focus-visible:ring-[var(--admin-danger)]/25';
 
 export const adminDangerButtonClassName =
-  'rounded-[var(--admin-radius-control)] bg-[var(--admin-danger)] text-white hover:bg-[var(--admin-danger-strong)] focus-visible:border-[var(--admin-danger)] focus-visible:ring-[var(--admin-danger)]/25';
+  'rounded-[var(--admin-radius-control)] !bg-[var(--admin-danger)] !text-white shadow-none hover:!bg-[var(--admin-danger-strong)] focus-visible:border-[var(--admin-danger)] focus-visible:ring-[var(--admin-danger)]/25 disabled:!bg-[var(--admin-danger)]';
 
 export interface AdminBreadcrumbItem {
   label: string;

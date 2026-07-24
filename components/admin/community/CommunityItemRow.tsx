@@ -17,10 +17,7 @@ import {
   communityTargetLabel,
   contentTypeLabel,
 } from '@/lib/admin/community-presentation';
-
-function formatTime(value: string) {
-  return new Date(value).toLocaleString('zh-CN');
-}
+import { formatAdminDateTime } from '@/lib/admin/date-time';
 
 function statusTone(status: string | undefined): 'success' | 'warning' | 'danger' | 'neutral' {
   if (status === 'visible') return 'success';
@@ -37,22 +34,13 @@ function secondaryActions(
 ) {
   const actions: AdminRowAction[] = [];
   if (type === 'posts' && item.status === 'visible') {
-    const pinAction = item.pinned ? 'unpin' : 'pin';
     const lockAction = item.locked ? 'unlock' : 'lock';
-    actions.push(
-      {
-        id: pinAction,
-        label: communityActionLabel(pinAction),
-        disabled,
-        onSelect: () => onModerate(pinAction),
-      },
-      {
-        id: lockAction,
-        label: communityActionLabel(lockAction),
-        disabled,
-        onSelect: () => onModerate(lockAction),
-      },
-    );
+    actions.push({
+      id: lockAction,
+      label: communityActionLabel(lockAction),
+      disabled,
+      onSelect: () => onModerate(lockAction),
+    });
   }
   if (item.status === 'visible' || item.status === 'hidden') {
     actions.push({
@@ -100,7 +88,6 @@ export function CommunityItemRow({
             {item.targetType ? (
               <AdminStatusBadge>{communityTargetLabel(item.targetType)}</AdminStatusBadge>
             ) : null}
-            {item.pinned ? <AdminStatusBadge tone="warning">已置顶</AdminStatusBadge> : null}
             {item.locked ? <AdminStatusBadge tone="warning">已关闭回复</AdminStatusBadge> : null}
           </div>
           {item.title ? <h3 className="mt-2 font-medium">{item.title}</h3> : null}
@@ -114,7 +101,7 @@ export function CommunityItemRow({
           </p>
         </div>
         <time className="shrink-0 text-xs text-[var(--admin-muted-foreground)]">
-          {formatTime(item.createdAt)}
+          {formatAdminDateTime(item.createdAt)}
         </time>
       </div>
 

@@ -135,7 +135,8 @@ describe('ExamPolicyAdminPanel', () => {
     const markup = renderToStaticMarkup(createElement(ExamPolicyAdminPanel));
     expect(markup).toContain('新建考核');
     expect(markup).toContain('考核策略列表');
-    expect(markup).toContain('题库准备摘要');
+    expect(markup).toContain('题库准备度');
+    expect(markup).toContain('全局考核平均指标');
     expect(markup).toContain('搜索考核名称或目标角色');
     expect(markup).toContain('data-exam-policy-list="true"');
     expect(markup).toContain('data-exam-policy-filters="true"');
@@ -149,6 +150,10 @@ describe('ExamPolicyAdminPanel', () => {
     );
     expect(source).toContain('toast.success(message, { style: successToastStyle })');
     expect(source).toContain('toast.error(error instanceof Error ? error.message : fallback');
+    expect(source).toContain('data-exam-policy-status-bar');
+    expect(source).toContain('setQuery(queryDraft.trim())');
+    expect(source).not.toContain('待审核');
+    expect(source).not.toContain('共 {pagination.total} 项');
   });
 
   it('loads every editable field from the selected policy', () => {
@@ -170,10 +175,25 @@ describe('ExamPolicyAdminPanel', () => {
       readyCourseCount: 1,
       missingQuestionCourseCount: 1,
     });
-    const markup = renderToStaticMarkup(createElement(ExamReadinessSummary, { readiness }));
-    expect(markup).toContain('已发布课程 2');
-    expect(markup).toContain('有课后题 1');
-    expect(markup).toContain('缺少课后题 1');
+    const markup = renderToStaticMarkup(
+      createElement(ExamReadinessSummary, {
+        readiness,
+        summary: {
+          publishedCourseCount: 2,
+          readyCourseCount: 1,
+          missingQuestionCourseCount: 1,
+          examAttemptCount: 0,
+          passRate: null,
+          averageScore: null,
+        },
+      }),
+    );
+    expect(markup).toContain('已发布课程');
+    expect(markup).toContain('题库已就绪');
+    expect(markup).toContain('待补充题目');
+    expect(markup).toContain('通过率 暂无记录');
+    expect(markup).toContain('>—</div>');
+    expect(markup).toContain('总考核人次');
     expect(markup).not.toContain('总题库');
   });
 

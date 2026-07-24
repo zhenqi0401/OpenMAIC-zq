@@ -1,5 +1,31 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures/base';
+
+async function expectAdminDangerButton(button: Locator) {
+  const styles = await button.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    return {
+      backgroundColor: computed.backgroundColor,
+      color: computed.color,
+      opacity: computed.opacity,
+    };
+  });
+  expect(styles).toEqual({
+    backgroundColor: 'rgb(186, 26, 26)',
+    color: 'rgb(255, 255, 255)',
+    opacity: '1',
+  });
+  await expect(button).toBeEnabled();
+}
+
+async function expectAdminSecondaryButton(button: Locator) {
+  const styles = await button.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    return { backgroundColor: computed.backgroundColor, opacity: computed.opacity };
+  });
+  expect(styles).toEqual({ backgroundColor: 'rgb(255, 255, 255)', opacity: '1' });
+  await expect(button).toBeEnabled();
+}
 
 const roles = [
   { id: 'role-admin', code: 'admin', name: '管理员', isAdmin: true },
@@ -104,6 +130,7 @@ const communityItem = {
   courseName: '安全培训课',
   sceneKey: 'scene-internal-1',
   actionId: 'action-internal-1',
+  actionOffsetMs: 65_000,
   createdAt: '2026-07-21T06:00:00.000Z',
   author: {
     id: 'learner-1',
@@ -119,12 +146,14 @@ async function mockCommunityApis(
     failModeration?: boolean;
     items?: Array<typeof communityItem>;
     requests?: Array<{ path: string; body: unknown }>;
+    listUrls?: string[];
   } = {},
 ) {
   let listRequests = 0;
   const items = options.items ?? [communityItem];
   await page.route('**/api/admin/community?**', async (route) => {
     listRequests += 1;
+    options.listUrls?.push(route.request().url());
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -160,16 +189,18 @@ async function mockCommunityApis(
 async function openCommunity(page: Page) {
   await page.goto('/admin?module=community');
   await expect(page.getByRole('heading', { name: '社区内容' })).toBeVisible();
-  await expect(page.locator('[data-community-item-row]').first()).toContainText(
+  await expect(page.locator('[data-community-danmaku-list]').first()).toContainText(
     '这是一条需要审核的课程弹幕',
   );
 }
 
-async function mockAdminModuleReadApis(page: Page) {
+async function mockAdminModuleReadApis(page: Page, requestUrls: string[] = []) {
   await page.route('**/api/admin/**', async (route) => {
     const request = route.request();
-    const { pathname } = new URL(request.url());
+    const requestUrl = new URL(request.url());
+    const { pathname } = requestUrl;
     if (request.method() !== 'GET') return route.fallback();
+    requestUrls.push(requestUrl.toString());
 
     const payloads: Record<string, unknown> = {
       '/api/admin/dashboard': {
@@ -181,8 +212,12 @@ async function mockAdminModuleReadApis(page: Page) {
           examAttemptCount: 0,
         },
         communityActivity: {
-          totals: { interactions: 0, posts: 0, replies: 0, danmaku: 0 },
-          points: [],
+          totals: { interactions: 20, posts: 3, replies: 7, danmaku: 10 },
+          points: [
+            { date: '2026-07-21', interactions: 4, posts: 1, replies: 1, danmaku: 2 },
+            { date: '2026-07-22', interactions: 7, posts: 1, replies: 2, danmaku: 4 },
+            { date: '2026-07-23', interactions: 9, posts: 1, replies: 4, danmaku: 4 },
+          ],
         },
         pending: { total: 0, items: [] },
       },
@@ -259,6 +294,7 @@ test.describe('P0 overall acceptance', () => {
       for (const adminModule of modules) {
         await page.goto(`/admin?module=${adminModule.id}`);
         await expect(page.getByRole('heading', { name: adminModule.heading })).toBeVisible();
+        await expect(page.locator('[data-admin-refresh-button]')).toHaveCount(1);
         expect(
           await page.evaluate(
             () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
@@ -269,6 +305,142 @@ test.describe('P0 overall acceptance', () => {
   });
 });
 
+test.describe('dashboard activity chart', () => {
+  test('renders SVG series, exposes precise keyboard tooltips and keeps period API parameters', async ({
+    page,
+  }) => {
+    const requestUrls: string[] = [];
+    const pageErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.stack ?? error.message));
+    await mockAdminModuleReadApis(page, requestUrls);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/admin?module=dashboard');
+
+    const chart = page.locator('[data-admin-activity-chart-canvas]');
+    await expect(chart.locator('svg')).toBeVisible();
+    await expect(page.locator('[data-admin-community-chart]')).toContainText('总互动');
+    await expect(page.locator('[data-admin-community-chart]')).toContainText('20');
+    expect(await chart.locator('svg path').count()).toBeGreaterThanOrEqual(4);
+    expect(await chart.locator('svg linearGradient').count()).toBeGreaterThan(0);
+    await expect(chart.locator('svg path[fill^="var(--admin-chart-"]')).toHaveCount(0);
+
+    const chartBox = await chart.boundingBox();
+    if (!chartBox) throw new Error('社区活跃趋势图未生成可交互区域');
+    await page.mouse.move(chartBox.x + chartBox.width / 2, chartBox.y + chartBox.height / 2);
+    await expect(chart.locator('svg path[fill^="var(--admin-chart-"]')).toHaveCount(4);
+    await page.getByRole('heading', { name: '社区活跃趋势' }).hover();
+    await expect(chart.locator('svg path[fill^="var(--admin-chart-"]')).toHaveCount(0);
+
+    await chart.focus();
+    await chart.press('ArrowRight');
+    await expect(chart.locator('div').filter({ hasText: '2026-07-22' }).last()).toBeVisible();
+    await expect(chart.locator('div').filter({ hasText: '总互动' }).last()).toContainText('7');
+    await expect(chart.locator('svg path[fill^="var(--admin-chart-"]')).toHaveCount(4);
+
+    const postsLegend = page.locator('[data-admin-activity-legend="posts"]');
+    await postsLegend.hover();
+    await expect
+      .poll(() =>
+        chart
+          .locator('svg path[stroke="var(--admin-chart-posts)"]')
+          .first()
+          .evaluate((element) => getComputedStyle(element).strokeOpacity),
+      )
+      .toBe('1');
+    await expect
+      .poll(() =>
+        chart
+          .locator('svg path[stroke="var(--admin-chart-interactions)"]')
+          .first()
+          .evaluate((element) => getComputedStyle(element).strokeOpacity),
+      )
+      .toBe('0.16');
+    await page.getByRole('heading', { name: '社区活跃趋势' }).hover();
+    await expect
+      .poll(() =>
+        chart
+          .locator('svg path[stroke="var(--admin-chart-interactions)"]')
+          .first()
+          .evaluate((element) => getComputedStyle(element).strokeOpacity),
+      )
+      .toBe('1');
+
+    await page.getByRole('button', { name: '周', exact: true }).click();
+    await expect
+      .poll(() =>
+        requestUrls.some((url) => {
+          const parsed = new URL(url);
+          return (
+            parsed.pathname === '/api/admin/dashboard' &&
+            parsed.searchParams.get('range') === 'week'
+          );
+        }),
+      )
+      .toBe(true);
+    await expect.poll(() => pageErrors).toEqual([]);
+    await expect(page.getByRole('button', { name: '周', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    const yearButton = page.getByRole('button', { name: '年', exact: true });
+    await expect(yearButton).toBeEnabled();
+    await yearButton.click();
+    await expect
+      .poll(() =>
+        requestUrls.some((url) => {
+          const parsed = new URL(url);
+          return (
+            parsed.pathname === '/api/admin/dashboard' &&
+            parsed.searchParams.get('range') === 'year'
+          );
+        }),
+      )
+      .toBe(true);
+  });
+});
+
+test.describe('exam workbench filters', () => {
+  test('switches status immediately but submits name and role drafts explicitly', async ({
+    page,
+  }) => {
+    const requestUrls: string[] = [];
+    await mockAdminModuleReadApis(page, requestUrls);
+    await page.goto('/admin?module=exams');
+    await expect(page.getByRole('heading', { name: '阶段考核' })).toBeVisible();
+    await expect(page.getByText('题库准备度')).toBeVisible();
+    await expect(page.getByText('全局考核平均指标')).toBeVisible();
+    await expect(page.getByLabel('通过率 暂无记录')).toContainText('—');
+    await expect(page.locator('[data-exam-policy-status-bar]')).not.toContainText('待审核');
+    await expect(page.getByText(/共 \d+ 项/)).toHaveCount(0);
+
+    const examRequests = () =>
+      requestUrls.filter((url) => new URL(url).pathname === '/api/admin/exam-policies');
+    const initialCount = examRequests().length;
+    await page.getByLabel('搜索考核').fill('销售考核');
+    await page.getByLabel('筛选目标角色').selectOption('role-learner');
+    expect(examRequests()).toHaveLength(initialCount);
+
+    await page.getByRole('button', { name: '已发布', exact: true }).click();
+    await expect.poll(() => examRequests().length).toBeGreaterThan(initialCount);
+    expect(new URL(examRequests().at(-1)!).searchParams.get('status')).toBe('published');
+
+    const afterStatusCount = examRequests().length;
+    await page.getByRole('button', { name: '筛选', exact: true }).click();
+    await expect.poll(() => examRequests().length).toBeGreaterThan(afterStatusCount);
+    const filteredUrl = new URL(examRequests().at(-1)!);
+    expect(filteredUrl.searchParams.get('q')).toBe('销售考核');
+    expect(filteredUrl.searchParams.get('targetRoleId')).toBe('role-learner');
+    expect(filteredUrl.searchParams.get('status')).toBe('published');
+
+    await page.getByRole('button', { name: '清除筛选', exact: true }).click();
+    await expect.poll(() => examRequests().length).toBeGreaterThan(afterStatusCount + 1);
+    const clearedUrl = new URL(examRequests().at(-1)!);
+    expect(clearedUrl.searchParams.has('q')).toBe(false);
+    expect(clearedUrl.searchParams.has('targetRoleId')).toBe(false);
+    expect(clearedUrl.searchParams.get('status')).toBe('all');
+  });
+});
+
 test.describe('P0-03 access workbench', () => {
   test('keeps the invitation workspace free of internal horizontal scrolling at 1920x900', async ({
     page,
@@ -276,6 +448,12 @@ test.describe('P0-03 access workbench', () => {
     await page.setViewportSize({ width: 1920, height: 900 });
     await mockAccessApis(page);
     await openAccess(page, 'invites');
+
+    expect(
+      await page
+        .getByRole('tablist', { name: '用户管理工作区' })
+        .evaluate((element) => getComputedStyle(element).borderBottomWidth),
+    ).toBe('0px');
 
     const workspace = page.locator('[data-admin-access-invite-workspace]');
     const inviteTable = workspace.locator('[data-admin-access-invite-table]');
@@ -324,6 +502,7 @@ test.describe('P0-03 access workbench', () => {
   }) => {
     const revokedRequests: string[] = [];
     await page.setViewportSize({ width: 1280, height: 800 });
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     await mockAccessApis(page, revokedRequests);
     await openAccess(page);
 
@@ -344,6 +523,8 @@ test.describe('P0-03 access workbench', () => {
     await usersWorkspace.getByRole('button', { name: '张三的账号操作' }).click();
     await page.getByRole('menuitem', { name: '永久删除' }).click();
     await expect(page.getByRole('heading', { name: '永久删除用户' })).toBeVisible();
+    await expectAdminDangerButton(page.getByRole('button', { name: '确认永久删除' }));
+    await expectAdminSecondaryButton(page.getByRole('button', { name: '取消' }));
     await page.getByRole('button', { name: '取消' }).click();
 
     await page.getByRole('tab', { name: /^角色，/ }).click();
@@ -359,15 +540,34 @@ test.describe('P0-03 access workbench', () => {
     const invitesWorkspace = page.locator('[data-admin-access-workspace="invites"]');
     await invitesWorkspace.getByRole('button', { name: '创建邀请码' }).click();
     await expect(page.getByRole('heading', { name: '创建邀请码' })).toBeVisible();
-    await expect(page.getByText('邀请码明文创建后不会在列表中再次显示')).toBeVisible();
-    await page.getByRole('button', { name: '取消' }).click();
-    await invitesWorkspace.getByRole('button', { name: '编辑' }).first().click();
+    await expect(page.getByText(/当前页面生命周期内显示并允许复制明文/)).toBeVisible();
+    await page.getByLabel('邀请码明文').fill('OPEN-CODE-2026');
+    await page.getByRole('button', { name: '确认创建' }).click();
+    await expect(invitesWorkspace.getByText('OPEN-CODE-2026').first()).toBeVisible();
+    await invitesWorkspace
+      .getByRole('button', { name: '复制邀请码 OPEN-CODE-2026' })
+      .first()
+      .click();
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe('OPEN-CODE-2026');
+
+    await page.reload();
+    await expect(page.locator('[data-admin-access-workspace="invites"]')).toBeVisible();
+    await expect(page.getByText('OPEN-CODE-2026')).toHaveCount(0);
+    await expect(page.getByText('仅创建时可见').first()).toBeVisible();
+
+    const refreshedInvitesWorkspace = page.locator('[data-admin-access-workspace="invites"]');
+    await refreshedInvitesWorkspace.getByRole('button', { name: '编辑' }).first().click();
     await expect(page.getByRole('heading', { name: '编辑邀请码' })).toBeVisible();
     await page.getByRole('button', { name: '取消' }).click();
 
-    await invitesWorkspace.getByRole('button', { name: '撤销' }).click();
+    await refreshedInvitesWorkspace.getByRole('button', { name: '撤销' }).click();
     await expect(page.getByRole('heading', { name: '撤销邀请码' })).toBeVisible();
-    await page.getByRole('button', { name: '确认撤销' }).click();
+    const revokeConfirm = page.getByRole('button', { name: '确认撤销' });
+    await expectAdminDangerButton(revokeConfirm);
+    await expectAdminSecondaryButton(page.getByRole('button', { name: '取消' }));
+    await revokeConfirm.click();
     await expect.poll(() => revokedRequests).toEqual(['DELETE /api/admin/invite-codes/invite-1']);
   });
 
@@ -396,6 +596,77 @@ test.describe('P0-03 access workbench', () => {
 });
 
 test.describe('P0-07 community moderation', () => {
+  test('keeps five filter groups as drafts until the administrator clicks 筛选', async ({
+    page,
+  }) => {
+    const listUrls: string[] = [];
+    const getListRequests = await mockCommunityApis(page, { listUrls });
+    await openCommunity(page);
+    const initialRequests = getListRequests();
+
+    await page.getByLabel('关键词').fill('课程重点');
+    await page.getByLabel('作者用户 ID').fill('learner-1');
+    await page.getByLabel('课程 ID').fill('course-1');
+    await page.getByLabel('内容状态').selectOption('hidden');
+    await page.getByRole('button', { name: '选择日期范围' }).click();
+    await page.getByLabel('开始时间').fill('2026-07-01T00:00');
+    await page.getByLabel('结束时间').fill('2026-07-23T23:59');
+
+    expect(getListRequests()).toBe(initialRequests);
+    await page.getByRole('button', { name: '筛选', exact: true }).click();
+    await expect.poll(getListRequests).toBeGreaterThan(initialRequests);
+    const appliedUrl = new URL(listUrls.at(-1)!);
+    expect(appliedUrl.searchParams.get('keyword')).toBe('课程重点');
+    expect(appliedUrl.searchParams.get('authorId')).toBe('learner-1');
+    expect(appliedUrl.searchParams.get('courseId')).toBe('course-1');
+    expect(appliedUrl.searchParams.get('status')).toBe('hidden');
+    expect(appliedUrl.searchParams.get('from')).toBe(new Date('2026-07-01T00:00').toISOString());
+    expect(appliedUrl.searchParams.get('to')).toBe(new Date('2026-07-23T23:59').toISOString());
+
+    await page.getByRole('button', { name: '清空', exact: true }).click();
+    await expect.poll(getListRequests).toBeGreaterThan(initialRequests + 1);
+    const clearedUrl = new URL(listUrls.at(-1)!);
+    expect(clearedUrl.searchParams.has('keyword')).toBe(false);
+    expect(clearedUrl.searchParams.has('authorId')).toBe(false);
+    expect(clearedUrl.searchParams.has('courseId')).toBe(false);
+    expect(clearedUrl.searchParams.has('status')).toBe(false);
+    expect(clearedUrl.searchParams.has('from')).toBe(false);
+    expect(clearedUrl.searchParams.has('to')).toBe(false);
+  });
+
+  test('uses a semantic table on desktop and field cards on mobile without tab dividers', async ({
+    page,
+  }) => {
+    await mockCommunityApis(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openCommunity(page);
+
+    await expect(page.locator('[data-community-danmaku-table]')).toBeVisible();
+    await expect(page.locator('[data-community-danmaku-cards]')).toBeHidden();
+    await expect(page.getByRole('columnheader', { name: '播放时间点' })).toBeVisible();
+    await expect(page.locator('[data-community-danmaku-list]')).toContainText('01:05');
+    expect(
+      await page
+        .getByRole('tablist', { name: '社区内容类型' })
+        .evaluate((element) => getComputedStyle(element).borderBottomWidth),
+    ).toBe('0px');
+    await page.getByRole('button', { name: '删除', exact: true }).click();
+    const deleteDialog = page.getByRole('dialog');
+    await expect(deleteDialog.getByRole('heading', { name: '确认删除' })).toBeVisible();
+    await expectAdminDangerButton(deleteDialog.getByRole('button', { name: '确认删除' }));
+    await expectAdminSecondaryButton(deleteDialog.getByRole('button', { name: '取消' }));
+    await deleteDialog.getByRole('button', { name: '取消' }).click();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator('[data-community-danmaku-table]')).toBeHidden();
+    await expect(page.locator('[data-community-danmaku-cards]')).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
+  });
+
   test('keeps the page and sticky navigation in place when opening the hide dialog', async ({
     page,
   }) => {
@@ -416,7 +687,7 @@ test.describe('P0-07 community moderation', () => {
     }));
     expect(before.scrollY).toBeGreaterThan(0);
 
-    await page.getByRole('button', { name: '隐藏' }).last().click();
+    await page.getByRole('button', { name: '下架' }).last().click();
     await expect(page.getByRole('dialog')).toBeVisible();
 
     const after = await page.evaluate(() => ({
@@ -434,19 +705,19 @@ test.describe('P0-07 community moderation', () => {
     const getListRequests = await mockCommunityApis(page, { requests });
     await openCommunity(page);
 
-    await expect(page.locator('[data-community-item-row]')).toContainText('可见');
+    await expect(page.locator('[data-community-danmaku-list]')).toContainText('正常');
     await expect(page.getByText('场景 ID：scene-internal-1')).toBeHidden();
-    await page.getByRole('button', { name: '隐藏' }).click();
+    await page.getByRole('button', { name: '下架' }).click();
 
     const dialog = page.getByRole('dialog');
-    await expect(dialog.getByRole('heading', { name: '确认隐藏' })).toBeVisible();
+    await expect(dialog.getByRole('heading', { name: '确认下架' })).toBeVisible();
     await expect(dialog).toContainText('这是一条需要审核的课程弹幕');
-    await dialog.getByRole('button', { name: '确认隐藏' }).click();
+    await dialog.getByRole('button', { name: '确认下架' }).click();
     await expect(dialog).toContainText('请选择原因，或填写补充说明。');
 
     await dialog.getByLabel('广告营销').check();
     await dialog.getByLabel('补充说明').fill('重复发布');
-    await dialog.getByRole('button', { name: '确认隐藏' }).click();
+    await dialog.getByRole('button', { name: '确认下架' }).click();
     await expect(dialog.getByRole('button', { name: '处理中…' })).toBeDisabled();
     await expect(dialog).toBeHidden();
     await expect.poll(getListRequests).toBeGreaterThan(1);
@@ -462,15 +733,15 @@ test.describe('P0-07 community moderation', () => {
     await mockCommunityApis(page, { failModeration: true });
     await openCommunity(page);
 
-    await page.getByRole('button', { name: '隐藏' }).click();
+    await page.getByRole('button', { name: '下架' }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByLabel('其他').check();
     await dialog.getByLabel('补充说明').fill('需要人工复核的具体原因');
-    await dialog.getByRole('button', { name: '确认隐藏' }).click();
+    await dialog.getByRole('button', { name: '确认下架' }).click();
 
     await expect(dialog).toContainText('审核服务暂时不可用');
     await expect(dialog.getByLabel('补充说明')).toHaveValue('需要人工复核的具体原因');
-    await expect(page.locator('[data-community-item-row]')).toContainText(
+    await expect(page.locator('[data-community-danmaku-list]')).toContainText(
       '这是一条需要审核的课程弹幕',
     );
   });

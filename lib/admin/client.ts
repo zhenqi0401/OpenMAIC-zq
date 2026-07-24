@@ -5,6 +5,7 @@ import type {
   EnterpriseExamPolicy,
   EnterpriseInviteCode,
 } from '@/lib/storage/enterprise-service';
+import { formatAdminDateTime } from '@/lib/admin/date-time';
 
 export type AdminRole = AuthRole;
 export type AdminUser = PublicUser;
@@ -413,7 +414,7 @@ export function getInviteCodeView(
     id: inviteCode.id,
     roleLabel: getRoleLabel(inviteCode.roleId, roles),
     status,
-    expiresAtLabel: expiresAt ? expiresAt.toLocaleString() : '长期有效',
+    expiresAtLabel: formatAdminDateTime(expiresAt, '长期有效'),
     cleartextCode: null,
   };
 }

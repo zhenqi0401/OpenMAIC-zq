@@ -175,7 +175,9 @@ function UserDeleteAction({
           <AlertDialogDescription>{`确认永久删除用户「${user.displayName}」？该操作会删除账号，并清理其学习进度、测评记录和阶段考试记录，且不可恢复。`}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={busy}>取消</AlertDialogCancel>
+          <AlertDialogCancel className={adminSecondaryButtonClassName} disabled={busy}>
+            取消
+          </AlertDialogCancel>
           <AlertDialogAction
             className={adminDangerButtonClassName}
             disabled={busy}

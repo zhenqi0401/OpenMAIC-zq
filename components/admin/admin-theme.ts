@@ -28,6 +28,10 @@ export const adminBrandTokens = {
   '--saas-danger-container': '#ffdad6',
   '--saas-warning': '#805610',
   '--saas-warning-container': '#fff3d6',
+  '--saas-chart-interactions': '#6259d9',
+  '--saas-chart-interactions-fill': 'rgba(98, 89, 217, 0.18)',
+  '--saas-chart-interactions-fill-soft': 'rgba(98, 89, 217, 0.06)',
+  '--saas-chart-interactions-fill-transparent': 'rgba(98, 89, 217, 0)',
 } as const;
 
 /** Stable semantic contract consumed by every admin component. */
@@ -65,6 +69,13 @@ export const adminSemanticTokens = {
   '--admin-danger': 'var(--saas-danger)',
   '--admin-danger-strong': 'var(--saas-danger-strong)',
   '--admin-danger-background': 'var(--saas-danger-container)',
+  '--admin-chart-interactions': 'var(--saas-chart-interactions)',
+  '--admin-chart-interactions-fill': 'var(--saas-chart-interactions-fill)',
+  '--admin-chart-interactions-fill-soft': 'var(--saas-chart-interactions-fill-soft)',
+  '--admin-chart-interactions-fill-transparent': 'var(--saas-chart-interactions-fill-transparent)',
+  '--admin-chart-posts': 'var(--saas-primary-container)',
+  '--admin-chart-replies': 'var(--saas-success)',
+  '--admin-chart-danmaku': 'var(--saas-danger)',
   '--admin-radius-control': '8px',
   '--admin-radius-card': '8px',
   '--admin-radius-dialog': '12px',

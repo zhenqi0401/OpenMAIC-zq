@@ -11,6 +11,7 @@ import { DashboardAdminPanel } from '@/components/admin/dashboard/DashboardAdmin
 import { AccessAdminPanel } from '@/components/admin/access/AccessAdminPanel';
 import { CourseAdminPanel } from '@/components/admin/courses/CourseAdminPanel';
 import { ExamPolicyAdminPanel } from '@/components/admin/exams/ExamPolicyAdminPanel';
+import { CommunityAdminPanel } from '@/components/admin/community/CommunityAdminPanel';
 
 describe('admin layout polish', () => {
   it('keeps global session actions inside module headers instead of a separate top row', () => {
@@ -51,10 +52,9 @@ describe('admin layout polish', () => {
     expect(markup).toContain('账户');
     expect(markup).not.toContain('返回首页');
     expect(markup).not.toContain('退出登录');
-    expect(markup).toContain('趋势周期');
-    expect(markup).toContain('周');
-    expect(markup).toContain('月');
-    expect(markup).toContain('年');
+    const chartSource = readFileSync('components/admin/dashboard/AdminActivityChart.tsx', 'utf8');
+    expect(chartSource).toContain('aria-label="趋势周期"');
+    expect(chartSource).toContain("['week', 'month', 'year']");
     expect(markup).not.toContain('data-admin-dashboard-progress-panel');
     expect(markup).not.toContain('学习记录');
     expect(markup).not.toContain('测评通过率');
@@ -78,6 +78,26 @@ describe('admin layout polish', () => {
     expect(examMarkup).not.toContain('返回首页');
     expect(examMarkup).not.toContain('退出登录');
     expect(examMarkup).not.toContain('data-size="icon"');
+  });
+
+  it('places the same refresh control before the account button in all five modules', () => {
+    const markups = [
+      DashboardAdminPanel,
+      CourseAdminPanel,
+      ExamPolicyAdminPanel,
+      CommunityAdminPanel,
+      AccessAdminPanel,
+    ].map((Component) => renderToStaticMarkup(React.createElement(Component)));
+
+    for (const markup of markups) {
+      expect(markup.match(/data-admin-refresh-button="true"/g)).toHaveLength(1);
+      expect(markup).toContain('lucide-refresh-cw');
+      expect(markup.indexOf('data-admin-refresh-button')).toBeLessThan(
+        markup.indexOf('aria-label="账户"'),
+      );
+      expect(markup).toContain('刷新中…');
+      expect(markup).toContain('disabled=""');
+    }
   });
 
   it('renders one URL-addressable access workspace behind three semantic tabs', () => {

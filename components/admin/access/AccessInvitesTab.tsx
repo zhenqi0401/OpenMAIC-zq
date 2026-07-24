@@ -36,6 +36,7 @@ import {
   type InviteCodeValidationIssue,
 } from '@/lib/auth/invite-code';
 import { adminToast } from '@/lib/admin/toast';
+import { formatAdminDateTime } from '@/lib/admin/date-time';
 import { AccessDangerDialog } from './AccessUsersTab';
 
 export interface InviteDraft {
@@ -52,13 +53,6 @@ function toDatetimeLocal(value: string | Date | null | undefined): string {
   return date.toISOString().slice(0, 16);
 }
 
-function formatAdminDate(value: string | Date | null | undefined, fallback = '长期有效') {
-  if (!value) return fallback;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString('zh-CN', { hour12: false });
-}
-
 function getInviteCodeValidationMessage(issue: InviteCodeValidationIssue): string {
   if (issue === 'REQUIRED') return '请输入邀请码明文';
   if (issue === 'TOO_SHORT') return `邀请码至少需要 ${INVITE_CODE_MIN_LENGTH} 个字符`;
@@ -66,7 +60,7 @@ function getInviteCodeValidationMessage(issue: InviteCodeValidationIssue): strin
 }
 
 function InviteStatusBadge({ status }: { status: 'active' | 'disabled' | 'expired' }) {
-  const label = status === 'active' ? '启用中' : status === 'disabled' ? '已停用' : '已过期';
+  const label = status === 'active' ? '有效' : status === 'disabled' ? '已停用' : '已过期';
   const tone = status === 'active' ? 'success' : status === 'expired' ? 'warning' : 'neutral';
   return <AdminStatusBadge tone={tone}>{label}</AdminStatusBadge>;
 }
@@ -142,39 +136,62 @@ function InviteForm({
 }
 
 function InviteSummary({
+  cleartextCode,
   inviteCode,
+  onCopy,
   roles,
 }: {
+  cleartextCode: string | undefined;
   inviteCode: AdminInviteCode;
+  onCopy: (code: string) => void;
   roles: readonly AdminRole[];
 }) {
   const view = getInviteCodeView(inviteCode, roles);
   return (
     <>
       <td className="py-3 pr-3">
-        <InviteStatusBadge status={view.status} />
+        {cleartextCode ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="break-all font-semibold text-[var(--admin-foreground)]">
+              {cleartextCode}
+            </code>
+            <Button
+              aria-label={`复制邀请码 ${cleartextCode}`}
+              className={adminSecondaryButtonClassName}
+              onClick={() => onCopy(cleartextCode)}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              复制
+            </Button>
+          </div>
+        ) : (
+          <span className="text-sm text-[var(--admin-muted-foreground)]">仅创建时可见</span>
+        )}
       </td>
       <td className="break-words py-3 pr-3 font-medium text-[var(--admin-foreground)]">
         {view.roleLabel}
       </td>
       <td className="py-3 pr-3">
         <time className="break-words text-sm text-[var(--admin-muted-foreground)]">
-          {formatAdminDate(inviteCode.createdAt, '-')}
+          {formatAdminDateTime(inviteCode.createdAt)}
         </time>
       </td>
       <td className="py-3 pr-3">
         <time className="break-words text-sm text-[var(--admin-muted-foreground)]">
-          {formatAdminDate(inviteCode.expiresAt)}
+          {formatAdminDateTime(inviteCode.expiresAt, '长期有效')}
         </time>
       </td>
-      <td className="py-3 pr-3 text-sm text-[var(--admin-muted-foreground)]">
-        {inviteCode.enabled ? '是' : '否'}
+      <td className="py-3 pr-3">
+        <InviteStatusBadge status={view.status} />
       </td>
     </>
   );
 }
 
 export function AccessInvitesTab({
+  cleartextInviteCodes,
   creatingInvite,
   deletingInviteCodeId,
   inviteCodes,
@@ -186,6 +203,7 @@ export function AccessInvitesTab({
   roles,
   savingInviteCodeId,
 }: {
+  cleartextInviteCodes: Readonly<Record<string, string>>;
   creatingInvite: boolean;
   deletingInviteCodeId: string | null;
   inviteCodes: readonly AdminInviteCode[];
@@ -251,6 +269,15 @@ export function AccessInvitesTab({
     }
   }
 
+  async function copyInviteCode(code: string) {
+    try {
+      await navigator.clipboard.writeText(code);
+      adminToast.success('邀请码已复制');
+    } catch {
+      adminToast.error('复制失败，请手动复制邀请码');
+    }
+  }
+
   return (
     <AdminCard
       aria-label="邀请码工作区"
@@ -265,7 +292,7 @@ export function AccessInvitesTab({
             邀请码
           </h3>
           <p className="mt-1 max-w-[68ch] text-sm leading-6 text-[var(--admin-muted-foreground)]">
-            列表只展示状态和绑定信息，不展示邀请码明文；撤销后原邀请码将无法注册。
+            新邀请码仅在本次页面会话内显示明文并可复制；刷新后不可恢复，历史记录只展示状态和绑定信息。
           </p>
         </div>
         <Dialog onOpenChange={setCreateOpen} open={createOpen}>
@@ -284,7 +311,7 @@ export function AccessInvitesTab({
             <DialogHeader>
               <DialogTitle className="text-xl font-normal">创建邀请码</DialogTitle>
               <DialogDescription className="leading-6 text-[var(--admin-muted-foreground)]">
-                邀请码明文创建后不会在列表中再次显示，请自行安全保存。当前仍需手工输入明文。
+                创建成功后，本页会在当前页面生命周期内显示并允许复制明文；刷新或离开后不可恢复，请立即妥善保存。
               </DialogDescription>
             </DialogHeader>
             <InviteForm
@@ -325,22 +352,27 @@ export function AccessInvitesTab({
         <AdminEmptyState compact title="暂无邀请码" />
       ) : (
         <>
-          <div className="hidden xl:block" data-admin-access-invite-table>
+          <div className="hidden lg:block" data-admin-access-invite-table>
             <table className="w-full table-auto border-collapse text-left">
               <thead className="border-b border-[var(--admin-border-subtle)] text-xs font-semibold uppercase tracking-[0.08em] text-[var(--admin-muted-foreground)]">
                 <tr>
-                  <th className="pb-2 pr-3">状态</th>
+                  <th className="pb-2 pr-3">邀请码</th>
                   <th className="pb-2 pr-3">绑定角色</th>
                   <th className="pb-2 pr-3">创建时间</th>
                   <th className="pb-2 pr-3">过期时间</th>
-                  <th className="pb-2 pr-3">启用</th>
+                  <th className="pb-2 pr-3">状态</th>
                   <th className="pb-2 text-right">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--admin-border-subtle)]">
                 {inviteCodes.map((inviteCode) => (
                   <tr key={inviteCode.id}>
-                    <InviteSummary inviteCode={inviteCode} roles={roles} />
+                    <InviteSummary
+                      cleartextCode={cleartextInviteCodes[inviteCode.id]}
+                      inviteCode={inviteCode}
+                      onCopy={(code) => void copyInviteCode(code)}
+                      roles={roles}
+                    />
                     <td className="py-3 text-right">
                       <div className="flex flex-wrap justify-end gap-2">
                         <Button
@@ -368,7 +400,7 @@ export function AccessInvitesTab({
             </table>
           </div>
 
-          <div className="grid gap-3 xl:hidden" data-admin-access-invite-cards>
+          <div className="grid gap-3 lg:hidden" data-admin-access-invite-cards>
             {inviteCodes.map((inviteCode) => {
               const view = getInviteCodeView(inviteCode, roles);
               return (
@@ -376,27 +408,54 @@ export function AccessInvitesTab({
                   className="grid min-w-0 gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border-subtle)] p-3"
                   key={inviteCode.id}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="text-xs text-[var(--admin-muted-foreground)]">绑定角色</div>
-                      <div className="mt-1 break-words font-medium">{view.roleLabel}</div>
+                  <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                      <dt className="text-xs text-[var(--admin-muted-foreground)]">邀请码</dt>
+                      <dd className="mt-1">
+                        {cleartextInviteCodes[inviteCode.id] ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <code className="break-all font-semibold">
+                              {cleartextInviteCodes[inviteCode.id]}
+                            </code>
+                            <Button
+                              aria-label={`复制邀请码 ${cleartextInviteCodes[inviteCode.id]}`}
+                              className={adminSecondaryButtonClassName}
+                              onClick={() =>
+                                void copyInviteCode(cleartextInviteCodes[inviteCode.id])
+                              }
+                              size="sm"
+                              type="button"
+                              variant="outline"
+                            >
+                              复制
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-[var(--admin-muted-foreground)]">仅创建时可见</span>
+                        )}
+                      </dd>
                     </div>
-                    <InviteStatusBadge status={view.status} />
-                  </div>
-                  <dl className="grid gap-2 text-sm sm:grid-cols-3">
+                    <div>
+                      <dt className="text-xs text-[var(--admin-muted-foreground)]">绑定角色</dt>
+                      <dd className="mt-1 break-words font-medium">{view.roleLabel}</dd>
+                    </div>
                     <div>
                       <dt className="text-xs text-[var(--admin-muted-foreground)]">创建时间</dt>
                       <dd className="mt-1 break-words">
-                        {formatAdminDate(inviteCode.createdAt, '-')}
+                        {formatAdminDateTime(inviteCode.createdAt)}
                       </dd>
                     </div>
                     <div>
                       <dt className="text-xs text-[var(--admin-muted-foreground)]">过期时间</dt>
-                      <dd className="mt-1 break-words">{formatAdminDate(inviteCode.expiresAt)}</dd>
+                      <dd className="mt-1 break-words">
+                        {formatAdminDateTime(inviteCode.expiresAt, '长期有效')}
+                      </dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-[var(--admin-muted-foreground)]">启用状态</dt>
-                      <dd className="mt-1">{inviteCode.enabled ? '是' : '否'}</dd>
+                      <dt className="text-xs text-[var(--admin-muted-foreground)]">状态</dt>
+                      <dd className="mt-1">
+                        <InviteStatusBadge status={view.status} />
+                      </dd>
                     </div>
                   </dl>
                   <div className="flex flex-wrap justify-end gap-2">

@@ -86,7 +86,20 @@ describe('AdminSurface', () => {
     expect(markup).toContain('aria-selected="true"');
     expect(markup).toContain('aria-label="弹幕，12 条"');
     expect(markup).toContain('disabled=""');
+    expect(markup).toContain('border-b border-[var(--admin-border-subtle)]');
     expect(markup).not.toMatch(/purple|violet/i);
+
+    const noDividerMarkup = renderToStaticMarkup(
+      React.createElement(AdminTabs, {
+        ariaLabel: '用户管理工作区',
+        value: 'users',
+        onValueChange: () => undefined,
+        showDivider: false,
+        items: [{ value: 'users', label: '用户' }],
+      }),
+    );
+    expect(noDividerMarkup).not.toContain('border-b border-[var(--admin-border-subtle)]');
+    expect(noDividerMarkup).toContain('shadow-[inset_0_-2px_0_var(--admin-selection-indicator)]');
   });
 
   it('formats empty and populated pagination ranges and disables unavailable moves', () => {

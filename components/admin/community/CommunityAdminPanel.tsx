@@ -1,23 +1,28 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { MessageSquareText, RefreshCw, Search, ShieldCheck } from 'lucide-react';
+import { CalendarRange, MessageSquareText, Search } from 'lucide-react';
 import {
   AdminCard,
   AdminNotice,
   AdminPage,
   AdminSectionHeader,
   adminInputClassName,
+  adminPrimaryButtonClassName,
+  adminSecondaryButtonClassName,
   adminSelectClassName,
 } from '@/components/admin/AdminSurface';
 import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
 import { AdminPagination } from '@/components/admin/AdminPagination';
 import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
 import { AdminTabs } from '@/components/admin/AdminTabs';
-import { CommunityItemRow } from '@/components/admin/community/CommunityItemRow';
+import { AdminRefreshButton } from '@/components/admin/AdminRefreshButton';
+import { CommunityContentList } from '@/components/admin/community/CommunityContentList';
 import { CommunityModerationDialog } from '@/components/admin/community/CommunityModerationDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import {
   COMMUNITY_STATUS_LABELS,
   COMMUNITY_TARGET_LABELS,
@@ -30,7 +35,6 @@ import {
 } from '@/lib/admin/community-presentation';
 import { adminErrorMessage, adminToast } from '@/lib/admin/toast';
 import { isDanmakuEnabled, isForumEnabled } from '@/lib/config/feature-flags';
-import { cn } from '@/lib/utils';
 import { AdminMetricCard } from '@/components/admin/AdminPatterns';
 
 interface CommunityResponse {
@@ -79,6 +83,12 @@ export function CommunityAdminPanel() {
   const [status, setStatus] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [keywordDraft, setKeywordDraft] = useState('');
+  const [authorIdDraft, setAuthorIdDraft] = useState('');
+  const [courseIdDraft, setCourseIdDraft] = useState('');
+  const [statusDraft, setStatusDraft] = useState('');
+  const [fromDraft, setFromDraft] = useState('');
+  const [toDraft, setToDraft] = useState('');
   const [moderationItem, setModerationItem] = useState<AdminCommunityItem | null>(null);
   const [moderationAction, setModerationAction] = useState<CommunityModerationAction | null>(null);
   const [moderationError, setModerationError] = useState<string | null>(null);
@@ -143,6 +153,7 @@ export function CommunityAdminPanel() {
   function changeType(next: CommunityContentType) {
     setType(next);
     setStatus('');
+    setStatusDraft('');
     setPage(1);
     setModerationItem(null);
     setModerationAction(null);
@@ -155,6 +166,22 @@ export function CommunityAdminPanel() {
     setStatus('');
     setFrom('');
     setTo('');
+    setKeywordDraft('');
+    setAuthorIdDraft('');
+    setCourseIdDraft('');
+    setStatusDraft('');
+    setFromDraft('');
+    setToDraft('');
+    setPage(1);
+  }
+
+  function applyFilters() {
+    setKeyword(keywordDraft.trim());
+    setAuthorId(authorIdDraft.trim());
+    setCourseId(courseIdDraft.trim());
+    setStatus(statusDraft);
+    setFrom(fromDraft);
+    setTo(toDraft);
     setPage(1);
   }
 
@@ -184,7 +211,11 @@ export function CommunityAdminPanel() {
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(data.error || '管理操作失败');
-      adminToast.success(`${communityActionLabel(moderationAction)}操作成功`);
+      const actionLabel =
+        type === 'danmaku' && moderationAction === 'hide'
+          ? '下架'
+          : communityActionLabel(moderationAction);
+      adminToast.success(`${actionLabel}操作成功`);
       closeModeration();
       await load();
       await loadSummary();
@@ -200,7 +231,16 @@ export function CommunityAdminPanel() {
   return (
     <AdminPage data-community-admin-panel>
       <AdminSectionHeader
-        action={<AdminSessionActions />}
+        action={
+          <AdminSessionActions
+            leading={
+              <AdminRefreshButton
+                loading={loading}
+                onRefresh={() => void Promise.all([load(true), loadSummary()])}
+              />
+            }
+          />
+        }
         description="统一检索和处置弹幕、帖子与回复；每次管理员操作均保留操作者、原因和时间。"
         eyebrow="Community governance"
         icon={<MessageSquareText className="size-4" />}
@@ -211,6 +251,7 @@ export function CommunityAdminPanel() {
         ariaLabel="社区内容类型"
         items={availableTabs}
         onValueChange={changeType}
+        showDivider={false}
         value={type}
       />
 
@@ -233,47 +274,39 @@ export function CommunityAdminPanel() {
       </div>
 
       <AdminCard className="grid gap-3 p-4">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div
+          className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(180px,1fr)_minmax(160px,0.8fr)_minmax(150px,0.7fr)_170px_auto_auto] xl:items-center"
+          data-community-filters
+        >
           <Input
             aria-label="关键词"
             className={adminInputClassName}
-            onChange={(event) => {
-              setKeyword(event.target.value);
-              setPage(1);
-            }}
+            onChange={(event) => setKeywordDraft(event.target.value)}
+            onKeyDown={(event) => event.key === 'Enter' && applyFilters()}
             placeholder={type === 'audit' ? '操作或原因关键词' : '内容关键词'}
-            value={keyword}
+            value={keywordDraft}
           />
           <Input
             aria-label={type === 'audit' ? '管理员用户 ID' : '作者用户 ID'}
             className={adminInputClassName}
-            onChange={(event) => {
-              setAuthorId(event.target.value);
-              setPage(1);
-            }}
+            onChange={(event) => setAuthorIdDraft(event.target.value)}
             placeholder={type === 'audit' ? '管理员用户 ID' : '作者用户 ID'}
-            value={authorId}
+            value={authorIdDraft}
           />
           {type !== 'audit' ? (
             <Input
               aria-label="课程 ID"
               className={adminInputClassName}
-              onChange={(event) => {
-                setCourseId(event.target.value);
-                setPage(1);
-              }}
+              onChange={(event) => setCourseIdDraft(event.target.value)}
               placeholder="课程 ID"
-              value={courseId}
+              value={courseIdDraft}
             />
           ) : null}
           <select
             aria-label={type === 'audit' ? '审计目标类型' : '内容状态'}
             className={adminSelectClassName}
-            onChange={(event) => {
-              setStatus(event.target.value);
-              setPage(1);
-            }}
-            value={status}
+            onChange={(event) => setStatusDraft(event.target.value)}
+            value={statusDraft}
           >
             <option value="">全部{type === 'audit' ? '目标' : '状态'}</option>
             {STATUS_OPTIONS[type].map((option) => (
@@ -282,45 +315,66 @@ export function CommunityAdminPanel() {
               </option>
             ))}
           </select>
-          <Input
-            aria-label="开始时间"
-            className={adminInputClassName}
-            onChange={(event) => {
-              setFrom(event.target.value);
-              setPage(1);
-            }}
-            type="datetime-local"
-            value={from}
-          />
-          <Input
-            aria-label="结束时间"
-            className={adminInputClassName}
-            onChange={(event) => {
-              setTo(event.target.value);
-              setPage(1);
-            }}
-            type="datetime-local"
-            value={to}
-          />
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-2 text-xs text-[var(--admin-muted-foreground)]">
-            <Search className="size-3.5" /> 共 {total} 条记录
-          </span>
-          <div className="flex gap-2">
-            <Button onClick={resetFilters} size="sm" type="button" variant="outline">
-              清空筛选
-            </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button className={adminSecondaryButtonClassName} type="button" variant="outline">
+                <CalendarRange aria-hidden="true" className="size-4" />
+                选择日期范围
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              {...adminThemeAttributes}
+              align="end"
+              className="grid w-[min(92vw,360px)] gap-3 border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 text-[var(--admin-foreground)]"
+            >
+              <label className="grid gap-1.5 text-sm">
+                <span>开始时间</span>
+                <Input
+                  aria-label="开始时间"
+                  className={adminInputClassName}
+                  onChange={(event) => setFromDraft(event.target.value)}
+                  type="datetime-local"
+                  value={fromDraft}
+                />
+              </label>
+              <label className="grid gap-1.5 text-sm">
+                <span>结束时间</span>
+                <Input
+                  aria-label="结束时间"
+                  className={adminInputClassName}
+                  onChange={(event) => setToDraft(event.target.value)}
+                  type="datetime-local"
+                  value={toDraft}
+                />
+              </label>
+              <p className="text-xs text-[var(--admin-muted-foreground)]">
+                日期范围会在点击筛选后应用。
+              </p>
+            </PopoverContent>
+          </Popover>
+          <div className="flex gap-2 md:col-span-2 xl:col-span-1 xl:justify-end">
             <Button
-              disabled={loading}
-              onClick={() => void load(true)}
-              size="sm"
+              className={adminSecondaryButtonClassName}
+              onClick={resetFilters}
               type="button"
               variant="outline"
             >
-              <RefreshCw className={cn('size-3.5', loading && 'animate-spin')} /> 刷新
+              清空
+            </Button>
+            <Button className={adminPrimaryButtonClassName} onClick={applyFilters} type="button">
+              筛选
             </Button>
           </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-2 text-xs text-[var(--admin-muted-foreground)]">
+            <Search className="size-3.5" /> 共 {total} 条记录
+          </span>
+          {from || to ? (
+            <span className="text-xs text-[var(--admin-muted-foreground)]">
+              日期：{from ? from.replace('T', ' ') : '不限'} 至 {to ? to.replace('T', ' ') : '不限'}
+            </span>
+          ) : null}
         </div>
       </AdminCard>
 
@@ -351,15 +405,12 @@ export function CommunityAdminPanel() {
             title={hasActiveFilters ? '当前筛选没有结果' : '当前类型暂无记录'}
           />
         ) : (
-          items.map((item) => (
-            <CommunityItemRow
-              item={item}
-              key={item.id}
-              onModerate={(action) => openModeration(item, action)}
-              pending={pendingItemId === item.id}
-              type={type}
-            />
-          ))
+          <CommunityContentList
+            items={items}
+            onModerate={openModeration}
+            pendingItemId={pendingItemId}
+            type={type}
+          />
         )}
       </div>
 
@@ -373,15 +424,9 @@ export function CommunityAdminPanel() {
         totalPages={pageCount}
       />
 
-      <AdminNotice>
-        <span className="inline-flex items-center gap-2">
-          <ShieldCheck className="size-4" /> 社区正文按纯文本安全输出；原始
-          HTML、危险协议和控制字符会在服务端拒绝。
-        </span>
-      </AdminNotice>
-
       <CommunityModerationDialog
         action={moderationAction}
+        actionDisplayLabel={type === 'danmaku' && moderationAction === 'hide' ? '下架' : undefined}
         error={moderationError}
         item={moderationItem}
         key={`${moderationItem?.id ?? 'closed'}:${moderationAction ?? 'none'}`}

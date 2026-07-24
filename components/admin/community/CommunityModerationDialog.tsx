@@ -12,7 +12,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { AdminNotice, adminSecondaryButtonClassName } from '@/components/admin/AdminSurface';
+import {
+  AdminNotice,
+  adminDangerButtonClassName,
+  adminPrimaryButtonClassName,
+  adminSecondaryButtonClassName,
+} from '@/components/admin/AdminSurface';
 import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import {
   COMMUNITY_REASON_PRESETS,
@@ -26,6 +31,7 @@ import {
 
 export function CommunityModerationDialog({
   action,
+  actionDisplayLabel,
   error,
   item,
   open,
@@ -34,6 +40,7 @@ export function CommunityModerationDialog({
   onSubmit,
 }: {
   action: CommunityModerationAction | null;
+  actionDisplayLabel?: string;
   error: string | null;
   item: AdminCommunityItem | null;
   open: boolean;
@@ -48,7 +55,7 @@ export function CommunityModerationDialog({
 
   if (!item || !action) return null;
 
-  const actionLabel = communityActionLabel(action);
+  const actionLabel = actionDisplayLabel ?? communityActionLabel(action);
   const reasonRequired = moderationRequiresReason(action);
 
   function submit() {
@@ -152,7 +159,9 @@ export function CommunityModerationDialog({
           </DialogClose>
           <Button
             aria-busy={submitting}
-            className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
+            className={
+              action === 'delete' ? adminDangerButtonClassName : adminPrimaryButtonClassName
+            }
             disabled={submitting}
             onClick={submit}
             type="button"

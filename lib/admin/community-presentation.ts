@@ -20,6 +20,7 @@ export interface AdminCommunityItem {
   courseId?: string | null;
   courseName?: string | null;
   sceneKey?: string;
+  actionOffsetMs?: number;
   actionId?: string;
   pinned?: boolean;
   locked?: boolean;

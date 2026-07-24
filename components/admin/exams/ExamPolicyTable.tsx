@@ -2,7 +2,11 @@
 
 import { useState } from 'react';
 import { AdminRowActions } from '@/components/admin/AdminRowActions';
-import { AdminStatusBadge, adminSecondaryButtonClassName } from '@/components/admin/AdminSurface';
+import {
+  AdminStatusBadge,
+  adminDangerButtonClassName,
+  adminSecondaryButtonClassName,
+} from '@/components/admin/AdminSurface';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -177,9 +181,15 @@ export function ExamPolicyTable({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="border-t border-[var(--admin-border-subtle)] px-5 pb-5 pt-3">
-            <AlertDialogCancel disabled={Boolean(deletingPolicyId)}>取消</AlertDialogCancel>
+            <AlertDialogCancel
+              className={adminSecondaryButtonClassName}
+              disabled={Boolean(deletingPolicyId)}
+            >
+              取消
+            </AlertDialogCancel>
             <AlertDialogAction
               aria-busy={Boolean(deletingPolicyId)}
+              className={adminDangerButtonClassName}
               disabled={Boolean(deletingPolicyId)}
               onClick={() => deleteTarget && onDelete(deleteTarget.id)}
               variant="destructive"

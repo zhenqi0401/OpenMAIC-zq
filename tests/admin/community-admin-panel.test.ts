@@ -1,5 +1,11 @@
 import { readFileSync } from 'node:fs';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import {
+  CommunityContentList,
+  formatDanmakuOffset,
+} from '@/components/admin/community/CommunityContentList';
 import {
   COMMUNITY_ACTION_LABELS,
   COMMUNITY_STATUS_LABELS,
@@ -65,6 +71,85 @@ describe('community admin panel presentation', () => {
     expect(moderationEndpoint('replies', 'reply/1')).toBe('/api/admin/forum/replies/reply%2F1');
   });
 
+  it('renders posts as an author-led content flow without pin controls', () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(CommunityContentList, {
+        type: 'posts',
+        pendingItemId: null,
+        onModerate: () => undefined,
+        items: [
+          {
+            id: 'post-1',
+            status: 'visible',
+            title: '如何完成课程',
+            body: '这是帖子正文摘要。',
+            courseName: '入职课程',
+            replyCount: 3,
+            locked: false,
+            pinned: true,
+            createdAt: '2026-07-23T08:09:10.000Z',
+            author: {
+              id: 'user-1',
+              displayName: '张三',
+              roleName: '学员',
+              roleCode: 'learner',
+            },
+          },
+        ],
+      }),
+    );
+
+    expect(markup).toContain('data-community-post-flow');
+    expect(markup).toContain('张三');
+    expect(markup).toContain('学员');
+    expect(markup).toContain('如何完成课程');
+    expect(markup).toContain('这是帖子正文摘要');
+    expect(markup).toContain('所属课程：入职课程');
+    expect(markup).toContain('回复数：3');
+    expect(markup).toContain('关闭回复');
+    expect(markup).not.toContain('置顶');
+  });
+
+  it('renders a six-column danmaku table and matching mobile fields with actionOffsetMs', () => {
+    expect(formatDanmakuOffset(0)).toBe('00:00');
+    expect(formatDanmakuOffset(65_432)).toBe('01:05');
+    expect(formatDanmakuOffset(3_665_000)).toBe('01:01:05');
+    expect(formatDanmakuOffset(undefined)).toBe('—');
+
+    const markup = renderToStaticMarkup(
+      React.createElement(CommunityContentList, {
+        type: 'danmaku',
+        pendingItemId: null,
+        onModerate: () => undefined,
+        items: [
+          {
+            id: 'dm-1',
+            status: 'visible',
+            content: '重点来了',
+            actionOffsetMs: 65_432,
+            courseName: '入职课程',
+            createdAt: '2026-07-23T08:09:10.000Z',
+            author: {
+              id: 'user-1',
+              displayName: '李四',
+              roleName: '学员',
+              roleCode: 'learner',
+            },
+          },
+        ],
+      }),
+    );
+
+    for (const heading of ['发送者', '弹幕文本', '播放时间点', '所属课程', '状态', '操作']) {
+      expect(markup).toContain(heading);
+    }
+    expect(markup).toContain('data-community-danmaku-table');
+    expect(markup).toContain('data-community-danmaku-cards');
+    expect(markup).toContain('01:05');
+    expect(markup).toContain('正常');
+    expect(markup).toContain('下架');
+  });
+
   it('keeps feature flags in control of the available tabs', () => {
     expect(availableCommunityTabs(true, true).map((tab) => tab.label)).toEqual([
       '弹幕',
@@ -87,6 +172,10 @@ describe('community admin panel presentation', () => {
   it('uses a stable in-page dialog, hides technical IDs, and retains data on failure', () => {
     const panelSource = readFileSync('components/admin/community/CommunityAdminPanel.tsx', 'utf8');
     const rowSource = readFileSync('components/admin/community/CommunityItemRow.tsx', 'utf8');
+    const contentSource = readFileSync(
+      'components/admin/community/CommunityContentList.tsx',
+      'utf8',
+    );
     const dialogSource = readFileSync(
       'components/admin/community/CommunityModerationDialog.tsx',
       'utf8',
@@ -102,6 +191,17 @@ describe('community admin panel presentation', () => {
     expect(rowSource).not.toContain('记录 ID：{item.id}');
     expect(rowSource).not.toContain('作者 ID：{item.author.id}');
     expect(panelSource).not.toContain('moderationScrollPosition');
+    expect(panelSource).toContain('aria-label="关键词"');
+    expect(panelSource).toContain(
+      "aria-label={type === 'audit' ? '管理员用户 ID' : '作者用户 ID'}",
+    );
+    expect(panelSource).toContain('aria-label="课程 ID"');
+    expect(panelSource).toContain("aria-label={type === 'audit' ? '审计目标类型' : '内容状态'}");
+    expect(panelSource).toContain('选择日期范围');
+    expect(panelSource).toContain('setKeyword(keywordDraft.trim())');
+    expect(panelSource).not.toContain('社区正文按纯文本安全输出');
+    expect(contentSource).not.toContain("onModerate('pin')");
+    expect(contentSource).not.toContain("onModerate('unpin')");
     expect(dialogSource).toContain('modal={false}');
     expect(dialogSource).toContain('focus({ preventScroll: true })');
     expect(dialogSource).toContain('value={detail}');

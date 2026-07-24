@@ -10,6 +10,7 @@ import {
   adminSecondaryButtonClassName,
 } from '@/components/admin/AdminSurface';
 import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
+import { AdminRefreshButton } from '@/components/admin/AdminRefreshButton';
 import { AdminDeleteDialog } from '@/components/admin/AdminDeleteDialog';
 import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
 import { AdminPagination } from '@/components/admin/AdminPagination';
@@ -142,6 +143,7 @@ export function CourseAdminPanel() {
     totalPages: 1,
   });
   const [previews, setPreviews] = useState<Record<string, { canvas: unknown } | null>>({});
+  const [loading, setLoading] = useState(true);
 
   const learnerRoles = useMemo(() => roles.filter((role) => !role.isAdmin), [roles]);
   const roleNames = useMemo(
@@ -150,6 +152,7 @@ export function CourseAdminPanel() {
   );
   const loadAll = useCallback(
     async (notify = false) => {
+      setLoading(true);
       try {
         const [rolesResponse, categoriesResponse, courseResult] = await Promise.all([
           fetch('/api/admin/roles'),
@@ -184,6 +187,8 @@ export function CourseAdminPanel() {
         if (notify) adminToast.success('课程列表已刷新');
       } catch {
         adminToast.error('课程后台加载失败');
+      } finally {
+        setLoading(false);
       }
     },
     [client, coursePage, filters],
@@ -346,16 +351,7 @@ export function CourseAdminPanel() {
       <AdminSectionHeader
         action={
           <AdminSessionActions
-            leading={
-              <Button
-                className={adminSecondaryButtonClassName}
-                onClick={() => void loadAll(true)}
-                type="button"
-                variant="outline"
-              >
-                刷新
-              </Button>
-            }
+            leading={<AdminRefreshButton loading={loading} onRefresh={() => void loadAll(true)} />}
           />
         }
         description="维护课程从草稿到发布的全流程，并把可见范围绑定到真实角色。"

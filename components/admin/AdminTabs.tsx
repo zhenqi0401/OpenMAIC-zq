@@ -16,6 +16,7 @@ export interface AdminTabsProps<T extends string> {
   onValueChange: (value: T) => void;
   ariaLabel: string;
   className?: string;
+  showDivider?: boolean;
 }
 
 /**
@@ -28,6 +29,7 @@ export function AdminTabs<T extends string>({
   onValueChange,
   ariaLabel,
   className,
+  showDivider = true,
 }: AdminTabsProps<T>) {
   return (
     <Tabs
@@ -39,7 +41,10 @@ export function AdminTabs<T extends string>({
     >
       <TabsList
         aria-label={ariaLabel}
-        className="h-auto max-w-full flex-wrap justify-start gap-5 rounded-none border-b border-[var(--admin-border-subtle)] bg-transparent px-1 py-0"
+        className={cn(
+          'h-auto max-w-full flex-wrap justify-start gap-5 rounded-none bg-transparent px-1 py-0',
+          showDivider && 'border-b border-[var(--admin-border-subtle)]',
+        )}
         variant="line"
       >
         {items.map((item) => (
