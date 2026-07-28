@@ -40,10 +40,10 @@ import { resolveVocationalActive } from '@/lib/config/feature-flags';
 import {
   buildOutlineFidelityPrompt,
   buildSourceCatalog,
-  ensureRequiredFidelityStructure,
   isEnhancedTrainingCourseType,
   isTrainingCourseType,
   normalizeFidelityOutline,
+  satisfiesExplicitQuizRequirement,
   stripFidelityForStreaming,
 } from '@/lib/generation/input-fidelity';
 const log = createLogger('Outlines Stream');
@@ -577,6 +577,26 @@ export async function POST(req: NextRequest) {
 
               // Validate: got outlines?
               if (parsedOutlines.length > 0) {
+                const missingRequiredQuiz =
+                  !!enhancedTrainingCourseType &&
+                  !satisfiesExplicitQuizRequirement(requirements.requirement, parsedOutlines);
+                if (missingRequiredQuiz) {
+                  lastError =
+                    'The generated outline omitted a Quiz explicitly required by the user';
+                  log.warn(
+                    `Outlines attempt ${attempt} omitted an explicitly required Quiz; rejecting the attempt`,
+                  );
+                  parsedOutlines = [];
+                  if (attempt <= MAX_STREAM_RETRIES) {
+                    const retryEvent = JSON.stringify({
+                      type: 'retry',
+                      attempt,
+                      maxAttempts: MAX_STREAM_RETRIES + 1,
+                    });
+                    controller.enqueue(encoder.encode(`data: ${retryEvent}\n\n`));
+                  }
+                  continue;
+                }
                 if (!courseTitle) {
                   // The head-bound streaming scan can miss a title the model
                   // placed after the outlines array or past the 8KB head window;
@@ -635,16 +655,8 @@ export async function POST(req: NextRequest) {
           }
 
           if (parsedOutlines.length > 0) {
-            const structurallyCompleteOutlines = enhancedTrainingCourseType
-              ? ensureRequiredFidelityStructure(
-                  requirements.requirement,
-                  enhancedTrainingCourseType,
-                  sourceCatalog,
-                  parsedOutlines,
-                )
-              : parsedOutlines;
             // Replace sequential gen_img_N/gen_vid_N with globally unique IDs
-            const uniquifiedOutlines = uniquifyMediaElementIds(structurallyCompleteOutlines);
+            const uniquifiedOutlines = uniquifyMediaElementIds(parsedOutlines);
             // Send done event with all outlines
             const doneEvent = JSON.stringify({
               type: 'done',

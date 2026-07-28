@@ -6,10 +6,11 @@ import {
   buildOutlineFidelityPrompt,
   buildSceneFidelityContext,
   buildSourceCatalog,
-  ensureRequiredFidelityStructure,
   isEnhancedTrainingCourseType,
   isTrainingCourseType,
   normalizeFidelityOutline,
+  requiresExplicitQuizScene,
+  satisfiesExplicitQuizRequirement,
 } from '@/lib/generation/input-fidelity';
 import { changeOutlineType } from '@/lib/generation/outline-type';
 import { generateSceneActions, generateSceneContent } from '@/lib/generation/scene-generator';
@@ -97,6 +98,102 @@ describe('input-fidelity contracts', () => {
     expect((normalized as SceneOutline & { sourceRefIds?: unknown }).sourceRefIds).toBeUndefined();
   });
 
+  it('recovers relevant server-owned evidence when the model omits sourceRefIds', () => {
+    const catalog = buildSourceCatalog({
+      requirement: [
+        '开头必须直接提出三个管理痛点，不要暖场。',
+        '',
+        '双因素理论必须说明赫茨伯格1959、保健因素和激励因素。',
+        '',
+        '互动必须包含辨别题和应用题。',
+      ].join('\n'),
+    });
+    const normalized = normalizeFidelityOutline(
+      outline({
+        title: '双因素理论是什么',
+        description: '解释赫茨伯格提出的两类因素',
+        keyPoints: ['保健因素', '激励因素'],
+        teachingBrief: { mustCover: ['必须说明赫茨伯格1959及保健因素与激励因素'] },
+      }),
+      'management',
+      catalog,
+    );
+
+    expect(normalized.sourceEvidence).toContainEqual(catalog[1]);
+    expect(normalized.sourceEvidence?.every((source) => catalog.includes(source))).toBe(true);
+  });
+
+  it('recovers a matching PDF excerpt without trusting model-supplied evidence text', () => {
+    const catalog = buildSourceCatalog({
+      requirement: '制作退款审批培训。',
+      pdfText: '退款金额超过5000元时，必须由财务负责人复核。',
+      pdfFileName: '退款制度.pdf',
+    });
+    const normalized = normalizeFidelityOutline(
+      {
+        ...outline(),
+        teachingBrief: { mustCover: ['超过5000元的退款必须由财务负责人复核'] },
+        sourceEvidence: [
+          { id: 'FAKE-001', kind: 'document', label: '伪造文件', excerpt: '伪造正文' },
+        ],
+      },
+      'company_policy',
+      catalog,
+    );
+
+    expect(normalized.sourceEvidence).toContainEqual(catalog[1]);
+    expect(normalized.sourceEvidence?.every((source) => catalog.includes(source))).toBe(true);
+    expect(JSON.stringify(normalized)).not.toContain('伪造正文');
+  });
+
+  it('recovers evidence across a structured management-course requirement without model refs', () => {
+    const requirement = [
+      '双因素理论（20分钟 · 中层管理者 · 体验反思型）',
+      '',
+      '开头——三个痛点问题直入，无暖场、无自我介绍。',
+      '',
+      'Scene 1 双因素理论是什么：赫茨伯格1959；保健因素与激励因素。',
+      '',
+      'Scene 2 管理者常把保健当激励，并使用本土和国际案例。',
+      '',
+      'Scene 3 落地三步：诊断→保健兜底→激励激活，并提供团队激励诊断画布。',
+      '',
+      '互动必须包含辨别题和应用题。',
+      '',
+      '结尾强制本课一页总结：核心定义、口诀、三个带走、防错要点。',
+    ].join('\n');
+    const catalog = buildSourceCatalog({ requirement });
+    const cases = [
+      outline({ title: '三个痛点直入', teachingBrief: { mustCover: ['无暖场无自我介绍'] } }),
+      outline({
+        title: '双因素理论是什么',
+        teachingBrief: { mustCover: ['赫茨伯格1959、保健因素与激励因素'] },
+      }),
+      outline({
+        title: '落地三步',
+        teachingBrief: { mustCover: ['诊断→保健兜底→激励激活'] },
+      }),
+      outline({
+        type: 'quiz',
+        title: '课程互动',
+        quizConfig: { questionCount: 3, difficulty: 'medium', questionTypes: ['multiple'] },
+        teachingBrief: { mustCover: ['包含辨别题和应用题'] },
+      }),
+      outline({
+        title: '本课一页总结',
+        teachingBrief: { mustCover: ['核心定义、口诀、三个带走、防错要点'] },
+      }),
+    ];
+
+    const normalized = cases.map((item) => normalizeFidelityOutline(item, 'management', catalog));
+    expect(normalized.every((item) => (item.sourceEvidence?.length ?? 0) > 0)).toBe(true);
+    expect(
+      normalized
+        .flatMap((item) => item.sourceEvidence ?? [])
+        .every((source) => catalog.includes(source)),
+    ).toBe(true);
+  });
+
   it('survives JSON persistence and type changes without losing fidelity fields', () => {
     const original = outline({
       trainingCourseType: 'professional',
@@ -123,39 +220,25 @@ describe('input-fidelity contracts', () => {
     expect(prompt).toContain('不得输出或伪造来源正文');
     expect(prompt).toContain('User Requirements 仍然是本次课程的权威教学设计要求');
     expect(prompt).toContain('必须至少输出一个 `type: "quiz"`');
+    expect(prompt).toContain('题型、题量、题目内容和教学位置由你');
+    expect(prompt).toContain('用户未指定位置时，不要套用固定位置');
   });
 
-  it('materializes an explicitly required in-course quiz when the model returned slides only', () => {
-    const requirement = '互动：必须包含辨别题 + 应用题\n结尾做本课总结';
-    const catalog = buildSourceCatalog({ requirement });
-    const result = ensureRequiredFidelityStructure(requirement, 'management', catalog, [
-      outline({ title: '理论讲解' }),
-      outline({ id: 'summary', order: 2, title: '本课一页总结' }),
-    ]);
-
-    expect(result.map((item) => item.type)).toEqual(['slide', 'quiz', 'slide']);
-    expect(result.map((item) => item.order)).toEqual([1, 2, 3]);
-    expect(result[1].quizConfig).toEqual({
-      questionCount: 2,
-      difficulty: 'medium',
-      questionTypes: ['single', 'text'],
-    });
-    expect(result[1].sourceEvidence).toEqual([catalog[0]]);
-    expect(result[1].teachingBrief?.mustCover[0]).toContain('辨别题和应用题');
-  });
-
-  it('does not duplicate an existing quiz', () => {
-    const existingQuiz = outline({
+  it('requires a model-authored Quiz only when the user explicitly asks for one', () => {
+    const requirement = '课程中必须包含测验，位置由课程设计决定。';
+    const modelQuiz = outline({
       type: 'quiz',
-      quizConfig: { questionCount: 2, difficulty: 'easy', questionTypes: ['single'] },
+      quizConfig: { questionCount: 4, difficulty: 'hard', questionTypes: ['multiple', 'text'] },
     });
-    const result = ensureRequiredFidelityStructure(
-      '必须包含辨别题和应用题',
-      'management',
-      buildSourceCatalog({ requirement: '必须包含辨别题和应用题' }),
-      [existingQuiz],
-    );
-    expect(result).toEqual([existingQuiz]);
+    expect(requiresExplicitQuizScene(requirement)).toBe(true);
+    expect(satisfiesExplicitQuizRequirement(requirement, [outline()])).toBe(false);
+    expect(satisfiesExplicitQuizRequirement(requirement, [outline(), modelQuiz])).toBe(true);
+    expect(satisfiesExplicitQuizRequirement('讲解双因素理论', [outline()])).toBe(true);
+    expect(modelQuiz.quizConfig).toEqual({
+      questionCount: 4,
+      difficulty: 'hard',
+      questionTypes: ['multiple', 'text'],
+    });
   });
 
   it('returns no downstream context for missing/other policies', () => {

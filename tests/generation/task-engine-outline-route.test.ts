@@ -548,4 +548,91 @@ describe('task-engine outline route', () => {
     expect(done.outlines[0].widgetType).toBeUndefined();
     expect(done.outlines[0].widgetOutline).toBeUndefined();
   });
+
+  test('retries an enhanced outline that omits an explicitly required Quiz and preserves the model-authored placement and config', async () => {
+    vi.resetModules();
+    streamLLMMock.mockReset();
+    resolveModelFromRequestMock.mockReset();
+    resolveModelFromRequestMock.mockResolvedValue({
+      model: { provider: 'glm.chat', modelId: 'glm-5.1' },
+      modelInfo: { outputWindow: 4096, capabilities: {} },
+      modelString: 'glm:glm-5.1',
+      providerId: 'glm',
+      modelId: 'glm-5.1',
+      thinkingConfig: undefined,
+    });
+
+    const responseFor = (outlines: unknown[]) =>
+      JSON.stringify({ languageDirective: '用中文授课。', courseTitle: '管理实践', outlines });
+    streamLLMMock
+      .mockReturnValueOnce({
+        textStream: (async function* () {
+          yield responseFor([
+            {
+              id: 'slide_only',
+              type: 'slide',
+              title: '理论讲解',
+              description: '先讲清理论。',
+              keyPoints: ['理论'],
+              order: 1,
+              teachingBrief: { mustCover: ['讲清理论'] },
+              sourceRefIds: ['REQ-001'],
+            },
+          ]);
+        })(),
+      })
+      .mockReturnValueOnce({
+        textStream: (async function* () {
+          yield responseFor([
+            {
+              id: 'model_quiz',
+              type: 'quiz',
+              title: '管理判断挑战',
+              description: '由模型判断最合适的测验设计。',
+              keyPoints: ['判断', '迁移'],
+              order: 1,
+              quizConfig: {
+                questionCount: 4,
+                difficulty: 'hard',
+                questionTypes: ['multiple', 'text'],
+              },
+              teachingBrief: { mustCover: ['测验课程应用能力'] },
+              sourceRefIds: ['REQ-001'],
+            },
+            {
+              id: 'closing_slide',
+              type: 'slide',
+              title: '理论回顾',
+              description: '测验后回顾理论。',
+              keyPoints: ['回顾'],
+              order: 2,
+              teachingBrief: { mustCover: ['回顾理论'] },
+              sourceRefIds: ['REQ-001'],
+            },
+          ]);
+        })(),
+      });
+
+    const { POST } = await import('@/app/api/generate/scene-outlines-stream/route');
+    const response = await POST(
+      mockRequest({
+        requirement: '设计管理课程，必须包含测验；测验位置由课程设计决定。',
+        trainingCourseType: 'management',
+      }) as unknown as Parameters<typeof POST>[0],
+    );
+
+    const events = parseSseEvents(await readStreamBody(response));
+    expect(events.some((event) => event.type === 'retry')).toBe(true);
+    expect(streamLLMMock).toHaveBeenCalledTimes(2);
+    const done = events.find((event) => event.type === 'done');
+    expect(done.outlines.map((item: { id: string }) => item.id)).toEqual([
+      'model_quiz',
+      'closing_slide',
+    ]);
+    expect(done.outlines[0].quizConfig).toEqual({
+      questionCount: 4,
+      difficulty: 'hard',
+      questionTypes: ['multiple', 'text'],
+    });
+  });
 });
