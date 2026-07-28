@@ -577,6 +577,30 @@ export async function POST(req: NextRequest) {
 
               // Validate: got outlines?
               if (parsedOutlines.length > 0) {
+                const missingRequiredEvidence =
+                  !!enhancedTrainingCourseType &&
+                  sourceCatalog.length > 0 &&
+                  parsedOutlines.some(
+                    (outline) =>
+                      !Array.isArray(outline.sourceEvidence) || outline.sourceEvidence.length === 0,
+                  );
+                if (missingRequiredEvidence) {
+                  lastError =
+                    'The generated outline could not be linked to the supplied source evidence';
+                  log.warn(
+                    `Outlines attempt ${attempt} left enhanced scenes without source evidence; rejecting the attempt`,
+                  );
+                  parsedOutlines = [];
+                  if (attempt <= MAX_STREAM_RETRIES) {
+                    const retryEvent = JSON.stringify({
+                      type: 'retry',
+                      attempt,
+                      maxAttempts: MAX_STREAM_RETRIES + 1,
+                    });
+                    controller.enqueue(encoder.encode(`data: ${retryEvent}\n\n`));
+                  }
+                  continue;
+                }
                 const missingRequiredQuiz =
                   !!enhancedTrainingCourseType &&
                   !satisfiesExplicitQuizRequirement(requirements.requirement, parsedOutlines);

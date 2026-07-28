@@ -20,6 +20,19 @@ const MAX_SOURCE_EXCERPT_CHARS = 700;
 const MAX_MUST_COVER_ITEMS = 8;
 const MAX_MUST_COVER_CHARS = 500;
 const MAX_RECOVERED_SOURCES = 6;
+const GENERIC_EVIDENCE_TERMS = new Set([
+  '课程',
+  '内容',
+  '用户',
+  '要求',
+  '必须',
+  '讲解',
+  '说明',
+  '介绍',
+  '学习',
+  '部分',
+  '进行',
+]);
 
 const POLICY_LABELS: Record<TrainingCourseType, string> = {
   management: '管理知识培训',
@@ -201,7 +214,8 @@ function evidenceTerms(value: string): Set<string> {
   for (const sequence of normalized.match(/[\u3400-\u9fff]+/g) ?? []) {
     if (sequence.length === 1) terms.add(sequence);
     for (let index = 0; index < sequence.length - 1; index += 1) {
-      terms.add(sequence.slice(index, index + 2));
+      const term = sequence.slice(index, index + 2);
+      if (!GENERIC_EVIDENCE_TERMS.has(term)) terms.add(term);
     }
   }
   return terms;

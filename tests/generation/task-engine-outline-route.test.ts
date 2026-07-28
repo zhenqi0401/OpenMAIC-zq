@@ -635,4 +635,72 @@ describe('task-engine outline route', () => {
       questionTypes: ['multiple', 'text'],
     });
   });
+
+  test('retries rather than accepting an enhanced scene that cannot be linked to real evidence', async () => {
+    vi.resetModules();
+    streamLLMMock.mockReset();
+    resolveModelFromRequestMock.mockReset();
+    resolveModelFromRequestMock.mockResolvedValue({
+      model: { provider: 'glm.chat', modelId: 'glm-5.1' },
+      modelInfo: { outputWindow: 4096, capabilities: {} },
+      modelString: 'glm:glm-5.1',
+      providerId: 'glm',
+      modelId: 'glm-5.1',
+      thinkingConfig: undefined,
+    });
+
+    const wrapper = (scene: Record<string, unknown>) =>
+      JSON.stringify({
+        languageDirective: '用中文授课。',
+        courseTitle: '水果课程',
+        outlines: [scene],
+      });
+    streamLLMMock
+      .mockReturnValueOnce({
+        textStream: (async function* () {
+          yield wrapper({
+            id: 'unlinked',
+            type: 'slide',
+            title: '量子力学',
+            description: '讲解波函数。',
+            keyPoints: ['波函数'],
+            order: 1,
+            teachingBrief: { mustCover: ['解释量子叠加'] },
+            sourceRefIds: [],
+          });
+        })(),
+      })
+      .mockReturnValueOnce({
+        textStream: (async function* () {
+          yield wrapper({
+            id: 'linked',
+            type: 'slide',
+            title: '苹果识别',
+            description: '根据用户要求讲解苹果。',
+            keyPoints: ['苹果'],
+            order: 1,
+            teachingBrief: { mustCover: ['讲解苹果'] },
+            sourceRefIds: ['REQ-001'],
+          });
+        })(),
+      });
+
+    const { POST } = await import('@/app/api/generate/scene-outlines-stream/route');
+    const response = await POST(
+      mockRequest({
+        requirement: '第一部分讲解苹果。\n\n第二部分讲解香蕉。',
+        trainingCourseType: 'professional',
+      }) as unknown as Parameters<typeof POST>[0],
+    );
+
+    const events = parseSseEvents(await readStreamBody(response));
+    expect(events.some((event) => event.type === 'retry')).toBe(true);
+    expect(streamLLMMock).toHaveBeenCalledTimes(2);
+    const done = events.find((event) => event.type === 'done');
+    expect(done.outlines).toHaveLength(1);
+    expect(done.outlines[0].id).toBe('linked');
+    expect(done.outlines[0].sourceEvidence).toEqual([
+      { id: 'REQ-001', kind: 'requirement', label: '用户需求', excerpt: '第一部分讲解苹果。' },
+    ]);
+  });
 });
