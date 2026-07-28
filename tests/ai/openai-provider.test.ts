@@ -207,6 +207,24 @@ describe('OpenAI provider defaults', () => {
       { reasoning_effort: 'high' },
     ],
     [
+      'doubao',
+      'doubao-seed-evolving',
+      { mode: 'enabled', effort: 'minimal' },
+      { thinking: { type: 'enabled' }, reasoning_effort: 'minimal' },
+    ],
+    [
+      'doubao',
+      'doubao-seed-evolving',
+      { mode: 'enabled', effort: 'high' },
+      { thinking: { type: 'enabled' }, reasoning_effort: 'high' },
+    ],
+    [
+      'doubao',
+      'doubao-seed-evolving',
+      { mode: 'disabled', effort: 'none' },
+      { thinking: { type: 'disabled' } },
+    ],
+    [
       'openrouter',
       'deepseek/deepseek-v4-pro',
       { mode: 'enabled', effort: 'high' },
@@ -231,6 +249,16 @@ describe('OpenAI provider defaults', () => {
       expect(body).toMatchObject(expected);
     },
   );
+
+  it('disables Doubao Seed Evolving without sending a reasoning effort', async () => {
+    const body = await captureInjectedRequestBody('doubao', 'doubao-seed-evolving', {
+      mode: 'disabled',
+      effort: 'none',
+    });
+
+    expect(body).toMatchObject({ thinking: { type: 'disabled' } });
+    expect(body).not.toHaveProperty('reasoning_effort');
+  });
 
   it('disables Lemonade thinking by default for recognized local reasoning models', async () => {
     const body = await captureInjectedRequestBody('lemonade', 'Gemma-4-26B-A4B-it-GGUF');

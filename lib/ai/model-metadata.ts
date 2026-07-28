@@ -225,6 +225,17 @@ const doubaoMode: ThinkingCapability = {
   defaultEnabled: true,
 };
 
+const doubaoSeedEvolvingEffort: ThinkingCapability = {
+  control: 'effort',
+  requestAdapter: 'doubao',
+  effortValues: ['none', 'minimal', 'low', 'medium', 'high'],
+  defaultEffort: 'high',
+  defaultMode: 'enabled',
+  toggleable: true,
+  budgetAdjustable: true,
+  defaultEnabled: true,
+};
+
 const doubaoSeed20Effort: ThinkingCapability = {
   control: 'effort',
   requestAdapter: 'doubao',
@@ -343,7 +354,7 @@ const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
   [getModelMetadataKey('siliconflow', 'THUDM/GLM-4.1V-9B-Thinking')]: siliconflowBudget,
   [getModelMetadataKey('siliconflow', 'THUDM/GLM-Z1-Rumination-32B-0414')]: siliconflowBudget,
 
-  [getModelMetadataKey('doubao', 'doubao-seed-evolving')]: doubaoMode,
+  [getModelMetadataKey('doubao', 'doubao-seed-evolving')]: doubaoSeedEvolvingEffort,
   [getModelMetadataKey('doubao', 'doubao-seed-2-0-pro-260215')]: doubaoSeed20Effort,
   [getModelMetadataKey('doubao', 'doubao-seed-2-0-lite-260215')]: doubaoSeed20Effort,
   [getModelMetadataKey('doubao', 'doubao-seed-2-0-mini-260215')]: doubaoSeed20Effort,

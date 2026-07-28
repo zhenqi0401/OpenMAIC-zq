@@ -227,6 +227,25 @@ describe('thinking config normalization', () => {
     expect(thinking?.effortValues).toEqual(['minimal', 'low', 'medium', 'high']);
   });
 
+  it('normalizes Doubao Seed Evolving as off or explicit reasoning effort', () => {
+    const thinking = getThinking('doubao', 'doubao-seed-evolving');
+
+    expect(thinking?.control).toBe('effort');
+    expect(thinking?.effortValues).toEqual(['none', 'minimal', 'low', 'medium', 'high']);
+    expect(getDefaultThinkingConfig(thinking)).toEqual({
+      mode: 'enabled',
+      effort: 'high',
+    });
+    expect(normalizeThinkingConfig(thinking, { mode: 'auto' })).toEqual({
+      mode: 'enabled',
+      effort: 'high',
+    });
+    expect(normalizeThinkingConfig(thinking, { effort: 'none' })).toEqual({
+      mode: 'disabled',
+      effort: 'none',
+    });
+  });
+
   it('normalizes Kimi K3 as always-on reasoning effort levels', () => {
     const thinking = getThinking('kimi', 'kimi-k3');
 

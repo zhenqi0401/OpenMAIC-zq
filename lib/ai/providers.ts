@@ -1339,15 +1339,22 @@ function getCompatThinkingBodyParams(
 
     case 'doubao': {
       if (capability.control === 'effort') {
+        const supportsThinkingOff = capability.effortValues?.includes('none') ?? false;
+        if (supportsThinkingOff && (mode === 'disabled' || config.effort === 'none')) {
+          return { thinking: { type: 'disabled' } };
+        }
         const effort =
-          mode === 'disabled'
+          !supportsThinkingOff && mode === 'disabled'
             ? 'minimal'
             : config.effort && capability.effortValues?.includes(config.effort)
               ? config.effort
               : mode === 'enabled'
                 ? capability.defaultEffort
                 : undefined;
-        return effort ? { reasoning_effort: effort } : undefined;
+        if (!effort) return undefined;
+        return supportsThinkingOff
+          ? { thinking: { type: 'enabled' }, reasoning_effort: effort }
+          : { reasoning_effort: effort };
       }
       if (mode === 'auto') return { thinking: { type: 'auto' } };
       if (mode === 'disabled') return { thinking: { type: 'disabled' } };
