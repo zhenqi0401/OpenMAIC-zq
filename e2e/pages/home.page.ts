@@ -23,6 +23,10 @@ export class HomePage {
     await this.textarea.fill(text);
   }
 
+  async selectTrainingStrategy(name: RegExp | string = /Professional training|专业知识培训/) {
+    await this.page.getByRole('radio', { name }).check();
+  }
+
   async submit() {
     await this.enterButton.click();
   }

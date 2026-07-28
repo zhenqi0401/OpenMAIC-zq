@@ -39,7 +39,7 @@ import { AgentBar } from '@/components/agent/agent-bar';
 import { useTheme } from '@/lib/hooks/use-theme';
 import { nanoid } from 'nanoid';
 import { storePdfBlob } from '@/lib/utils/image-storage';
-import type { UserRequirements } from '@/lib/types/generation';
+import type { TrainingCourseType, UserRequirements } from '@/lib/types/generation';
 import { useSettingsStore } from '@/lib/store/settings';
 import { hasUsableLLMProvider } from '@/lib/store/settings-validation';
 import { useUserProfileStore, AVATAR_OPTIONS } from '@/lib/store/user-profile';
@@ -89,6 +89,7 @@ interface FormState {
   pdfFile: File | null;
   requirement: string;
   categoryId: string;
+  trainingCourseType: TrainingCourseType | '';
   webSearch: boolean;
   interactiveMode: boolean;
   vocationalTestMode: boolean;
@@ -98,6 +99,7 @@ const initialFormState: FormState = {
   pdfFile: null,
   requirement: '',
   categoryId: '',
+  trainingCourseType: '',
   webSearch: false,
   interactiveMode: false,
   vocationalTestMode: false,
@@ -369,6 +371,10 @@ function HomePage() {
       setError(t('upload.requirementRequired'));
       return;
     }
+    if (!form.trainingCourseType) {
+      setError(t('upload.trainingCourseTypeRequired'));
+      return;
+    }
     if (shouldShowAdminEntry(identity) && !form.categoryId) {
       setError('请选择课程分类');
       return;
@@ -380,6 +386,7 @@ function HomePage() {
       const userProfile = useUserProfileStore.getState();
       const requirements: UserRequirements = {
         requirement: form.requirement,
+        trainingCourseType: form.trainingCourseType,
         userNickname: userProfile.nickname || undefined,
         userBio: userProfile.bio || undefined,
         webSearch: form.webSearch || undefined,
@@ -444,7 +451,10 @@ function HomePage() {
 
   const requiresCategory = shouldShowAdminEntry(identity);
   const canGenerate =
-    !!form.requirement.trim() && hasUsableProvider && (!requiresCategory || !!form.categoryId);
+    !!form.requirement.trim() &&
+    !!form.trainingCourseType &&
+    hasUsableProvider &&
+    (!requiresCategory || !!form.categoryId);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -741,6 +751,57 @@ function HomePage() {
               onKeyDown={handleKeyDown}
               rows={4}
             />
+
+            <fieldset className="px-4 pb-3">
+              <legend className="mb-2 text-xs font-medium text-foreground">
+                {t('upload.trainingCourseTypeLabel')}
+                <span className="ml-1 text-destructive" aria-hidden>
+                  *
+                </span>
+              </legend>
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-5">
+                {(['management', 'sales', 'professional', 'company_policy', 'other'] as const).map(
+                  (type) => {
+                    const selected = form.trainingCourseType === type;
+                    return (
+                      <label
+                        key={type}
+                        className={cn(
+                          'min-w-0 cursor-pointer rounded-lg border px-2.5 py-2 transition-colors',
+                          selected
+                            ? 'border-primary/60 bg-primary/5 text-foreground'
+                            : 'border-border/60 bg-background/40 text-muted-foreground hover:border-primary/30',
+                        )}
+                      >
+                        <span className="flex items-start gap-2">
+                          <input
+                            type="radio"
+                            name="training-course-type"
+                            value={type}
+                            checked={selected}
+                            onChange={() => updateForm('trainingCourseType', type)}
+                            className="mt-0.5 size-3.5 shrink-0 accent-primary"
+                          />
+                          <span className="min-w-0">
+                            <span className="block text-[12px] font-medium leading-4 text-foreground">
+                              {t(`upload.trainingCourseTypes.${type}.label`)}
+                            </span>
+                            <span className="mt-0.5 block text-[10px] leading-4 text-muted-foreground">
+                              {t(`upload.trainingCourseTypes.${type}.description`)}
+                            </span>
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  },
+                )}
+              </div>
+              {(form.interactiveMode || form.vocationalTestMode) && (
+                <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-300">
+                  {t('upload.fidelityNormalModeHint')}
+                </p>
+              )}
+            </fieldset>
 
             {requiresCategory && (
               <div className="px-4 pb-2 pt-1">

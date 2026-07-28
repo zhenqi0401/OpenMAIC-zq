@@ -808,6 +808,31 @@
     "generateFailed": "Failed to generate classroom, please try again",
     "requirementPlaceholder": "Tell me anything you want to learn, e.g.\n\"Teach me Python from scratch in 30 minutes\"\n\"Explain Fourier Transform on the whiteboard\"\n\"How to play the board game Avalon\"",
     "requirementRequired": "Please enter course requirements",
+    "trainingCourseTypeLabel": "Training strategy",
+    "trainingCourseTypeRequired": "Please select a training strategy",
+    "fidelityNormalModeHint": "Input-fidelity enhancements in this demo mainly apply to normal generation mode.",
+    "trainingCourseTypes": {
+      "management": {
+        "label": "Management training",
+        "description": "Pain points, frameworks, cases, and actions"
+      },
+      "sales": {
+        "label": "Sales training",
+        "description": "Customer scenarios, skills, practice, and use"
+      },
+      "professional": {
+        "label": "Professional training",
+        "description": "Source-first; no invented technical facts"
+      },
+      "company_policy": {
+        "label": "Company policy training",
+        "description": "Policy facts strictly grounded in sources"
+      },
+      "other": {
+        "label": "Original outline summary",
+        "description": "Keep the existing generation behavior"
+      }
+    },
     "fileTooLarge": "File too large. Please select a PDF file smaller than 50MB"
   },
   "generation": {
@@ -880,6 +905,20 @@
     "reviewOutlineStreamingDesc": "Outline is still streaming in. You can edit once it's complete.",
     "addKeyPoint": "Add key point",
     "removeKeyPoint": "Remove key point",
+    "fidelityTitle": "Content fidelity",
+    "fidelityDescription": "After confirmation, must-cover items continue into page content and narration. Evidence is read-only.",
+    "fidelityReadOnlyStreaming": "Streaming · read-only",
+    "fidelityMustCover": "Must cover",
+    "fidelityMustCoverEmpty": "No must-cover item for this scene yet. Add one after generation completes.",
+    "fidelityAddMustCover": "Add required information",
+    "fidelityAdd": "Add",
+    "fidelityRemoveMustCover": "Remove must-cover item",
+    "fidelityRemoveConfirm": "This item will no longer be mandatory in downstream generation. Remove it?",
+    "fidelitySources": "Evidence sources (read-only)",
+    "fidelityRequirementSource": "User requirement",
+    "fidelityDocumentSource": "PDF source",
+    "fidelityExpandSource": "Expand excerpt",
+    "fidelityCollapseSource": "Collapse excerpt",
     "insertSceneHere": "Insert a scene here",
     "deleteSceneConfirm": "Delete this scene?",
     "deleteSceneConfirmDesc": "This scene and its key points will be removed from the outline.",

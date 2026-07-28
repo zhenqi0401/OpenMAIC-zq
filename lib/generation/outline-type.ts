@@ -49,6 +49,11 @@ export function changeOutlineType(outline: SceneOutline, newType: SceneType): Sc
       suggestedImageIds: outline.suggestedImageIds,
     }),
     ...(outline.mediaGenerations !== undefined && { mediaGenerations: outline.mediaGenerations }),
+    ...(outline.trainingCourseType !== undefined && {
+      trainingCourseType: outline.trainingCourseType,
+    }),
+    ...(outline.teachingBrief !== undefined && { teachingBrief: outline.teachingBrief }),
+    ...(outline.sourceEvidence !== undefined && { sourceEvidence: outline.sourceEvidence }),
   };
 
   switch (newType) {

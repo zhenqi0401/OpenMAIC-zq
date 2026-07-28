@@ -37,6 +37,14 @@ import { apiError } from '@/lib/server/api-response';
 import { createLogger } from '@/lib/logger';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import { resolveVocationalActive } from '@/lib/config/feature-flags';
+import {
+  buildOutlineFidelityPrompt,
+  buildSourceCatalog,
+  isEnhancedTrainingCourseType,
+  isTrainingCourseType,
+  normalizeFidelityOutline,
+  stripFidelityForStreaming,
+} from '@/lib/generation/input-fidelity';
 const log = createLogger('Outlines Stream');
 
 export const maxDuration = 300;
@@ -287,6 +295,16 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
+    if (!body.requirements) {
+      return apiError('MISSING_REQUIRED_FIELD', 400, 'Requirements are required');
+    }
+    if (
+      body.requirements.trainingCourseType !== undefined &&
+      !isTrainingCourseType(body.requirements.trainingCourseType)
+    ) {
+      return apiError('INVALID_REQUEST', 400, 'Unknown trainingCourseType');
+    }
+
     // Get API configuration from request headers/body
     const {
       model: languageModel,
@@ -296,18 +314,16 @@ export async function POST(req: NextRequest) {
     } = await resolveModelFromRequest(req, body, 'scene-outlines-stream');
     resolvedModelString = modelString;
 
-    if (!body.requirements) {
-      return apiError('MISSING_REQUIRED_FIELD', 400, 'Requirements are required');
-    }
-
-    const { requirements, pdfText, pdfImages, imageMapping, researchContext, agents } = body as {
-      requirements: UserRequirements;
-      pdfText?: string;
-      pdfImages?: PdfImage[];
-      imageMapping?: ImageMapping;
-      researchContext?: string;
-      agents?: AgentInfo[];
-    };
+    const { requirements, pdfText, pdfFileName, pdfImages, imageMapping, researchContext, agents } =
+      body as {
+        requirements: UserRequirements;
+        pdfText?: string;
+        pdfFileName?: string;
+        pdfImages?: PdfImage[];
+        imageMapping?: ImageMapping;
+        researchContext?: string;
+        agents?: AgentInfo[];
+      };
     requirementSnippet = requirements?.requirement?.substring(0, 60);
 
     // Build user profile string for language inference context
@@ -367,6 +383,20 @@ export async function POST(req: NextRequest) {
         ? PROMPT_IDS.INTERACTIVE_OUTLINES
         : PROMPT_IDS.REQUIREMENTS_TO_OUTLINES;
 
+    const enhancedTrainingCourseType =
+      !taskEngineMode &&
+      !interactiveMode &&
+      isEnhancedTrainingCourseType(requirements.trainingCourseType)
+        ? requirements.trainingCourseType
+        : undefined;
+    const sourceCatalog = enhancedTrainingCourseType
+      ? buildSourceCatalog({
+          requirement: requirements.requirement,
+          pdfText: pdfText?.substring(0, MAX_PDF_CONTENT_CHARS),
+          pdfFileName,
+        })
+      : [];
+
     const prompts = buildPrompt(promptId, {
       requirement: requirements.requirement,
       pdfContent: pdfText ? pdfText.substring(0, MAX_PDF_CONTENT_CHARS) : 'None',
@@ -382,6 +412,9 @@ export async function POST(req: NextRequest) {
 
     if (!prompts) {
       return apiError('INTERNAL_ERROR', 500, 'Prompt template not found');
+    }
+    if (enhancedTrainingCourseType) {
+      prompts.user += buildOutlineFidelityPrompt(enhancedTrainingCourseType, sourceCatalog);
     }
 
     log.info(
@@ -517,15 +550,24 @@ export async function POST(req: NextRequest) {
                     ...outline,
                     order: parsedOutlines.length + 1,
                   };
-                  const normalized = taskEngineMode
+                  const modeNormalized = taskEngineMode
                     ? normalizeTaskEngineOutline(enrichedBase, requirements.requirement)
                     : sanitizeNonTaskEngineOutline(enrichedBase);
+                  const normalized = enhancedTrainingCourseType
+                    ? normalizeFidelityOutline(
+                        modeNormalized as SceneOutline & { sourceRefIds?: unknown },
+                        enhancedTrainingCourseType,
+                        sourceCatalog,
+                      )
+                    : modeNormalized;
                   const enriched = ensureUniqueOutlineId(normalized, usedOutlineIds);
                   parsedOutlines.push(enriched);
 
                   const event = JSON.stringify({
                     type: 'outline',
-                    data: enriched,
+                    data: enhancedTrainingCourseType
+                      ? stripFidelityForStreaming(enriched)
+                      : enriched,
                     index: parsedOutlines.length - 1,
                   });
                   controller.enqueue(encoder.encode(`data: ${event}\n\n`));

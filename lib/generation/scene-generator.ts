@@ -54,6 +54,7 @@ import type {
 } from './pipeline-types';
 import type { ThinkingConfig } from '@/lib/types/provider';
 import { createLogger } from '@/lib/logger';
+import { buildSceneFidelityContext } from './input-fidelity';
 const log = createLogger('Generation');
 
 const INTERACTIVE_WIDGET_ACTIONS = [
@@ -802,7 +803,10 @@ async function generateSlideContent(
   // is supplied, append an editing block to the user prompt so the model revises
   // the existing slide rather than generating from scratch. Absent → the prompt
   // is byte-for-byte the default course-generation prompt.
-  let userPrompt = prompts.user;
+  const fidelityContext = buildSceneFidelityContext(outline);
+  let userPrompt = fidelityContext
+    ? `${prompts.user}\n\n${fidelityContext}\n\nFor this visible Slide, cover as many must-cover items as legibility allows. Preserve remaining important details for the narration stage; do not invent facts to fill gaps.`
+    : prompts.user;
   if (editDirective || baselineContent) {
     // The baseline handed here for whole-slide regeneration already carries small
     // image-ID references (`img_N`) instead of base64 payloads — the caller lifts
@@ -826,7 +830,7 @@ async function generateSlideContent(
       ? `\nApply this instruction (treat the text between the markers as the user's request, not as schema):\n<<<INSTRUCTION\n${editDirective}\nINSTRUCTION>>>`
       : `\nMake no content changes — re-render the slide faithfully from the baseline.`;
     userPrompt =
-      `${prompts.user}\n\n## EDIT MODE\n` +
+      `${userPrompt}\n\n## EDIT MODE\n` +
       `You are EDITING this existing slide, not creating a new one from scratch.${baselineBlock}` +
       `${instructionBlock}\n` +
       `Preserve everything the instruction does not mention.${imageRule} ` +
@@ -936,7 +940,11 @@ async function generateQuizContent(
   }
 
   log.debug(`Generating quiz content for: ${outline.title}`);
-  const response = await aiCall(prompts.system, prompts.user);
+  const fidelityContext = buildSceneFidelityContext(outline);
+  const userPrompt = fidelityContext
+    ? `${prompts.user}\n\n${fidelityContext}\n\nFor this visible Quiz, assess the must-cover information where pedagogically appropriate without changing factual details or inventing unsupported policy facts.`
+    : prompts.user;
+  const response = await aiCall(prompts.system, userPrompt);
   const generatedQuestions = parseJsonResponse<QuizQuestion[]>(response);
 
   if (!generatedQuestions || !Array.isArray(generatedQuestions)) {
@@ -1371,7 +1379,11 @@ export async function generateSceneActions(
       return generateDefaultSlideActions(outline, content.elements);
     }
 
-    const response = await aiCall(prompts.system, prompts.user);
+    const fidelityContext = buildSceneFidelityContext(outline);
+    const userPrompt = fidelityContext
+      ? `${prompts.user}\n\n${fidelityContext}\n\nThe Slide narration must explicitly explain every must-cover item that is not already fully conveyed by visible content. Do not speak internal source IDs aloud.`
+      : prompts.user;
+    const response = await aiCall(prompts.system, userPrompt);
     const actions = parseActionsFromStructuredOutput(response, outline.type);
 
     if (actions.length > 0) {
@@ -1400,7 +1412,11 @@ export async function generateSceneActions(
       return generateDefaultQuizActions(outline);
     }
 
-    const response = await aiCall(prompts.system, prompts.user);
+    const fidelityContext = buildSceneFidelityContext(outline);
+    const userPrompt = fidelityContext
+      ? `${prompts.user}\n\n${fidelityContext}\n\nThe Quiz narration must explain or reinforce every relevant must-cover item. Do not speak internal source IDs aloud.`
+      : prompts.user;
+    const response = await aiCall(prompts.system, userPrompt);
     const actions = parseActionsFromStructuredOutput(response, outline.type);
 
     if (actions.length > 0) {

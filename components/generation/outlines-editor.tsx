@@ -671,9 +671,189 @@ function SceneRow({
               />
             )}
           </div>
+
+          {(outline.teachingBrief !== undefined || outline.sourceEvidence !== undefined) && (
+            <FidelityPanel outline={outline} disabled={disabled} onUpdate={onUpdate} />
+          )}
         </div>
       </div>
     </motion.li>
+  );
+}
+
+function FidelityPanel({
+  outline,
+  disabled,
+  onUpdate,
+}: {
+  outline: SceneOutline;
+  disabled: boolean;
+  onUpdate: (updates: Partial<SceneOutline>) => void;
+}) {
+  const { t } = useI18n();
+  const [draft, setDraft] = useState('');
+  const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
+  const mustCover = outline.teachingBrief?.mustCover ?? [];
+  const sources = outline.sourceEvidence ?? [];
+
+  const updateMustCover = (next: string[]) => {
+    onUpdate({ teachingBrief: { mustCover: next } });
+  };
+
+  const addMustCover = () => {
+    const value = draft.trim();
+    if (!value || mustCover.includes(value)) return;
+    updateMustCover([...mustCover, value]);
+    setDraft('');
+  };
+
+  const removeMustCover = (index: number) => {
+    if (!window.confirm(t('generation.fidelityRemoveConfirm'))) return;
+    updateMustCover(mustCover.filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const toggleSource = (id: string) => {
+    setExpandedSources((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <section className="mt-3 min-w-0 rounded-xl border border-amber-200/70 bg-amber-50/45 p-3 dark:border-amber-800/50 dark:bg-amber-950/15">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h4 className="text-xs font-semibold text-amber-950 dark:text-amber-100">
+            {t('generation.fidelityTitle')}
+          </h4>
+          <p className="mt-0.5 text-[11px] leading-4 text-amber-800/75 dark:text-amber-200/70">
+            {t('generation.fidelityDescription')}
+          </p>
+        </div>
+        {disabled && (
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+            {t('generation.fidelityReadOnlyStreaming')}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-3 space-y-2">
+        <p className="text-[11px] font-medium text-foreground">
+          {t('generation.fidelityMustCover')}
+        </p>
+        {mustCover.length === 0 && (
+          <p className="text-[11px] text-muted-foreground">
+            {t('generation.fidelityMustCoverEmpty')}
+          </p>
+        )}
+        {mustCover.map((item, index) => (
+          <div key={`${outline.id}-must-cover-${index}`} className="flex min-w-0 items-start gap-2">
+            <span className="mt-2.5 w-4 shrink-0 text-right text-[10px] tabular-nums text-muted-foreground">
+              {index + 1}.
+            </span>
+            <textarea
+              value={item}
+              disabled={disabled}
+              rows={1}
+              aria-label={`${t('generation.fidelityMustCover')} ${index + 1}`}
+              onChange={(event) => {
+                const next = [...mustCover];
+                next[index] = event.target.value;
+                updateMustCover(next);
+              }}
+              className="min-w-0 flex-1 resize-y rounded-md border border-border/70 bg-background/70 px-2 py-1.5 text-xs leading-5 outline-none focus:border-amber-500 disabled:cursor-default disabled:opacity-80"
+            />
+            {!disabled && (
+              <button
+                type="button"
+                onClick={() => removeMustCover(index)}
+                aria-label={t('generation.fidelityRemoveMustCover')}
+                className="mt-1.5 inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+        ))}
+        {!disabled && (
+          <div className="flex min-w-0 items-center gap-2 pl-6">
+            <input
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  addMustCover();
+                }
+              }}
+              placeholder={t('generation.fidelityAddMustCover')}
+              className="h-8 min-w-0 flex-1 rounded-md border border-dashed border-amber-300 bg-background/60 px-2 text-xs outline-none focus:border-amber-500 dark:border-amber-800"
+            />
+            <button
+              type="button"
+              onClick={addMustCover}
+              disabled={!draft.trim()}
+              className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-amber-300 px-2 text-[11px] text-amber-900 disabled:opacity-40 dark:border-amber-800 dark:text-amber-100"
+            >
+              <Plus className="size-3" />
+              {t('generation.fidelityAdd')}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {sources.length > 0 && (
+        <div className="mt-4 min-w-0 space-y-2 border-t border-amber-200/70 pt-3 dark:border-amber-800/40">
+          <p className="text-[11px] font-medium text-foreground">
+            {t('generation.fidelitySources')}
+          </p>
+          {sources.map((source) => {
+            const expanded = expandedSources.has(source.id);
+            return (
+              <div
+                key={source.id}
+                className="min-w-0 rounded-lg border border-border/60 bg-background/65 px-2.5 py-2"
+              >
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[10px]">
+                  <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-muted-foreground">
+                    {source.id}
+                  </span>
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
+                    {source.kind === 'requirement'
+                      ? t('generation.fidelityRequirementSource')
+                      : t('generation.fidelityDocumentSource')}
+                  </span>
+                  <span className="min-w-0 break-all font-medium text-foreground">
+                    {source.label}
+                  </span>
+                </div>
+                <p
+                  className={cn(
+                    'mt-1.5 min-w-0 whitespace-pre-wrap break-words text-[11px] leading-5 text-muted-foreground',
+                    !expanded && 'line-clamp-3',
+                  )}
+                >
+                  {source.excerpt}
+                </p>
+                {source.excerpt.length > 120 && (
+                  <button
+                    type="button"
+                    onClick={() => toggleSource(source.id)}
+                    className="mt-1 text-[10px] font-medium text-amber-800 hover:underline dark:text-amber-200"
+                  >
+                    {expanded
+                      ? t('generation.fidelityCollapseSource')
+                      : t('generation.fidelityExpandSource')}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 

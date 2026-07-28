@@ -42,17 +42,39 @@ export interface UploadedDocument {
   storageRef?: string;
 }
 
+export const TRAINING_COURSE_TYPES = [
+  'management',
+  'sales',
+  'professional',
+  'company_policy',
+  'other',
+] as const;
+
+export type TrainingCourseType = (typeof TRAINING_COURSE_TYPES)[number];
+
 /**
  * Simplified user requirements for course generation
  * All details (topic, duration, style, etc.) should be included in the requirement text
  */
 export interface UserRequirements {
   requirement: string; // Single free-form text for all user input
+  trainingCourseType?: TrainingCourseType;
   userNickname?: string; // Student nickname for personalization
   userBio?: string; // Student background for personalization
   webSearch?: boolean; // Enable web search for richer context
   interactiveMode?: boolean; // Enable Interactive Mode for interactive-first generation
   taskEngineMode?: boolean; // Enable vocational task-engine generation path
+}
+
+export interface SourceEvidence {
+  id: string;
+  kind: 'requirement' | 'document';
+  label: string;
+  excerpt: string;
+}
+
+export interface SceneTeachingBrief {
+  mustCover: string[];
 }
 
 // ==================== Stage 1 Output: Scene Outlines (Simplified) ====================
@@ -98,6 +120,12 @@ export interface SceneOutline {
   teachingObjective?: string;
   estimatedDuration?: number; // seconds
   order: number;
+  /** Present only for the input-fidelity demo policies. */
+  trainingCourseType?: TrainingCourseType;
+  /** Authoritative must-cover items confirmed in outline review. */
+  teachingBrief?: SceneTeachingBrief;
+  /** Server-resolved evidence excerpts; model-provided source text is never trusted. */
+  sourceEvidence?: SourceEvidence[];
   languageNote?: string; // LLM-inferred language note for this scene
   // Suggested image IDs (from PDF-extracted images)
   suggestedImageIds?: string[]; // e.g., ["img_1", "img_3"]

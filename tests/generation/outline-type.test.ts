@@ -72,6 +72,23 @@ describe('changeOutlineType', () => {
     expect(r.order).toBe(1);
   });
 
+  it('preserves input-fidelity fields when changing scene type', () => {
+    const r = changeOutlineType(
+      {
+        ...base,
+        trainingCourseType: 'professional',
+        teachingBrief: { mustCover: ['Keep 42 exactly'] },
+        sourceEvidence: [
+          { id: 'REQ-001', kind: 'requirement', label: 'User requirement', excerpt: '42' },
+        ],
+      },
+      'quiz',
+    );
+    expect(r.trainingCourseType).toBe('professional');
+    expect(r.teachingBrief?.mustCover).toEqual(['Keep 42 exactly']);
+    expect(r.sourceEvidence?.[0]?.id).toBe('REQ-001');
+  });
+
   // The bug-fix invariant: editor-produced interactive/pbl outlines must survive
   // applyOutlineFallbacks (which otherwise degrades config-less ones to slide).
   it('produces outlines that survive applyOutlineFallbacks', () => {

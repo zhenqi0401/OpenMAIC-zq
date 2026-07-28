@@ -25,6 +25,7 @@ import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { llmApiError } from '@/lib/server/llm-error-response';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import { resolveVocationalActive } from '@/lib/config/feature-flags';
+import { isTrainingCourseType } from '@/lib/generation/input-fidelity';
 
 const log = createLogger('Scene Content API');
 
@@ -74,6 +75,18 @@ export async function POST(req: NextRequest) {
     }
     if (!stageId) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'stageId is required');
+    }
+    if (
+      rawOutline.trainingCourseType !== undefined &&
+      !isTrainingCourseType(rawOutline.trainingCourseType)
+    ) {
+      return apiError('INVALID_REQUEST', 400, 'Unknown trainingCourseType');
+    }
+    if (
+      requirements?.trainingCourseType !== undefined &&
+      !isTrainingCourseType(requirements.trainingCourseType)
+    ) {
+      return apiError('INVALID_REQUEST', 400, 'Unknown trainingCourseType');
     }
 
     const outline: SceneOutline = { ...rawOutline };

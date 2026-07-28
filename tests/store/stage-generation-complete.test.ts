@@ -80,6 +80,37 @@ describe('generationComplete', () => {
     expect(useStageStore.getState().generationComplete).toBe(false);
   });
 
+  it('persists and restores input-fidelity outline fields without a schema upgrade', async () => {
+    const fidelityOutline: SceneOutline = {
+      ...makeOutline(1),
+      trainingCourseType: 'professional',
+      teachingBrief: { mustCover: ['精确保留参数 42'] },
+      sourceEvidence: [
+        { id: 'DOC-001', kind: 'document', label: '技术资料.pdf', excerpt: '参数为 42' },
+      ],
+    };
+    useStageStore.getState().setStage(makeStage());
+    useStageStore.getState().setOutlines([fidelityOutline]);
+    await vi.waitFor(() => expect(stageOutlinesPut).toHaveBeenCalled());
+    const persisted = stageOutlinesPut.mock.calls.at(-1)![0] as { outlines: SceneOutline[] };
+    expect(persisted.outlines[0]).toEqual(fidelityOutline);
+
+    useStageStore.getState().clearStore();
+    loadStageDataMock.mockResolvedValue({
+      stage: makeStage(),
+      scenes: [],
+      currentSceneId: null,
+      chats: [],
+    });
+    stageOutlinesGet.mockResolvedValue({
+      stageId: 'stage-1',
+      outlines: JSON.parse(JSON.stringify(persisted.outlines)),
+      generationComplete: false,
+    });
+    await useStageStore.getState().loadFromStorage('stage-1');
+    expect(useStageStore.getState().outlines[0]).toEqual(fidelityOutline);
+  });
+
   it('does not persist server-backed enterprise course content to IndexedDB', async () => {
     useStageStore.getState().setStage({
       ...makeStage(),

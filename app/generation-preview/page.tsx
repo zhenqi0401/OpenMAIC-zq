@@ -23,6 +23,7 @@ import {
   generateAndStoreTTS,
 } from '@/lib/hooks/use-scene-generator';
 import { isAbortError } from '@/lib/generation/generation-retry';
+import { isEnhancedTrainingCourseType } from '@/lib/generation/input-fidelity';
 import { FOREGROUND_SCENE_RETRY_OPTIONS } from './foreground-retry';
 import {
   loadImageMapping,
@@ -492,6 +493,11 @@ function GenerationPreviewContent() {
               withThinkingConfig({
                 requirements: currentSession.requirements,
                 pdfText: currentSession.pdfText,
+                ...(!currentSession.requirements.interactiveMode &&
+                !currentSession.requirements.taskEngineMode &&
+                isEnhancedTrainingCourseType(currentSession.requirements.trainingCourseType)
+                  ? { pdfFileName: currentSession.pdfFileName }
+                  : {}),
                 pdfImages: currentSession.pdfImages,
                 imageMapping,
                 researchContext: currentSession.researchContext,
