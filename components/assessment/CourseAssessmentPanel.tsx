@@ -1,8 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle2, Loader2, RotateCcw, Send, XCircle } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  PieChart,
+  RotateCcw,
+  Send,
+  XCircle,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ChoiceQuestionCard } from '@/components/quiz/ChoiceQuestionCard';
 import type {
   AssessmentAnswers,
   CourseAssessmentDetail,
@@ -96,16 +105,6 @@ export function CourseAssessmentPanel({
     setAnswers((current) => ({ ...current, [questionId]: value }));
   }
 
-  function toggleMultipleAnswer(questionId: string, value: string) {
-    setAnswers((current) => {
-      const existing = Array.isArray(current[questionId]) ? current[questionId] : [];
-      const next = existing.includes(value)
-        ? existing.filter((item) => item !== value)
-        : [...existing, value];
-      return { ...current, [questionId]: next };
-    });
-  }
-
   async function submitAssessment() {
     if (!allAnswered || submitting) return;
     setSubmitting(true);
@@ -174,22 +173,25 @@ export function CourseAssessmentPanel({
 
   return (
     <div className="absolute inset-0 flex flex-col bg-white dark:bg-gray-800">
-      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3 dark:border-gray-700">
-        <div>
-          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">课后测评</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {answered}/{assessment.questions.length} · {assessment.threshold}% 通过
-          </p>
+      <div className="flex shrink-0 items-center justify-between border-b border-gray-100 bg-white/80 px-6 py-3 backdrop-blur dark:border-gray-700 dark:bg-gray-900/80">
+        <div className="flex items-center gap-2">
+          <PieChart className="h-4 w-4 text-violet-500" />
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+            {result ? '测评报告' : '答题中'}
+          </span>
+          <span className="ml-1 text-xs text-gray-400">
+            {answered} / {assessment.questions.length} · {assessment.threshold}% 通过
+          </span>
         </div>
         {!result && (
           <button
             onClick={submitAssessment}
             disabled={!allAnswered || submitting}
             className={cn(
-              'inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition',
+              'inline-flex items-center gap-2 rounded-lg px-4 py-1.5 text-xs font-medium transition-all',
               allAnswered && !submitting
-                ? 'bg-violet-600 text-white hover:bg-violet-700'
-                : 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500',
+                ? 'bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-sm hover:shadow-md hover:shadow-violet-200/50 active:scale-[0.97] dark:hover:shadow-violet-900/50'
+                : 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500',
             )}
           >
             {submitting ? (
@@ -197,7 +199,7 @@ export function CourseAssessmentPanel({
             ) : (
               <Send className="size-3.5" />
             )}
-            提交
+            提交答案
           </button>
         )}
       </div>
@@ -227,65 +229,30 @@ export function CourseAssessmentPanel({
         </div>
       )}
 
-      <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+      <div className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-gray-50 to-white px-6 py-4 dark:from-gray-900 dark:to-gray-900">
         {assessment.questions.map((question, index) => {
           const detail = resultMap.get(question.id);
           const currentAnswer = answers[question.id];
           return (
-            <div
+            <ChoiceQuestionCard
               key={question.id}
-              className="rounded-md border border-gray-100 p-4 dark:border-gray-700"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {index + 1}. {question.question}
-                </p>
-                {detail &&
-                  (detail.correct ? (
-                    <CheckCircle2 className="size-4 shrink-0 text-emerald-500" />
-                  ) : (
-                    <XCircle className="size-4 shrink-0 text-red-500" />
-                  ))}
-              </div>
-              <div className="mt-3 space-y-2">
-                {(question.options ?? []).map((option) => {
-                  const selected =
-                    question.type === 'multiple'
-                      ? Array.isArray(currentAnswer) && currentAnswer.includes(option.value)
-                      : currentAnswer === option.value;
-                  return (
-                    <label
-                      key={option.value}
-                      className={cn(
-                        'flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition',
-                        selected
-                          ? 'border-violet-300 bg-violet-50 text-violet-900 dark:border-violet-800 dark:bg-violet-950/30 dark:text-violet-100'
-                          : 'border-gray-100 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700/40',
-                        result && 'cursor-default',
-                      )}
-                    >
-                      <input
-                        checked={selected}
-                        disabled={!!result}
-                        type={question.type === 'multiple' ? 'checkbox' : 'radio'}
-                        name={question.id}
-                        onChange={() =>
-                          question.type === 'multiple'
-                            ? toggleMultipleAnswer(question.id, option.value)
-                            : setSingleAnswer(question.id, option.value)
-                        }
-                      />
-                      {option.label}
-                    </label>
-                  );
-                })}
-              </div>
-              {detail && !detail.correct && detail.analysis && (
-                <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-                  {detail.analysis}
-                </p>
-              )}
-            </div>
+              question={question}
+              index={index}
+              value={currentAnswer}
+              disabled={!!result}
+              result={detail}
+              correctAnswer={detail?.correctAnswer}
+              analysis={detail?.analysis}
+              onChange={(value) => {
+                if (question.type === 'multiple') {
+                  if (Array.isArray(value)) {
+                    setAnswers((current) => ({ ...current, [question.id]: value }));
+                  }
+                  return;
+                }
+                if (typeof value === 'string') setSingleAnswer(question.id, value);
+              }}
+            />
           );
         })}
       </div>

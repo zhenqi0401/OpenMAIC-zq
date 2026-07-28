@@ -8,7 +8,6 @@ import {
   XCircle,
   RotateCcw,
   ChevronRight,
-  Check,
   BookOpenText,
   Loader2,
   Sparkles,
@@ -22,6 +21,7 @@ const log = createLogger('QuizView');
 import type { QuizQuestion } from '@/lib/types/stage';
 import { useDraftCache } from '@/lib/hooks/use-draft-cache';
 import { SpeechButton } from '@/components/audio/speech-button';
+import { ChoiceQuestionCard } from '@/components/quiz/ChoiceQuestionCard';
 import { gradeChoiceQuestions, isShortAnswer, type QuestionResult } from '@/lib/quiz/grading';
 import {
   clearSubmitted,
@@ -175,202 +175,6 @@ function QuizCover({
         <ChevronRight className="w-4 h-4" />
       </motion.button>
     </div>
-  );
-}
-
-function SingleChoiceQuestion({
-  question,
-  index,
-  value,
-  onChange,
-  disabled,
-  result,
-}: {
-  question: QuizQuestion;
-  index: number;
-  value?: string;
-  onChange: (value: string) => void;
-  disabled?: boolean;
-  result?: QuestionResult;
-}) {
-  const isReview = !!result;
-
-  return (
-    <QuestionCard question={question} index={index} result={result}>
-      <div className="grid gap-2">
-        {question.options?.map((opt) => {
-          const selected = value === opt.value;
-          const isCorrectOpt = isReview && question.answer?.includes(opt.value);
-          const isWrong = isReview && selected && result?.status === 'incorrect';
-
-          return (
-            <button
-              key={opt.value}
-              disabled={disabled}
-              onClick={() => !disabled && onChange(opt.value)}
-              className={cn(
-                'flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all text-sm',
-                // Default state
-                !isReview &&
-                  !selected &&
-                  'border-gray-200 dark:border-gray-600 hover:border-violet-200 dark:hover:border-violet-700 hover:bg-violet-50/50 dark:hover:bg-violet-900/30',
-                !isReview &&
-                  selected &&
-                  'border-violet-400 bg-violet-50 dark:bg-violet-900/30 ring-1 ring-violet-200 dark:ring-violet-700',
-                // Review states
-                isReview &&
-                  isCorrectOpt &&
-                  'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/30',
-                isReview &&
-                  isWrong &&
-                  !isCorrectOpt &&
-                  'border-red-300 bg-red-50 dark:bg-red-900/30',
-                isReview &&
-                  !isCorrectOpt &&
-                  !selected &&
-                  'border-gray-100 dark:border-gray-700 opacity-60',
-                disabled && !isReview && 'cursor-default',
-              )}
-            >
-              <span
-                className={cn(
-                  'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors',
-                  !isReview &&
-                    !selected &&
-                    'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400',
-                  !isReview && selected && 'bg-violet-500 text-white',
-                  isReview && isCorrectOpt && 'bg-emerald-500 text-white',
-                  isReview && isWrong && !isCorrectOpt && 'bg-red-400 text-white',
-                  isReview &&
-                    !isCorrectOpt &&
-                    !selected &&
-                    'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500',
-                )}
-              >
-                {opt.value}
-              </span>
-              <span
-                className={cn(
-                  'flex-1',
-                  isReview && !isCorrectOpt && !selected && 'text-gray-400 dark:text-gray-500',
-                )}
-              >
-                {opt.label}
-              </span>
-              {isReview && isCorrectOpt && (
-                <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-              )}
-              {isReview && isWrong && !isCorrectOpt && (
-                <XCircle className="w-5 h-5 text-red-400 shrink-0" />
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </QuestionCard>
-  );
-}
-
-function MultipleChoiceQuestion({
-  question,
-  index,
-  value,
-  onChange,
-  disabled,
-  result,
-}: {
-  question: QuizQuestion;
-  index: number;
-  value?: string[];
-  onChange: (value: string[]) => void;
-  disabled?: boolean;
-  result?: QuestionResult;
-}) {
-  const isReview = !!result;
-  const selected = value ?? [];
-
-  const toggle = (optValue: string) => {
-    if (disabled) return;
-    if (selected.includes(optValue)) {
-      onChange(selected.filter((v) => v !== optValue));
-    } else {
-      onChange([...selected, optValue]);
-    }
-  };
-
-  const { t } = useI18n();
-
-  return (
-    <QuestionCard question={question} index={index} result={result}>
-      {!isReview && (
-        <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
-          {t('quiz.multipleChoiceHint')}
-        </p>
-      )}
-      <div className="grid gap-2">
-        {question.options?.map((opt) => {
-          const isSelected = selected.includes(opt.value);
-          const isCorrectOpt = isReview && question.answer?.includes(opt.value);
-          const isWrong = isReview && isSelected && !isCorrectOpt;
-
-          return (
-            <button
-              key={opt.value}
-              disabled={disabled}
-              onClick={() => toggle(opt.value)}
-              className={cn(
-                'flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all text-sm',
-                !isReview &&
-                  !isSelected &&
-                  'border-gray-200 dark:border-gray-600 hover:border-violet-200 dark:hover:border-violet-700 hover:bg-violet-50/50 dark:hover:bg-violet-900/30',
-                !isReview &&
-                  isSelected &&
-                  'border-violet-400 bg-violet-50 dark:bg-violet-900/30 ring-1 ring-violet-200 dark:ring-violet-700',
-                isReview &&
-                  isCorrectOpt &&
-                  'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/30',
-                isReview && isWrong && 'border-red-300 bg-red-50 dark:bg-red-900/30',
-                isReview &&
-                  !isCorrectOpt &&
-                  !isSelected &&
-                  'border-gray-100 dark:border-gray-700 opacity-60',
-                disabled && !isReview && 'cursor-default',
-              )}
-            >
-              <span
-                className={cn(
-                  'w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 transition-colors',
-                  !isReview &&
-                    !isSelected &&
-                    'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400',
-                  !isReview && isSelected && 'bg-violet-500 text-white',
-                  isReview && isCorrectOpt && 'bg-emerald-500 text-white',
-                  isReview && isWrong && 'bg-red-400 text-white',
-                  isReview &&
-                    !isCorrectOpt &&
-                    !isSelected &&
-                    'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500',
-                )}
-              >
-                {!isReview && isSelected ? <Check className="w-3.5 h-3.5" /> : opt.value}
-              </span>
-              <span
-                className={cn(
-                  'flex-1',
-                  isReview && !isCorrectOpt && !isSelected && 'text-gray-400 dark:text-gray-500',
-                )}
-              >
-                {opt.label}
-              </span>
-              {isReview && isCorrectOpt && (
-                <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-              )}
-              {isReview && isWrong && <XCircle className="w-5 h-5 text-red-400 shrink-0" />}
-            </button>
-          );
-        })}
-      </div>
-    </QuestionCard>
   );
 }
 
@@ -837,7 +641,7 @@ export function QuizView({ questions, sceneId }: QuizViewProps) {
               {questions.map((q, i) => {
                 if (q.type === 'single') {
                   return (
-                    <SingleChoiceQuestion
+                    <ChoiceQuestionCard
                       key={q.id}
                       question={q}
                       index={i}
@@ -848,7 +652,7 @@ export function QuizView({ questions, sceneId }: QuizViewProps) {
                 }
                 if (q.type === 'multiple') {
                   return (
-                    <MultipleChoiceQuestion
+                    <ChoiceQuestionCard
                       key={q.id}
                       question={q}
                       index={i}
@@ -940,7 +744,7 @@ export function QuizView({ questions, sceneId }: QuizViewProps) {
                 const r = resultMap[q.id];
                 if (q.type === 'single') {
                   return (
-                    <SingleChoiceQuestion
+                    <ChoiceQuestionCard
                       key={q.id}
                       question={q}
                       index={i}
@@ -953,7 +757,7 @@ export function QuizView({ questions, sceneId }: QuizViewProps) {
                 }
                 if (q.type === 'multiple') {
                   return (
-                    <MultipleChoiceQuestion
+                    <ChoiceQuestionCard
                       key={q.id}
                       question={q}
                       index={i}
