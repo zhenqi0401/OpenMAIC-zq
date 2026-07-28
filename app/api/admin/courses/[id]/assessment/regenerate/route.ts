@@ -5,6 +5,7 @@ import { apiSuccess } from '@/lib/server/api-response';
 import { llmApiError } from '@/lib/server/llm-error-response';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import { EnterpriseStorageServiceError } from '@/lib/storage/enterprise-service';
+import { createLogger } from '@/lib/logger';
 import {
   enterpriseErrorResponse,
   getEnterpriseService,
@@ -12,6 +13,8 @@ import {
 } from '@/lib/storage/enterprise-route-utils';
 
 export const dynamic = 'force-dynamic';
+const log = createLogger('CourseAssessmentRegenerate');
+const MAX_ASSESSMENT_ATTEMPTS = 3;
 
 interface RegenerateAssessmentBody {
   questionCount?: number;
@@ -25,6 +28,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   if (admin instanceof Response) return admin;
 
   try {
+    const { id } = await context.params;
     const body = (await readJsonBody<RegenerateAssessmentBody>(request)) ?? {};
     const { model, modelInfo, thinkingConfig } = await resolveModelFromRequest(
       request,
@@ -46,13 +50,31 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       );
       return result.text;
     };
-    const { id } = await context.params;
-    const course = await getEnterpriseService().regenerateCourseAssessment(id, {
-      aiCall,
-      questionCount: body.questionCount,
-      languageDirective: body.languageDirective,
-    });
-    return apiSuccess({ course });
+    for (let attempt = 1; attempt <= MAX_ASSESSMENT_ATTEMPTS; attempt += 1) {
+      try {
+        const course = await getEnterpriseService().regenerateCourseAssessment(id, {
+          aiCall,
+          questionCount: body.questionCount,
+          languageDirective: body.languageDirective,
+        });
+        if (attempt > 1) {
+          log.info('Assessment generation recovered after retry', { courseId: id, attempt });
+        }
+        return apiSuccess({ course });
+      } catch (error) {
+        const retryable = !(error instanceof EnterpriseStorageServiceError);
+        const finalAttempt = attempt === MAX_ASSESSMENT_ATTEMPTS;
+        log[finalAttempt || !retryable ? 'error' : 'warn']('Assessment generation attempt failed', {
+          courseId: id,
+          attempt,
+          maxAttempts: MAX_ASSESSMENT_ATTEMPTS,
+          retryable,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        if (!retryable || finalAttempt) throw error;
+      }
+    }
+    throw new Error('Assessment generation exhausted all attempts');
   } catch (error) {
     if (!(error instanceof EnterpriseStorageServiceError)) {
       return llmApiError(error);

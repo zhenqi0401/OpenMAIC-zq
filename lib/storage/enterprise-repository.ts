@@ -562,7 +562,22 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     generationStatus?: string;
     generationComplete?: boolean;
   }> {
+    let ignoredStaleIncompleteUpdate = false;
     await runDbTransaction(async (tx) => {
+      const [lockedCourse] = await tx
+        .select({ generationComplete: courses.generationComplete })
+        .from(courses)
+        .where(eq(courses.id, courseId))
+        .for('update');
+
+      // Completion is monotonic. A per-scene request that started before the
+      // final completion request must not regress either the ready flag or the
+      // fully-materialized scene snapshot when it arrives late.
+      if (lockedCourse?.generationComplete && input.generationComplete === false) {
+        ignoredStaleIncompleteUpdate = true;
+        return;
+      }
+
       const courseUpdate: Partial<typeof courses.$inferInsert> = { updatedAt: new Date() };
       let shouldUpdateCourse = false;
       if (input.stage !== undefined) {
@@ -624,8 +639,8 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
       scenes: input.scenes,
       outlines: input.outlines,
       stage: input.stage,
-      generationStatus: input.generationStatus,
-      generationComplete: input.generationComplete,
+      generationStatus: ignoredStaleIncompleteUpdate ? 'ready' : input.generationStatus,
+      generationComplete: ignoredStaleIncompleteUpdate ? true : input.generationComplete,
     };
   }
 

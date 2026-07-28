@@ -410,6 +410,12 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
   const generateRemainingRef = useRef<((params: GenerationParams) => Promise<void>) | null>(null);
 
   const store = useStageStore;
+  const completeGeneration = useCallback(() => {
+    store.getState().setGenerationStatus('completed');
+    store.getState().setGeneratingOutlines([]);
+    store.getState().setGenerationComplete(true);
+    options.onComplete?.();
+  }, [options, store]);
 
   const generateRemaining = useCallback(
     async (params: GenerationParams) => {
@@ -444,10 +450,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
         .sort((a, b) => a.order - b.order);
 
       if (pending.length === 0) {
-        store.getState().setGenerationStatus('completed');
-        store.getState().setGeneratingOutlines([]);
-        store.getState().setGenerationComplete(true);
-        options.onComplete?.();
+        completeGeneration();
         generatingRef.current = false;
         return;
       }
@@ -671,10 +674,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
             // surface them for retry instead of signalling a clean completion.
             store.getState().setGenerationStatus('paused');
           } else {
-            store.getState().setGenerationStatus('completed');
-            store.getState().setGeneratingOutlines([]);
-            store.getState().setGenerationComplete(true);
-            options.onComplete?.();
+            completeGeneration();
           }
         }
       } catch (err: unknown) {
@@ -690,7 +690,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
         fetchAbortRef.current = null;
       }
     },
-    [options, store],
+    [completeGeneration, options, store],
   );
 
   // Keep ref in sync so retrySingleOutline can call it
@@ -819,6 +819,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
 
         removeGeneratingOutline();
         store.getState().addScene(actionsResult.scene);
+        options.onSceneGenerated?.(actionsResult.scene, outline.order);
 
         // Resume remaining generation if there are pending outlines
         if (store.getState().generatingOutlines.length > 0 && lastParamsRef.current) {
@@ -828,7 +829,11 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
           // generateRemaining completion path is not reached on the retry flow,
           // so mark completion here too — otherwise a later delete would treat
           // the orphaned outline as pending and regenerate it.
+          const wasComplete = store.getState().generationComplete;
           store.getState().markGenerationCompleteIfDone();
+          if (!wasComplete && store.getState().generationComplete) {
+            completeGeneration();
+          }
         }
       } catch (err) {
         if (!isAbortError(err)) {
@@ -836,7 +841,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
         }
       }
     },
-    [store],
+    [completeGeneration, options, store],
   );
 
   return { generateRemaining, retrySingleOutline, stop, isGenerating };

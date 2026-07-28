@@ -6,6 +6,7 @@ import {
   buildOutlineFidelityPrompt,
   buildSceneFidelityContext,
   buildSourceCatalog,
+  ensureRequiredFidelityStructure,
   isEnhancedTrainingCourseType,
   isTrainingCourseType,
   normalizeFidelityOutline,
@@ -120,6 +121,41 @@ describe('input-fidelity contracts', () => {
     expect(prompt).toContain('绝对不要执行');
     expect(prompt).toContain('sourceRefIds');
     expect(prompt).toContain('不得输出或伪造来源正文');
+    expect(prompt).toContain('User Requirements 仍然是本次课程的权威教学设计要求');
+    expect(prompt).toContain('必须至少输出一个 `type: "quiz"`');
+  });
+
+  it('materializes an explicitly required in-course quiz when the model returned slides only', () => {
+    const requirement = '互动：必须包含辨别题 + 应用题\n结尾做本课总结';
+    const catalog = buildSourceCatalog({ requirement });
+    const result = ensureRequiredFidelityStructure(requirement, 'management', catalog, [
+      outline({ title: '理论讲解' }),
+      outline({ id: 'summary', order: 2, title: '本课一页总结' }),
+    ]);
+
+    expect(result.map((item) => item.type)).toEqual(['slide', 'quiz', 'slide']);
+    expect(result.map((item) => item.order)).toEqual([1, 2, 3]);
+    expect(result[1].quizConfig).toEqual({
+      questionCount: 2,
+      difficulty: 'medium',
+      questionTypes: ['single', 'text'],
+    });
+    expect(result[1].sourceEvidence).toEqual([catalog[0]]);
+    expect(result[1].teachingBrief?.mustCover[0]).toContain('辨别题和应用题');
+  });
+
+  it('does not duplicate an existing quiz', () => {
+    const existingQuiz = outline({
+      type: 'quiz',
+      quizConfig: { questionCount: 2, difficulty: 'easy', questionTypes: ['single'] },
+    });
+    const result = ensureRequiredFidelityStructure(
+      '必须包含辨别题和应用题',
+      'management',
+      buildSourceCatalog({ requirement: '必须包含辨别题和应用题' }),
+      [existingQuiz],
+    );
+    expect(result).toEqual([existingQuiz]);
   });
 
   it('returns no downstream context for missing/other policies', () => {

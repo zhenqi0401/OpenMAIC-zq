@@ -401,4 +401,34 @@ describe('Slice-04 assessment API routes', () => {
       course: { assessmentQuestions: [{ id: 'ai-generated', type: 'single', answer: ['A'] }] },
     });
   });
+
+  test('admin regenerate retries invalid model output and then persists the recovered assessment', async () => {
+    mocks.callLLM
+      .mockResolvedValueOnce({ text: 'not valid assessment json' })
+      .mockResolvedValueOnce({
+        text: JSON.stringify([
+          {
+            id: 'recovered',
+            type: 'single',
+            question: 'Which action applies the course process?',
+            options: ['Apply it', 'Ignore it'],
+            correctAnswer: 'Apply it',
+            analysis: 'Apply the process.',
+            points: 10,
+          },
+        ]),
+      });
+
+    const response = await postRoute(
+      '@/app/api/admin/courses/[id]/assessment/regenerate/route',
+      {},
+      { params: Promise.resolve({ id: 'course-1' }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.callLLM).toHaveBeenCalledTimes(2);
+    await expect(response.json()).resolves.toMatchObject({
+      course: { assessmentQuestions: [{ id: 'recovered' }] },
+    });
+  });
 });

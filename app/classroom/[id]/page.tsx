@@ -40,6 +40,8 @@ export default function ClassroomDetailPage() {
   const generationStartedRef = useRef(false);
   const generatedCourseIdRef = useRef<string | null>(null);
   const assessmentGenerationStartedRef = useRef(false);
+  const contentSyncQueueRef = useRef<Promise<unknown>>(Promise.resolve(null));
+  const completedCourseIdsRef = useRef(new Set<string>());
 
   const courseEditPersistence = useCourseEditPersistence({
     courseKey: classroomId,
@@ -52,21 +54,36 @@ export default function ClassroomDetailPage() {
       options: { generationComplete?: boolean } = {},
     ) => {
       if (!courseId) return;
+      if (options.generationComplete) completedCourseIdsRef.current.add(courseId);
 
-      const { scenes, outlines, stage, generationComplete } = useStageStore.getState();
-      const isComplete = options.generationComplete ?? generationComplete;
-      try {
-        return await replaceGeneratedCourseDraftContent(fetch, courseId, {
-          stage,
-          scenes,
-          outlines,
-          generationStatus: isComplete ? 'ready' : 'generating',
-          generationComplete: isComplete,
-        });
-      } catch (error) {
-        log.warn('[Classroom] Failed to sync generated course draft content:', error);
-        return null;
-      }
+      // Serialize snapshots for this page. Each queued operation reads the
+      // latest store state only when it starts, so an older per-scene PATCH
+      // cannot land after the final completion PATCH with stale scenes/flags.
+      const run = async () => {
+        const { scenes, outlines, stage, generationComplete } = useStageStore.getState();
+        const isComplete =
+          completedCourseIdsRef.current.has(courseId) ||
+          options.generationComplete === true ||
+          generationComplete;
+        try {
+          return await replaceGeneratedCourseDraftContent(fetch, courseId, {
+            stage,
+            scenes,
+            outlines,
+            generationStatus: isComplete ? 'ready' : 'generating',
+            generationComplete: isComplete,
+          });
+        } catch (error) {
+          log.warn('[Classroom] Failed to sync generated course draft content:', error);
+          return null;
+        }
+      };
+      const queued = contentSyncQueueRef.current.then(run, run);
+      contentSyncQueueRef.current = queued.then(
+        () => null,
+        () => null,
+      );
+      return queued;
     },
     [],
   );
@@ -94,6 +111,15 @@ export default function ClassroomDetailPage() {
     }
   }, []);
 
+  const finalizeGeneratedCourse = useCallback(
+    async (courseId = generatedCourseIdRef.current) => {
+      const content = await syncGeneratedDraftContent(courseId, { generationComplete: true });
+      if (content) await generateDraftAssessment(courseId);
+      return content;
+    },
+    [generateDraftAssessment, syncGeneratedDraftContent],
+  );
+
   const restoreGeneratedCourseId = useCallback(() => {
     try {
       const params = JSON.parse(sessionStorage.getItem('generationParams') ?? '{}') as {
@@ -117,11 +143,7 @@ export default function ClassroomDetailPage() {
     },
     onComplete: () => {
       log.info('[Classroom] All scenes generated');
-      void syncGeneratedDraftContent(generatedCourseIdRef.current, {
-        generationComplete: true,
-      }).then((content) => {
-        if (content) void generateDraftAssessment();
-      });
+      void finalizeGeneratedCourse();
     },
   });
 
@@ -330,7 +352,11 @@ export default function ClassroomDetailPage() {
       // ran. Record completion now so a later edit/delete is not treated as
       // an interrupted generation. No-op if already complete or not all
       // outlines have scenes.
+      const wasComplete = useStageStore.getState().generationComplete;
       useStageStore.getState().markGenerationCompleteIfDone();
+      if (!wasComplete && useStageStore.getState().generationComplete) {
+        void finalizeGeneratedCourse();
+      }
       // Resume media only for outlines that still have a scene. On a finished
       // deck the user may have deleted a slide, leaving an orphaned outline;
       // generating its media would waste API calls on a slide that is gone.
@@ -348,7 +374,7 @@ export default function ClassroomDetailPage() {
         });
       });
     }
-  }, [loading, error, generateRemaining]);
+  }, [loading, error, finalizeGeneratedCourse, generateRemaining]);
 
   return (
     <ThemeProvider>

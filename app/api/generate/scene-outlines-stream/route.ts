@@ -40,6 +40,7 @@ import { resolveVocationalActive } from '@/lib/config/feature-flags';
 import {
   buildOutlineFidelityPrompt,
   buildSourceCatalog,
+  ensureRequiredFidelityStructure,
   isEnhancedTrainingCourseType,
   isTrainingCourseType,
   normalizeFidelityOutline,
@@ -634,8 +635,16 @@ export async function POST(req: NextRequest) {
           }
 
           if (parsedOutlines.length > 0) {
+            const structurallyCompleteOutlines = enhancedTrainingCourseType
+              ? ensureRequiredFidelityStructure(
+                  requirements.requirement,
+                  enhancedTrainingCourseType,
+                  sourceCatalog,
+                  parsedOutlines,
+                )
+              : parsedOutlines;
             // Replace sequential gen_img_N/gen_vid_N with globally unique IDs
-            const uniquifiedOutlines = uniquifyMediaElementIds(parsedOutlines);
+            const uniquifiedOutlines = uniquifyMediaElementIds(structurallyCompleteOutlines);
             // Send done event with all outlines
             const doneEvent = JSON.stringify({
               type: 'done',
