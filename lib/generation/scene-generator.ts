@@ -55,7 +55,13 @@ import type {
 import type { ThinkingConfig } from '@/lib/types/provider';
 import { createLogger } from '@/lib/logger';
 import { buildSceneFidelityContext } from './input-fidelity';
+import { validateAndRepairSlideLayout, type SlideLayoutIssueCode } from './slide-layout-guard';
 const log = createLogger('Generation');
+
+function getSlideLayoutGuardMode(): 'off' | 'report' | 'repair' {
+  const mode = process.env.SLIDE_LAYOUT_GUARD_MODE;
+  return mode === 'off' || mode === 'report' || mode === 'repair' ? mode : 'repair';
+}
 
 const INTERACTIVE_WIDGET_ACTIONS = [
   'widget_highlight',
@@ -884,8 +890,30 @@ async function generateSlideContent(
   );
   log.debug(`After video reference normalization: ${videoNormalizedElements.length} elements`);
 
+  const guardMode = getSlideLayoutGuardMode();
+  const layoutStartedAt = performance.now();
+  const layoutResult = validateAndRepairSlideLayout(videoNormalizedElements, { mode: guardMode });
+  if (layoutResult.issues.length > 0) {
+    const issueCounts = layoutResult.issues.reduce<Partial<Record<SlideLayoutIssueCode, number>>>(
+      (counts, issue) => {
+        counts[issue.code] = (counts[issue.code] ?? 0) + 1;
+        return counts;
+      },
+      {},
+    );
+    log.warn('Slide layout guard', {
+      sceneOrder: outline.order,
+      sceneId: outline.id,
+      issueCounts,
+      repairedElementCount: layoutResult.repairedElementCount,
+      unresolvedIssueCount: layoutResult.unresolvedIssueCount,
+      durationMs: Math.round((performance.now() - layoutStartedAt) * 100) / 100,
+      mode: guardMode,
+    });
+  }
+
   // Process elements, assign unique IDs
-  const processedElements: PPTElement[] = videoNormalizedElements.map((el) => ({
+  const processedElements: PPTElement[] = layoutResult.elements.map((el) => ({
     ...el,
     id: `${el.type}_${nanoid(8)}`,
     rotate: 0,
