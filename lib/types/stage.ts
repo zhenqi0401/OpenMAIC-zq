@@ -102,5 +102,8 @@ export type SceneContent = AppSceneContent;
  * callers keep their original semantics (actions are `Action[]`, content spans
  * all four kinds).
  */
-export type AppScene = DslScene<Action, SceneContent>;
+export type AppScene = DslScene<Action, SceneContent> & {
+  /** Stable generation-source identity; absent for legacy/imported/manual scenes. */
+  outlineId?: string;
+};
 export type Scene = AppScene;

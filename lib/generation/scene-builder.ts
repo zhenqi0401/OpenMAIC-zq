@@ -160,6 +160,7 @@ export function buildCompleteScene(
 
     return {
       id: sceneId,
+      outlineId: outline.id,
       stageId,
       type: 'slide',
       title: outline.title,
@@ -177,6 +178,7 @@ export function buildCompleteScene(
   if (outline.type === 'quiz' && 'questions' in content) {
     return {
       id: sceneId,
+      outlineId: outline.id,
       stageId,
       type: 'quiz',
       title: outline.title,
@@ -194,6 +196,7 @@ export function buildCompleteScene(
   if (outline.type === 'interactive' && 'html' in content) {
     return {
       id: sceneId,
+      outlineId: outline.id,
       stageId,
       type: 'interactive',
       title: outline.title,
@@ -215,6 +218,7 @@ export function buildCompleteScene(
   if (outline.type === 'pbl' && 'projectConfig' in content) {
     return {
       id: sceneId,
+      outlineId: outline.id,
       stageId,
       type: 'pbl',
       title: outline.title,

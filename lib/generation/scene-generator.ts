@@ -1718,6 +1718,7 @@ export function createSceneWithActions(
     };
 
     const sceneResult = api.scene.create({
+      outlineId: outline.id,
       type: 'slide',
       title: outline.title,
       order: outline.order,
@@ -1733,6 +1734,7 @@ export function createSceneWithActions(
 
   if (outline.type === 'quiz' && 'questions' in content) {
     const sceneResult = api.scene.create({
+      outlineId: outline.id,
       type: 'quiz',
       title: outline.title,
       order: outline.order,
@@ -1748,6 +1750,7 @@ export function createSceneWithActions(
 
   if (outline.type === 'interactive' && 'html' in content) {
     const sceneResult = api.scene.create({
+      outlineId: outline.id,
       type: 'interactive',
       title: outline.title,
       order: outline.order,
@@ -1767,6 +1770,7 @@ export function createSceneWithActions(
 
   if (outline.type === 'pbl' && 'projectConfig' in content) {
     const sceneResult = api.scene.create({
+      outlineId: outline.id,
       type: 'pbl',
       title: outline.title,
       order: outline.order,

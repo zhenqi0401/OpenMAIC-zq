@@ -178,6 +178,8 @@ export interface Scene<
   TContent extends { type: SceneType } = SlideContent | QuizContent,
 > {
   id: string;
+  /** Stable generation-source identity. Absent for legacy/imported/manual scenes. */
+  outlineId?: string;
   stageId: string; // ID of the parent stage (for data integrity checks)
   type: SceneType;
   title: string;

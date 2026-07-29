@@ -48,6 +48,7 @@ describe('buildCompleteScene — PBL v2', () => {
 
     const scene = buildCompleteScene(outline, content, [], 'stage-1');
 
+    expect(scene?.outlineId).toBe('outline-pbl-v2');
     expect(scene?.content.type).toBe('pbl');
     if (scene?.content.type !== 'pbl') throw new Error('expected PBL scene');
     expect(scene.content.projectV2).toBe(projectV2);

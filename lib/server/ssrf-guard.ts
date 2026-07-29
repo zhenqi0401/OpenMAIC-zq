@@ -101,11 +101,39 @@ function expandIPv6(ip: string): number[] | null {
   return parts.map((p) => Number.parseInt(p, 16));
 }
 
+/** Extract the IPv4 endpoint embedded by ISATAP (RFC 5214), if present. */
+function extractIsatapIPv4(ip: string): string | null {
+  const normalized = normalizeAddress(ip);
+  if (!normalized.includes(':')) return null;
+
+  const parts = normalized.split(':');
+  const dottedSuffix = parts.at(-1);
+  let addressForExpansion = normalized;
+  if (dottedSuffix?.includes('.')) {
+    const ipv4 = parseIPv4(dottedSuffix);
+    if (!ipv4) return null;
+    const high = (ipv4[0] << 8) | ipv4[1];
+    const low = (ipv4[2] << 8) | ipv4[3];
+    addressForExpansion = `${parts.slice(0, -1).join(':')}:${high.toString(16)}:${low.toString(16)}`;
+  }
+
+  const hextets = expandIPv6(addressForExpansion);
+  if (!hextets || (hextets[4] !== 0 && hextets[4] !== 0x0200) || hextets[5] !== 0x5efe) {
+    return null;
+  }
+
+  return `${hextets[6] >> 8}.${hextets[6] & 0xff}.${hextets[7] >> 8}.${hextets[7] & 0xff}`;
+}
+
 export function isPrivateIP(ip: string): boolean {
   const normalized = normalizeAddress(ip);
   const mappedIPv4 = extractMappedIPv4(normalized);
   if (mappedIPv4) {
     return isPrivateIP(mappedIPv4);
+  }
+  const isatapIPv4 = extractIsatapIPv4(normalized);
+  if (isatapIPv4) {
+    return isPrivateIP(isatapIPv4);
   }
 
   const ipv4 = parseIPv4(normalized);

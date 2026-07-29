@@ -16,6 +16,7 @@ import type {
   ImageGenerationOptions,
   ImageGenerationResult,
 } from '../types';
+import { fetchWithoutRedirects } from '@/lib/server/no-redirect-fetch';
 
 const DEFAULT_MODEL = 'qwen-image-max';
 const DEFAULT_BASE_URL = 'https://dashscope.aliyuncs.com';
@@ -39,7 +40,7 @@ export async function testQwenImageConnectivity(
 ): Promise<{ success: boolean; message: string }> {
   const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
   try {
-    const response = await fetch(
+    const response = await fetchWithoutRedirects(
       `${baseUrl}/api/v1/services/aigc/multimodal-generation/generation`,
       {
         method: 'POST',

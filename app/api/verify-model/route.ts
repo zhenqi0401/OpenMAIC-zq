@@ -3,6 +3,7 @@ import { createLogger } from '@/lib/logger';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { resolveModel } from '@/lib/server/resolve-model';
 import { callLLM } from '@/lib/ai/llm';
+import { fetchWithoutRedirects } from '@/lib/server/no-redirect-fetch';
 const log = createLogger('Verify Model');
 
 export async function POST(req: NextRequest) {
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest) {
         apiKey: apiKey || '',
         baseUrl: baseUrl || undefined,
         providerType,
+        fetch: fetchWithoutRedirects,
       });
       languageModel = result.model;
     } catch (error) {

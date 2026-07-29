@@ -101,6 +101,7 @@ describe('openai-image-adapter', () => {
 
     expect(mockFetch).toHaveBeenCalledWith('https://api.openai.com/v1/models/gpt-image-unknown', {
       headers: { Authorization: 'Bearer sk-test' },
+      redirect: 'manual',
     });
     expect(result.success).toBe(false);
     expect(result.message).toBe('OpenAI Image model not found: gpt-image-unknown');

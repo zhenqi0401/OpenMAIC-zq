@@ -160,6 +160,25 @@ describe('validateUrlForSSRF', () => {
     expect(lookupMock).not.toHaveBeenCalled();
   });
 
+  it('rejects ISATAP addresses embedding private IPv4', async () => {
+    const { validateUrlForSSRF } = await import('@/lib/server/ssrf-guard');
+
+    await expect(validateUrlForSSRF('http://[2001:db8::5efe:c0a8:0101]')).resolves.toBe(
+      PRIVATE_NETWORK_BLOCK_MESSAGE,
+    );
+    await expect(validateUrlForSSRF('http://[2001:db8::200:5efe:10.0.0.1]')).resolves.toBe(
+      PRIVATE_NETWORK_BLOCK_MESSAGE,
+    );
+    expect(lookupMock).not.toHaveBeenCalled();
+  });
+
+  it('allows an ISATAP address whose embedded IPv4 endpoint is public', async () => {
+    const { validateUrlForSSRF } = await import('@/lib/server/ssrf-guard');
+
+    await expect(validateUrlForSSRF('http://[2001:db8::5efe:0808:0808]')).resolves.toBeNull();
+    expect(lookupMock).not.toHaveBeenCalled();
+  });
+
   it('rejects hostnames that resolve to a private IP', async () => {
     lookupMock.mockResolvedValue([{ address: '127.0.0.1', family: 4 }]);
 

@@ -10,6 +10,7 @@ import type {
   ImageGenerationOptions,
   ImageGenerationResult,
 } from '../types';
+import { fetchWithoutRedirects } from '@/lib/server/no-redirect-fetch';
 
 const DEFAULT_MODEL = 'gpt-image-2';
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
@@ -28,7 +29,7 @@ export async function testOpenAIImageConnectivity(
   const baseUrl = normalizeBaseUrl(config.baseUrl);
 
   try {
-    const response = await fetch(
+    const response = await fetchWithoutRedirects(
       `${baseUrl}/models/${encodeURIComponent(config.model || DEFAULT_MODEL)}`,
       {
         headers: {

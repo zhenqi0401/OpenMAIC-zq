@@ -9,6 +9,7 @@ import type {
   ImageGenerationOptions,
   ImageGenerationResult,
 } from '../types';
+import { fetchWithoutRedirects } from '@/lib/server/no-redirect-fetch';
 
 const DEFAULT_MODEL = 'Qwen-Image-GGUF';
 const DEFAULT_BASE_URL = 'http://localhost:13305/v1';
@@ -32,7 +33,7 @@ export async function testLemonadeImageConnectivity(
   const baseUrl = normalizeBaseUrl(config.baseUrl);
 
   try {
-    const response = await fetch(`${baseUrl}/models`, {
+    const response = await fetchWithoutRedirects(`${baseUrl}/models`, {
       headers: authHeaders(config.apiKey),
     });
 

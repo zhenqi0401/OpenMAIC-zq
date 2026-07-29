@@ -33,6 +33,7 @@ import { useAgentThreadStore } from './agent-thread-store';
 import { serializeThread, deserializeThread } from './serialize-thread';
 export type { AssistantPart, PiPart } from './merge-assistant-parts';
 import { toPiParts, type PiAssistantContent } from './to-pi-parts';
+import { findOutlineForScene } from '@/lib/generation/outline-scene-identity';
 import { useThinkingTimers } from './thinking-timers';
 import { useSceneRuntimeErrors } from '@/lib/store/scene-runtime-errors';
 
@@ -311,7 +312,7 @@ export function useAgentRuntime(opts: UseAgentRuntimeOptions) {
         const { scenes, outlines, stage } = storeState;
         const sceneContextMap: SceneContextMap = {};
         for (const scene of scenes) {
-          const outline = outlines.find((o) => o.order === scene.order) ?? {
+          const outline = findOutlineForScene(outlines, scene) ?? {
             id: scene.id,
             type: scene.type,
             title: scene.title,

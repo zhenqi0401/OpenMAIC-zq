@@ -23,6 +23,7 @@ import type {
   VideoGenerationOptions,
   VideoGenerationResult,
 } from '../types';
+import { fetchWithoutRedirects } from '@/lib/server/no-redirect-fetch';
 
 const DEFAULT_MODEL = 'kling-v2-6';
 const DEFAULT_BASE_URL = 'https://api-beijing.klingai.com';
@@ -132,10 +133,13 @@ export async function testKlingConnectivity(
     const { accessKey, secretKey } = parseApiKey(config.apiKey);
     const token = generateJWT(accessKey, secretKey);
     // Use a GET to a non-existent task to validate auth
-    const response = await fetch(`${baseUrl}/v1/videos/text2video/connectivity-test`, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const response = await fetchWithoutRedirects(
+      `${baseUrl}/v1/videos/text2video/connectivity-test`,
+      {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
     if (response.status === 401 || response.status === 403) {
       const text = await response.text();
       return {

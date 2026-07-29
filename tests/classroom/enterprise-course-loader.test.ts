@@ -19,6 +19,7 @@ describe('CHANGE-01 enterprise classroom loader', () => {
           scenes: [
             {
               id: 'scene-1',
+              outlineId: 'outline-1',
               stageId: 'course-pg-1',
               order: 1,
               title: 'Intro',
@@ -50,6 +51,7 @@ describe('CHANGE-01 enterprise classroom loader', () => {
       scenes: [
         {
           id: 'scene-1',
+          outlineId: 'outline-1',
           actions: [
             {
               audioId: 'tts-1',

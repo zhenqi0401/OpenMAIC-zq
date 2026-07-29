@@ -11,6 +11,7 @@ import type {
   VideoGenerationOptions,
   VideoGenerationResult,
 } from '../types';
+import { fetchWithoutRedirects } from '@/lib/server/no-redirect-fetch';
 
 const DEFAULT_MODEL = 'happyhorse-1.0-t2v';
 const DEFAULT_BASE_URL = 'https://dashscope.aliyuncs.com';
@@ -193,10 +194,13 @@ export async function testHappyHorseConnectivity(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const baseUrl = normalizeBaseUrl(config.baseUrl);
-    const response = await fetch(`${baseUrl}/api/v1/tasks/connectivity-test-nonexistent`, {
-      method: 'GET',
-      headers: authHeaders(config.apiKey),
-    });
+    const response = await fetchWithoutRedirects(
+      `${baseUrl}/api/v1/tasks/connectivity-test-nonexistent`,
+      {
+        method: 'GET',
+        headers: authHeaders(config.apiKey),
+      },
+    );
 
     if (response.status === 401 || response.status === 403) {
       const text = await response.text();

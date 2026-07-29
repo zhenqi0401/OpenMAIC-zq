@@ -23,6 +23,7 @@ export interface APIResult<T = unknown> {
  * Scene creation parameters
  */
 export interface CreateSceneParams {
+  outlineId?: string;
   type: SceneType;
   title: string;
   content?: Partial<SceneContent>;

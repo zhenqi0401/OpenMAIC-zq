@@ -58,6 +58,7 @@ export function createSceneAPI(store: StageStore) {
 
         const newScene: Scene = {
           id: sceneId,
+          outlineId: params.outlineId,
           stageId: state.stage.id,
           type: params.type,
           title: params.title,

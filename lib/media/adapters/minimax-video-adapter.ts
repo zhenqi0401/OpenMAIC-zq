@@ -10,6 +10,7 @@ import type {
   VideoGenerationOptions,
   VideoGenerationResult,
 } from '../types';
+import { fetchWithoutRedirects } from '@/lib/server/no-redirect-fetch';
 
 const BASE_URL = 'https://api.minimaxi.com';
 const POLL_INTERVAL_MS = 5000;
@@ -205,7 +206,7 @@ export async function testMiniMaxVideoConnectivity(
   try {
     const baseUrl = (config.baseUrl || BASE_URL).replace(/\/$/, '');
     // Submit a minimal task and immediately check if it returns a task_id
-    const response = await fetch(`${baseUrl}/v1/video_generation`, {
+    const response = await fetchWithoutRedirects(`${baseUrl}/v1/video_generation`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${config.apiKey}`,

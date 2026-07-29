@@ -28,9 +28,10 @@ function makeStage(): Stage {
   return { id: 'stage-1', name: 'Test stage', createdAt: 1, updatedAt: 1 };
 }
 
-function makeSlideScene(id: string, order: number, stageId = 'stage-1'): Scene {
+function makeSlideScene(id: string, order: number, stageId = 'stage-1', outlineId?: string): Scene {
   return {
     id,
+    outlineId,
     stageId,
     type: 'slide',
     title: id,
@@ -222,6 +223,37 @@ describe('generationComplete', () => {
   });
 
   describe('markGenerationCompleteIfDone', () => {
+    it('uses outlineId instead of rewritten display order for new scenes', () => {
+      useStageStore.setState({
+        stage: makeStage(),
+        scenes: [
+          makeSlideScene('a', 2, 'stage-1', 'outline-1'),
+          makeSlideScene('b', 1, 'stage-1', 'outline-2'),
+        ],
+        outlines: [makeOutline(1), makeOutline(2)],
+        failedOutlines: [],
+        generationComplete: false,
+      });
+
+      useStageStore.getState().markGenerationCompleteIfDone();
+
+      expect(useStageStore.getState().generationComplete).toBe(true);
+    });
+
+    it('does not use order fallback when a new scene has a different outlineId', () => {
+      useStageStore.setState({
+        stage: makeStage(),
+        scenes: [makeSlideScene('a', 1, 'stage-1', 'outline-2')],
+        outlines: [makeOutline(1)],
+        failedOutlines: [],
+        generationComplete: false,
+      });
+
+      useStageStore.getState().markGenerationCompleteIfDone();
+
+      expect(useStageStore.getState().generationComplete).toBe(false);
+    });
+
     it('marks complete when every outline has a scene and none failed', () => {
       useStageStore.setState({
         stage: makeStage(),

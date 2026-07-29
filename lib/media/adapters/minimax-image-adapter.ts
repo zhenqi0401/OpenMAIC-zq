@@ -9,6 +9,7 @@ import type {
   ImageGenerationOptions,
   ImageGenerationResult,
 } from '../types';
+import { fetchWithoutRedirects } from '@/lib/server/no-redirect-fetch';
 
 const BASE_URL = 'https://api.minimaxi.com';
 
@@ -88,7 +89,7 @@ export async function testMiniMaxImageConnectivity(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const baseUrl = (config.baseUrl || BASE_URL).replace(/\/$/, '');
-    const response = await fetch(`${baseUrl}/v1/image_generation`, {
+    const response = await fetchWithoutRedirects(`${baseUrl}/v1/image_generation`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${config.apiKey}`,

@@ -1,8 +1,34 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseJsonResponse } from '@/lib/generation/json-repair';
+import { parseJsonResponse, stripLeadingReasoningBlocks } from '@/lib/generation/json-repair';
 
 describe('json-repair targeted fixes', () => {
+  it('strips complete leading thinking blocks before selecting the JSON payload', () => {
+    const raw = `<think>I might return {"wrong": true} first.</think>
+{"right": true}`;
+
+    expect(parseJsonResponse<{ right: boolean }>(raw)).toEqual({ right: true });
+  });
+
+  it('strips repeated reasoning tag variants before a fenced JSON payload', () => {
+    const raw = `<analysis>Plan [one] first.</analysis>
+<reasoning>Then verify {two}.</reasoning>
+\`\`\`json
+{"ok": true}
+\`\`\``;
+
+    expect(parseJsonResponse<{ ok: boolean }>(raw)).toEqual({ ok: true });
+  });
+
+  it('preserves reasoning tags inside JSON strings and incomplete leading blocks', () => {
+    expect(parseJsonResponse<{ text: string }>(`{"text":"<think>keep me</think>"}`)).toEqual({
+      text: '<think>keep me</think>',
+    });
+    expect(stripLeadingReasoningBlocks('<think>unfinished {"value": true}')).toBe(
+      '<think>unfinished {"value": true}',
+    );
+  });
+
   it('repairs quoted key-value fragments such as "height: 76"', () => {
     const raw = `{
   "background": {

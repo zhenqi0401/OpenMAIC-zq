@@ -20,6 +20,7 @@ import type {
   VideoGenerationOptions,
   VideoGenerationResult,
 } from '../types';
+import { fetchWithoutRedirects } from '@/lib/server/no-redirect-fetch';
 
 const DEFAULT_MODEL = 'grok-imagine-video';
 const DEFAULT_BASE_URL = 'https://api.x.ai/v1';
@@ -87,7 +88,7 @@ export async function testGrokVideoConnectivity(
 ): Promise<{ success: boolean; message: string }> {
   const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
   try {
-    const response = await fetch(`${baseUrl}/videos/generations`, {
+    const response = await fetchWithoutRedirects(`${baseUrl}/videos/generations`, {
       method: 'POST',
       headers: apiHeaders(config.apiKey),
       body: JSON.stringify({

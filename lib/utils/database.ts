@@ -59,6 +59,7 @@ export interface StageRecord {
  */
 export interface SceneRecord {
   id: string; // Primary key
+  outlineId?: string; // Stable source outline identity (legacy/manual scenes may omit it)
   stageId: string; // Foreign key -> stages.id
   type: SceneType;
   title: string;

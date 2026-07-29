@@ -32,9 +32,31 @@ function logJsonParseError(stage: string, jsonStr: string, error: unknown): void
   log.warn(`${stage} parse error: ${message}`);
 }
 
+const LEADING_REASONING_TAG = /^<(think|thinking|reasoning|analysis)(?:\s[^>]*)?>/i;
+
+/** Remove only complete reasoning blocks that precede a structured response. */
+export function stripLeadingReasoningBlocks(response: string): string {
+  let remaining = response.trimStart();
+
+  while (true) {
+    const opening = remaining.match(LEADING_REASONING_TAG);
+    if (!opening) return remaining;
+
+    const tagName = opening[1];
+    const closing = new RegExp(`</${tagName}\\s*>`, 'i');
+    const afterOpening = remaining.slice(opening[0].length);
+    const closingMatch = closing.exec(afterOpening);
+    if (!closingMatch) return remaining;
+
+    remaining = afterOpening.slice(closingMatch.index + closingMatch[0].length).trimStart();
+  }
+}
+
 export function parseJsonResponse<T>(response: string): T | null {
+  const structuredResponse = stripLeadingReasoningBlocks(response);
+
   // Strategy 1: Try to extract JSON from markdown code blocks (may have multiple)
-  const codeBlockMatches = response.matchAll(/```(?:json)?\s*([\s\S]*?)```/g);
+  const codeBlockMatches = structuredResponse.matchAll(/```(?:json)?\s*([\s\S]*?)```/g);
   for (const match of codeBlockMatches) {
     const extracted = match[1].trim();
     // Only try if it looks like JSON (starts with { or [)
@@ -49,8 +71,8 @@ export function parseJsonResponse<T>(response: string): T | null {
 
   // Strategy 2: Try to find JSON structure directly in response (no code block)
   // Look for array or object start
-  const jsonStartArray = response.indexOf('[');
-  const jsonStartObject = response.indexOf('{');
+  const jsonStartArray = structuredResponse.indexOf('[');
+  const jsonStartObject = structuredResponse.indexOf('{');
 
   if (jsonStartArray !== -1 || jsonStartObject !== -1) {
     // Prefer the structure that appears first
@@ -67,8 +89,8 @@ export function parseJsonResponse<T>(response: string): T | null {
     let inString = false;
     let escapeNext = false;
 
-    for (let i = startIndex; i < response.length; i++) {
-      const char = response[i];
+    for (let i = startIndex; i < structuredResponse.length; i++) {
+      const char = structuredResponse[i];
 
       if (escapeNext) {
         escapeNext = false;
@@ -98,7 +120,7 @@ export function parseJsonResponse<T>(response: string): T | null {
     }
 
     if (endIndex !== -1) {
-      const jsonStr = response.substring(startIndex, endIndex + 1);
+      const jsonStr = structuredResponse.substring(startIndex, endIndex + 1);
       const result = tryParseJson<T>(jsonStr);
       if (result !== null) {
         log.debug('Successfully parsed JSON from response body');
@@ -108,7 +130,7 @@ export function parseJsonResponse<T>(response: string): T | null {
   }
 
   // Strategy 3: Last resort - try the whole response
-  const result = tryParseJson<T>(response.trim());
+  const result = tryParseJson<T>(structuredResponse.trim());
   if (result !== null) {
     log.debug('Successfully parsed raw response as JSON');
     return result;

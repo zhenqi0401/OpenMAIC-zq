@@ -1476,6 +1476,7 @@ export function getModel(config: ModelConfig): ModelWithInfo {
     config.providerId,
     config.baseUrl || provider?.defaultBaseUrl || undefined,
   );
+  const requestFetch = config.fetch ?? globalThis.fetch;
 
   let model: LanguageModel;
 
@@ -1484,6 +1485,7 @@ export function getModel(config: ModelConfig): ModelWithInfo {
       const openaiOptions: Parameters<typeof createOpenAI>[0] = {
         apiKey: effectiveApiKey,
         baseURL: effectiveBaseUrl,
+        fetch: requestFetch,
       };
 
       // For OpenAI-compatible providers (not native OpenAI), add a fetch
@@ -1518,7 +1520,7 @@ export function getModel(config: ModelConfig): ModelWithInfo {
               }
             }
           }
-          const response = await globalThis.fetch(url, init);
+          const response = await requestFetch(url, init);
 
           // Recover reasoning that @ai-sdk/openai's chat schema drops: rewrite
           // streamed `reasoning_content` deltas into an inline <think> block
@@ -1598,6 +1600,7 @@ export function getModel(config: ModelConfig): ModelWithInfo {
     case 'anthropic': {
       const anthropicOptions: Parameters<typeof createAnthropic>[0] = {
         baseURL: effectiveBaseUrl,
+        fetch: requestFetch,
       };
       if (config.providerId === 'minimax' && effectiveApiKey.startsWith('sk-cp-')) {
         anthropicOptions.authToken = effectiveApiKey;
@@ -1628,7 +1631,7 @@ export function getModel(config: ModelConfig): ModelWithInfo {
             }
           }
 
-          return globalThis.fetch(url, init);
+          return requestFetch(url, init);
         }) as typeof globalThis.fetch;
       }
 
@@ -1641,6 +1644,7 @@ export function getModel(config: ModelConfig): ModelWithInfo {
       const googleOptions: Parameters<typeof createGoogleGenerativeAI>[0] = {
         apiKey: effectiveApiKey,
         baseURL: effectiveBaseUrl,
+        fetch: requestFetch,
       };
       if (config.proxy) {
         const proxy = config.proxy;

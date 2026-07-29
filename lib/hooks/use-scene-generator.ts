@@ -28,6 +28,7 @@ import {
   withGenerationRetry,
   type GenerationRetryOptions,
 } from '@/lib/generation/generation-retry';
+import { findSceneForOutline } from '@/lib/generation/outline-scene-identity';
 
 const log = createLogger('SceneGenerator');
 
@@ -444,9 +445,8 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
       store.getState().setGenerationStatus('generating');
 
       // Determine pending outlines
-      const completedOrders = new Set(scenes.map((s) => s.order));
       const pending = outlines
-        .filter((o) => !completedOrders.has(o.order))
+        .filter((outline) => findSceneForOutline(scenes, outline) === undefined)
         .sort((a, b) => a.order - b.order);
 
       if (pending.length === 0) {
@@ -717,7 +717,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
       // edit mode. Failed outlines have no completed scene yet so this is
       // structurally a no-op today, but the guard is in place for the
       // moment a "regenerate a successful scene" path routes through here.
-      const lockedScene = state.scenes.find((s) => s.order === outline.order);
+      const lockedScene = findSceneForOutline(state.scenes, outline);
       if (
         lockedScene &&
         isSceneEditLocked({

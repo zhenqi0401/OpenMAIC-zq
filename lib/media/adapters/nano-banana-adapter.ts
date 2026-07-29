@@ -19,6 +19,7 @@ import type {
   ImageGenerationOptions,
   ImageGenerationResult,
 } from '../types';
+import { fetchWithoutRedirects } from '@/lib/server/no-redirect-fetch';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash-image';
 const DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com';
@@ -58,13 +59,13 @@ export async function testNanoBananaConnectivity(
   // Try ?key= query param first (direct Google API), fall back to x-goog-api-key header (proxy)
   let response: Response | null = null;
   try {
-    response = await fetch(`${url}?key=${config.apiKey}`, { method: 'GET' });
+    response = await fetchWithoutRedirects(`${url}?key=${config.apiKey}`, { method: 'GET' });
   } catch {
     // Direct API unreachable, try header auth
   }
   if (!response || !response.ok) {
     try {
-      response = await fetch(url, {
+      response = await fetchWithoutRedirects(url, {
         method: 'GET',
         headers: { 'x-goog-api-key': config.apiKey },
       });

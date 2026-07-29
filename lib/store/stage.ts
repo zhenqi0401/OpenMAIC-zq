@@ -6,6 +6,7 @@ import type { SceneOutline } from '@/lib/types/generation';
 import { createLogger } from '@/lib/logger';
 import { useCanvasStore } from '@/lib/store/canvas';
 import { migrateScene } from '@/lib/edit/slide-schema';
+import { findSceneForOutline, sceneMatchesOutline } from '@/lib/generation/outline-scene-identity';
 
 const log = createLogger('StageStore');
 
@@ -186,8 +187,10 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
       return;
     }
     const scenes = [...get().scenes, migrateScene(scene)];
-    // Remove the matching outline from generatingOutlines (match by order)
-    const generatingOutlines = get().generatingOutlines.filter((o) => o.order !== scene.order);
+    // New scenes bind by stable outlineId; legacy scenes retain the order fallback.
+    const generatingOutlines = get().generatingOutlines.filter(
+      (outline) => !sceneMatchesOutline(scene, outline),
+    );
     // Auto-switch from pending page to the newly generated scene
     const shouldSwitch = get().currentSceneId === PENDING_SCENE_ID;
     set({
@@ -245,7 +248,7 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
       !get().generationComplete &&
       get().outlines.length > 0 &&
       get().failedOutlines.length === 0 &&
-      get().outlines.every((o) => get().scenes.some((s) => s.order === o.order));
+      get().outlines.every((outline) => findSceneForOutline(get().scenes, outline) !== undefined);
 
     const scenes = get().scenes.filter((scene) => scene.id !== sceneId);
     const currentSceneId = get().currentSceneId;
@@ -346,7 +349,7 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
     const done =
       outlines.length > 0 &&
       failedOutlines.length === 0 &&
-      outlines.every((o) => scenes.some((s) => s.order === o.order));
+      outlines.every((outline) => findSceneForOutline(scenes, outline) !== undefined);
     if (done) get().setGenerationComplete(true);
   },
 
@@ -449,13 +452,11 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
         // prevents a pre-existing finished deck from regenerating a slide the
         // user deletes before the flag was ever recorded.
         //
-        // Matching is by `order`, consistent with the rest of the resume
-        // pipeline. For a never-edited deck order is a faithful key; the only
-        // way it diverges is Pro-mode insert/reorder, which is blocked while
-        // outlines are still pending (see stage-mode edit gating), so an
-        // interrupted deck cannot be edited into a false "all materialized".
+        // New scenes match by stable outlineId. Legacy scenes created before
+        // that field existed keep the historical order fallback.
         const allMaterialized =
-          outlines.length > 0 && outlines.every((o) => migrated.some((s) => s.order === o.order));
+          outlines.length > 0 &&
+          outlines.every((outline) => findSceneForOutline(migrated, outline) !== undefined);
         const generationComplete = persistedComplete || allMaterialized;
         if (generationComplete && !persistedComplete) {
           db.stageOutlines.put({
@@ -480,7 +481,7 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
           // as a pending placeholder or drive resume regeneration.
           generatingOutlines: generationComplete
             ? []
-            : outlines.filter((o) => !migrated.some((s) => s.order === o.order)),
+            : outlines.filter((outline) => findSceneForOutline(migrated, outline) === undefined),
           // `mode` is transient UI state, not persisted with the stage.
           // Reset to 'playback' on every load so SPA navigation between
           // classrooms doesn't carry Pro-mode state across — e.g. user

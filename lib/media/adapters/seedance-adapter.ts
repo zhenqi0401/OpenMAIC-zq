@@ -29,6 +29,7 @@ import type {
   VideoGenerationOptions,
   VideoGenerationResult,
 } from '../types';
+import { fetchWithoutRedirects } from '@/lib/server/no-redirect-fetch';
 
 const DEFAULT_MODEL = 'doubao-seedance-1-5-pro-251215';
 const DEFAULT_BASE_URL = 'https://ark.cn-beijing.volces.com';
@@ -110,7 +111,7 @@ export async function testSeedanceConnectivity(
 ): Promise<{ success: boolean; message: string }> {
   const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
   try {
-    const response = await fetch(
+    const response = await fetchWithoutRedirects(
       `${baseUrl}/api/v3/contents/generations/tasks/connectivity-test-nonexistent`,
       {
         method: 'GET',

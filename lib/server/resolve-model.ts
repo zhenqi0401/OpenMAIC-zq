@@ -51,6 +51,7 @@ export async function resolveModel(params: {
   baseUrl?: string;
   providerType?: string;
   thinkingConfig?: ThinkingConfig;
+  fetch?: typeof globalThis.fetch;
 }): Promise<ResolvedModel> {
   // Resolution order: stage route > x-model > DEFAULT_MODEL.
   // A configured stage route is the operator's deliberate per-stage choice and
@@ -102,6 +103,7 @@ export async function resolveModel(params: {
     baseUrl,
     proxy,
     providerType: clientProviderType as 'openai' | 'anthropic' | 'google' | undefined,
+    fetch: params.fetch,
   });
 
   // Thinking arbitration mirrors model routing — the route carries a full

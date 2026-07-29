@@ -75,6 +75,7 @@ describe('POST /api/verify-model', () => {
       apiKey: 'tp-test',
       baseUrl: 'https://token-plan-cn.xiaomimimo.com/v1',
       providerType: 'openai',
+      fetch: expect.any(Function),
     });
     expect(mocks.callLLM).toHaveBeenCalledWith(
       {

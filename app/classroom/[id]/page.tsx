@@ -23,6 +23,7 @@ import {
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import { loadEnterpriseClassroom } from '@/lib/classroom/enterprise-course-loader';
 import { useCourseEditPersistence } from '@/lib/authoring/use-course-edit-persistence';
+import { findSceneForOutline } from '@/lib/generation/outline-scene-identity';
 
 const log = createLogger('Classroom');
 
@@ -307,8 +308,9 @@ export default function ClassroomDetailPage() {
     // editing: deleting a slide leaves its outline orphaned, but that must not
     // be treated as an interrupted generation and regenerated. Only resume
     // when generation has not completed.
-    const completedOrders = new Set(scenes.map((s) => s.order));
-    const hasPending = !generationComplete && outlines.some((o) => !completedOrders.has(o.order));
+    const hasPending =
+      !generationComplete &&
+      outlines.some((outline) => findSceneForOutline(scenes, outline) === undefined);
 
     if (hasPending && stage) {
       generationStartedRef.current = true;
@@ -360,8 +362,9 @@ export default function ClassroomDetailPage() {
       // Resume media only for outlines that still have a scene. On a finished
       // deck the user may have deleted a slide, leaving an orphaned outline;
       // generating its media would waste API calls on a slide that is gone.
-      const materializedOrders = new Set(scenes.map((s) => s.order));
-      const materializedOutlines = outlines.filter((o) => materializedOrders.has(o.order));
+      const materializedOutlines = outlines.filter(
+        (outline) => findSceneForOutline(scenes, outline) !== undefined,
+      );
       generateMediaForOutlines(
         materializedOutlines,
         stage.id,

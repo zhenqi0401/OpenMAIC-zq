@@ -176,4 +176,5 @@ export interface ModelConfig {
   baseUrl?: string;
   proxy?: string; // Optional: HTTP proxy URL for this provider
   providerType?: ProviderType; // Optional: for custom providers on server-side
+  fetch?: typeof globalThis.fetch; // Optional request-scoped transport (for safe probes/tests)
 }
