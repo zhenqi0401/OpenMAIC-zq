@@ -162,6 +162,33 @@ describe('collectAudioFiles', () => {
     expect(manifest.scenes[0].actions[0]).not.toHaveProperty('audioId');
     expect(manifest.scenes[0].actions[0]).not.toHaveProperty('audioUrl');
   });
+
+  test('bounds audio IO concurrency while preserving source order', async () => {
+    let active = 0;
+    let peak = 0;
+    const actions = Array.from({ length: 8 }, (_, index) => ({
+      id: `action-${index}`,
+      type: 'speech' as const,
+      text: `Speech ${index}`,
+      audioId: `audio-${index}`,
+    }));
+
+    const result = await collectAudioFiles(scenesWithSpeech(actions), {
+      concurrency: 2,
+      getLocalAudio: async () => {
+        active += 1;
+        peak = Math.max(peak, active);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        active -= 1;
+        return undefined;
+      },
+    });
+
+    expect(peak).toBe(2);
+    expect(result.missing.map((item) => item.audioId)).toEqual(
+      actions.map((action) => action.audioId),
+    );
+  });
 });
 
 // ─── rewriteAudioRefsToIds ────────────────────────────────────

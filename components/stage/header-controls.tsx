@@ -31,6 +31,7 @@ import {
 import { cn } from '@/lib/utils';
 import type { StageMode } from '@/lib/types/stage';
 import type { CourseSaveStatus } from '@/lib/authoring/course-edit-persistence';
+import { VideoExportMenu } from './video-export-menu';
 
 interface HeaderControlsProps {
   readonly mode?: StageMode;
@@ -353,6 +354,9 @@ export function HeaderControls({
                 </div>
               </div>
             </button>
+            {canConfigureModels ? (
+              <VideoExportMenu onClose={() => setExportMenuOpen(false)} />
+            ) : null}
           </div>
         )}
       </div>

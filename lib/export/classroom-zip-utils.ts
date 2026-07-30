@@ -28,6 +28,8 @@ type AudioFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Resp
 interface CollectAudioFilesOptions {
   getLocalAudio?: (audioId: string) => Promise<AudioFileRecord | undefined>;
   fetchImpl?: AudioFetch;
+  /** Bounds simultaneous IndexedDB lookups and remote downloads. */
+  concurrency?: number;
 }
 
 export interface CollectedMedia {
@@ -49,6 +51,26 @@ const AUDIO_MIME_EXTENSIONS: Record<string, string> = {
   'audio/x-m4a': 'm4a',
   'audio/x-wav': 'wav',
 };
+
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(items.length, Math.max(1, Math.floor(concurrency)));
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (nextIndex < items.length) {
+        const index = nextIndex++;
+        results[index] = await mapper(items[index]);
+      }
+    }),
+  );
+  return results;
+}
 
 function safeAudioExtension(value: string | undefined): string | undefined {
   const normalized = value?.trim().toLowerCase().replace(/^\./, '');
@@ -93,8 +115,10 @@ export async function collectAudioFiles(
 
   const getLocalAudio = options.getLocalAudio ?? ((audioId) => db.audioFiles.get(audioId));
   const fetchImpl = options.fetchImpl ?? fetch;
-  const results = await Promise.all(
-    [...audioSources].map(async ([audioId, audioUrl]): Promise<CollectedAudio | MissingAudio> => {
+  const results = await mapWithConcurrency(
+    [...audioSources],
+    options.concurrency ?? 6,
+    async ([audioId, audioUrl]): Promise<CollectedAudio | MissingAudio> => {
       try {
         const localRecord = await getLocalAudio(audioId);
         if (localRecord) {
@@ -153,7 +177,7 @@ export async function collectAudioFiles(
           reason: error instanceof Error ? error.message : 'Audio download failed',
         };
       }
-    }),
+    },
   );
 
   const files: CollectedAudio[] = [];

@@ -5,11 +5,74 @@ services:
       - "3000:3000"
     env_file:
       - .env.local
+    environment:
+      RENDER_SERVICE_URL: http://yuanwo-render-service:9000
+      NO_PROXY: localhost,127.0.0.1,yuanwo-render-service
+      no_proxy: localhost,127.0.0.1,yuanwo-render-service
+    networks:
+      - default
+      - render
     volumes:
       # Optional: mount server-providers.yml for provider config
       # - ./server-providers.yml:/app/server-providers.yml:ro
       - openmaic-data:/app/data
     restart: unless-stopped
 
+  yuanwo-render-service:
+    build:
+      context: ./render-service
+    container_name: yuanwo-render-service
+    profiles:
+      - video-export
+    expose:
+      - "9000"
+    cap_add:
+      - NET_ADMIN
+    environment:
+      PORT: "9000"
+      RENDER_MAX_CONCURRENCY: "1"
+      RENDER_MAX_CONCURRENT_EXTRACTIONS: "1"
+      RENDER_MAX_JOBS_PER_USER: "1"
+      RENDER_MAX_QUEUE: "5"
+      RENDER_JOB_TTL_MS: "1800000"
+      RENDER_JOB_DEADLINE_MS: "2700000"
+      RENDER_MAX_UPLOAD_BYTES: "314572800"
+      RENDER_MAX_ENTRIES: "5000"
+      RENDER_MAX_ENTRY_BYTES: "209715200"
+      RENDER_MAX_EXPANDED_BYTES: "536870912"
+      RENDER_MAX_COMPRESSION_RATIO: "200"
+      RENDER_EGRESS_LOCKDOWN: "true"
+      PRODUCER_TMP_PROJECT_DIR: /tmp/openmaic-renders
+    mem_limit: 4g
+    pids_limit: 512
+    networks:
+      - render
+    volumes:
+      - yuanwo-render-scratch:/tmp/openmaic-renders
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:9000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: "3"
+    restart: unless-stopped
+
+networks:
+  default: {}
+  render:
+    internal: true
+
 volumes:
   openmaic-data:
+  yuanwo-render-scratch:

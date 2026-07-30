@@ -38,6 +38,7 @@ import type {
 import type { CodeLine } from '@openmaic/dsl';
 import katex from 'katex';
 import { createLogger } from '@/lib/logger';
+import { EFFECT_AUTO_CLEAR_MS, MAX_VIDEO_WAIT_MS } from '@/lib/choreography/timing';
 
 const log = createLogger('ActionEngine');
 
@@ -70,9 +71,6 @@ function generateLineIds(count: number): string[] {
 }
 
 // ==================== ActionEngine ====================
-
-/** Default duration (ms) before fire-and-forget effects auto-clear */
-const EFFECT_AUTO_CLEAR_MS = 5000;
 
 /** Callback for sending messages to widget iframe */
 export type WidgetMessageCallback = (type: string, payload: Record<string, unknown>) => void;
@@ -266,7 +264,6 @@ export class ActionEngine {
     // the playback engine from hanging indefinitely if the video element is
     // invalid or the state change is missed.
     return new Promise<void>((resolve) => {
-      const MAX_VIDEO_WAIT_MS = 5 * 60 * 1000; // 5 minutes
       const timeout = setTimeout(() => {
         unsubscribe();
         log.warn(`[playVideo] Timeout waiting for video ${action.elementId} to finish`);

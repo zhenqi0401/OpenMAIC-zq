@@ -42,14 +42,11 @@ import { useCanvasStore } from '@/lib/store/canvas';
 import { useSettingsStore } from '@/lib/store/settings';
 import { isTTSProviderEnabled } from '@/lib/audio/provider-enablement';
 import { createLogger } from '@/lib/logger';
+import { DISCUSSION_TRIGGER_DELAY_MS, estimateSpeechDurationMs } from '@/lib/choreography/timing';
 
 const log = createLogger('PlaybackEngine');
 
-/**
- * If more than 30% of characters are CJK, treat the text as Chinese.
- * Intentionally low: mixed Chinese text often contains punctuation,
- * numbers, and short Latin fragments (e.g. "AI课堂").
- */
+/** Language-selection threshold for browser-native TTS chunk routing. */
 const CJK_LANG_THRESHOLD = 0.3;
 
 export class PlaybackEngine {
@@ -527,16 +524,8 @@ export class PlaybackEngine {
         // Non-CJK text: ~240ms/word (≈250 WPM).
         // Min 2s. Cancelled on pause; resume() calls processNext directly.
         const scheduleReadingTimer = () => {
-          const text = speechAction.text;
-          const cjkCount = (
-            text.match(/[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/g) || []
-          ).length;
-          const isCJK = cjkCount > text.length * 0.3;
           const speed = this.callbacks.getPlaybackSpeed?.() ?? 1;
-          const rawMs = isCJK
-            ? Math.max(2000, text.length * 150)
-            : Math.max(2000, text.split(/\s+/).filter(Boolean).length * 240);
-          const readingMs = rawMs / speed;
+          const readingMs = estimateSpeechDurationMs(speechAction.text, { speed });
           this.speechTimerStart = Date.now();
           this.speechTimerRemaining = readingMs;
           this.speechTimer = setTimeout(() => {
@@ -635,7 +624,7 @@ export class PlaybackEngine {
           this.currentTrigger = trigger;
           this.callbacks.onProactiveShow?.(trigger);
           // Engine pauses here — user calls confirmDiscussion() or skipDiscussion()
-        }, 3000);
+        }, DISCUSSION_TRIGGER_DELAY_MS);
         break;
       }
 

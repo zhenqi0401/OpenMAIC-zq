@@ -8,6 +8,8 @@ voxcpm_python_api_server.py
 
 # dependencies
 /node_modules
+/render-service/node_modules/
+/render-service/dist/
 /openclaw/node_modules
 /openclaw/package-lock.json
 /.pnp
