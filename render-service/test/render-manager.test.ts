@@ -17,6 +17,7 @@ import type { ArtifactStore, ArtifactLocation } from '../src/artifact-store.js';
 import type { RenderJobRecord } from '../src/types.js';
 
 const producer = vi.hoisted(() => ({
+  createRenderJob: vi.fn(),
   executeRenderJob: vi.fn(),
 }));
 
@@ -27,15 +28,20 @@ vi.mock('../src/config.js', () => ({
     maxConcurrency: 1,
     jobDeadlineMs: 200,
     tmpDir: '/tmp/openmaic-render-manager-tests',
+    producerWorkers: 1,
   },
 }));
 
 vi.mock('@hyperframes/producer', () => ({
-  createRenderJob: (options: unknown) => ({ ...((options as object) ?? {}), progress: 0 }),
+  createRenderJob: producer.createRenderJob,
   executeRenderJob: producer.executeRenderJob,
 }));
 
 beforeEach(() => {
+  producer.createRenderJob.mockReset().mockImplementation((options: unknown) => ({
+    ...((options as object) ?? {}),
+    progress: 0,
+  }));
   producer.executeRenderJob.mockReset().mockResolvedValue(undefined);
 });
 
@@ -134,7 +140,7 @@ describe('RenderManager admission control', () => {
     const m = new RenderManager(store, fakeArtifacts);
     const r = m.reserve('carol');
     await expect(
-      m.submit(r, '/tmp/whatever', { fps: 30, quality: 'standard', format: 'mp4' }),
+      m.submit(r, '/tmp/whatever', { fps: 24, quality: 'standard', format: 'mp4' }),
     ).rejects.toThrow('store down');
     // The slot must be free again: a fresh reserve for the same identity succeeds.
     expect(() => m.reserve('carol')).not.toThrow();
@@ -152,12 +158,12 @@ describe('RenderManager admission control', () => {
     );
     const m = newManager();
     await m.submit(m.reserve('fifo-a'), '/tmp/fifo-a', {
-      fps: 30,
+      fps: 24,
       quality: 'standard',
       format: 'mp4',
     });
     await m.submit(m.reserve('fifo-b'), '/tmp/fifo-b', {
-      fps: 30,
+      fps: 24,
       quality: 'standard',
       format: 'mp4',
     });
@@ -166,6 +172,24 @@ describe('RenderManager admission control', () => {
     releases.shift()!();
     await vi.waitFor(() => expect(started).toEqual(['/tmp/fifo-a', '/tmp/fifo-b']));
     releases.shift()!();
+  });
+
+  it('passes the service-owned worker count explicitly to Hyperframes', async () => {
+    const m = newManager();
+    await m.submit(m.reserve('worker-owner'), '/tmp/worker-explicit', {
+      fps: 24,
+      quality: 'standard',
+      format: 'mp4',
+    });
+
+    await vi.waitFor(() =>
+      expect(producer.createRenderJob).toHaveBeenCalledWith({
+        fps: 24,
+        quality: 'standard',
+        format: 'mp4',
+        workers: 1,
+      }),
+    );
   });
 
   it('hides running jobs from other owners and cancels with cleanup for the owner', async () => {
@@ -178,7 +202,7 @@ describe('RenderManager admission control', () => {
     const store = fakeJobStore();
     const m = new RenderManager(store, fakeArtifacts);
     const id = await m.submit(m.reserve('owner-a'), '/tmp/cancel-running', {
-      fps: 30,
+      fps: 24,
       quality: 'standard',
       format: 'mp4',
     });
@@ -201,7 +225,7 @@ describe('RenderManager admission control', () => {
     const store = fakeJobStore();
     const m = new RenderManager(store, fakeArtifacts);
     const id = await m.submit(m.reserve('deadline-owner'), '/tmp/deadline-running', {
-      fps: 30,
+      fps: 24,
       quality: 'standard',
       format: 'mp4',
     });

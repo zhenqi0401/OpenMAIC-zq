@@ -61,8 +61,8 @@ export interface AppDeps {
 
 /** Parse + validate the multipart render options. Returns options or an error string. */
 function parseOptions(form: FormData): RenderOptions | string {
-  const fps = Number.parseInt(String(form.get('fps') ?? '30'), 10);
-  if (fps !== 30) return 'Unsupported fps (only 30)';
+  const fps = Number.parseInt(String(form.get('fps') ?? '24'), 10);
+  if (fps !== 24) return 'Unsupported fps (only 24)';
 
   const quality = String(form.get('quality') ?? 'standard');
   if (quality !== 'standard') return 'Unsupported quality (only standard)';

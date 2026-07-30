@@ -27,7 +27,7 @@ import type { Scene, SlideContent } from '@/lib/types/stage';
 import type { ResolvedVideoMedia, VideoTimelineRecords } from './timeline-deps';
 
 export interface CollectOptions {
-  /** Slide-snapshot render width in px (frame height follows the slide ratio). Default 1920. */
+  /** Slide-snapshot render width in px (frame height follows the slide ratio). Default 1600. */
   frameWidth?: number;
   /** Called after each asset is resolved, for progress UX. */
   onProgress?: (done: number, total: number) => void;
@@ -121,7 +121,7 @@ export async function collectVideoAssets(
   records: VideoTimelineRecords,
   options: CollectOptions = {},
 ): Promise<CollectResult> {
-  const width = options.frameWidth ?? 1920;
+  const width = options.frameWidth ?? 1600;
   const blobs = new Map<string, Blob>();
   const missing: string[] = [];
 

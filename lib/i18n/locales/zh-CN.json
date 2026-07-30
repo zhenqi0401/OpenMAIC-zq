@@ -49,7 +49,7 @@
     "audioPartial": "导出已完成，但有 {{count}} 个音频文件未能打包；该 ZIP 不是完整离线项目。",
     "inlinePartial": "{{count}} 个外部资源未能打包，离线时课程可能无法正常显示。",
     "videoRenderMp4": "导出 MP4",
-    "videoDesc": "1920×1080 · 30fps · 标准质量 · 无字幕",
+    "videoDesc": "1600×900 · 24fps · 标准质量 · 无字幕",
     "videoServiceUnavailable": "视频渲染服务不可用",
     "videoCompiling": "正在编译视频时间线…",
     "videoUploading": "正在上传渲染工程…",

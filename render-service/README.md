@@ -13,7 +13,7 @@ FFmpeg 编码。渲染期间不需要、也不允许访问应用、内网、CDN 
 
 ## 固定合同
 
-- 输出仅支持 `1920×1080 / 30fps / standard / mp4`；服务会拒绝其他
+- 输出仅支持 `1600×900 / 24fps / standard / mp4`；服务会拒绝其他
   `fps`、`quality` 或 `format`。
 - ZIP 和 MP4 均不含字幕轨、SRT、VTT、讲解字幕 DOM 或讲解原文。
 - 每个任务必须带由 Next.js 管理员会话生成的 `x-openmaic-client` owner。
@@ -25,39 +25,51 @@ FFmpeg 编码。渲染期间不需要、也不允许访问应用、内网、CDN 
 
 ## HTTP API
 
-| Method + path | Purpose |
-| --- | --- |
-| `POST /render` | multipart `project` ZIP + 固定参数，返回 `202 { jobId }` |
-| `GET /render/:jobId` | 返回状态、进度、阶段和帧数 |
-| `DELETE /render/:jobId` | 取消 queued/running 任务 |
-| `GET /render/:jobId/download` | `succeeded` 后流式返回 `video/mp4` |
-| `GET /health` | 返回 `{ ok: true }` |
+| Method + path                 | Purpose                                                  |
+| ----------------------------- | -------------------------------------------------------- |
+| `POST /render`                | multipart `project` ZIP + 固定参数，返回 `202 { jobId }` |
+| `GET /render/:jobId`          | 返回状态、进度、阶段和帧数                               |
+| `DELETE /render/:jobId`       | 取消 queued/running 任务                                 |
+| `GET /render/:jobId/download` | `succeeded` 后流式返回 `video/mp4`                       |
+| `GET /health`                 | 返回 `{ ok: true }`                                      |
 
 任务状态为 `queued | running | succeeded | failed | cancelled`，`progress` 范围为
 `0..1`。
 
 ## 默认资源与安全限制
 
-| Variable | Default | Meaning |
-| --- | --- | --- |
-| `PORT` | `9000` | 监听端口 |
-| `RENDER_MAX_CONCURRENCY` | `1` | 同时渲染任务数 |
-| `RENDER_MAX_CONCURRENT_EXTRACTIONS` | `1` | 同时缓冲并解压的上传数 |
-| `RENDER_MAX_JOBS_PER_USER` | `1` | 每个已认证 owner 的活动任务数；不能设为 0 关闭 |
-| `RENDER_MAX_QUEUE` | `5` | reserved + queued + running 总上限 |
-| `RENDER_JOB_TTL_MS` | `1800000` | 终态任务和产物保留 30 分钟 |
-| `RENDER_JOB_DEADLINE_MS` | `2700000` | 单任务 45 分钟硬截止时间 |
-| `RENDER_MAX_UPLOAD_BYTES` | `314572800` | multipart 实际流字节上限 300 MiB |
-| `RENDER_MAX_ENTRIES` | `5000` | ZIP entry 数上限 |
-| `RENDER_MAX_ENTRY_BYTES` | `209715200` | 单 entry 展开上限 200 MiB |
-| `RENDER_MAX_EXPANDED_BYTES` | `536870912` | 总展开上限 512 MiB |
-| `RENDER_MAX_COMPRESSION_RATIO` | `200` | 单 entry 最大展开/压缩比 |
-| `RENDER_EGRESS_LOCKDOWN` | `true` | 必须为 true；false 会拒绝启动，不能绕过封锁 |
-| `PRODUCER_TMP_PROJECT_DIR` | `/tmp/openmaic-renders` | 临时工程与 MP4 目录 |
-| `PUPPETEER_EXECUTABLE_PATH` | `/usr/bin/chromium` | 镜像内 Chromium |
-| `HOME` | `/app` | 降权后 Node/Chromium 使用的可写用户主目录 |
-| `XDG_CONFIG_HOME` | `/app/.config` | Chromium 的可写配置目录 |
-| `XDG_CACHE_HOME` | `/app/.cache` | Chromium/Puppeteer 的可写缓存目录 |
+| Variable                            | Default                 | Meaning                                              |
+| ----------------------------------- | ----------------------- | ---------------------------------------------------- |
+| `PORT`                              | `9000`                  | 监听端口                                             |
+| `RENDER_MAX_CONCURRENCY`            | `1`                     | 同时渲染任务数                                       |
+| `RENDER_MAX_CONCURRENT_EXTRACTIONS` | `1`                     | 同时缓冲并解压的上传数                               |
+| `RENDER_MAX_JOBS_PER_USER`          | `1`                     | 每个已认证 owner 的活动任务数；不能设为 0 关闭       |
+| `RENDER_MAX_QUEUE`                  | `5`                     | reserved + queued + running 总上限                   |
+| `RENDER_JOB_TTL_MS`                 | `1800000`               | 终态任务和产物保留 30 分钟                           |
+| `RENDER_JOB_DEADLINE_MS`            | `2700000`               | 单任务 45 分钟硬截止时间                             |
+| `RENDER_MAX_UPLOAD_BYTES`           | `314572800`             | multipart 实际流字节上限 300 MiB                     |
+| `RENDER_MAX_ENTRIES`                | `5000`                  | ZIP entry 数上限                                     |
+| `RENDER_MAX_ENTRY_BYTES`            | `209715200`             | 单 entry 展开上限 200 MiB                            |
+| `RENDER_MAX_EXPANDED_BYTES`         | `536870912`             | 总展开上限 512 MiB                                   |
+| `RENDER_MAX_COMPRESSION_RATIO`      | `200`                   | 单 entry 最大展开/压缩比                             |
+| `RENDER_EGRESS_LOCKDOWN`            | `true`                  | 必须为 true；false 会拒绝启动，不能绕过封锁          |
+| `PRODUCER_TMP_PROJECT_DIR`          | `/tmp/openmaic-renders` | 临时工程与 MP4 目录                                  |
+| `HF_STATIC_DEDUP`                   | `true`                  | 复用已验证为静态的帧，避免重复 Chromium 截图         |
+| `HF_STATIC_DEDUP_VERIFY`            | `true`                  | 复用前保留画面一致性验证，不建议关闭                 |
+| `HF_STATIC_DEDUP_VERIFY_MAX_MS`     | `300000`                | 10–20 分钟课程静态帧安全验证的时间上限；提前完成不会等待满额 |
+| `RENDER_PRODUCER_WORKERS`           | `1`                     | 显式传入任务的捕获 worker；跳过自动校准并避免并行超时重拍 |
+| `PRODUCER_MAX_WORKERS`              | `1`                     | Hyperframes 内部 worker 防御性上限，与服务任务值保持一致 |
+| `PRODUCER_STREAMING_ENCODE_MAX_DURATION_SECONDS` | `1800` | 最长 30 分钟课程允许捕获与 FFmpeg 流式编码，避免完整帧序列落盘 |
+| `PUPPETEER_EXECUTABLE_PATH`         | `/usr/bin/chromium`     | 镜像内 Chromium                                      |
+| `HOME`                              | `/app`                  | 降权后 Node/Chromium 使用的可写用户主目录            |
+| `XDG_CONFIG_HOME`                   | `/app/.config`          | Chromium 的可写配置目录                              |
+| `XDG_CACHE_HOME`                    | `/app/.cache`           | Chromium/Puppeteer 的可写缓存目录                    |
+
+静态帧验证先根据 GSAP 动画区间预测可复用帧，再对每个静态区间的锚点与
+抽样帧执行截图一致性检查。安装时补丁除了开放验证时间上限，还会按每个
+区间的实际抽样计划计算内部 hard cap，避免包含大量短静态区间的长课程在
+尚未耗尽时间预算时被误判为预算不足。验证失败时仍然 fail closed，回退为
+逐帧截图，不会牺牲动态画面正确性。
 
 ZIP 在解压前检查压缩体积、entry 数、单文件与总展开大小、压缩比、NUL、绝对
 路径、Windows drive path、`..`、目标目录逃逸和 Unix symlink。ZIP64 在当前
@@ -117,7 +129,7 @@ iptables/conntrack、至少 4 GiB 当前可分配内存和 Docker 数据目录�
 空闲空间。失败时保持 MP4 capability 关闭；不能改用 privileged 或关闭封锁。
 部署后还需在目标机验证 Compose、health、egress、SELinux AVC、Docker stats、
 OOM/重启、scratch 和日志轮转，并用固定课程通过 `ffprobe` 验收
-1920×1080、30fps、MP4 及预期音频流。
+1600×900、24fps、MP4 及预期音频流。
 
 宿主系统升级或把服务迁移到受支持的独立 Linux 主机属于后续运维项。
 

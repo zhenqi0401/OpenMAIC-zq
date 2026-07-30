@@ -186,6 +186,9 @@ export class RenderManager {
         fps: options.fps,
         quality: options.quality,
         format: options.format,
+        // Passing an explicit value skips Hyperframes' auto-calibration pass.
+        // The render-service owns this knob; it is never accepted from clients.
+        workers: config.producerWorkers,
       });
 
       await executeRenderJob(

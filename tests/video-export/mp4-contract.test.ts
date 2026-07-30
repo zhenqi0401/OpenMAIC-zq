@@ -167,7 +167,7 @@ describe('subtitle-free MP4 project contract', () => {
       },
       { timing: NO_TIMING, assets: NO_ASSETS },
     );
-    const project = emitHyperframes(ir, { width: 1920, height: 1080 });
+    const project = emitHyperframes(ir, { width: 1600, height: 900 });
     const manifest =
       project.files.find((file) => file.path.endsWith('manifest.json'))?.content ?? '';
     const html = project.files.find((file) => file.path === 'index.html')?.content ?? '';

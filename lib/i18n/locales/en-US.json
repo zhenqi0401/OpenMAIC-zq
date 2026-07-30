@@ -49,7 +49,7 @@
     "audioPartial": "Export completed, but {{count}} audio file(s) could not be bundled; this ZIP is not a complete offline project.",
     "inlinePartial": "{{count}} external asset(s) couldn't be bundled; the course may not display correctly offline.",
     "videoRenderMp4": "Export MP4",
-    "videoDesc": "1920×1080 · 30fps · standard quality · no subtitles",
+    "videoDesc": "1600×900 · 24fps · standard quality · no subtitles",
     "videoServiceUnavailable": "Video rendering service unavailable",
     "videoCompiling": "Compiling the video timeline…",
     "videoUploading": "Uploading the render project…",

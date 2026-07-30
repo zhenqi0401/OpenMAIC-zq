@@ -57,7 +57,15 @@ services:
       RENDER_MAX_COMPRESSION_RATIO: "200"
       RENDER_EGRESS_LOCKDOWN: "true"
       PRODUCER_TMP_PROJECT_DIR: /tmp/openmaic-renders
-    mem_limit: 4g
+      HF_STATIC_DEDUP: "true"
+      HF_STATIC_DEDUP_VERIFY: "true"
+      # Ceiling for verified static reuse on typical 10–20 minute courses.
+      HF_STATIC_DEDUP_VERIFY_MAX_MS: "300000"
+      # Explicitly pin the producer job: skip auto-calibration, avoid the
+      # observed two-worker CDP timeout, and enable single-worker streaming.
+      RENDER_PRODUCER_WORKERS: "1"
+      PRODUCER_MAX_WORKERS: "1"
+      PRODUCER_STREAMING_ENCODE_MAX_DURATION_SECONDS: "1800"
     pids_limit: 512
     networks:
       - render

@@ -29,6 +29,7 @@ WORKDIR /app
 # ---- Dependencies (cached layer) ----
 FROM base AS deps
 COPY package.json package-lock.json ./
+COPY scripts ./scripts
 RUN npm ci --omit=dev --no-audit --no-fund
 
 # ---- Runner ----

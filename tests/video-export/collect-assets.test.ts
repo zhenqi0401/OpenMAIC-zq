@@ -93,7 +93,7 @@ describe('collectVideoAssets object URL lifecycle', () => {
       expect.objectContaining({
         elements: [expect.objectContaining({ id: 'image-1', src: 'blob:resolved-image' })],
       }),
-      expect.objectContaining({ width: 1920, format: 'blob' }),
+      expect.objectContaining({ width: 1600, format: 'blob' }),
     );
     expect(revokeUrl).toHaveBeenCalledWith('blob:resolved-image');
   });

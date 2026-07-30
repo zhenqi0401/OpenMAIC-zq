@@ -78,7 +78,7 @@ function renderRequest(
 ): Request {
   const form = new FormData();
   form.append('project', new Blob([new Uint8Array(sizeBytes)]), 'project.zip');
-  form.append('fps', options.fps ?? '30');
+  form.append('fps', options.fps ?? '24');
   form.append('quality', options.quality ?? 'standard');
   form.append('format', options.format ?? 'mp4');
   return new Request('http://test/render', {
@@ -163,7 +163,7 @@ describe('render route security contract', () => {
       makeProjectDir: async () => '/tmp/fixed-options-test',
     });
 
-    expect((await app.fetch(renderRequest(16, 'fps-owner', { fps: '24' }))).status).toBe(400);
+    expect((await app.fetch(renderRequest(16, 'fps-owner', { fps: '30' }))).status).toBe(400);
     expect((await app.fetch(renderRequest(16, 'quality-owner', { quality: 'high' }))).status).toBe(
       400,
     );

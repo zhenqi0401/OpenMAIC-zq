@@ -49,7 +49,7 @@
     "audioPartial": "匯出已完成，但有 {{count}} 個音訊檔案未能打包；此 ZIP 不是完整的離線專案。",
     "inlinePartial": "{{count}} 個外部資源未能打包，離線時課程可能無法正常顯示。",
     "videoRenderMp4": "匯出 MP4",
-    "videoDesc": "1920×1080 · 30fps · 標準品質 · 無字幕",
+    "videoDesc": "1600×900 · 24fps · 標準品質 · 無字幕",
     "videoServiceUnavailable": "影片渲染服務不可用",
     "videoCompiling": "正在編譯影片時間線…",
     "videoUploading": "正在上傳渲染工程…",

@@ -25,9 +25,9 @@ import { collectVideoAssets } from './collect';
 import { packageVideoZip } from './package-zip';
 
 export const VIDEO_EXPORT_SETTINGS = {
-  width: 1920,
-  height: 1080,
-  fps: 30,
+  width: 1600,
+  height: 900,
+  fps: 24,
   quality: 'standard',
   format: 'mp4',
 } as const;

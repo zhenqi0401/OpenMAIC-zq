@@ -33,7 +33,7 @@ export interface EmittedFile {
 }
 
 export interface EmitHyperframesOptions {
-  /** Render width in px. Default 1920. Height is derived from the IR's 16:9 aspect. */
+  /** Render width in px. Default 1600. Height is derived from the IR's 16:9 aspect. */
   width?: number;
   /** Render height in px. Default derived from `width` at 16:9. */
   height?: number;
@@ -55,7 +55,7 @@ export interface EmittedProject {
   gsapVendorPath: string;
 }
 
-const DEFAULT_WIDTH = 1920;
+const DEFAULT_WIDTH = 1600;
 const DEFAULT_GSAP_PATH = 'assets/vendor/gsap.min.js';
 const DEFAULT_MANIFEST = 'openmaic-video-manifest.json';
 

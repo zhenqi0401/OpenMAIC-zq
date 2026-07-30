@@ -14,6 +14,14 @@ const MB = 1024 * 1024;
 
 export const config = {
   port: intEnv('PORT', 9000),
+  /**
+   * Chromium capture workers used inside one producer job. Keep this explicit:
+   * leaving `workers` undefined makes Hyperframes run an expensive calibration
+   * pass before it resolves the environment-level worker cap. Long screenshot
+   * renders are also more reliable with one streaming worker than with a
+   * parallel disk capture that may time out and retry half the composition.
+   */
+  producerWorkers: Math.min(intEnv('RENDER_PRODUCER_WORKERS', 1), 8),
   /** Renders that execute simultaneously; extras queue FIFO. */
   maxConcurrency: intEnv('RENDER_MAX_CONCURRENCY', 1),
   /**

@@ -43,7 +43,16 @@ services:
       RENDER_MAX_COMPRESSION_RATIO: "200"
       RENDER_EGRESS_LOCKDOWN: "true"
       PRODUCER_TMP_PROJECT_DIR: /tmp/openmaic-renders
-    mem_limit: 4g
+      HF_STATIC_DEDUP: "true"
+      HF_STATIC_DEDUP_VERIFY: "true"
+      # 10–20 minute courses need more than 120s to verify all predicted-static
+      # ranges. This is a ceiling; verification continues immediately when done.
+      HF_STATIC_DEDUP_VERIFY_MAX_MS: "300000"
+      # Explicit job workers skip Hyperframes auto-calibration. One worker also
+      # unlocks streaming encode and avoids parallel CDP timeout/retry.
+      RENDER_PRODUCER_WORKERS: "1"
+      PRODUCER_MAX_WORKERS: "1"
+      PRODUCER_STREAMING_ENCODE_MAX_DURATION_SECONDS: "1800"
     pids_limit: 512
     networks:
       - render
