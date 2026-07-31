@@ -24,6 +24,7 @@ interface ChoiceQuestionCardProps {
   result?: { status: 'correct' | 'incorrect' };
   correctAnswer?: string[];
   analysis?: string;
+  showPoints?: boolean;
 }
 
 /** Shared learner-facing choice card used by in-course quizzes and course assessments. */
@@ -36,6 +37,7 @@ export function ChoiceQuestionCard({
   result,
   correctAnswer = question.answer,
   analysis = question.analysis,
+  showPoints = true,
 }: ChoiceQuestionCardProps) {
   const { t } = useI18n();
   if (question.type === 'short_answer') return null;
@@ -105,8 +107,12 @@ export function ChoiceQuestionCard({
             </p>
             <p className="mt-0.5 text-xs text-gray-400">
               {multiple ? t('quiz.multipleChoice') : t('quiz.singleChoice')}
-              {' · '}
-              {pts} {t('quiz.pointsSuffix')}
+              {showPoints && (
+                <>
+                  {' · '}
+                  {pts} {t('quiz.pointsSuffix')}
+                </>
+              )}
             </p>
           </div>
         </div>

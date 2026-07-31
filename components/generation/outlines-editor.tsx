@@ -1188,6 +1188,7 @@ function QuizConfigDisclosure({
         questionCount: config.questionCount ?? 3,
         difficulty: config.difficulty ?? 'medium',
         questionTypes: config.questionTypes ?? ['single'],
+        ...(config.mode ? { mode: config.mode } : {}),
         ...updates,
       },
     });
@@ -1204,77 +1205,88 @@ function QuizConfigDisclosure({
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" sideOffset={6} className="w-64 space-y-2.5 p-3">
-        {/* Count: label left, stepper right */}
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-medium text-muted-foreground">
-            {t('generation.quizQuestionCount')}
-          </span>
-          <Stepper
-            value={config.questionCount ?? 3}
-            min={1}
-            max={10}
-            onChange={(next) => updateConfig({ questionCount: next })}
-          />
-        </div>
-        {/* Difficulty: label left, segmented right */}
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-medium text-muted-foreground">
-            {t('generation.quizDifficulty')}
-          </span>
-          <SegmentedControl
-            value={config.difficulty ?? 'medium'}
-            onChange={(value) => updateConfig({ difficulty: value as 'easy' | 'medium' | 'hard' })}
-            options={[
-              { value: 'easy', label: t('generation.quizDifficultyEasy') },
-              { value: 'medium', label: t('generation.quizDifficultyMedium') },
-              { value: 'hard', label: t('generation.quizDifficultyHard') },
-            ]}
-          />
-        </div>
-        {/* Type: label above, multi-select pills below */}
-        <div className="space-y-1.5">
-          <span className="text-xs font-medium text-muted-foreground">
-            {t('generation.quizType')}
-          </span>
-          <div className="flex gap-1">
-            {(
-              [
-                ['single', 'generation.quizTypeSingle'],
-                ['multiple', 'generation.quizTypeMultiple'],
-                ['text', 'generation.quizTypeText'],
-              ] as const
-            ).map(([type, labelKey]) => {
-              const current = config.questionTypes ?? ['single'];
-              const selected = current.includes(type);
-              const isOnlySelected = selected && current.length === 1;
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  disabled={isOnlySelected}
-                  aria-pressed={selected}
-                  onClick={() => {
-                    const next = selected
-                      ? current.filter((t) => t !== type)
-                      : Array.from(new Set([...current, type]));
-                    if (next.length === 0) return;
-                    updateConfig({ questionTypes: next });
-                  }}
-                  className={cn(
-                    'flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-all',
-                    'border',
-                    selected
-                      ? 'border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-200'
-                      : 'border-border/40 bg-transparent text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground',
-                    isOnlySelected && 'cursor-not-allowed opacity-90',
-                  )}
-                >
-                  {t(labelKey)}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        {config.mode === 'diagnostic' && (
+          <p className="rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
+            {t('generation.diagnosticQuizConfig')}
+          </p>
+        )}
+        {config.mode !== 'diagnostic' && (
+          <>
+            {/* Count: label left, stepper right */}
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-medium text-muted-foreground">
+                {t('generation.quizQuestionCount')}
+              </span>
+              <Stepper
+                value={config.questionCount ?? 3}
+                min={1}
+                max={10}
+                onChange={(next) => updateConfig({ questionCount: next })}
+              />
+            </div>
+            {/* Difficulty: label left, segmented right */}
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-medium text-muted-foreground">
+                {t('generation.quizDifficulty')}
+              </span>
+              <SegmentedControl
+                value={config.difficulty ?? 'medium'}
+                onChange={(value) =>
+                  updateConfig({ difficulty: value as 'easy' | 'medium' | 'hard' })
+                }
+                options={[
+                  { value: 'easy', label: t('generation.quizDifficultyEasy') },
+                  { value: 'medium', label: t('generation.quizDifficultyMedium') },
+                  { value: 'hard', label: t('generation.quizDifficultyHard') },
+                ]}
+              />
+            </div>
+            {/* Type: label above, multi-select pills below */}
+            <div className="space-y-1.5">
+              <span className="text-xs font-medium text-muted-foreground">
+                {t('generation.quizType')}
+              </span>
+              <div className="flex gap-1">
+                {(
+                  [
+                    ['single', 'generation.quizTypeSingle'],
+                    ['multiple', 'generation.quizTypeMultiple'],
+                    ['text', 'generation.quizTypeText'],
+                  ] as const
+                ).map(([type, labelKey]) => {
+                  const current = config.questionTypes ?? ['single'];
+                  const selected = current.includes(type);
+                  const isOnlySelected = selected && current.length === 1;
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      disabled={isOnlySelected}
+                      aria-pressed={selected}
+                      onClick={() => {
+                        const next = selected
+                          ? current.filter((t) => t !== type)
+                          : Array.from(new Set([...current, type]));
+                        if (next.length === 0) return;
+                        updateConfig({ questionTypes: next });
+                      }}
+                      className={cn(
+                        'flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-all',
+                        'border',
+                        selected
+                          ? 'border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-200'
+                          : 'border-border/40 bg-transparent text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground',
+                        isOnlySelected && 'cursor-not-allowed opacity-90',
+                      )}
+                    >
+                      {t(labelKey)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
       </PopoverContent>
     </Popover>
   );

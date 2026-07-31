@@ -34,11 +34,12 @@ import {
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type Phase = 'not_started' | 'answering' | 'grading' | 'reviewing';
+type Phase = 'not_started' | 'answering' | 'grading' | 'reviewing' | 'submitted';
 
 interface QuizViewProps {
   readonly questions: QuizQuestion[];
   readonly sceneId: string;
+  readonly mode?: 'graded' | 'diagnostic';
 }
 
 /** Call /api/quiz-grade for a single short-answer question. */
@@ -102,10 +103,12 @@ function QuizCover({
   questionCount,
   totalPoints,
   onStart,
+  diagnostic,
 }: {
   questionCount: number;
   totalPoints: number;
   onStart: () => void;
+  diagnostic: boolean;
 }) {
   const { t } = useI18n();
 
@@ -134,8 +137,12 @@ function QuizCover({
         transition={{ delay: 0.1 }}
         className="text-center z-10"
       >
-        <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">{t('quiz.title')}</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('quiz.subtitle')}</p>
+        <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+          {t(diagnostic ? 'quiz.diagnosticTitle' : 'quiz.title')}
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          {t(diagnostic ? 'quiz.diagnosticSubtitle' : 'quiz.subtitle')}
+        </p>
       </motion.div>
 
       <motion.div
@@ -152,14 +159,16 @@ function QuizCover({
             {questionCount} {t('quiz.questionsCount')}
           </span>
         </div>
-        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-          <div className="w-7 h-7 rounded-lg bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center">
-            <PieChart className="w-3.5 h-3.5 text-violet-500" />
+        {!diagnostic && (
+          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+            <div className="w-7 h-7 rounded-lg bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center">
+              <PieChart className="w-3.5 h-3.5 text-violet-500" />
+            </div>
+            <span>
+              {t('quiz.totalPrefix')} {totalPoints} {t('quiz.pointsSuffix')}
+            </span>
           </div>
-          <span>
-            {t('quiz.totalPrefix')} {totalPoints} {t('quiz.pointsSuffix')}
-          </span>
-        </div>
+        )}
       </motion.div>
 
       <motion.button
@@ -171,7 +180,7 @@ function QuizCover({
         onClick={onStart}
         className="mt-1 px-8 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-full font-medium shadow-lg shadow-violet-200/50 dark:shadow-violet-900/50 hover:shadow-violet-300/50 transition-shadow z-10 flex items-center gap-2"
       >
-        {t('quiz.startQuiz')}
+        {t(diagnostic ? 'quiz.startDiagnostic' : 'quiz.startQuiz')}
         <ChevronRight className="w-4 h-4" />
       </motion.button>
     </div>
@@ -450,15 +459,17 @@ function ScoreBanner({
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
-export function QuizView({ questions, sceneId }: QuizViewProps) {
+export function QuizView({ questions, sceneId, mode = 'graded' }: QuizViewProps) {
   const { t, locale } = useI18n();
+  const diagnostic = mode === 'diagnostic';
 
   // Rehydrate submitted state from localStorage on first mount. Runs once.
   const [initialSubmitted] = useState<SubmittedState>(() => readSubmittedState(sceneId));
 
   const [phase, setPhase] = useState<Phase>(() => {
+    if (diagnostic && initialSubmitted) return 'submitted';
     if (initialSubmitted?.kind === 'reviewing') return 'reviewing';
-    if (initialSubmitted?.kind === 'answering') return 'answering';
+    if (initialSubmitted?.kind === 'answering') return diagnostic ? 'submitted' : 'answering';
     return 'not_started';
   });
   const [answers, setAnswers] = useState<Record<string, string | string[]>>(
@@ -518,10 +529,10 @@ export function QuizView({ questions, sceneId }: QuizViewProps) {
   );
 
   const handleSubmit = useCallback(() => {
-    setPhase('grading');
     clearAnswersCache();
     writeSubmittedAnswers(sceneId, answers);
-  }, [clearAnswersCache, answers, sceneId]);
+    setPhase(diagnostic ? 'submitted' : 'grading');
+  }, [clearAnswersCache, answers, diagnostic, sceneId]);
 
   // When entering grading phase, grade choice questions locally + call API for short-answer
   useEffect(() => {
@@ -567,6 +578,12 @@ export function QuizView({ questions, sceneId }: QuizViewProps) {
     clearSubmitted(sceneId);
   }, [clearAnswersCache, sceneId]);
 
+  const handleRevise = useCallback(() => {
+    clearSubmitted(sceneId);
+    updateAnswersCache(answers);
+    setPhase('answering');
+  }, [answers, sceneId, updateAnswersCache]);
+
   const earnedScore = useMemo(() => results.reduce((sum, r) => sum + r.earned, 0), [results]);
 
   const resultMap = useMemo(() => {
@@ -592,6 +609,7 @@ export function QuizView({ questions, sceneId }: QuizViewProps) {
               questionCount={questions.length}
               totalPoints={totalPoints}
               onStart={() => setPhase('answering')}
+              diagnostic={diagnostic}
             />
           </motion.div>
         )}
@@ -609,7 +627,7 @@ export function QuizView({ questions, sceneId }: QuizViewProps) {
               <div className="flex items-center gap-2">
                 <PieChart className="w-4 h-4 text-violet-500" />
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                  {t('quiz.answering')}
+                  {t(diagnostic ? 'quiz.diagnosticAnswering' : 'quiz.answering')}
                 </span>
                 <span className="text-xs text-gray-400 ml-1">
                   {
@@ -632,7 +650,7 @@ export function QuizView({ questions, sceneId }: QuizViewProps) {
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed',
                 )}
               >
-                {t('quiz.submitAnswers')}
+                {t(diagnostic ? 'quiz.lockInitialDecision' : 'quiz.submitAnswers')}
               </button>
             </div>
 
@@ -647,6 +665,7 @@ export function QuizView({ questions, sceneId }: QuizViewProps) {
                       index={i}
                       value={answers[q.id] as string | undefined}
                       onChange={(v) => handleSetAnswer(q.id, v)}
+                      showPoints={!diagnostic}
                     />
                   );
                 }
@@ -658,6 +677,7 @@ export function QuizView({ questions, sceneId }: QuizViewProps) {
                       index={i}
                       value={answers[q.id] as string[] | undefined}
                       onChange={(v) => handleSetAnswer(q.id, v)}
+                      showPoints={!diagnostic}
                     />
                   );
                 }
@@ -671,6 +691,48 @@ export function QuizView({ questions, sceneId }: QuizViewProps) {
                   />
                 );
               })}
+            </div>
+          </motion.div>
+        )}
+
+        {phase === 'submitted' && (
+          <motion.div
+            key="submitted"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex-1 flex flex-col min-h-0"
+          >
+            <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur shrink-0">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-violet-500" />
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  {t('quiz.diagnosticRecordedTitle')}
+                </span>
+              </div>
+              <button
+                onClick={handleRevise}
+                className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                {t('quiz.reviseDecision')}
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+              <div className="rounded-2xl border border-violet-100 bg-violet-50/70 px-5 py-4 text-sm leading-relaxed text-violet-700 dark:border-violet-800 dark:bg-violet-950/30 dark:text-violet-300">
+                {t('quiz.diagnosticRecordedDescription')}
+              </div>
+              {questions.map((q, i) => (
+                <ChoiceQuestionCard
+                  key={q.id}
+                  question={q}
+                  index={i}
+                  value={answers[q.id]}
+                  onChange={() => {}}
+                  disabled
+                  showPoints={false}
+                />
+              ))}
             </div>
           </motion.div>
         )}

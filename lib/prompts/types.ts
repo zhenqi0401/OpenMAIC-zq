@@ -12,6 +12,7 @@ export type PromptId =
   | 'web-search-query-rewrite'
   | 'slide-content'
   | 'quiz-content'
+  | 'diagnostic-quiz-content'
   | 'slide-actions'
   | 'quiz-actions'
   | 'interactive-actions'

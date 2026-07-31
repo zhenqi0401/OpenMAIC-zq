@@ -45,12 +45,31 @@ const quizContent: QuizContent = {
   ],
 };
 
+const diagnosticQuizContent: QuizContent = {
+  type: 'quiz',
+  mode: 'diagnostic',
+  questions: [
+    {
+      id: 'diagnostic-q1',
+      type: 'single',
+      question: 'What would you do first?',
+      options: [
+        { label: 'Ask for context', value: 'A' },
+        { label: 'Publish a rule', value: 'B' },
+        { label: 'Change the assignment', value: 'C' },
+      ],
+      hasAnswer: false,
+    },
+  ],
+};
+
 describe('SceneContent (contract layer)', () => {
   it('is the universal two-way union (slide | quiz)', () => {
     const c: SceneContent = slideContent;
     const c2: SceneContent = quizContent;
     expect(c.type).toBe('slide');
     expect(c2.type).toBe('quiz');
+    expect(diagnosticQuizContent.mode).toBe('diagnostic');
   });
 });
 

@@ -44,6 +44,7 @@ import {
   isTrainingCourseType,
   normalizeFidelityOutline,
   satisfiesExplicitQuizRequirement,
+  satisfiesManagementBCStructure,
   stripFidelityForStreaming,
 } from '@/lib/generation/input-fidelity';
 const log = createLogger('Outlines Stream');
@@ -609,6 +610,26 @@ export async function POST(req: NextRequest) {
                     'The generated outline omitted a Quiz explicitly required by the user';
                   log.warn(
                     `Outlines attempt ${attempt} omitted an explicitly required Quiz; rejecting the attempt`,
+                  );
+                  parsedOutlines = [];
+                  if (attempt <= MAX_STREAM_RETRIES) {
+                    const retryEvent = JSON.stringify({
+                      type: 'retry',
+                      attempt,
+                      maxAttempts: MAX_STREAM_RETRIES + 1,
+                    });
+                    controller.enqueue(encoder.encode(`data: ${retryEvent}\n\n`));
+                  }
+                  continue;
+                }
+                const missingManagementBCStructure =
+                  enhancedTrainingCourseType === 'management' &&
+                  !satisfiesManagementBCStructure(parsedOutlines);
+                if (missingManagementBCStructure) {
+                  lastError =
+                    'The generated management outline omitted the required B+C diagnostic callback structure';
+                  log.warn(
+                    `Outlines attempt ${attempt} omitted the management B+C structure; rejecting the attempt`,
                   );
                   parsedOutlines = [];
                   if (attempt <= MAX_STREAM_RETRIES) {

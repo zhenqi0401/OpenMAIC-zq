@@ -11,6 +11,7 @@ import {
   normalizeFidelityOutline,
   requiresExplicitQuizScene,
   satisfiesExplicitQuizRequirement,
+  satisfiesManagementBCStructure,
 } from '@/lib/generation/input-fidelity';
 import { changeOutlineType } from '@/lib/generation/outline-type';
 import { generateSceneActions, generateSceneContent } from '@/lib/generation/scene-generator';
@@ -224,6 +225,39 @@ describe('input-fidelity contracts', () => {
     expect(prompt).toContain('用户未指定位置时，不要套用固定位置');
   });
 
+  it('assigns a viewer-centered role perspective to every enhanced strategy', () => {
+    const cases = [
+      ['management', '企业管理者或团队负责人的决策视角'],
+      ['sales', '一线销售完成客户任务的视角'],
+      ['professional', '学员或专业实践者带着任务解决问题的视角'],
+      ['company_policy', '员工或经办人完成真实办事流程的视角'],
+    ] as const;
+
+    for (const [type, perspective] of cases) {
+      const prompt = buildOutlineFidelityPrompt(type, buildSourceCatalog({ requirement: 'test' }));
+      expect(prompt).toContain('观看与叙事视角');
+      expect(prompt).toContain(perspective);
+    }
+  });
+
+  it('requires the management B+C case, diagnostic callback, and closing loop', () => {
+    const prompt = buildOutlineFidelityPrompt(
+      'management',
+      buildSourceCatalog({ requirement: '帮我生成一门公平理论的课程' }),
+    );
+
+    expect(prompt).toContain('第一个场景必须是 1 页案例 Slide');
+    expect(prompt).toContain('第二个场景必须是包含 3 道单选题的无分数诊断 Quiz');
+    expect(prompt).toContain('"mode":"diagnostic"');
+    expect(prompt).toContain('逐项回到开篇三个痛点');
+    expect(prompt).toContain('最后一个场景必须是总结 Slide');
+    expect(prompt).toContain('开篇痛点 → 理论线索 → 管理动作');
+
+    const downstream = buildSceneFidelityContext(outline({ trainingCourseType: 'management' }));
+    expect(downstream).toContain('管理精品课 B+C 教学结构');
+    expect(downstream).toContain('不显示分数、正误、标准答案或解析');
+  });
+
   it('requires a model-authored Quiz only when the user explicitly asks for one', () => {
     const requirement = '课程中必须包含测验，位置由课程设计决定。';
     const modelQuiz = outline({
@@ -239,6 +273,59 @@ describe('input-fidelity contracts', () => {
       difficulty: 'hard',
       questionTypes: ['multiple', 'text'],
     });
+  });
+
+  it('preserves the diagnostic quiz mode through fidelity normalization', () => {
+    const catalog = buildSourceCatalog({ requirement: '开篇用三题记录管理者初始判断。' });
+    const normalized = normalizeFidelityOutline(
+      outline({
+        type: 'quiz',
+        quizConfig: {
+          mode: 'diagnostic',
+          questionCount: 3,
+          difficulty: 'medium',
+          questionTypes: ['single'],
+        },
+      }),
+      'management',
+      catalog,
+    );
+
+    expect(normalized.quizConfig?.mode).toBe('diagnostic');
+  });
+
+  it('validates the complete management B+C outline before accepting a simple request', () => {
+    const outlines = [
+      outline({ order: 1, type: 'slide', title: '李经理的三个公平痛点' }),
+      outline({
+        order: 2,
+        type: 'quiz',
+        title: '锁定你的初始判断',
+        quizConfig: {
+          mode: 'diagnostic',
+          questionCount: 3,
+          difficulty: 'medium',
+          questionTypes: ['single'],
+        },
+      }),
+      outline({ order: 3, title: '公平理论的投入、产出与参照对象' }),
+      outline({ order: 4, title: '回到三个痛点重新判断管理动作' }),
+      outline({ order: 5, title: '总结：痛点、理论线索与行动闭环' }),
+    ];
+
+    expect(satisfiesManagementBCStructure(outlines)).toBe(true);
+    expect(satisfiesManagementBCStructure(outlines.filter((item) => item.type !== 'quiz'))).toBe(
+      false,
+    );
+    expect(
+      satisfiesManagementBCStructure(
+        outlines.map((item) =>
+          item.type === 'quiz'
+            ? { ...item, quizConfig: { ...item.quizConfig!, mode: 'graded' } }
+            : item,
+        ),
+      ),
+    ).toBe(false);
   });
 
   it('returns no downstream context for missing/other policies', () => {
@@ -306,6 +393,7 @@ describe('Slide/Quiz fidelity prompt wiring', () => {
     expect(captured).toHaveLength(4);
     for (const prompt of captured) {
       expect(prompt).toContain('场景输入保真上下文');
+      expect(prompt).toContain('员工或经办人完成真实办事流程的视角');
       expect(prompt).toContain('超过 5000 元必须复核');
       expect(prompt).toContain('[REQ-001] 用户需求');
       expect(prompt).not.toContain('{{');

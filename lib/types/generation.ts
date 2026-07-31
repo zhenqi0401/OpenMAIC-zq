@@ -136,6 +136,8 @@ export interface SceneOutline {
     questionCount: number;
     difficulty: 'easy' | 'medium' | 'hard';
     questionTypes: ('single' | 'multiple' | 'text')[];
+    /** Diagnostic quizzes record an initial judgment without grading or revealing answers. */
+    mode?: 'graded' | 'diagnostic';
   };
   /**
    * @deprecated Use widgetType + widgetOutline instead
@@ -182,6 +184,7 @@ export interface GeneratedSlideContent {
  */
 export interface GeneratedQuizContent {
   questions: QuizQuestion[];
+  mode?: 'graded' | 'diagnostic';
 }
 
 // ==================== PBL Generation Types ====================

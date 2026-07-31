@@ -138,6 +138,8 @@ export interface QuizQuestion {
 export interface QuizContent {
   type: 'quiz';
   questions: QuizQuestion[];
+  /** Diagnostic quizzes record choices without scores, correctness, or answer explanations. */
+  mode?: 'graded' | 'diagnostic';
 }
 
 /**

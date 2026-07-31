@@ -186,6 +186,7 @@ export function buildCompleteScene(
       content: {
         type: 'quiz',
         questions: content.questions,
+        ...(content.mode ? { mode: content.mode } : {}),
       },
       actions,
       createdAt: Date.now(),

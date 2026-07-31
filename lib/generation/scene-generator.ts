@@ -953,15 +953,20 @@ async function generateQuizContent(
     questionTypes: ['single'],
   };
 
-  const prompts = buildPrompt(PROMPT_IDS.QUIZ_CONTENT, {
-    title: outline.title,
-    description: outline.description,
-    keyPoints: (outline.keyPoints || []).map((p, i) => `${i + 1}. ${p}`).join('\n'),
-    questionCount: quizConfig.questionCount,
-    difficulty: quizConfig.difficulty,
-    questionTypes: quizConfig.questionTypes.join(', '),
-    languageDirective: languageDirective || '',
-  });
+  const diagnostic = quizConfig.mode === 'diagnostic';
+
+  const prompts = buildPrompt(
+    diagnostic ? PROMPT_IDS.DIAGNOSTIC_QUIZ_CONTENT : PROMPT_IDS.QUIZ_CONTENT,
+    {
+      title: outline.title,
+      description: outline.description,
+      keyPoints: (outline.keyPoints || []).map((p, i) => `${i + 1}. ${p}`).join('\n'),
+      questionCount: diagnostic ? 3 : quizConfig.questionCount,
+      difficulty: quizConfig.difficulty,
+      questionTypes: diagnostic ? 'single' : quizConfig.questionTypes.join(', '),
+      languageDirective: languageDirective || '',
+    },
+  );
 
   if (!prompts) {
     return null;
@@ -970,7 +975,11 @@ async function generateQuizContent(
   log.debug(`Generating quiz content for: ${outline.title}`);
   const fidelityContext = buildSceneFidelityContext(outline);
   const userPrompt = fidelityContext
-    ? `${prompts.user}\n\n${fidelityContext}\n\nFor this visible Quiz, assess the must-cover information where pedagogically appropriate without changing factual details or inventing unsupported policy facts.`
+    ? `${prompts.user}\n\n${fidelityContext}\n\n${
+        diagnostic
+          ? 'Use the same case and map the three questions one-to-one to the three opening pain points. Record initial management judgment only; do not assess knowledge, reveal theory, or add grading metadata.'
+          : 'For this visible Quiz, assess the must-cover information where pedagogically appropriate without changing factual details or inventing unsupported policy facts.'
+      }`
     : prompts.user;
   const response = await aiCall(prompts.system, userPrompt);
   const generatedQuestions = parseJsonResponse<QuizQuestion[]>(response);
@@ -983,7 +992,30 @@ async function generateQuizContent(
   log.debug(`Got ${generatedQuestions.length} questions for: ${outline.title}`);
 
   // Ensure each question has an ID and normalize options format
+  if (
+    diagnostic &&
+    (generatedQuestions.length !== 3 ||
+      generatedQuestions.some(
+        (question) =>
+          question.type !== 'single' ||
+          !Array.isArray(question.options) ||
+          question.options.length !== 3,
+      ))
+  ) {
+    log.error(`Diagnostic quiz must contain exactly 3 single-choice questions: ${outline.title}`);
+    return null;
+  }
+
   const questions: QuizQuestion[] = generatedQuestions.map((q) => {
+    if (diagnostic) {
+      return {
+        id: q.id || `q_${nanoid(8)}`,
+        type: 'single',
+        question: q.question,
+        options: normalizeQuizOptions(q.options),
+        hasAnswer: false,
+      };
+    }
     const isText = q.type === 'short_answer';
     return {
       ...q,
@@ -994,7 +1026,7 @@ async function generateQuizContent(
     };
   });
 
-  return { questions };
+  return diagnostic ? { questions, mode: 'diagnostic' } : { questions };
 }
 
 /**
@@ -1441,9 +1473,18 @@ export async function generateSceneActions(
     }
 
     const fidelityContext = buildSceneFidelityContext(outline);
-    const userPrompt = fidelityContext
-      ? `${prompts.user}\n\n${fidelityContext}\n\nThe Quiz narration must explain or reinforce every relevant must-cover item. Do not speak internal source IDs aloud.`
-      : prompts.user;
+    const diagnosticInstruction =
+      content.mode === 'diagnostic'
+        ? `\n\nThis is a non-graded diagnostic choice, not an assessment. Introduce the purpose and ask learners to choose from their current management experience. Do not imply or reveal a correct answer, explain the management theory, discuss scores, use right/wrong language, or evaluate any option. Tell learners their initial judgment will be revisited after the theory section.`
+        : '';
+    const fidelityInstruction = fidelityContext
+      ? `\n\n${fidelityContext}\n\n${
+          content.mode === 'diagnostic'
+            ? 'Preserve the three opening pain points, but do not explain or resolve them yet. Do not speak internal source IDs aloud.'
+            : 'The Quiz narration must explain or reinforce every relevant must-cover item. Do not speak internal source IDs aloud.'
+        }`
+      : '';
+    const userPrompt = `${prompts.user}${fidelityInstruction}${diagnosticInstruction}`;
     const response = await aiCall(prompts.system, userPrompt);
     const actions = parseActionsFromStructuredOutput(response, outline.type);
 
