@@ -19,11 +19,12 @@ function buildOutlinePrompt() {
 }
 
 describe('requirements-to-outlines defaults', () => {
-  test('uses one 15-30 minute default in both system and user prompts', () => {
+  test('uses one 20-50 minute default in both system and user prompts', () => {
     const prompt = buildOutlinePrompt();
 
-    expect(prompt.system).toContain('| Course Duration     | 15-30 minutes');
-    expect(prompt.user).toContain('default 15-30 minutes if not specified');
-    expect(`${prompt.system}\n${prompt.user}`).not.toContain('15-20 minutes');
+    expect(prompt.system).toContain('| Course Duration     | 20-50 minutes');
+    expect(prompt.user).toContain('default 20-50 minutes if not specified');
+    expect(prompt.system).not.toContain('| Course Duration     | 15-30 minutes');
+    expect(prompt.user).not.toContain('default 15-30 minutes if not specified');
   });
 });

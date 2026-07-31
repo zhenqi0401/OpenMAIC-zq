@@ -17,17 +17,36 @@ function stubObjectUrl() {
 }
 
 function stubAudio(play: () => Promise<void>) {
+  const audioInstances: AudioStub[] = [];
+
   class AudioStub {
     play = play;
     addEventListener = vi.fn();
     pause = vi.fn();
     volume = 1;
     defaultPlaybackRate = 1;
-    playbackRate = 1;
+    preservesPitch = false;
+    preload = '';
     src = '';
     currentTime = 0;
+    playbackRateWrites: number[] = [];
+    private currentPlaybackRate = 1;
+
+    constructor() {
+      audioInstances.push(this);
+    }
+
+    get playbackRate() {
+      return this.currentPlaybackRate;
+    }
+
+    set playbackRate(value: number) {
+      this.currentPlaybackRate = value;
+      this.playbackRateWrites.push(value);
+    }
   }
   vi.stubGlobal('Audio', AudioStub);
+  return { getLatestAudio: () => audioInstances.at(-1) ?? null };
 }
 
 describe('AudioPlayer blob URL lifecycle', () => {
@@ -56,5 +75,30 @@ describe('AudioPlayer blob URL lifecycle', () => {
 
     await expect(new AudioPlayer().play('audio-1')).resolves.toBe(true);
     expect(revokeObjectURL).not.toHaveBeenCalled();
+  });
+
+  it('configures 1.5x playback before play without rewriting the rate after playback starts', async () => {
+    let resolvePlay!: () => void;
+    const playPromise = new Promise<void>((resolve) => {
+      resolvePlay = resolve;
+    });
+    const { getLatestAudio } = stubAudio(() => playPromise);
+
+    const { AudioPlayer } = await import('@/lib/utils/audio-player');
+    const player = new AudioPlayer();
+    player.setPlaybackRate(1.5);
+
+    const pending = player.play('audio-1', '/api/courses/course-1/audio/audio-1');
+    await vi.waitFor(() => expect(getLatestAudio()).not.toBeNull());
+    const audio = getLatestAudio();
+    expect(audio?.preload).toBe('auto');
+    expect(audio?.preservesPitch).toBe(true);
+    expect(audio?.defaultPlaybackRate).toBe(1.5);
+    expect(audio?.playbackRate).toBe(1.5);
+    expect(audio?.playbackRateWrites).toEqual([1.5]);
+
+    resolvePlay();
+    await expect(pending).resolves.toBe(true);
+    expect(audio?.playbackRateWrites).toEqual([1.5]);
   });
 });

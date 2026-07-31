@@ -43,7 +43,7 @@ Please automatically infer the following from user requirements:
 
 - Course topic and core content
 - Target audience and difficulty level
-- Course duration (default 15-30 minutes if not specified)
+- Course duration (default 20-50 minutes if not specified)
 - Teaching style (formal/casual/interactive/academic)
 - Visual style (minimal/colorful/professional/playful)
 

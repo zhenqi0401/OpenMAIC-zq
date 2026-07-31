@@ -22,6 +22,52 @@ export class AudioPlayer {
   private playbackRate: number = 1;
 
   /**
+   * Configure a fresh media element before playback starts.
+   *
+   * Reconfiguring compressed speech immediately after play() starts can create
+   * an audible discontinuity in the browser's time-stretch pipeline. Apply the
+   * requested rate while the element is loading, and only write the live
+   * playbackRate when the browser has actually changed/reset it.
+   */
+  private configurePlayback(audio: HTMLAudioElement): void {
+    audio.defaultPlaybackRate = this.playbackRate;
+    audio.preservesPitch = true;
+
+    // Older Safari/Firefox releases exposed vendor-prefixed pitch controls.
+    const legacyAudio = audio as HTMLAudioElement & {
+      mozPreservesPitch?: boolean;
+      webkitPreservesPitch?: boolean;
+    };
+    if ('mozPreservesPitch' in legacyAudio) legacyAudio.mozPreservesPitch = true;
+    if ('webkitPreservesPitch' in legacyAudio) legacyAudio.webkitPreservesPitch = true;
+
+    if (audio.playbackRate !== this.playbackRate) {
+      audio.playbackRate = this.playbackRate;
+    }
+  }
+
+  private createConfiguredAudio(src: string): HTMLAudioElement {
+    this.stop();
+
+    const audio = new Audio();
+    this.audio = audio;
+    audio.preload = 'auto';
+    audio.src = src;
+    audio.volume = this.muted ? 0 : this.volume;
+    this.configurePlayback(audio);
+
+    // Some browsers reset playbackRate while loading metadata. Re-apply only
+    // if a reset really happened, and do it before playback becomes audible.
+    const restorePlaybackConfiguration = () => {
+      if (this.audio === audio) this.configurePlayback(audio);
+    };
+    audio.addEventListener('loadedmetadata', restorePlaybackConfiguration, { once: true });
+    audio.addEventListener('canplay', restorePlaybackConfiguration, { once: true });
+
+    return audio;
+  }
+
+  /**
    * Play audio (from URL or IndexedDB pre-generated cache)
    * @param audioId Audio ID
    * @param audioUrl Optional server-generated audio URL (takes priority over IndexedDB)
@@ -31,18 +77,11 @@ export class AudioPlayer {
     try {
       // 1. Try audioUrl first (server-generated TTS)
       if (audioUrl) {
-        this.stop();
-        this.audio = new Audio();
-        this.audio.src = audioUrl;
-        if (this.muted) this.audio.volume = 0;
-        else this.audio.volume = this.volume;
-        this.audio.defaultPlaybackRate = this.playbackRate;
-        this.audio.playbackRate = this.playbackRate;
-        this.audio.addEventListener('ended', () => {
+        const audio = this.createConfiguredAudio(audioUrl);
+        audio.addEventListener('ended', () => {
           this.onEndedCallback?.();
         });
-        await this.audio.play();
-        this.audio.playbackRate = this.playbackRate;
+        await audio.play();
         return true;
       }
 
@@ -54,24 +93,12 @@ export class AudioPlayer {
         return false;
       }
 
-      // Stop current playback
-      this.stop();
-
-      // Create audio element
-      this.audio = new Audio();
-
       // Set audio source
       const blobUrl = URL.createObjectURL(audioRecord.blob);
-      this.audio.src = blobUrl;
-      if (this.muted) this.audio.volume = 0;
-      else this.audio.volume = this.volume;
-
-      // Apply playback rate
-      this.audio.defaultPlaybackRate = this.playbackRate;
-      this.audio.playbackRate = this.playbackRate;
+      const audio = this.createConfiguredAudio(blobUrl);
 
       // Set ended callback
-      this.audio.addEventListener('ended', () => {
+      audio.addEventListener('ended', () => {
         URL.revokeObjectURL(blobUrl);
         this.onEndedCallback?.();
       });
@@ -80,13 +107,11 @@ export class AudioPlayer {
       // load) the 'ended' listener never fires, so revoke the blob URL here to
       // avoid leaking it for the lifetime of the document.
       try {
-        await this.audio.play();
+        await audio.play();
       } catch (playError) {
         URL.revokeObjectURL(blobUrl);
         throw playError;
       }
-      // Re-apply after play() — some browsers reset during load
-      this.audio.playbackRate = this.playbackRate;
       return true;
     } catch (error) {
       log.error('Failed to play audio:', error);
@@ -122,7 +147,7 @@ export class AudioPlayer {
    */
   public resume(): void {
     if (this.audio?.paused) {
-      this.audio.playbackRate = this.playbackRate;
+      this.configurePlayback(this.audio);
       this.audio.play().catch((error) => {
         log.error('Failed to resume audio:', error);
       });
@@ -191,7 +216,7 @@ export class AudioPlayer {
   public setPlaybackRate(rate: number): void {
     this.playbackRate = Math.max(0.5, Math.min(2, rate));
     if (this.audio) {
-      this.audio.playbackRate = this.playbackRate;
+      this.configurePlayback(this.audio);
     }
   }
 
