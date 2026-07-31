@@ -115,6 +115,31 @@ export class MockApi {
     });
   }
 
+  /** Mock the fixed server-owned DeepSeek outline review with a no-change verdict. */
+  async mockOutlineAuditPass() {
+    await this.page.route('**/api/generate/outline-audit', async (route) => {
+      const body = route.request().postDataJSON();
+      const completedAt = new Date().toISOString();
+      await route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          success: true,
+          result: {
+            auditId: `audit-e2e-${body.outlineRevision}`,
+            baseRevision: body.outlineRevision,
+            verdict: 'pass',
+            summary: 'No evidence-backed defect was found.',
+            findings: [],
+            providerId: 'deepseek',
+            modelId: 'deepseek-v4-flash',
+            completedAt,
+          },
+        }),
+      });
+    });
+  }
+
   /** Mock the scene content generation endpoint */
   async mockSceneContent(response = mockSceneContentResponse) {
     await this.page.route('**/api/generate/scene-content', (route) => {
@@ -162,6 +187,7 @@ export class MockApi {
   /** Set up API mocks for the generation flow. Note: server-providers is already mocked by the base fixture. */
   async setupGenerationMocks(stageId?: string) {
     await this.mockSceneOutlinesStream();
+    await this.mockOutlineAuditPass();
     await this.mockSceneContent();
     await this.mockSceneActions(stageId);
   }

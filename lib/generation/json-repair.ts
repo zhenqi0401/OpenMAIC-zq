@@ -13,7 +13,18 @@ function repairQuotedPropertyFragments(jsonStr: string): string {
   );
 }
 
-function logJsonParseError(stage: string, jsonStr: string, error: unknown): void {
+export interface JsonParseOptions {
+  /** Sensitive callers can suppress all parser diagnostics that may quote response text. */
+  suppressLogs?: boolean;
+}
+
+function logJsonParseError(
+  stage: string,
+  jsonStr: string,
+  error: unknown,
+  options?: JsonParseOptions,
+): void {
+  if (options?.suppressLogs) return;
   const message = error instanceof Error ? error.message : String(error);
   const positionMatch = message.match(/position\s+(\d+)/i);
   const position = positionMatch ? Number(positionMatch[1]) : undefined;
@@ -52,7 +63,7 @@ export function stripLeadingReasoningBlocks(response: string): string {
   }
 }
 
-export function parseJsonResponse<T>(response: string): T | null {
+export function parseJsonResponse<T>(response: string, options?: JsonParseOptions): T | null {
   const structuredResponse = stripLeadingReasoningBlocks(response);
 
   // Strategy 1: Try to extract JSON from markdown code blocks (may have multiple)
@@ -61,9 +72,9 @@ export function parseJsonResponse<T>(response: string): T | null {
     const extracted = match[1].trim();
     // Only try if it looks like JSON (starts with { or [)
     if (extracted.startsWith('{') || extracted.startsWith('[')) {
-      const result = tryParseJson<T>(extracted);
+      const result = tryParseJson<T>(extracted, options);
       if (result !== null) {
-        log.debug('Successfully parsed JSON from code block');
+        if (!options?.suppressLogs) log.debug('Successfully parsed JSON from code block');
         return result;
       }
     }
@@ -121,27 +132,29 @@ export function parseJsonResponse<T>(response: string): T | null {
 
     if (endIndex !== -1) {
       const jsonStr = structuredResponse.substring(startIndex, endIndex + 1);
-      const result = tryParseJson<T>(jsonStr);
+      const result = tryParseJson<T>(jsonStr, options);
       if (result !== null) {
-        log.debug('Successfully parsed JSON from response body');
+        if (!options?.suppressLogs) log.debug('Successfully parsed JSON from response body');
         return result;
       }
     }
   }
 
   // Strategy 3: Last resort - try the whole response
-  const result = tryParseJson<T>(structuredResponse.trim());
+  const result = tryParseJson<T>(structuredResponse.trim(), options);
   if (result !== null) {
-    log.debug('Successfully parsed raw response as JSON');
+    if (!options?.suppressLogs) log.debug('Successfully parsed raw response as JSON');
     return result;
   }
 
-  log.error('Failed to parse JSON from response');
-  log.error('Raw response (first 500 chars):', response.substring(0, 500));
-  log.error(
-    'Raw response (last 500 chars):',
-    response.substring(Math.max(0, response.length - 500)),
-  );
+  if (!options?.suppressLogs) {
+    log.error('Failed to parse JSON from response');
+    log.error('Raw response (first 500 chars):', response.substring(0, 500));
+    log.error(
+      'Raw response (last 500 chars):',
+      response.substring(Math.max(0, response.length - 500)),
+    );
+  }
 
   return null;
 }
@@ -149,12 +162,12 @@ export function parseJsonResponse<T>(response: string): T | null {
 /**
  * Try to parse JSON with various fixes for common AI response issues
  */
-export function tryParseJson<T>(jsonStr: string): T | null {
+export function tryParseJson<T>(jsonStr: string, options?: JsonParseOptions): T | null {
   // Attempt 1: Try parsing as-is
   try {
     return JSON.parse(jsonStr) as T;
   } catch (error) {
-    logJsonParseError('Attempt 1', jsonStr, error);
+    logJsonParseError('Attempt 1', jsonStr, error, options);
     // Continue to fix attempts
   }
 
@@ -199,7 +212,7 @@ export function tryParseJson<T>(jsonStr: string): T | null {
       const lastCompleteObj = fixed.lastIndexOf('}');
       if (lastCompleteObj > 0) {
         fixed = fixed.substring(0, lastCompleteObj + 1) + ']';
-        log.warn('Fixed truncated JSON array');
+        if (!options?.suppressLogs) log.warn('Fixed truncated JSON array');
       }
     } else if (trimmed.startsWith('{') && !trimmed.endsWith('}')) {
       // Try to close incomplete object
@@ -207,13 +220,13 @@ export function tryParseJson<T>(jsonStr: string): T | null {
       const closeBraces = (fixed.match(/}/g) || []).length;
       if (openBraces > closeBraces) {
         fixed += '}'.repeat(openBraces - closeBraces);
-        log.warn('Fixed truncated JSON object');
+        if (!options?.suppressLogs) log.warn('Fixed truncated JSON object');
       }
     }
 
     return JSON.parse(fixed) as T;
   } catch (error) {
-    logJsonParseError('Attempt 2', jsonStr, error);
+    logJsonParseError('Attempt 2', jsonStr, error, options);
     // Continue to next attempt
   }
 
@@ -222,7 +235,7 @@ export function tryParseJson<T>(jsonStr: string): T | null {
     const repaired = jsonrepair(jsonStr);
     return JSON.parse(repaired) as T;
   } catch (error) {
-    logJsonParseError('Attempt 3', jsonStr, error);
+    logJsonParseError('Attempt 3', jsonStr, error, options);
     // Continue to next attempt
   }
 
@@ -246,7 +259,7 @@ export function tryParseJson<T>(jsonStr: string): T | null {
 
     return JSON.parse(fixed) as T;
   } catch (error) {
-    logJsonParseError('Attempt 4', jsonStr, error);
+    logJsonParseError('Attempt 4', jsonStr, error, options);
     return null;
   }
 }

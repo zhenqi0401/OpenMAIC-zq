@@ -203,6 +203,7 @@ describe('model-routes', () => {
     const { LLM_STAGES } = await import('@/lib/server/model-routes');
     expect(LLM_STAGES).toEqual(
       expect.arrayContaining([
+        'outline-adversarial-review',
         'scene-content:slide',
         'scene-content:quiz',
         'scene-content:interactive',

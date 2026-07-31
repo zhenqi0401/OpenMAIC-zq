@@ -127,6 +127,7 @@ test.describe('精品课程输入保真 Demo', () => {
 
   test('edits must-cover items, keeps PDF evidence read-only, and persists the outline to IndexedDB', async ({
     page,
+    mockApi,
   }) => {
     test.setTimeout(60_000);
     await page.setViewportSize({ width: 375, height: 812 });
@@ -176,6 +177,7 @@ test.describe('精品课程输入保真 Demo', () => {
         body: JSON.stringify(response),
       });
     });
+    await mockApi.mockOutlineAuditPass();
 
     const preview = new GenerationPreviewPage(page);
     await preview.goto();
@@ -189,6 +191,9 @@ test.describe('精品课程输入保真 Demo', () => {
 
     const revised = '退款金额达到 5000 元（含）时必须由财务负责人复核';
     await page.getByLabel('必须覆盖项 1').first().fill(revised);
+    await expect(page.getByText('审核结果已过期', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '重试', exact: true }).click();
+    await expect(page.getByText('DeepSeek 审核通过，无需改动')).toBeVisible();
     // Evidence is rendered as text; no editable control may expose its body or ID.
     await expect(
       page.locator('input[value="DOC-001"], textarea:has-text("退款金额超过 5000 元")'),
@@ -256,6 +261,7 @@ test.describe('精品课程输入保真 Demo', () => {
       });
     });
     await mockApi.mockSceneActions();
+    await mockApi.mockOutlineAuditPass();
 
     const preview = new GenerationPreviewPage(page);
     await preview.goto();

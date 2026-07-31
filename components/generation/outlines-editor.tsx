@@ -42,6 +42,12 @@ interface OutlinesEditorProps {
   isLoading?: boolean;
   /** SSE is still pumping outlines into this editor — render read-only. */
   isStreaming?: boolean;
+  /** Independent DeepSeek audit lock after SSE has completed. */
+  isAuditRunning?: boolean;
+  /** Additional confirmation gate (unhandled, failed, stale, or skipped audit). */
+  confirmDisabled?: boolean;
+  /** Visible and screen-reader-accessible reason why confirmation is unavailable. */
+  confirmDisabledReason?: string;
   /** Collapse the editor back to the preview surface (small streaming card / outline-ready). */
   onCollapse?: () => void;
 }
@@ -116,6 +122,9 @@ export function OutlinesEditor({
   onAlwaysReviewChange,
   isLoading = false,
   isStreaming = false,
+  isAuditRunning = false,
+  confirmDisabled = false,
+  confirmDisabledReason,
   onCollapse,
 }: OutlinesEditorProps) {
   const { t } = useI18n();
@@ -123,7 +132,7 @@ export function OutlinesEditor({
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const lastScrollTargetRef = useRef<string | null>(null);
-  const editingDisabled = isLoading || isStreaming;
+  const editingDisabled = isLoading || isStreaming || isAuditRunning;
   const lastOutlineId = outlines.length > 0 ? outlines[outlines.length - 1].id : null;
 
   // Auto-scroll to the latest streamed scene so streaming feels alive.
@@ -209,8 +218,9 @@ export function OutlinesEditor({
         ? t('generation.outlineEditorStreamingProgress', { count: outlines.length })
         : t('generation.outlineEditorStreamingWaiting');
     }
+    if (isAuditRunning) return t('generation.outlineAuditEditorLocked');
     return t('generation.outlineEditorSummary', { count: outlines.length });
-  }, [isStreaming, outlines.length, t]);
+  }, [isStreaming, isAuditRunning, outlines.length, t]);
 
   return (
     <motion.div
@@ -256,7 +266,7 @@ export function OutlinesEditor({
           <button
             type="button"
             onClick={onCollapse}
-            disabled={isLoading}
+            disabled={isLoading || isAuditRunning}
             aria-label={t('generation.collapseEditor')}
             className={cn(
               'mt-1 inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium',
@@ -361,37 +371,61 @@ export function OutlinesEditor({
           <span />
         )}
 
-        <div className="flex flex-col-reverse gap-2 md:flex-row md:items-center md:gap-2">
-          <Button
-            variant="ghost"
-            onClick={onBack}
-            disabled={isLoading}
-            className="rounded-full px-4 text-muted-foreground hover:text-foreground"
-          >
-            {t('generation.backToRequirements')}
-          </Button>
-          <Button
-            onClick={onConfirm}
-            disabled={isLoading || isStreaming || outlines.length === 0}
-            className="rounded-full px-6 shadow-lg shadow-blue-500/20"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                {t('generation.generatingInProgress')}
-              </>
-            ) : isStreaming ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                {t('generation.outlineEditorWaitingConfirm')}
-              </>
-            ) : (
-              <>
-                <Check className="size-4" />
-                {t('generation.confirmAndGenerateCourse')}
-              </>
-            )}
-          </Button>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col-reverse gap-2 md:flex-row md:items-center md:justify-end md:gap-2">
+            <Button
+              variant="ghost"
+              onClick={onBack}
+              disabled={isLoading}
+              className="rounded-full px-4 text-muted-foreground hover:text-foreground"
+            >
+              {t('generation.backToRequirements')}
+            </Button>
+            <Button
+              onClick={onConfirm}
+              disabled={
+                isLoading ||
+                isStreaming ||
+                isAuditRunning ||
+                confirmDisabled ||
+                outlines.length === 0
+              }
+              aria-describedby={
+                confirmDisabledReason ? 'outline-confirm-disabled-reason' : undefined
+              }
+              className="rounded-full px-6 shadow-lg shadow-blue-500/20"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  {t('generation.generatingInProgress')}
+                </>
+              ) : isStreaming ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  {t('generation.outlineEditorWaitingConfirm')}
+                </>
+              ) : isAuditRunning ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  {t('generation.outlineAuditRunningButton')}
+                </>
+              ) : (
+                <>
+                  <Check className="size-4" />
+                  {t('generation.confirmAndGenerateCourse')}
+                </>
+              )}
+            </Button>
+          </div>
+          {confirmDisabledReason && !isStreaming && !isLoading && (
+            <p
+              id="outline-confirm-disabled-reason"
+              className="max-w-sm text-right text-xs text-muted-foreground"
+            >
+              {confirmDisabledReason}
+            </p>
+          )}
         </div>
       </div>
     </motion.div>

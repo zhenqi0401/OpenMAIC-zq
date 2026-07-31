@@ -6,6 +6,7 @@ import type {
   PdfImage,
   ImageMapping,
 } from '@/lib/types/generation';
+import type { OutlineAuditSessionState } from '@/lib/generation/outline-audit-types';
 
 // Session state stored in sessionStorage
 export interface GenerationSessionState {
@@ -35,6 +36,11 @@ export interface GenerationSessionState {
   categoryId?: string;
   // Server-effective vocational mode from the outline generation done event.
   taskEngineMode?: boolean;
+  // Monotonic version of the human-visible outline. Audit decisions are valid
+  // only for the exact matching revision.
+  outlineRevision?: number;
+  // Browser-session-only DeepSeek review result and explicit human decisions.
+  outlineAudit?: OutlineAuditSessionState;
 }
 
 export type GenerationStep = {

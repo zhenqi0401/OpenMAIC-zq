@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { OutlinesEditor } from '@/components/generation/outlines-editor';
+import { OutlineAuditPanel } from '@/components/generation/outline-audit-panel';
 import { cn } from '@/lib/utils';
 import { useStageStore } from '@/lib/store/stage';
 import { useSettingsStore } from '@/lib/store/settings';
@@ -24,6 +25,28 @@ import {
 } from '@/lib/hooks/use-scene-generator';
 import { isAbortError } from '@/lib/generation/generation-retry';
 import { isEnhancedTrainingCourseType } from '@/lib/generation/input-fidelity';
+import {
+  applyAuditFindings,
+  buildAuditSourceCatalog,
+  OutlineAuditValidationError,
+} from '@/lib/generation/outline-audit';
+import {
+  canConfirmWithOutlineAudit,
+  completeOutlineAudit,
+  createRunningOutlineAudit,
+  failOutlineAudit,
+  isOutlineAuditCurrent,
+  isOutlineAuditRequired,
+  markAuditFindingsApplied,
+  normalizeOutlineRevision,
+  rejectRemainingAuditFindings,
+  skipOutlineAudit,
+  staleOutlineAudit,
+} from '@/lib/generation/outline-audit-state';
+import type {
+  OutlineAuditErrorCode,
+  OutlineAuditResult,
+} from '@/lib/generation/outline-audit-types';
 import { FOREGROUND_SCENE_RETRY_OPTIONS } from './foreground-retry';
 import {
   loadImageMapping,
@@ -42,6 +65,7 @@ import { createLogger } from '@/lib/logger';
 import { type GenerationSessionState, ALL_STEPS, getActiveSteps } from './types';
 import { StepVisualizer } from './components/visualizers';
 import { resolveTaskEngineModeFromOutlineDoneEvent } from './vocational-mode';
+import { normalizeRestoredGenerationSession } from './outline-audit-session';
 import { shouldPauseForOutlineConfirmation } from '@/lib/authoring/outline-confirmation';
 import {
   applyCourseTitleToGeneratedStage,
@@ -58,6 +82,10 @@ function GenerationPreviewContent() {
   const { t } = useI18n();
   const hasStartedRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const outlineAuditControllerRef = useRef<AbortController | null>(null);
+  const outlineAuditRequestIdRef = useRef(0);
+  const auditRestoreStartedForRef = useRef<string | null>(null);
+  const sessionStateRef = useRef<GenerationSessionState | null>(null);
   const outlineReviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const outlineReviewResolveRef = useRef<((outlines: SceneOutline[]) => void) | null>(null);
   // Sticky flag: true once the user signals review intent (either by clicking the
@@ -95,8 +123,35 @@ function GenerationPreviewContent() {
   const activeSteps = getActiveSteps(session);
   const isOutlineReady = session?.previewPhase === 'outline-ready';
   const isReviewingOutlines = session?.previewPhase === 'review';
+  const currentOutlineRevision = normalizeOutlineRevision(session?.outlineRevision);
+  const auditRequiredForSession = session
+    ? isOutlineAuditRequired({
+        requirements: session.requirements,
+        taskEngineMode: session.taskEngineMode,
+      })
+    : false;
+  const isOutlineAuditRunning =
+    auditRequiredForSession && session?.outlineAudit?.status === 'running';
+  const outlineAuditConfirmDisabledReason = (() => {
+    if (!auditRequiredForSession) return undefined;
+    const audit = session?.outlineAudit;
+    if (!audit || audit.status === 'idle' || audit.status === 'running') {
+      return t('generation.outlineAuditConfirmWaiting');
+    }
+    if (!isOutlineAuditCurrent(audit, currentOutlineRevision) || audit.status === 'stale') {
+      return t('generation.outlineAuditConfirmStale');
+    }
+    if (audit.status === 'changes_proposed') {
+      return t('generation.outlineAuditConfirmPending');
+    }
+    if (audit.status === 'failed') return t('generation.outlineAuditConfirmFailed');
+    return canConfirmWithOutlineAudit(audit, currentOutlineRevision)
+      ? undefined
+      : t('generation.outlineAuditConfirmWaiting');
+  })();
 
   const persistSession = (nextSession: GenerationSessionState) => {
+    sessionStateRef.current = nextSession;
     setSession(nextSession);
     sessionStorage.setItem('generationSession', JSON.stringify(nextSession));
   };
@@ -153,8 +208,10 @@ function GenerationPreviewContent() {
         if (parsed.previewPhase === 'review' && !parsed.sceneOutlines?.length) {
           outlineReviewIntentRef.current = true;
         }
-        parsed.taskEngineMode = parsed.taskEngineMode === true;
-        setSession(parsed);
+        const normalized = normalizeRestoredGenerationSession(parsed);
+        sessionStateRef.current = normalized;
+        sessionStorage.setItem('generationSession', JSON.stringify(normalized));
+        setSession(normalized);
       } catch (e) {
         log.error('Failed to parse generation session:', e);
       }
@@ -166,6 +223,7 @@ function GenerationPreviewContent() {
   useEffect(() => {
     return () => {
       abortControllerRef.current?.abort();
+      outlineAuditControllerRef.current?.abort();
       clearOutlineReviewTimer();
     };
   }, []);
@@ -203,6 +261,148 @@ function GenerationPreviewContent() {
     return thinkingConfig ? { ...body, thinkingConfig } : body;
   };
 
+  const outlineAuditErrorMessage = (code: OutlineAuditErrorCode, fallback?: string) => {
+    switch (code) {
+      case 'configuration_missing':
+      case 'provider_mismatch':
+      case 'missing_api_key':
+        return t('generation.outlineAuditErrorConfiguration');
+      case 'rate_limited':
+        return t('generation.outlineAuditErrorRateLimited');
+      case 'timeout':
+        return t('generation.outlineAuditErrorTimeout');
+      case 'invalid_response':
+        return t('generation.outlineAuditErrorInvalidResponse');
+      case 'cancelled':
+        return t('generation.outlineAuditErrorCancelled');
+      case 'invalid_request':
+        return fallback || t('generation.outlineAuditErrorInvalidRequest');
+      case 'upstream_failed':
+      default:
+        return fallback || t('generation.outlineAuditErrorUpstream');
+    }
+  };
+
+  const runOutlineAudit = async (
+    snapshot: GenerationSessionState,
+    parentSignal?: AbortSignal,
+  ): Promise<GenerationSessionState> => {
+    if (
+      !snapshot.sceneOutlines?.length ||
+      !isOutlineAuditRequired({
+        requirements: snapshot.requirements,
+        taskEngineMode: snapshot.taskEngineMode,
+      })
+    ) {
+      return snapshot;
+    }
+
+    outlineAuditControllerRef.current?.abort();
+    const controller = new AbortController();
+    outlineAuditControllerRef.current = controller;
+    const requestId = ++outlineAuditRequestIdRef.current;
+    const onParentAbort = () => controller.abort(parentSignal?.reason);
+    if (parentSignal?.aborted) onParentAbort();
+    else parentSignal?.addEventListener('abort', onParentAbort, { once: true });
+
+    const outlineRevision = normalizeOutlineRevision(snapshot.outlineRevision);
+    auditRestoreStartedForRef.current = `${snapshot.sessionId}:${outlineRevision}`;
+    const runningSession: GenerationSessionState = {
+      ...snapshot,
+      outlineRevision,
+      outlineAudit: createRunningOutlineAudit(outlineRevision),
+      previewPhase: 'review',
+    };
+    persistSession(runningSession);
+
+    try {
+      const response = await fetch('/api/generate/outline-audit', {
+        method: 'POST',
+        // Deliberately do not send x-model/x-api-key. This reviewer is an
+        // operator-owned server route, independent of the browser model.
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          outlineRevision,
+          requirements: runningSession.requirements,
+          outlines: runningSession.sceneOutlines,
+          courseTitle: runningSession.courseTitle,
+          languageDirective: runningSession.languageDirective,
+          pdfText: runningSession.pdfText,
+          pdfFileName: runningSession.pdfFileName,
+          ...(runningSession.requirements.webSearch
+            ? {
+                researchContext: runningSession.researchContext,
+                researchSources: runningSession.researchSources,
+              }
+            : {}),
+          interactiveMode: runningSession.requirements.interactiveMode === true,
+          taskEngineMode: runningSession.taskEngineMode === true,
+        }),
+        signal: controller.signal,
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { success: true; result: OutlineAuditResult }
+        | {
+            success: false;
+            auditError?: {
+              code: OutlineAuditErrorCode;
+              message: string;
+              retryable: boolean;
+            };
+          }
+        | null;
+      if (requestId !== outlineAuditRequestIdRef.current) return runningSession;
+      if (!response.ok || !data || data.success !== true) {
+        const serverError = data && data.success === false ? data.auditError : undefined;
+        const code = serverError?.code ?? 'upstream_failed';
+        const failedSession: GenerationSessionState = {
+          ...runningSession,
+          outlineAudit: failOutlineAudit(outlineRevision, {
+            code,
+            message: outlineAuditErrorMessage(code, serverError?.message),
+            retryable: serverError?.retryable ?? true,
+          }),
+        };
+        persistSession(failedSession);
+        return failedSession;
+      }
+      if (data.result.baseRevision !== outlineRevision) {
+        throw new OutlineAuditValidationError('Audit response revision mismatch');
+      }
+      const completedSession: GenerationSessionState = {
+        ...runningSession,
+        outlineAudit: completeOutlineAudit(data.result),
+      };
+      persistSession(completedSession);
+      return completedSession;
+    } catch (auditError) {
+      if (
+        requestId !== outlineAuditRequestIdRef.current ||
+        parentSignal?.aborted ||
+        (controller.signal.aborted && outlineAuditControllerRef.current !== controller)
+      ) {
+        return runningSession;
+      }
+      const code: OutlineAuditErrorCode =
+        auditError instanceof OutlineAuditValidationError ? 'invalid_response' : 'upstream_failed';
+      const failedSession: GenerationSessionState = {
+        ...runningSession,
+        outlineAudit: failOutlineAudit(outlineRevision, {
+          code,
+          message: outlineAuditErrorMessage(code),
+          retryable: true,
+        }),
+      };
+      persistSession(failedSession);
+      return failedSession;
+    } finally {
+      parentSignal?.removeEventListener('abort', onParentAbort);
+      if (outlineAuditControllerRef.current === controller) {
+        outlineAuditControllerRef.current = null;
+      }
+    }
+  };
+
   // Auto-start generation when session is loaded
   useEffect(() => {
     if (!session || hasStartedRef.current) return;
@@ -221,6 +421,37 @@ function GenerationPreviewContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
+
+  // Resume only audits that never reached a durable browser-session result.
+  // Failed/stale audits wait for an explicit user retry; completed matching
+  // audits restore without another DeepSeek call.
+  useEffect(() => {
+    if (!sessionLoaded || !session?.sceneOutlines?.length) return;
+    if (
+      !isOutlineAuditRequired({
+        requirements: session.requirements,
+        taskEngineMode: session.taskEngineMode,
+      })
+    ) {
+      return;
+    }
+    const revision = normalizeOutlineRevision(session.outlineRevision);
+    const audit = session.outlineAudit;
+    const current = isOutlineAuditCurrent(audit, revision);
+    const needsResume =
+      !audit ||
+      audit.status === 'idle' ||
+      audit.status === 'running' ||
+      (!current && audit.status !== 'stale');
+    if (!needsResume) return;
+    const restoreKey = `${session.sessionId}:${revision}`;
+    if (auditRestoreStartedForRef.current === restoreKey) return;
+    auditRestoreStartedForRef.current = restoreKey;
+    void runOutlineAudit({ ...session, outlineRevision: revision });
+    // runOutlineAudit intentionally owns the status changes; depending on the
+    // function identity here would restart the same restored request per render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionLoaded, session]);
 
   // Main generation flow
   const startGeneration = async (sessionOverride?: GenerationSessionState) => {
@@ -603,28 +834,42 @@ function GenerationPreviewContent() {
 
         // Mid-stream review intent (sticky ref) overrides the auto-continue timer.
         const userOpenedReviewEarly = outlineReviewIntentRef.current;
-        const shouldReviewOutlines = shouldPauseForOutlineConfirmation({
-          reviewOutlineEnabled: useSettingsStore.getState().reviewOutlineEnabled,
-          userOpenedReviewEarly,
+        const auditRequired = isOutlineAuditRequired({
+          requirements: currentSession.requirements,
+          taskEngineMode: effectiveTaskEngineMode,
         });
+        const shouldReviewOutlines =
+          auditRequired ||
+          shouldPauseForOutlineConfirmation({
+            reviewOutlineEnabled: useSettingsStore.getState().reviewOutlineEnabled,
+            userOpenedReviewEarly,
+          });
+        const outlineRevision = normalizeOutlineRevision(currentSession.outlineRevision);
         const updatedSession: GenerationSessionState = {
           ...currentSession,
           sceneOutlines: outlines,
           languageDirective,
           courseTitle,
           taskEngineMode: effectiveTaskEngineMode,
+          outlineRevision,
+          ...(auditRequired ? { outlineAudit: undefined } : {}),
           previewPhase: shouldReviewOutlines ? 'review' : 'outline-ready',
         };
         persistSession(updatedSession);
         currentSession = updatedSession;
         setStreamingOutlines(outlines);
 
+        if (auditRequired) {
+          currentSession = await runOutlineAudit(updatedSession, signal);
+        }
+
         setStatusMessage(shouldReviewOutlines ? '' : t('generation.reviewOutlineAutoContinue'));
         setIsConfirmingOutlines(false);
         outlines = await waitForOutlineReviewChoice(outlines, shouldReviewOutlines, signal);
         clearOutlineReviewTimer();
+        const latestReviewedSession = sessionStateRef.current ?? currentSession;
         currentSession = {
-          ...currentSession,
+          ...latestReviewedSession,
           sceneOutlines: outlines,
           taskEngineMode: effectiveTaskEngineMode,
           previewPhase: 'generating-content',
@@ -1028,6 +1273,8 @@ function GenerationPreviewContent() {
 
   const goBackToHome = () => {
     abortControllerRef.current?.abort();
+    outlineAuditControllerRef.current?.abort();
+    outlineAuditRequestIdRef.current += 1;
     clearOutlineReviewTimer();
     outlineReviewIntentRef.current = false;
     sessionStorage.removeItem('generationSession');
@@ -1052,6 +1299,7 @@ function GenerationPreviewContent() {
   // back to the small card and wait for explicit confirmation.
   const handleCollapseEditor = () => {
     if (!session) return;
+    if (isOutlineAuditRunning) return;
     if (isOutlineStreaming) {
       // Intentionally drop the review-intent flag: collapsing mid-stream is the
       // user saying "actually, never mind". When SSE finishes, the normal
@@ -1079,10 +1327,98 @@ function GenerationPreviewContent() {
     // Streaming SSE owns `streamingOutlines` while it's running; ignore editor
     // changes until the stream completes (the editor is read-only in that state
     // anyway, but guard defensively against any racy event).
-    if (isOutlineStreaming) return;
+    if (isOutlineStreaming || isOutlineAuditRunning) return;
+    const nextRevision = normalizeOutlineRevision(session.outlineRevision) + 1;
+    const auditRequired = isOutlineAuditRequired({
+      requirements: session.requirements,
+      taskEngineMode: session.taskEngineMode,
+    });
     persistSession({
       ...session,
       sceneOutlines: outlines,
+      outlineRevision: nextRevision,
+      ...(auditRequired ? { outlineAudit: staleOutlineAudit(session.outlineAudit) } : {}),
+      previewPhase: 'review',
+    });
+  };
+
+  const handleRetryOutlineAudit = () => {
+    if (!session?.sceneOutlines?.length) return;
+    auditRestoreStartedForRef.current = `${session.sessionId}:${normalizeOutlineRevision(
+      session.outlineRevision,
+    )}`;
+    void runOutlineAudit(session);
+  };
+
+  const handleApplyAuditFindings = (findingIds: string[]) => {
+    if (
+      !session?.sceneOutlines?.length ||
+      !session.outlineAudit?.result ||
+      findingIds.length === 0
+    ) {
+      return;
+    }
+    const revision = normalizeOutlineRevision(session.outlineRevision);
+    if (!isOutlineAuditCurrent(session.outlineAudit, revision)) return;
+    try {
+      const trustedSources = buildAuditSourceCatalog({
+        requirement: session.requirements.requirement,
+        pdfText: session.pdfText,
+        pdfFileName: session.pdfFileName,
+        ...(session.requirements.webSearch
+          ? {
+              researchContext: session.researchContext,
+              researchSources: session.researchSources,
+            }
+          : {}),
+      });
+      const outlines = applyAuditFindings(
+        session.sceneOutlines,
+        session.outlineAudit.result.findings,
+        findingIds,
+        { requirements: session.requirements, trustedSources },
+      );
+      const nextRevision = revision + 1;
+      const outlineAudit = markAuditFindingsApplied(session.outlineAudit, findingIds, nextRevision);
+      const updatedSession: GenerationSessionState = {
+        ...session,
+        sceneOutlines: outlines,
+        outlineRevision: nextRevision,
+        outlineAudit,
+        previewPhase: 'review',
+      };
+      setStreamingOutlines(outlines);
+      persistSession(updatedSession);
+    } catch (applyError) {
+      log.warn('Safe outline audit patch could not be applied', applyError);
+      persistSession({
+        ...session,
+        outlineAudit: failOutlineAudit(revision, {
+          code: 'invalid_response',
+          message: t('generation.outlineAuditPatchFailed'),
+          retryable: true,
+        }),
+      });
+    }
+  };
+
+  const handleRejectRemainingAuditFindings = () => {
+    if (!session?.outlineAudit?.result) return;
+    const revision = normalizeOutlineRevision(session.outlineRevision);
+    if (!isOutlineAuditCurrent(session.outlineAudit, revision)) return;
+    persistSession({
+      ...session,
+      outlineAudit: rejectRemainingAuditFindings(session.outlineAudit),
+    });
+  };
+
+  const handleSkipOutlineAudit = () => {
+    if (!session) return;
+    const revision = normalizeOutlineRevision(session.outlineRevision);
+    persistSession({
+      ...session,
+      outlineRevision: revision,
+      outlineAudit: skipOutlineAudit(revision),
       previewPhase: 'review',
     });
   };
@@ -1090,6 +1426,19 @@ function GenerationPreviewContent() {
   const handleConfirmOutlines = () => {
     const finalOutlines = session?.sceneOutlines ?? streamingOutlines;
     if (!finalOutlines || finalOutlines.length === 0) return;
+    if (
+      session &&
+      isOutlineAuditRequired({
+        requirements: session.requirements,
+        taskEngineMode: session.taskEngineMode,
+      }) &&
+      !canConfirmWithOutlineAudit(
+        session.outlineAudit,
+        normalizeOutlineRevision(session.outlineRevision),
+      )
+    ) {
+      return;
+    }
     setIsConfirmingOutlines(true);
     clearOutlineReviewTimer();
     outlineReviewIntentRef.current = false;
@@ -1174,7 +1523,12 @@ function GenerationPreviewContent() {
           </Button>
         </motion.div>
 
-        <div className="z-10 w-full max-w-3xl pt-16 pb-8">
+        <div
+          className={cn(
+            'z-10 w-full pt-16 pb-8',
+            auditRequiredForSession ? 'max-w-7xl' : 'max-w-3xl',
+          )}
+        >
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1213,15 +1567,37 @@ function GenerationPreviewContent() {
               </div>
             )}
 
-            <OutlinesEditor
-              outlines={editorOutlines}
-              onChange={handleOutlinesChange}
-              onConfirm={handleConfirmOutlines}
-              onBack={goBackToHome}
-              isLoading={isConfirmingOutlines}
-              isStreaming={isOutlineStreaming}
-              onCollapse={handleCollapseEditor}
-            />
+            <div
+              className={cn(
+                'min-w-0',
+                auditRequiredForSession &&
+                  'grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]',
+              )}
+            >
+              <OutlinesEditor
+                outlines={editorOutlines}
+                onChange={handleOutlinesChange}
+                onConfirm={handleConfirmOutlines}
+                onBack={goBackToHome}
+                isLoading={isConfirmingOutlines}
+                isStreaming={isOutlineStreaming}
+                isAuditRunning={isOutlineAuditRunning}
+                confirmDisabled={!!outlineAuditConfirmDisabledReason}
+                confirmDisabledReason={outlineAuditConfirmDisabledReason}
+                onCollapse={handleCollapseEditor}
+              />
+              {auditRequiredForSession && (
+                <OutlineAuditPanel
+                  audit={session.outlineAudit}
+                  outlineRevision={currentOutlineRevision}
+                  isStreaming={isOutlineStreaming}
+                  onRetry={handleRetryOutlineAudit}
+                  onApplySelected={handleApplyAuditFindings}
+                  onRejectRemaining={handleRejectRemainingAuditFindings}
+                  onSkip={handleSkipOutlineAudit}
+                />
+              )}
+            </div>
           </motion.div>
         </div>
       </div>

@@ -97,6 +97,14 @@ const countInterpolatedKeys = [
   'generation.quizConfigSummary',
 ] as const;
 
+const outlineAuditKeys = Object.keys(enUS.generation)
+  .filter((key) => key.startsWith('outlineAudit'))
+  .map((key) => `generation.${key}`);
+
+function interpolationTokens(value: string): string[] {
+  return [...value.matchAll(/\{\{([^}]+)\}\}/g)].map((match) => match[1]).sort();
+}
+
 function getKey(locale: Record<string, unknown>, path: string): unknown {
   return path.split('.').reduce<unknown>((value, key) => {
     if (!value || typeof value !== 'object') return undefined;
@@ -120,6 +128,22 @@ describe('outline review locale coverage', () => {
           getKey(localeData, key),
           `${localeCode} should preserve {{count}} in ${key}`,
         ).toContain('{{count}}');
+      }
+    }
+  });
+
+  it('defines every outline-audit key with matching interpolation tokens', () => {
+    expect(outlineAuditKeys.length).toBeGreaterThan(50);
+    for (const [localeCode, localeData] of Object.entries(locales)) {
+      for (const key of outlineAuditKeys) {
+        const source = getKey(enUS, key);
+        const value = getKey(localeData, key);
+        expect(value, `${localeCode} is missing ${key}`).toBeTypeOf('string');
+        expect((value as string).trim(), `${localeCode} has empty ${key}`).not.toBe('');
+        expect(
+          interpolationTokens(value as string),
+          `${localeCode} has mismatched interpolation tokens in ${key}`,
+        ).toEqual(interpolationTokens(source as string));
       }
     }
   });
