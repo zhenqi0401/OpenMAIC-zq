@@ -13,9 +13,9 @@ services:
     env_file:
       - .env.production
     environment:
-      RENDER_SERVICE_URL: http://yuanwo-render-service:9000
-      NO_PROXY: localhost,127.0.0.1,yuanwo-render-service
-      no_proxy: localhost,127.0.0.1,yuanwo-render-service
+      RENDER_SERVICE_URL: http://yuanwo-train-render-service:9000
+      NO_PROXY: localhost,127.0.0.1,yuanwo-train-render-service
+      no_proxy: localhost,127.0.0.1,yuanwo-train-render-service
     ports:
       - "${APP_PORT:-3000}:3000"
     volumes:
@@ -35,9 +35,9 @@ services:
       start_period: 30s
     restart: unless-stopped
 
-  yuanwo-render-service:
+  yuanwo-train-render-service:
     image: "${RENDER_IMAGE:?RENDER_IMAGE is required}"
-    container_name: "${RENDER_CONTAINER_NAME:-yuanwo-render-service}"
+    container_name: "${RENDER_CONTAINER_NAME:-yuanwo-train-render-service}"
     expose:
       - "9000"
     cap_add:
@@ -70,7 +70,7 @@ services:
     networks:
       - render
     volumes:
-      - yuanwo-render-scratch:/tmp/openmaic-renders
+      - yuanwo-train-render-scratch:/tmp/openmaic-renders
     healthcheck:
       test:
         [
@@ -97,7 +97,7 @@ networks:
 
 volumes:
   yuanwo-train-app-data:
-  yuanwo-render-scratch:
+  yuanwo-train-render-scratch:
 
 # postgres:
 #   image: "${POSTGRES_IMAGE:?POSTGRES_IMAGE is required}"
