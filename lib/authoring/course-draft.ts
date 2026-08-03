@@ -73,6 +73,17 @@ export function resolveGeneratedCourseStorageId(
     : null;
 }
 
+/** Resolve a PostgreSQL course id only from stage data owned by this classroom. */
+export function resolveStageCourseStorageId(classroomId: string, stage: unknown): string | null {
+  if (!stage || typeof stage !== 'object' || Array.isArray(stage)) return null;
+  const record = stage as Record<string, unknown>;
+  const stageId = typeof record.id === 'string' ? record.id.trim() : '';
+  const serverCourseId =
+    typeof record.serverCourseId === 'string' ? record.serverCourseId.trim() : '';
+  if (!serverCourseId) return null;
+  return classroomId === stageId || classroomId === serverCourseId ? serverCourseId : null;
+}
+
 export type CourseStorageFailureReason =
   | 'missing-category'
   | 'unauthenticated'

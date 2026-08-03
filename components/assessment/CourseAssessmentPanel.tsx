@@ -36,6 +36,9 @@ interface AttemptResult {
   requiresRelearning: boolean;
 }
 
+const ASSESSMENT_POLL_INTERVAL_MS = 1500;
+const MAX_EMPTY_ASSESSMENT_POLLS = 40;
+
 function answerCount(answers: AssessmentAnswers) {
   return Object.values(answers).filter((answer) =>
     Array.isArray(answer) ? answer.length > 0 : answer.trim().length > 0,
@@ -57,17 +60,30 @@ export function CourseAssessmentPanel({
 
   useEffect(() => {
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let emptyPollCount = 0;
 
-    async function loadAssessment() {
-      setLoading(true);
+    async function loadAssessment(saveCompletedProgress: boolean) {
+      if (saveCompletedProgress) setLoading(true);
       setError(null);
-      setResult(null);
+      if (saveCompletedProgress) setResult(null);
       try {
-        await fetch(`/api/courses/${encodeURIComponent(courseId)}/progress`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...learningProgress, completed: true }),
-        });
+        if (saveCompletedProgress) {
+          const progressResponse = await fetch(
+            `/api/courses/${encodeURIComponent(courseId)}/progress`,
+            {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...learningProgress, completed: true }),
+            },
+          );
+          const progressData = (await progressResponse.json().catch(() => ({}))) as {
+            error?: string;
+          };
+          if (!progressResponse.ok) {
+            throw new Error(progressData.error ?? '课程学习进度保存失败');
+          }
+        }
         const response = await fetch(`/api/courses/${encodeURIComponent(courseId)}/assessment`);
         const data = (await response.json()) as {
           assessment?: PublicCourseAssessment;
@@ -79,6 +95,17 @@ export function CourseAssessmentPanel({
         if (!cancelled) {
           setAssessment(data.assessment);
           if (data.assessment.completed) onPassed();
+          else if (data.assessment.questions.length === 0) {
+            emptyPollCount += 1;
+            if (emptyPollCount >= MAX_EMPTY_ASSESSMENT_POLLS) {
+              setError('课后测评生成超时，请稍后重新进入课程');
+            } else {
+              retryTimer = setTimeout(
+                () => void loadAssessment(false),
+                ASSESSMENT_POLL_INTERVAL_MS,
+              );
+            }
+          }
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : '课后测评加载失败');
@@ -87,14 +114,16 @@ export function CourseAssessmentPanel({
       }
     }
 
-    void loadAssessment();
+    void loadAssessment(true);
     return () => {
       cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
     };
   }, [courseId, learningProgress, onPassed]);
 
   const answered = useMemo(() => answerCount(answers), [answers]);
-  const allAnswered = !!assessment && answered === assessment.questions.length;
+  const allAnswered =
+    !!assessment && assessment.questions.length > 0 && answered === assessment.questions.length;
   const resultMap = useMemo(() => {
     const map = new Map<string, CourseAssessmentDetail>();
     result?.attempt.details.forEach((detail) => map.set(detail.questionId, detail));
@@ -146,6 +175,20 @@ export function CourseAssessmentPanel({
         <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
           {error ?? '课后测评不可用'}
         </p>
+      </div>
+    );
+  }
+
+  if (assessment.questions.length === 0) {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white dark:bg-gray-800">
+        <Loader2 className="size-8 animate-spin text-violet-500" />
+        <div className="text-center">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-200">课后测评生成中</p>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+            题目生成完成后将自动进入答题
+          </p>
+        </div>
       </div>
     );
   }

@@ -21,20 +21,25 @@ export function buildCourseContext(ctx?: SceneGenerationContext): string {
   // Position information
   lines.push('');
   lines.push(
-    'IMPORTANT: All pages belong to the SAME class session. Do NOT greet again after the first page. When referencing content from earlier pages, say "we just covered" or "as mentioned on page N" — NEVER say "last class" or "previous session" because there is no previous session.',
+    'IMPORTANT: All pages belong to the SAME class session. Do not use ceremonial greetings or welcome remarks on any page. Never introduce the speaker by name, title, role, or identity. When referencing content from earlier pages, say "we just covered" or "as mentioned on page N" — NEVER say "last class" or "previous session" because there is no previous session.',
+  );
+  lines.push(
+    'NARRATION PERSPECTIVE: Present pain points, situations, challenges, judgments, and solutions as shared experience. Prefer first-person plural language such as "we", "our", and "us" (or natural equivalents in the requested language). Avoid addressing the audience as "you" or using patronizing forms such as "you should" and "you need to". Direct second-person wording is allowed only when an interaction or concrete operation genuinely requires an instruction to the learner.',
   );
   lines.push('');
   if (ctx.pageIndex === 1) {
-    lines.push('Position: This is the FIRST page. Open with a greeting and course introduction.');
+    lines.push(
+      'Position: This is the FIRST page. Enter the topic directly through its problem, situation, or key question. Do not greet, welcome the audience, or introduce the speaker.',
+    );
   } else if (ctx.pageIndex === ctx.totalPages) {
     lines.push('Position: This is the LAST page. Conclude the course with a summary and closing.');
     lines.push(
-      'Transition: Continue naturally from the previous page. Do NOT greet or re-introduce.',
+      'Transition: Continue naturally from the previous page. Do NOT greet or introduce the speaker.',
     );
   } else {
     lines.push(`Position: Page ${ctx.pageIndex} of ${ctx.totalPages} (middle of the course).`);
     lines.push(
-      'Transition: Continue naturally from the previous page. Do NOT greet or re-introduce.',
+      'Transition: Continue naturally from the previous page. Do NOT greet or introduce the speaker.',
     );
   }
 

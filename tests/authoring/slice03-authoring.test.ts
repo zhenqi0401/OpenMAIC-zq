@@ -7,6 +7,7 @@ import {
   generatedCourseClassroomPath,
   applyCourseTitleToGeneratedStage,
   resolveGeneratedCourseStorageId,
+  resolveStageCourseStorageId,
   persistGeneratedCourseDraft,
   regenerateGeneratedCourseAssessment,
   replaceGeneratedCourseDraftContent,
@@ -25,6 +26,18 @@ describe('Slice-03 authoring helpers', () => {
       ]),
     ).toBe('course-current');
     expect(resolveGeneratedCourseStorageId('course-current', ['course-stale'])).toBeNull();
+    expect(
+      resolveStageCourseStorageId('stage-current', {
+        id: 'stage-current',
+        serverCourseId: 'course-current',
+      }),
+    ).toBe('course-current');
+    expect(
+      resolveStageCourseStorageId('stage-other', {
+        id: 'stage-current',
+        serverCourseId: 'course-current',
+      }),
+    ).toBeNull();
   });
 
   test('requires explicit outline confirmation before full course generation', () => {

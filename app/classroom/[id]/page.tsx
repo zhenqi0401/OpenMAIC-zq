@@ -20,6 +20,7 @@ import {
   regenerateGeneratedCourseAssessment,
   replaceGeneratedCourseDraftContent,
   resolveGeneratedCourseStorageId,
+  resolveStageCourseStorageId,
 } from '@/lib/authoring/course-draft';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import { loadEnterpriseClassroom } from '@/lib/classroom/enterprise-course-loader';
@@ -122,23 +123,6 @@ export default function ClassroomDetailPage() {
     [generateDraftAssessment, syncGeneratedDraftContent],
   );
 
-  const restoreGeneratedCourseId = useCallback(() => {
-    try {
-      const params = JSON.parse(sessionStorage.getItem('generationParams') ?? '{}') as {
-        generatedCourseId?: unknown;
-      };
-      const generatedCourseId =
-        typeof params.generatedCourseId === 'string' ? params.generatedCourseId : null;
-      generatedCourseIdRef.current = generatedCourseId;
-      setEnterpriseCourseId(generatedCourseId);
-      return generatedCourseId;
-    } catch {
-      generatedCourseIdRef.current = null;
-      setEnterpriseCourseId(null);
-      return null;
-    }
-  }, []);
-
   const { generateRemaining, retrySingleOutline, stop } = useSceneGenerator({
     onSceneGenerated: async () => {
       await syncGeneratedDraftContent();
@@ -152,8 +136,6 @@ export default function ClassroomDetailPage() {
   const loadClassroom = useCallback(async () => {
     try {
       try {
-        restoreGeneratedCourseId();
-
         const sessionResponse = await fetch('/api/auth/session');
         const session = sessionResponse.ok ? await sessionResponse.json() : null;
         setAuthoringIdentity(canManageCourses(session) ? { isAdmin: true } : { isAdmin: false });
@@ -190,6 +172,17 @@ export default function ClassroomDetailPage() {
         log.info('Loaded enterprise course from PostgreSQL:', classroomId);
       } else {
         await loadFromStorage(classroomId);
+        // A legacy generated classroom can still be addressed by its stage
+        // id. Its own persisted `serverCourseId` is scoped to that stage and
+        // is therefore safe to use for progress and assessment APIs. Do not
+        // restore this from the global generationParams slot: that slot may
+        // belong to a different course.
+        const stageCourseId = resolveStageCourseStorageId(
+          classroomId,
+          useStageStore.getState().stage,
+        );
+        generatedCourseIdRef.current = stageCourseId;
+        setEnterpriseCourseId(stageCourseId);
       }
 
       // If IndexedDB had no data, try server-side storage (API-generated classrooms)
@@ -280,7 +273,7 @@ export default function ClassroomDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [classroomId, loadFromStorage, restoreGeneratedCourseId]);
+  }, [classroomId, loadFromStorage]);
 
   useEffect(() => {
     // Reset loading state on course switch to unmount Stage during transition,
@@ -332,11 +325,13 @@ export default function ClassroomDetailPage() {
       const genParamsStr = sessionStorage.getItem('generationParams');
       const params = genParamsStr ? JSON.parse(genParamsStr) : {};
       const stageServerCourseId = (stage as unknown as { serverCourseId?: unknown }).serverCourseId;
-      const generatedCourseId = resolveGeneratedCourseStorageId(classroomId, [
-        params.generatedCourseId,
-        generatedCourseIdRef.current,
-        stageServerCourseId,
-      ]);
+      const generatedCourseId =
+        resolveStageCourseStorageId(classroomId, stage) ??
+        resolveGeneratedCourseStorageId(classroomId, [
+          params.generatedCourseId,
+          generatedCourseIdRef.current,
+          stageServerCourseId,
+        ]);
       generatedCourseIdRef.current = generatedCourseId;
       setEnterpriseCourseId(generatedCourseId);
 
