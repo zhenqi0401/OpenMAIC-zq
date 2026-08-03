@@ -137,6 +137,7 @@ export interface SubmitCourseAssessmentInput {
   roleId: string;
   roleSnapshot: string;
   answers: AssessmentAnswers;
+  allowUnpublished?: boolean;
 }
 
 export interface SubmitCourseAssessmentResult {
@@ -780,9 +781,14 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
       courseId: string;
       userId: string;
       roleId: string;
+      allowUnpublished?: boolean;
     }): Promise<PublicCourseAssessment> {
-      const content = await this.getVisibleCourse(input.courseId, input.roleId);
-      if (!content) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      const content = input.allowUnpublished
+        ? await this.getCourseContent(input.courseId)
+        : await this.getVisibleCourse(input.courseId, input.roleId);
+      if (!content || (input.allowUnpublished && content.course.status === 'archived')) {
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      }
       const [progress, attempts] = await Promise.all([
         repository.getCourseProgress(input.userId, input.courseId),
         repository.listCourseAssessmentAttempts(input.userId, input.courseId),
@@ -801,8 +807,12 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
     async submitCourseAssessment(
       input: SubmitCourseAssessmentInput,
     ): Promise<SubmitCourseAssessmentResult> {
-      const content = await this.getVisibleCourse(input.courseId, input.roleId);
-      if (!content) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      const content = input.allowUnpublished
+        ? await this.getCourseContent(input.courseId)
+        : await this.getVisibleCourse(input.courseId, input.roleId);
+      if (!content || (input.allowUnpublished && content.course.status === 'archived')) {
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      }
       const progress = await repository.getCourseProgress(input.userId, input.courseId);
       if (progress?.completed !== true) {
         throw new EnterpriseStorageServiceError(

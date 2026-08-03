@@ -190,6 +190,23 @@ describe('filterAdminCourses', () => {
     expect(markup).toContain('更多');
     expect(markup).not.toContain('课程完成率');
     expect(markup.match(/修改可见范围/g)).toHaveLength(1);
+    expect(markup).not.toContain('继续生成');
+  });
+
+  it('offers a continue-generation entry for every incomplete enterprise course', () => {
+    const markup = renderToStaticMarkup(
+      createElement(CourseTable, {
+        courses: [{ ...baseCourse, generationStatus: 'generating', generationComplete: false }],
+        roleNames: new Map(),
+        statusChangingCourseId: null,
+        onChangeStatus: () => {},
+        onDelete: () => {},
+        onEditVisibility: () => {},
+      }),
+    );
+
+    expect(markup).toContain('继续生成');
+    expect(markup).toContain('/classroom/course-1');
   });
 
   it('exposes publish or archive in the more menu according to course status', () => {

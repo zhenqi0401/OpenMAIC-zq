@@ -247,4 +247,69 @@ describe('browser scene generation retry wrappers', () => {
     expect(buildSceneTtsAudioId(0, 'action_1')).toBe('tts_s0_action_1');
     expect(buildSceneTtsAudioId(3, 'action_1')).toBe('tts_s3_action_1');
   });
+
+  it('generates one scene TTS with a fixed concurrency of two while preserving action order', async () => {
+    const { generateTTSForSpeechActions, TTS_GENERATION_CONCURRENCY } =
+      await import('@/lib/hooks/use-scene-generator');
+    const pending: Array<() => void> = [];
+    let active = 0;
+    let maxActive = 0;
+    mockFetch.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          active += 1;
+          maxActive = Math.max(maxActive, active);
+          pending.push(() => {
+            active -= 1;
+            resolve(
+              jsonResponse(200, {
+                success: true,
+                base64: btoa('audio-data'),
+                format: 'mp3',
+              }),
+            );
+          });
+        }),
+    );
+    const actions: Array<{
+      id: string;
+      type: 'speech';
+      text: string;
+      audioId?: string;
+    }> = ['a1', 'a2', 'a3'].map((id) => ({
+      id,
+      type: 'speech',
+      text: id,
+    }));
+
+    const resultPromise = generateTTSForSpeechActions(actions, {
+      sceneOrder: 4,
+      sceneKey: 'scene-4',
+      language: 'Chinese',
+    });
+    await vi.waitFor(() => expect(pending).toHaveLength(2));
+    expect(TTS_GENERATION_CONCURRENCY).toBe(2);
+    expect(maxActive).toBe(2);
+
+    pending.shift()?.();
+    await vi.waitFor(() => expect(pending).toHaveLength(2));
+    expect(maxActive).toBe(2);
+    pending.splice(0).forEach((resolve) => resolve());
+
+    await expect(resultPromise).resolves.toEqual({
+      success: true,
+      failedCount: 0,
+      error: undefined,
+    });
+    expect(actions.map((action) => action.audioId)).toEqual([
+      'tts_s4_a1',
+      'tts_s4_a2',
+      'tts_s4_a3',
+    ]);
+    expect(mocks.audioPut.mock.calls.map(([audio]) => audio.id).sort()).toEqual([
+      'tts_s4_a1',
+      'tts_s4_a2',
+      'tts_s4_a3',
+    ]);
+  });
 });

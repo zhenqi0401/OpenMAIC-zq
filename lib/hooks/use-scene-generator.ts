@@ -21,7 +21,7 @@ import { resolveAgentVoiceOptions, pickNarratorAgent } from '@/lib/audio/agent-v
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { classifyCourseStorageFailure } from '@/lib/authoring/course-draft';
-import { lazyBoundedMap } from '@/lib/utils/concurrency';
+import { lazyBoundedMap, mapWithConcurrency } from '@/lib/utils/concurrency';
 import { createLogger } from '@/lib/logger';
 import {
   isAbortError,
@@ -222,6 +222,8 @@ export function buildSceneTtsAudioId(sceneOrder: number | undefined, actionId: s
   return `tts_s${sceneOrder ?? 0}_${actionId}`;
 }
 
+export const TTS_GENERATION_CONCURRENCY = 2;
+
 /** Generate TTS for one speech action and store in the runtime cache and, when provided, PostgreSQL. */
 export async function generateAndStoreTTS(
   audioId: string,
@@ -329,6 +331,76 @@ export async function generateAndStoreTTS(
   }
 }
 
+interface GenerateTTSForSpeechActionsOptions {
+  sceneOrder?: number;
+  sceneKey: string;
+  language?: string;
+  signal?: AbortSignal;
+  retryOptions?: ClientRetryOptions<TTSApiResponse>;
+  courseId?: string;
+}
+
+/** Generate one scene's speech audio with a fixed, provider-safe concurrency of two. */
+export async function generateTTSForSpeechActions(
+  speechActions: readonly SpeechAction[],
+  options: GenerateTTSForSpeechActionsOptions,
+): Promise<{ success: boolean; failedCount: number; error?: string }> {
+  if (options.signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
+  const providerId = useSettingsStore.getState().ttsProviderId;
+  const prepared = speechActions.map((action) => {
+    const audioId = buildSceneTtsAudioId(options.sceneOrder, action.id);
+    action.audioId = audioId;
+    return { action, audioId };
+  });
+
+  const results = await mapWithConcurrency(
+    prepared,
+    TTS_GENERATION_CONCURRENCY,
+    async ({ action, audioId }) => {
+      try {
+        await generateAndStoreTTS(
+          audioId,
+          action.text,
+          options.language,
+          options.signal,
+          options.retryOptions,
+          options.courseId ? { courseId: options.courseId, sceneKey: options.sceneKey } : undefined,
+        );
+        return null;
+      } catch (error) {
+        if (isAbortError(error)) throw error;
+
+        const message =
+          error instanceof Error ? error.message : `TTS failed for action ${action.id}`;
+        log.warn('TTS generation failed:', {
+          reason: classifyCourseStorageFailure(error),
+          providerId,
+          actionId: action.id,
+          sceneOrder: options.sceneOrder,
+          audioId,
+          textLength: action.text.length,
+          error: message,
+        });
+        return message;
+      }
+    },
+    { shouldContinue: () => !options.signal?.aborted },
+  );
+
+  if (options.signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
+
+  const errors = results.filter((result): result is string => typeof result === 'string');
+  return {
+    success: errors.length === 0,
+    failedCount: errors.length,
+    error: errors.at(-1),
+  };
+}
+
 /** Generate TTS for all speech actions in a scene. Returns result. */
 async function generateTTSForScene(
   scene: Scene,
@@ -342,44 +414,17 @@ async function generateTTSForScene(
     (a): a is SpeechAction => a.type === 'speech' && !!a.text,
   );
   if (speechActions.length === 0) return { success: true, failedCount: 0 };
-
-  let failedCount = 0;
-  let lastError: string | undefined;
-
-  for (const action of speechActions) {
-    const audioId = buildSceneTtsAudioId(scene.order, action.id);
-    action.audioId = audioId;
-    try {
-      await generateAndStoreTTS(audioId, action.text, language, signal, undefined, {
-        courseId: storageTarget?.courseId ?? '',
-        sceneKey: scene.id,
-      });
-    } catch (error) {
-      if (isAbortError(error)) throw error;
-
-      failedCount++;
-      lastError = error instanceof Error ? error.message : `TTS failed for action ${action.id}`;
-      log.warn('TTS generation failed:', {
-        reason: classifyCourseStorageFailure(error),
-        providerId,
-        actionId: action.id,
-        sceneOrder: scene.order,
-        audioId,
-        textLength: action.text.length,
-        error: lastError,
-      });
-    }
-  }
-
-  return {
-    success: failedCount === 0,
-    failedCount,
-    error: lastError,
-  };
+  return generateTTSForSpeechActions(speechActions, {
+    sceneOrder: scene.order,
+    sceneKey: scene.id,
+    language,
+    signal,
+    courseId: storageTarget?.courseId,
+  });
 }
 
 export interface UseSceneGeneratorOptions {
-  onSceneGenerated?: (scene: Scene, index: number) => void;
+  onSceneGenerated?: (scene: Scene, index: number) => void | Promise<void>;
   onSceneFailed?: (outline: SceneOutline, error: string) => void;
   onPhaseChange?: (phase: 'content' | 'actions', outline: SceneOutline) => void;
   onComplete?: () => void;
@@ -653,7 +698,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
 
             removeGeneratingOutline(outline.id);
             store.getState().addScene(scene);
-            options.onSceneGenerated?.(scene, outline.order);
+            await options.onSceneGenerated?.(scene, outline.order);
             previousSpeeches = actionsResult.previousSpeeches || [];
           } else {
             if (abortRef.current || store.getState().generationEpoch !== startEpoch) {
@@ -819,7 +864,7 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
 
         removeGeneratingOutline();
         store.getState().addScene(actionsResult.scene);
-        options.onSceneGenerated?.(actionsResult.scene, outline.order);
+        await options.onSceneGenerated?.(actionsResult.scene, outline.order);
 
         // Resume remaining generation if there are pending outlines
         if (store.getState().generatingOutlines.length > 0 && lastParamsRef.current) {

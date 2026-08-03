@@ -26,9 +26,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   try {
     const { id } = await context.params;
-    const visible = await getEnterpriseService().getVisibleCourse(id, current.identity.roleId);
-    if (!visible) return apiError('INVALID_REQUEST', 404, 'Course not found');
-    const progress = await getEnterpriseService().saveCourseProgress({
+    const service = getEnterpriseService();
+    const visible = current.identity.isAdmin
+      ? await service.getCourseContent(id)
+      : await service.getVisibleCourse(id, current.identity.roleId);
+    if (!visible || (current.identity.isAdmin && visible.course.status === 'archived')) {
+      return apiError('INVALID_REQUEST', 404, 'Course not found');
+    }
+    const progress = await service.saveCourseProgress({
       userId: current.user.id,
       courseId: id,
       sceneIndex: body.sceneIndex,

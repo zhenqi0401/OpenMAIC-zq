@@ -18,10 +18,9 @@ import { isTTSProviderEnabled } from '@/lib/audio/provider-enablement';
 import { useVoxCPMVoiceProfiles } from '@/lib/audio/voxcpm-voices';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import {
-  buildSceneTtsAudioId,
   fetchSceneActions,
   fetchSceneContent,
-  generateAndStoreTTS,
+  generateTTSForSpeechActions,
 } from '@/lib/hooks/use-scene-generator';
 import { isAbortError } from '@/lib/generation/generation-retry';
 import { isEnhancedTrainingCourseType } from '@/lib/generation/input-fidelity';
@@ -1184,30 +1183,15 @@ function GenerationPreviewContent() {
           } => a.type === 'speech' && !!a.text,
         );
 
-        let ttsFailCount = 0;
-        for (const action of speechActions) {
-          const audioId = buildSceneTtsAudioId(firstScene.order, action.id);
-          action.audioId = audioId;
-          try {
-            await generateAndStoreTTS(
-              audioId,
-              action.text,
-              languageDirective,
-              signal,
-              FOREGROUND_SCENE_RETRY_OPTIONS,
-              generatedCourseId
-                ? { courseId: generatedCourseId, sceneKey: firstScene.id }
-                : undefined,
-            );
-          } catch (err) {
-            if (isAbortError(err)) throw err;
-
-            log.warn(`[TTS] Failed for ${audioId}:`, err);
-            ttsFailCount++;
-          }
-        }
-
-        if (ttsFailCount > 0 && speechActions.length > 0) {
+        const ttsResult = await generateTTSForSpeechActions(speechActions, {
+          sceneOrder: firstScene.order,
+          sceneKey: firstScene.id,
+          language: languageDirective,
+          signal,
+          retryOptions: FOREGROUND_SCENE_RETRY_OPTIONS,
+          courseId: generatedCourseId,
+        });
+        if (!ttsResult.success) {
           throw new Error(t('generation.speechFailed'));
         }
       }

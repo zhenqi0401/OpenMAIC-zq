@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import type { Slide } from '@openmaic/dsl';
 import { SlideThumbnail } from '@/components/slide-renderer/SlideThumbnail';
 import { BrandLockup } from '@/components/brand/BrandLockup';
@@ -123,14 +124,24 @@ export function CourseTable({
                     },
                   ]}
                   primaryAction={
-                    <Button
-                      className={adminSecondaryButtonClassName}
-                      onClick={() => onEditVisibility(course)}
-                      type="button"
-                      variant="outline"
-                    >
-                      修改可见范围
-                    </Button>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      {course.generationComplete === false ? (
+                        <Button
+                          asChild
+                          className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
+                        >
+                          <Link href={`/classroom/${encodeURIComponent(course.id)}`}>继续生成</Link>
+                        </Button>
+                      ) : null}
+                      <Button
+                        className={adminSecondaryButtonClassName}
+                        onClick={() => onEditVisibility(course)}
+                        type="button"
+                        variant="outline"
+                      >
+                        修改可见范围
+                      </Button>
+                    </div>
                   }
                   menuModal={false}
                   triggerAriaLabel={`${course.name}的更多操作`}

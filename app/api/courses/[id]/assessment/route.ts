@@ -17,6 +17,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       courseId: id,
       userId: current.user.id,
       roleId: current.identity.roleId,
+      allowUnpublished: current.identity.isAdmin,
     });
     return apiSuccess({ assessment });
   } catch (error) {

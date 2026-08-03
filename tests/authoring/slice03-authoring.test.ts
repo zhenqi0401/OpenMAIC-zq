@@ -6,6 +6,7 @@ import {
   createGeneratedCourseDraft,
   generatedCourseClassroomPath,
   applyCourseTitleToGeneratedStage,
+  resolveGeneratedCourseStorageId,
   persistGeneratedCourseDraft,
   regenerateGeneratedCourseAssessment,
   replaceGeneratedCourseDraftContent,
@@ -15,6 +16,17 @@ import { canManageCourses, shouldAllowProModeEntry } from '@/lib/authoring/cours
 import { shouldPauseForOutlineConfirmation } from '@/lib/authoring/outline-confirmation';
 
 describe('Slice-03 authoring helpers', () => {
+  test('reuses only the enterprise storage id owned by the current classroom', () => {
+    expect(
+      resolveGeneratedCourseStorageId('course-current', [
+        undefined,
+        'course-current',
+        'course-stale',
+      ]),
+    ).toBe('course-current');
+    expect(resolveGeneratedCourseStorageId('course-current', ['course-stale'])).toBeNull();
+  });
+
   test('requires explicit outline confirmation before full course generation', () => {
     expect(
       shouldPauseForOutlineConfirmation({

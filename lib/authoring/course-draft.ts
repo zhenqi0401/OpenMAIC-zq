@@ -61,6 +61,18 @@ export function generatedCourseClassroomPath(stageId: string, courseId?: string 
   return `/classroom/${encodeURIComponent(courseId || stageId)}`;
 }
 
+/** Resolve only the PostgreSQL course id owned by the currently open classroom. */
+export function resolveGeneratedCourseStorageId(
+  classroomId: string,
+  candidates: readonly unknown[],
+): string | null {
+  return candidates.some(
+    (candidate) => typeof candidate === 'string' && candidate.trim() === classroomId,
+  )
+    ? classroomId
+    : null;
+}
+
 export type CourseStorageFailureReason =
   | 'missing-category'
   | 'unauthenticated'

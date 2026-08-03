@@ -43,6 +43,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       roleId: current.identity.roleId,
       roleSnapshot: current.identity.roleCode,
       answers: body.answers,
+      allowUnpublished: current.identity.isAdmin,
     });
     return apiSuccess({ result }, 201);
   } catch (error) {

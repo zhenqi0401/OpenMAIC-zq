@@ -72,14 +72,14 @@ const learnerAuth: AuthResult = {
   },
 };
 
-function makeRepository(): EnterpriseRepository {
+function makeRepository(status: 'draft' | 'published' = 'published'): EnterpriseRepository {
   const course = {
     id: 'course-1',
     name: 'Published Course',
     description: null,
     categoryId: 'cat-1',
     categoryName: 'Default',
-    status: 'published' as const,
+    status,
     visibilityMode: 'all' as const,
     visibleRoleIds: [],
     assessmentQuestions: [
@@ -350,6 +350,36 @@ describe('Slice-04 assessment API routes', () => {
         courseId: 'course-1',
         questions: [{ id: 'q1', type: 'single' }],
       },
+    });
+  });
+
+  test('admin can complete a draft course assessment before the completion page', async () => {
+    mocks.repository = makeRepository('draft');
+    mocks.current = adminAuth;
+
+    const progressResponse = await patchRoute(
+      '@/app/api/courses/[id]/progress/route',
+      { sceneIndex: 1, actionIndex: 1, completed: true },
+      { params: Promise.resolve({ id: 'course-1' }) },
+    );
+    expect(progressResponse.status).toBe(200);
+
+    const assessmentResponse = await getRoute('@/app/api/courses/[id]/assessment/route', {
+      params: Promise.resolve({ id: 'course-1' }),
+    });
+    expect(assessmentResponse.status).toBe(200);
+    await expect(assessmentResponse.json()).resolves.toMatchObject({
+      assessment: { courseId: 'course-1', canAttempt: true },
+    });
+
+    const attemptResponse = await postRoute(
+      '@/app/api/courses/[id]/assessment/attempts/route',
+      { answers: { q1: 'A' } },
+      { params: Promise.resolve({ id: 'course-1' }) },
+    );
+    expect(attemptResponse.status).toBe(201);
+    await expect(attemptResponse.json()).resolves.toMatchObject({
+      result: { attempt: { passed: true } },
     });
   });
 

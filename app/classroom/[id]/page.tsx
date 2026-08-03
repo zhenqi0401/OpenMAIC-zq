@@ -19,6 +19,7 @@ import {
   classifyCourseStorageFailure,
   regenerateGeneratedCourseAssessment,
   replaceGeneratedCourseDraftContent,
+  resolveGeneratedCourseStorageId,
 } from '@/lib/authoring/course-draft';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import { loadEnterpriseClassroom } from '@/lib/classroom/enterprise-course-loader';
@@ -139,8 +140,8 @@ export default function ClassroomDetailPage() {
   }, []);
 
   const { generateRemaining, retrySingleOutline, stop } = useSceneGenerator({
-    onSceneGenerated: () => {
-      void syncGeneratedDraftContent();
+    onSceneGenerated: async () => {
+      await syncGeneratedDraftContent();
     },
     onComplete: () => {
       log.info('[Classroom] All scenes generated');
@@ -174,6 +175,7 @@ export default function ClassroomDetailPage() {
           generatingOutlines: [],
           mode: 'playback',
         });
+        generatedCourseIdRef.current = classroomId;
         useMediaGenerationStore
           .getState()
           .restoreFromManifest(classroomId, enterpriseClassroom.mediaManifest);
@@ -329,8 +331,12 @@ export default function ClassroomDetailPage() {
       // Load generation params from sessionStorage (stored by generation-preview before navigating)
       const genParamsStr = sessionStorage.getItem('generationParams');
       const params = genParamsStr ? JSON.parse(genParamsStr) : {};
-      const generatedCourseId =
-        typeof params.generatedCourseId === 'string' ? params.generatedCourseId : null;
+      const stageServerCourseId = (stage as unknown as { serverCourseId?: unknown }).serverCourseId;
+      const generatedCourseId = resolveGeneratedCourseStorageId(classroomId, [
+        params.generatedCourseId,
+        generatedCourseIdRef.current,
+        stageServerCourseId,
+      ]);
       generatedCourseIdRef.current = generatedCourseId;
       setEnterpriseCourseId(generatedCourseId);
 
@@ -388,7 +394,7 @@ export default function ClassroomDetailPage() {
         });
       });
     }
-  }, [loading, error, finalizeGeneratedCourse, generateRemaining]);
+  }, [classroomId, loading, error, finalizeGeneratedCourse, generateRemaining]);
 
   return (
     <ThemeProvider>
