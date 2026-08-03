@@ -80,6 +80,8 @@ export function parseCommunityAdminFilters(search: URLSearchParams): CommunityAd
 }
 
 export class CommunityAdminRepository {
+  constructor(private readonly tenantId?: string) {}
+
   async list(input: CommunityAdminFilters) {
     if (input.type === 'danmaku') return this.listDanmaku(input);
     if (input.type === 'posts') return this.listPosts(input);
@@ -89,6 +91,7 @@ export class CommunityAdminRepository {
 
   private async listDanmaku(input: CommunityAdminFilters) {
     const where = and(
+      this.tenantId ? eq(courseDanmaku.tenantId, this.tenantId) : undefined,
       input.authorId ? eq(courseDanmaku.authorId, input.authorId) : undefined,
       input.courseId ? eq(courseDanmaku.courseId, input.courseId) : undefined,
       input.status ? eq(courseDanmaku.status, input.status) : undefined,
@@ -124,6 +127,7 @@ export class CommunityAdminRepository {
 
   private async listPosts(input: CommunityAdminFilters) {
     const where = and(
+      this.tenantId ? eq(forumPosts.tenantId, this.tenantId) : undefined,
       input.authorId ? eq(forumPosts.authorId, input.authorId) : undefined,
       input.courseId ? eq(forumPosts.courseId, input.courseId) : undefined,
       input.status ? eq(forumPosts.status, input.status) : undefined,
@@ -211,6 +215,7 @@ export class CommunityAdminRepository {
 
   private async listReplies(input: CommunityAdminFilters) {
     const where = and(
+      this.tenantId ? eq(forumReplies.tenantId, this.tenantId) : undefined,
       input.authorId ? eq(forumReplies.authorId, input.authorId) : undefined,
       input.courseId ? eq(forumPosts.courseId, input.courseId) : undefined,
       input.status ? eq(forumReplies.status, input.status) : undefined,
@@ -260,6 +265,7 @@ export class CommunityAdminRepository {
 
   private async listAudit(input: CommunityAdminFilters) {
     const where = and(
+      this.tenantId ? eq(communityModerationAudit.tenantId, this.tenantId) : undefined,
       input.authorId ? eq(communityModerationAudit.moderatorId, input.authorId) : undefined,
       input.status ? eq(communityModerationAudit.targetType, input.status) : undefined,
       input.keyword
@@ -295,7 +301,8 @@ export class CommunityAdminRepository {
 
 let repository: CommunityAdminRepository | null = null;
 
-export function getCommunityAdminRepository() {
+export function getCommunityAdminRepository(tenantId?: string) {
+  if (tenantId) return new CommunityAdminRepository(tenantId);
   if (!repository) repository = new CommunityAdminRepository();
   return repository;
 }

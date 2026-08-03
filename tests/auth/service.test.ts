@@ -10,8 +10,11 @@ import {
 import type { AuthRole, AuthUser } from '@/lib/auth/service';
 import { verifyPassword } from '@/lib/security/password';
 
+const tenantId = 'tenant-a';
+
 const adminRole: AuthRole = {
   id: 'role-admin',
+  tenantId,
   code: 'admin',
   name: 'Administrator',
   isAdmin: true,
@@ -19,6 +22,7 @@ const adminRole: AuthRole = {
 
 const learnerRole: AuthRole = {
   id: 'role-learner',
+  tenantId,
   code: 'learner',
   name: 'Learner',
   isAdmin: false,
@@ -42,9 +46,10 @@ function makeRepo(): InMemoryAuthRepository {
     inviteCodes: [
       {
         codeHash: hashInviteCode('LEARN-2026'),
+        tenantId,
         roleId: learnerRole.id,
         enabled: true,
-        expiresAt: new Date('2026-08-01T00:00:00Z'),
+        expiresAt: new Date('2027-08-01T00:00:00Z'),
       },
     ],
     async findUserByPhone(phone: string) {
@@ -57,7 +62,19 @@ function makeRepo(): InMemoryAuthRepository {
       const user = repo.users.find((candidate) => candidate.id === userId);
       if (!user) return null;
       const role = repo.roles.find((candidate) => candidate.id === user.roleId);
-      return role ? { user, role } : null;
+      return role
+        ? {
+            user,
+            role,
+            tenant: {
+              id: tenantId,
+              companyId: 'company-a',
+              name: 'Company A',
+              type: 'company' as const,
+              status: 'active' as const,
+            },
+          }
+        : null;
     },
     async findRoleById(roleId: string) {
       return repo.roles.find((role) => role.id === roleId) ?? null;
@@ -71,6 +88,7 @@ function makeRepo(): InMemoryAuthRepository {
     async createUser(input) {
       const user: AuthUser = {
         id: `user-${repo.users.length + 1}`,
+        tenantId: input.tenantId,
         phone: input.phone ?? null,
         passwordHash: input.passwordHash ?? null,
         hostUserId: input.hostUserId ?? null,
@@ -126,6 +144,7 @@ describe('Slice-07 auth service', () => {
 
     expect(result.identity).toEqual({
       userId: 'user-1',
+      tenantId,
       roleId: learnerRole.id,
       roleCode: learnerRole.code,
       isAdmin: false,
@@ -292,12 +311,16 @@ describe('Slice-07 auth service', () => {
 
     const first = await service.loginWithHostSso({
       hostUserId: 'host-admin-1',
+      companyId: 'company-a',
+      companyName: 'Company A',
       displayName: '宿主管理员',
       phone: '13800138000',
       timestamp: 1,
     });
     const second = await service.loginWithHostSso({
       hostUserId: 'host-admin-1',
+      companyId: 'company-a',
+      companyName: 'Company A',
       displayName: '宿主管理员（新）',
       phone: '13900139000',
       timestamp: 2,
@@ -310,6 +333,7 @@ describe('Slice-07 auth service', () => {
     });
     expect(first.identity).toEqual({
       userId: 'user-1',
+      tenantId,
       roleId: adminRole.id,
       roleCode: adminRole.code,
       isAdmin: true,
@@ -331,6 +355,8 @@ describe('Slice-07 auth service', () => {
     await expect(
       service.loginWithHostSso({
         hostUserId: 'host-admin-1',
+        companyId: 'company-a',
+        companyName: 'Company A',
         displayName: '宿主管理员',
         phone: '13800138000',
         timestamp: 1,
@@ -353,7 +379,13 @@ describe('Slice-07 auth service', () => {
         id: 'user-1',
         phone: '13800138000',
         hostUserId: null,
-        role: { id: learnerRole.id, code: 'learner', name: 'Learner', isAdmin: false },
+        role: {
+          id: learnerRole.id,
+          tenantId,
+          code: 'learner',
+          name: 'Learner',
+          isAdmin: false,
+        },
         status: 'active',
         displayName: '张三',
       },
@@ -392,6 +424,8 @@ describe('Slice-07 auth service', () => {
   test('verifies signed host SSO requests with the shared secret', () => {
     const payload = {
       hostUserId: 'host-admin-1',
+      companyId: 'company-a',
+      companyName: 'Company A',
       displayName: '宿主管理员',
       phone: '13800138000',
       timestamp: 1_784_606_400,
@@ -401,6 +435,12 @@ describe('Slice-07 auth service', () => {
     expect(verifyHostSsoSignature(payload, signature, 'secret')).toBe(true);
     expect(
       verifyHostSsoSignature({ ...payload, displayName: '被篡改的姓名' }, signature, 'secret'),
+    ).toBe(false);
+    expect(
+      verifyHostSsoSignature({ ...payload, companyId: 'company-b' }, signature, 'secret'),
+    ).toBe(false);
+    expect(
+      verifyHostSsoSignature({ ...payload, companyName: 'Company B' }, signature, 'secret'),
     ).toBe(false);
     expect(verifyHostSsoSignature(payload, signature, 'other-secret')).toBe(false);
   });

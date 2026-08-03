@@ -1,4 +1,5 @@
 import { getCurrentAuthResult } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
   enterpriseErrorResponse,
@@ -14,7 +15,10 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
   try {
     const id = await getRouteId(request, context);
-    const course = await getEnterpriseService().getVisibleCourse(id, current.identity.roleId);
+    const course = await getEnterpriseService().getVisibleCourse(
+      id,
+      toTenantAccessContext(current.identity),
+    );
     if (!course) return apiError('INVALID_REQUEST', 404, 'Course not found');
     return apiSuccess({
       course: course.course,

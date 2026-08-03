@@ -1,6 +1,7 @@
 import { assertHostApiAccess, type StoredHostApiKey } from '@/lib/host-api/access';
 import type { DashboardSummary, HostQueryFilters } from '@/lib/host-api/types';
 import type { AuthRole } from '@/lib/auth/service';
+import type { TenantAccessContext } from '@/lib/auth/types';
 import {
   getInviteCodeValidationIssue,
   INVITE_CODE_MAX_LENGTH,
@@ -37,11 +38,16 @@ import type {
 } from '@/lib/import/enterprise-course-import';
 
 export type CourseStatus = 'draft' | 'published' | 'archived';
+export type CourseScope = 'platform' | 'tenant';
+export type CourseManagementMode = 'editable' | 'read_only';
 export type CourseVisibilityMode = 'all' | 'roles';
 export type CourseListSort = 'latest' | 'popular';
 
 export interface EnterpriseCourse {
   id: string;
+  tenantId?: string | null;
+  scope?: CourseScope;
+  managementMode?: CourseManagementMode;
   name: string;
   description: string | null;
   categoryId: string;
@@ -62,12 +68,16 @@ export interface EnterpriseCourse {
 
 export interface EnterpriseCategory {
   id: string;
+  tenantId?: string | null;
+  scope?: CourseScope;
+  managementMode?: CourseManagementMode;
   name: string;
   sortOrder: number;
 }
 
 export interface EnterpriseInviteCode {
   id: string;
+  tenantId?: string;
   roleId: string;
   enabled: boolean;
   expiresAt: Date | null;
@@ -102,6 +112,7 @@ export interface EnterpriseStoredCourseContent {
 }
 
 export interface EnterpriseCourseProgress {
+  tenantId?: string;
   userId: string;
   courseId: string;
   sceneIndex: number;
@@ -114,6 +125,7 @@ export interface EnterpriseCourseProgress {
 
 export interface EnterpriseAssessmentAttempt {
   id: string;
+  tenantId?: string;
   userId: string;
   courseId: string;
   roleSnapshot: string;
@@ -134,6 +146,7 @@ export type EnterpriseAssessmentAttemptInput = Omit<
 export interface SubmitCourseAssessmentInput {
   courseId: string;
   userId: string;
+  tenantId?: string;
   roleId: string;
   roleSnapshot: string;
   answers: AssessmentAnswers;
@@ -178,6 +191,7 @@ export interface EnterpriseAttemptDetail {
 
 export interface EnterpriseExamPolicy {
   id: string;
+  tenantId?: string;
   title: string;
   targetRoleId: string;
   categoryIds: string[];
@@ -280,6 +294,7 @@ export interface EnterpriseAudioManifestItem {
 }
 
 export interface CreateCourseInput {
+  tenantId: string;
   name: string;
   description?: string | null;
   categoryId: string;
@@ -291,6 +306,7 @@ export interface CreateCourseInput {
 }
 
 export interface CreateMediaFileInput {
+  tenantId?: string | null;
   courseId?: string | null;
   sceneId?: string | null;
   sceneKey?: string | null;
@@ -305,6 +321,7 @@ export interface CreateMediaFileInput {
 }
 
 export interface CreateCourseAudioBlobInput {
+  tenantId?: string | null;
   courseId: string;
   sceneKey?: string | null;
   audioId: string;
@@ -317,7 +334,12 @@ export interface CreateCourseAudioBlobInput {
 
 export interface EnterpriseRepository {
   listRoles(): Promise<AuthRole[]>;
-  createRole(input: { code: string; name: string; isAdmin?: boolean }): Promise<AuthRole>;
+  createRole(input: {
+    tenantId: string;
+    code: string;
+    name: string;
+    isAdmin?: boolean;
+  }): Promise<AuthRole>;
   updateRole(
     id: string,
     patch: { code?: string; name?: string; isAdmin?: boolean },
@@ -329,6 +351,7 @@ export interface EnterpriseRepository {
 
   listInviteCodes(): Promise<EnterpriseInviteCode[]>;
   createInviteCode(input: {
+    tenantId: string;
     code: string;
     roleId: string;
     enabled?: boolean;
@@ -342,7 +365,11 @@ export interface EnterpriseRepository {
   deleteInviteCode(id: string): Promise<EnterpriseInviteCode | null>;
 
   listCategories(): Promise<EnterpriseCategory[]>;
-  createCategory(input: { name: string; sortOrder?: number }): Promise<EnterpriseCategory>;
+  createCategory(input: {
+    tenantId: string;
+    name: string;
+    sortOrder?: number;
+  }): Promise<EnterpriseCategory>;
   updateCategory(
     id: string,
     patch: { name?: string; sortOrder?: number },
@@ -351,7 +378,11 @@ export interface EnterpriseRepository {
   listAdminCourses(filters?: HostQueryFilters): Promise<EnterpriseCourse[]>;
   createCourse(input: CreateCourseInput): Promise<EnterpriseCourse>;
   importEnterpriseCourse?(
-    input: PreparedEnterpriseCourseImport & { categoryId: string; createdBy?: string | null },
+    input: PreparedEnterpriseCourseImport & {
+      tenantId: string;
+      categoryId: string;
+      createdBy?: string | null;
+    },
   ): Promise<EnterpriseCourse>;
   updateCourse(
     id: string,
@@ -374,7 +405,11 @@ export interface EnterpriseRepository {
     questions: unknown[],
   ): Promise<EnterpriseCourse | null>;
   getCourseProgress(userId: string, courseId: string): Promise<EnterpriseCourseProgress | null>;
-  markCourseStarted(input: { userId: string; courseId: string }): Promise<EnterpriseCourseProgress>;
+  markCourseStarted(input: {
+    tenantId?: string;
+    userId: string;
+    courseId: string;
+  }): Promise<EnterpriseCourseProgress>;
   upsertCourseProgress(input: EnterpriseCourseProgress): Promise<EnterpriseCourseProgress>;
   listCourseAssessmentAttempts(
     userId: string,
@@ -454,6 +489,43 @@ function isCourseVisibleToRole(course: EnterpriseCourse, roleId: string): boolea
   if (course.status !== 'published') return false;
   if (course.visibilityMode === 'all') return true;
   return course.visibleRoleIds.includes(roleId);
+}
+
+function isCourseReadable(course: EnterpriseCourse, access: TenantAccessContext): boolean {
+  if (course.scope !== 'platform' && course.tenantId !== access.tenantId) return false;
+  if (access.isAdmin) return true;
+  if (course.status !== 'published') return false;
+  return course.scope === 'platform' || isCourseVisibleToRole(course, access.roleId);
+}
+
+function withManagementMode(
+  course: EnterpriseCourse,
+  access?: TenantAccessContext,
+): EnterpriseCourse {
+  return {
+    ...course,
+    managementMode:
+      access && course.scope === 'tenant' && course.tenantId === access.tenantId
+        ? 'editable'
+        : 'read_only',
+  };
+}
+
+async function assertWritableCourse(
+  repository: EnterpriseRepository,
+  id: string,
+  access?: TenantAccessContext,
+): Promise<EnterpriseCourseContent | null> {
+  const current = await repository.getCourseContent(id);
+  if (!access) return current;
+  if (!current) return null;
+  if (current.course.scope === 'platform') {
+    throw new EnterpriseStorageServiceError('FORBIDDEN', '平台精品课程只读');
+  }
+  if (current.course.tenantId !== access.tenantId) return null;
+  if (!access.isAdmin)
+    throw new EnterpriseStorageServiceError('FORBIDDEN', 'Administrator permission required');
+  return current;
 }
 
 function sortVisibleCourses(courses: EnterpriseCourse[], sort: CourseListSort): EnterpriseCourse[] {
@@ -544,10 +616,13 @@ async function assertHostAccess(
     throw new EnterpriseStorageServiceError('HOST_API_UNAUTHORIZED', access.reason);
   }
   await repository.touchHostApiKey(access.keyId);
-  return access.keyId;
+  return key;
 }
 
-export function createEnterpriseStorageService(repository: EnterpriseRepository) {
+export function createEnterpriseStorageService(
+  repository: EnterpriseRepository,
+  defaultAccess?: TenantAccessContext,
+) {
   async function getExamPolicyCandidates(policy: EnterpriseExamPolicy) {
     const courses = await repository.listAdminCourses();
     const eligibleCourses = courses.filter((course) => {
@@ -571,7 +646,9 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
 
   async function getPublishedExamPolicyForRole(policyId: string, roleId: string) {
     const policy = (await repository.listExamPolicies()).find(
-      (candidate) => candidate.id === policyId,
+      (candidate) =>
+        candidate.id === policyId &&
+        (!defaultAccess || candidate.tenantId === defaultAccess.tenantId),
     );
     if (!policy || policy.status !== 'published') {
       throw new EnterpriseStorageServiceError('NOT_FOUND', 'Exam policy not found');
@@ -585,24 +662,106 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
     return policy;
   }
 
+  async function assertExamScope(input: {
+    targetRoleId?: string;
+    categoryIds?: string[];
+    courseIds?: string[];
+  }) {
+    if (!defaultAccess) return;
+    if (input.targetRoleId) {
+      const role = (await repository.listRoles()).find(
+        (candidate) => candidate.id === input.targetRoleId,
+      );
+      if (!role || role.tenantId !== defaultAccess.tenantId || role.isAdmin) {
+        throw new EnterpriseStorageServiceError('INVALID_REQUEST', 'Target role not found');
+      }
+    }
+    if (input.categoryIds) {
+      const categories = await repository.listCategories();
+      if (
+        input.categoryIds.some(
+          (id) =>
+            !categories.some(
+              (category) =>
+                category.id === id &&
+                (category.scope === 'platform' || category.tenantId === defaultAccess.tenantId),
+            ),
+        )
+      ) {
+        throw new EnterpriseStorageServiceError('INVALID_REQUEST', 'Exam category not found');
+      }
+    }
+    if (input.courseIds) {
+      const courses = await repository.listAdminCourses();
+      if (
+        input.courseIds.some(
+          (id) =>
+            !courses.some(
+              (course) =>
+                course.id === id &&
+                (course.scope === 'platform' || course.tenantId === defaultAccess.tenantId),
+            ),
+        )
+      ) {
+        throw new EnterpriseStorageServiceError('INVALID_REQUEST', 'Exam course not found');
+      }
+    }
+  }
+
   return {
-    listRoles: () => repository.listRoles(),
-    createRole: (input: { code: string; name: string; isAdmin?: boolean }) =>
-      repository.createRole(input),
-    updateRole: async (id: string, patch: { code?: string; name?: string; isAdmin?: boolean }) => {
+    listRoles: async (access?: TenantAccessContext) =>
+      (await repository.listRoles()).filter((role) => !access || role.tenantId === access.tenantId),
+    createRole: (
+      input: { code: string; name: string; isAdmin?: boolean },
+      access?: TenantAccessContext,
+    ) => {
+      if (!access)
+        throw new EnterpriseStorageServiceError('INVALID_REQUEST', 'Tenant context required');
+      if (input.isAdmin)
+        throw new EnterpriseStorageServiceError(
+          'FORBIDDEN',
+          'Administrator roles are created by host SSO only',
+        );
+      return repository.createRole({ ...input, tenantId: access.tenantId, isAdmin: false });
+    },
+    updateRole: async (
+      id: string,
+      patch: { code?: string; name?: string; isAdmin?: boolean },
+      access?: TenantAccessContext,
+    ) => {
+      const existing = (await repository.listRoles()).find((role) => role.id === id);
+      if (access && (!existing || existing.tenantId !== access.tenantId)) {
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Role not found');
+      }
+      if (patch.isAdmin !== undefined) {
+        throw new EnterpriseStorageServiceError(
+          'FORBIDDEN',
+          'Administrator status is managed by host SSO',
+        );
+      }
       const role = await repository.updateRole(id, patch);
       if (!role) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Role not found');
       return role;
     },
-    deleteRole: async (id: string) => {
+    deleteRole: async (id: string, access?: TenantAccessContext) => {
       const currentRoles = await repository.listRoles();
       const role = currentRoles.find((candidate) => candidate.id === id);
-      if (!role) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Role not found');
-      const adminRoleCount = currentRoles.filter((candidate) => candidate.isAdmin).length;
-      if (role.isAdmin && adminRoleCount <= 1) {
+      if (!role || (access && role.tenantId !== access.tenantId)) {
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Role not found');
+      }
+      if (role.isAdmin) {
+        if (!access) {
+          const adminRoleCount = currentRoles.filter((candidate) => candidate.isAdmin).length;
+          if (adminRoleCount <= 1) {
+            throw new EnterpriseStorageServiceError(
+              'CONFLICT',
+              'At least one administrator role must remain',
+            );
+          }
+        }
         throw new EnterpriseStorageServiceError(
-          'CONFLICT',
-          'At least one administrator role must remain',
+          'FORBIDDEN',
+          'Administrator roles are managed by host SSO',
         );
       }
       const usage = await repository.getRoleUsage(id);
@@ -617,14 +776,20 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
       return deletedRole;
     },
 
-    listInviteCodes: () => repository.listInviteCodes(),
-    createInviteCode: async (input: {
-      code: string;
-      roleId: string;
-      enabled?: boolean;
-      expiresAt?: Date | null;
-      createdBy?: string | null;
-    }) => {
+    listInviteCodes: async (access?: TenantAccessContext) =>
+      (await repository.listInviteCodes()).filter(
+        (invite) => !access || invite.tenantId === access.tenantId,
+      ),
+    createInviteCode: async (
+      input: {
+        code: string;
+        roleId: string;
+        enabled?: boolean;
+        expiresAt?: Date | null;
+        createdBy?: string | null;
+      },
+      access?: TenantAccessContext,
+    ) => {
       const code = normalizeInviteCode(input.code);
       if (getInviteCodeValidationIssue(code)) {
         throw new EnterpriseStorageServiceError(
@@ -632,37 +797,124 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
           `Invite code must contain ${INVITE_CODE_MIN_LENGTH} to ${INVITE_CODE_MAX_LENGTH} characters`,
         );
       }
-      return repository.createInviteCode({ ...input, code });
+      if (!access) {
+        return repository.createInviteCode({
+          ...input,
+          code,
+        } as Parameters<EnterpriseRepository['createInviteCode']>[0]);
+      }
+      const role = (await repository.listRoles()).find(
+        (candidate) => candidate.id === input.roleId,
+      );
+      if (!role || role.tenantId !== access.tenantId || role.isAdmin) {
+        throw new EnterpriseStorageServiceError(
+          'INVALID_REQUEST',
+          'Invite role must be a learner role in the current tenant',
+        );
+      }
+      return repository.createInviteCode({ ...input, tenantId: access.tenantId, code });
     },
     updateInviteCode: async (
       id: string,
       patch: { enabled?: boolean; expiresAt?: Date | null; roleId?: string },
+      access?: TenantAccessContext,
     ) => {
+      const existing = (await repository.listInviteCodes()).find((invite) => invite.id === id);
+      if (access && (!existing || existing.tenantId !== access.tenantId)) {
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Invite code not found');
+      }
+      if (access && patch.roleId) {
+        const role = (await repository.listRoles()).find(
+          (candidate) => candidate.id === patch.roleId,
+        );
+        if (!role || role.tenantId !== access.tenantId || role.isAdmin) {
+          throw new EnterpriseStorageServiceError(
+            'INVALID_REQUEST',
+            'Invite role must be a learner role in the current tenant',
+          );
+        }
+      }
       const inviteCode = await repository.updateInviteCode(id, patch);
       if (!inviteCode)
         throw new EnterpriseStorageServiceError('NOT_FOUND', 'Invite code not found');
       return inviteCode;
     },
-    deleteInviteCode: async (id: string) => {
+    deleteInviteCode: async (id: string, access?: TenantAccessContext) => {
+      const existing = (await repository.listInviteCodes()).find((invite) => invite.id === id);
+      if (access && (!existing || existing.tenantId !== access.tenantId)) {
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Invite code not found');
+      }
       const inviteCode = await repository.deleteInviteCode(id);
       if (!inviteCode)
         throw new EnterpriseStorageServiceError('NOT_FOUND', 'Invite code not found');
       return inviteCode;
     },
 
-    listCategories: () => repository.listCategories(),
-    createCategory: (input: { name: string; sortOrder?: number }) =>
-      repository.createCategory(input),
-    updateCategory: async (id: string, patch: { name?: string; sortOrder?: number }) => {
+    listCategories: async (access?: TenantAccessContext) => {
+      const categories = await repository.listCategories();
+      return categories
+        .filter(
+          (category) =>
+            !access || category.scope === 'platform' || category.tenantId === access.tenantId,
+        )
+        .map((category) => ({
+          ...category,
+          managementMode:
+            access && category.scope === 'tenant' && category.tenantId === access.tenantId
+              ? ('editable' as const)
+              : ('read_only' as const),
+        }));
+    },
+    createCategory: (input: { name: string; sortOrder?: number }, access?: TenantAccessContext) => {
+      if (!access)
+        throw new EnterpriseStorageServiceError('INVALID_REQUEST', 'Tenant context required');
+      return repository.createCategory({ ...input, tenantId: access.tenantId });
+    },
+    updateCategory: async (
+      id: string,
+      patch: { name?: string; sortOrder?: number },
+      access?: TenantAccessContext,
+    ) => {
+      const existing = (await repository.listCategories()).find((category) => category.id === id);
+      if (access && (!existing || existing.tenantId !== access.tenantId)) {
+        if (existing?.scope === 'platform') {
+          throw new EnterpriseStorageServiceError('FORBIDDEN', '平台课程分类只读');
+        }
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Category not found');
+      }
       const category = await repository.updateCategory(id, patch);
       if (!category) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Category not found');
       return category;
     },
 
-    listAdminCourses: (filters?: HostQueryFilters) => repository.listAdminCourses(filters),
-    createCourse: (input: CreateCourseInput) => repository.createCourse(input),
+    listAdminCourses: async (filters?: HostQueryFilters) => {
+      const courses = await repository.listAdminCourses(filters);
+      return courses
+        .filter(
+          (course) =>
+            !defaultAccess ||
+            course.scope === 'platform' ||
+            course.tenantId === defaultAccess.tenantId,
+        )
+        .map((course) => withManagementMode(course, defaultAccess));
+    },
+    createCourse: async (
+      input: Omit<CreateCourseInput, 'tenantId'>,
+      access?: TenantAccessContext,
+    ) => {
+      if (!access)
+        throw new EnterpriseStorageServiceError('INVALID_REQUEST', 'Tenant context required');
+      const category = (await repository.listCategories()).find(
+        (candidate) => candidate.id === input.categoryId,
+      );
+      if (!category || category.scope !== 'tenant' || category.tenantId !== access.tenantId) {
+        throw new EnterpriseStorageServiceError('INVALID_REQUEST', 'Course category not found');
+      }
+      return repository.createCourse({ ...input, tenantId: access.tenantId });
+    },
     importEnterpriseCourse: async (
       input: PreparedEnterpriseCourseImport & { categoryId: string; createdBy?: string | null },
+      access?: TenantAccessContext,
     ): Promise<EnterpriseCourseImportResult<EnterpriseCourse>> => {
       if (!repository.importEnterpriseCourse) {
         throw new EnterpriseStorageServiceError(
@@ -671,18 +923,40 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
         );
       }
       const categoryExists = (await repository.listCategories()).some(
-        (category) => category.id === input.categoryId,
+        (category) =>
+          category.id === input.categoryId &&
+          (!access || (category.scope === 'tenant' && category.tenantId === access.tenantId)),
       );
       if (!categoryExists) {
         throw new EnterpriseStorageServiceError('INVALID_REQUEST', 'Course category not found');
       }
-      const course = await repository.importEnterpriseCourse(input);
+      const course = access
+        ? await repository.importEnterpriseCourse({ ...input, tenantId: access.tenantId })
+        : await repository.importEnterpriseCourse(
+            input as PreparedEnterpriseCourseImport & {
+              tenantId: string;
+              categoryId: string;
+              createdBy?: string | null;
+            },
+          );
       return { course, warnings: input.warnings };
     },
     updateCourse: async (
       id: string,
       patch: { name?: string; description?: string | null; categoryId?: string },
+      access?: TenantAccessContext,
     ) => {
+      if (!(await assertWritableCourse(repository, id, access))) {
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      }
+      if (patch.categoryId && access) {
+        const category = (await repository.listCategories()).find(
+          (candidate) => candidate.id === patch.categoryId,
+        );
+        if (!category || category.scope !== 'tenant' || category.tenantId !== access.tenantId) {
+          throw new EnterpriseStorageServiceError('INVALID_REQUEST', 'Course category not found');
+        }
+      }
       const course = await repository.updateCourse(id, patch);
       if (!course) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       return course;
@@ -690,83 +964,146 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
     updateCourseVisibility: async (
       id: string,
       visibility: { visibilityMode: CourseVisibilityMode; visibleRoleIds: string[] },
+      access?: TenantAccessContext,
     ) => {
+      if (!(await assertWritableCourse(repository, id, access))) {
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      }
       assertValidVisibility(visibility);
+      if (access && visibility.visibleRoleIds.length > 0) {
+        const roles = await repository.listRoles();
+        if (
+          visibility.visibleRoleIds.some(
+            (roleId) =>
+              !roles.some((role) => role.id === roleId && role.tenantId === access.tenantId),
+          )
+        ) {
+          throw new EnterpriseStorageServiceError(
+            'INVALID_REQUEST',
+            'Visible roles must belong to the course tenant',
+          );
+        }
+      }
       const course = await repository.updateCourseVisibility(id, visibility);
       if (!course) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       return course;
     },
-    publishCourse: async (id: string) => {
-      const current = await repository.getCourseContent(id);
+    publishCourse: async (id: string, access?: TenantAccessContext) => {
+      const current = await assertWritableCourse(repository, id, access);
       if (!current) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       assertPublishable(current.course);
       const course = await repository.publishCourse(id);
       if (!course) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       return course;
     },
-    archiveCourse: async (id: string) => {
+    archiveCourse: async (id: string, access?: TenantAccessContext) => {
+      if (!(await assertWritableCourse(repository, id, access))) {
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      }
       const course = await repository.archiveCourse(id);
       if (!course) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       return course;
     },
-    deleteCourse: async (id: string) => {
+    deleteCourse: async (id: string, access?: TenantAccessContext) => {
+      if (!(await assertWritableCourse(repository, id, access))) {
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      }
       const course = await repository.deleteCourse(id);
       if (!course) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       return course;
     },
 
-    async listVisibleCourses(roleId: string, sort: CourseListSort = 'latest') {
+    async listVisibleCourses(
+      access: TenantAccessContext | string,
+      sort: CourseListSort = 'latest',
+    ) {
       const courses = await repository.listAdminCourses();
       return sortVisibleCourses(
-        courses.filter((course) => isCourseVisibleToRole(course, roleId)),
+        courses
+          .filter((course) =>
+            typeof access === 'string'
+              ? isCourseVisibleToRole(course, access)
+              : isCourseReadable(course, access) && course.status === 'published',
+          )
+          .map((course) =>
+            withManagementMode(course, typeof access === 'string' ? undefined : access),
+          ),
         sort,
       );
     },
 
-    async getVisibleCourse(id: string, roleId: string) {
+    async getVisibleCourse(id: string, access: TenantAccessContext | string) {
       const content = await repository.getCourseContent(id);
       if (!content) return null;
-      if (!isCourseVisibleToRole(content.course, roleId)) return null;
+      if (
+        typeof access === 'string'
+          ? !isCourseVisibleToRole(content.course, access)
+          : !isCourseReadable(content.course, access)
+      )
+        return null;
       const [mediaFiles, audioBlobs] = await Promise.all([
         repository.listMediaFiles({ courseId: id }),
         repository.listCourseAudioBlobs(id),
       ]);
       return {
         ...content,
+        course: withManagementMode(content.course, typeof access === 'string' ? undefined : access),
         stage: content.stage ?? content.course.stageSnapshot,
         mediaManifest: buildMediaManifest(id, mediaFiles),
         audioManifest: buildAudioManifest(id, audioBlobs),
       };
     },
 
-    async getCourseContent(id: string) {
+    async getCourseContent(id: string, access?: TenantAccessContext) {
       const content = await repository.getCourseContent(id);
       if (!content) return null;
+      if (access && !isCourseReadable(content.course, access)) return null;
       const [mediaFiles, audioBlobs] = await Promise.all([
         repository.listMediaFiles({ courseId: id }),
         repository.listCourseAudioBlobs(id),
       ]);
       return {
         ...content,
+        course: withManagementMode(content.course, access),
         stage: content.stage ?? content.course.stageSnapshot,
         mediaManifest: buildMediaManifest(id, mediaFiles),
         audioManifest: buildAudioManifest(id, audioBlobs),
       };
     },
 
-    async startCourse(input: { courseId: string; userId: string; roleId: string }) {
+    async startCourse(input: {
+      courseId: string;
+      userId: string;
+      roleId: string;
+      tenantId?: string;
+    }) {
       const content = await repository.getCourseContent(input.courseId);
-      if (!content || !isCourseVisibleToRole(content.course, input.roleId)) {
+      if (
+        !content ||
+        (input.tenantId
+          ? !isCourseReadable(content.course, {
+              userId: input.userId,
+              tenantId: input.tenantId,
+              roleId: input.roleId,
+              isAdmin: false,
+            })
+          : !isCourseVisibleToRole(content.course, input.roleId))
+      ) {
         throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       }
       return repository.markCourseStarted({
+        tenantId: input.tenantId,
         userId: input.userId,
         courseId: input.courseId,
       });
     },
 
-    replaceCourseContent: async (courseId: string, input: ReplaceCourseContentInput) => {
-      const current = await repository.getCourseContent(courseId);
+    replaceCourseContent: async (
+      courseId: string,
+      input: ReplaceCourseContentInput,
+      access?: TenantAccessContext,
+    ) => {
+      const current = await assertWritableCourse(repository, courseId, access);
       if (!current) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       const content = await repository.replaceCourseContent(courseId, input);
       return {
@@ -781,11 +1118,20 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
       courseId: string;
       userId: string;
       roleId: string;
+      tenantId?: string;
       allowUnpublished?: boolean;
     }): Promise<PublicCourseAssessment> {
+      const access = input.tenantId
+        ? {
+            userId: input.userId,
+            tenantId: input.tenantId,
+            roleId: input.roleId,
+            isAdmin: !!input.allowUnpublished,
+          }
+        : undefined;
       const content = input.allowUnpublished
-        ? await this.getCourseContent(input.courseId)
-        : await this.getVisibleCourse(input.courseId, input.roleId);
+        ? await this.getCourseContent(input.courseId, access)
+        : await this.getVisibleCourse(input.courseId, access ?? input.roleId);
       if (!content || (input.allowUnpublished && content.course.status === 'archived')) {
         throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       }
@@ -807,9 +1153,17 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
     async submitCourseAssessment(
       input: SubmitCourseAssessmentInput,
     ): Promise<SubmitCourseAssessmentResult> {
+      const access = input.tenantId
+        ? {
+            userId: input.userId,
+            tenantId: input.tenantId,
+            roleId: input.roleId,
+            isAdmin: !!input.allowUnpublished,
+          }
+        : undefined;
       const content = input.allowUnpublished
-        ? await this.getCourseContent(input.courseId)
-        : await this.getVisibleCourse(input.courseId, input.roleId);
+        ? await this.getCourseContent(input.courseId, access)
+        : await this.getVisibleCourse(input.courseId, access ?? input.roleId);
       if (!content || (input.allowUnpublished && content.course.status === 'archived')) {
         throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       }
@@ -836,6 +1190,7 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
       });
       const attempts = await repository.listCourseAssessmentAttempts(input.userId, input.courseId);
       const attempt = await repository.createAssessmentAttempt({
+        tenantId: input.tenantId,
         userId: input.userId,
         courseId: input.courseId,
         roleSnapshot: input.roleSnapshot,
@@ -894,9 +1249,12 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
     saveCourseProgress: (input: EnterpriseCourseProgress) => repository.upsertCourseProgress(input),
 
     async getDashboard(filters?: HostQueryFilters) {
+      const scopedFilters = defaultAccess
+        ? { ...filters, tenantId: defaultAccess.tenantId }
+        : filters;
       const [summary, progress] = await Promise.all([
-        repository.getDashboardSummary(filters),
-        repository.listCourseProgress(filters),
+        repository.getDashboardSummary(scopedFilters),
+        repository.listCourseProgress(scopedFilters),
       ]);
       return { summary, progress };
     },
@@ -906,8 +1264,11 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
       token: string | null | undefined;
       filters: HostQueryFilters;
     }) {
-      await assertHostAccess(repository, input.pathname, input.token);
-      const summary = await repository.getDashboardSummary(input.filters);
+      const key = await assertHostAccess(repository, input.pathname, input.token);
+      const summary = await repository.getDashboardSummary({
+        ...input.filters,
+        tenantId: key!.tenantId,
+      });
       return { summary };
     },
 
@@ -916,8 +1277,11 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
       token: string | null | undefined;
       filters: HostQueryFilters;
     }) {
-      await assertHostAccess(repository, input.pathname, input.token);
-      const progress = await repository.listCourseProgress(input.filters);
+      const key = await assertHostAccess(repository, input.pathname, input.token);
+      const progress = await repository.listCourseProgress({
+        ...input.filters,
+        tenantId: key!.tenantId,
+      });
       return { progress };
     },
 
@@ -926,8 +1290,11 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
       token: string | null | undefined;
       filters: HostQueryFilters;
     }) {
-      await assertHostAccess(repository, input.pathname, input.token);
-      const attempts = await repository.listAssessmentAttempts(input.filters);
+      const key = await assertHostAccess(repository, input.pathname, input.token);
+      const attempts = await repository.listAssessmentAttempts({
+        ...input.filters,
+        tenantId: key!.tenantId,
+      });
       return { attempts };
     },
 
@@ -936,24 +1303,54 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
       token: string | null | undefined;
       filters: HostQueryFilters;
     }) {
-      await assertHostAccess(repository, input.pathname, input.token);
-      const attempts = await repository.listExamAttempts(input.filters);
+      const key = await assertHostAccess(repository, input.pathname, input.token);
+      const attempts = await repository.listExamAttempts({
+        ...input.filters,
+        tenantId: key!.tenantId,
+      });
       return { attempts };
     },
 
-    createMediaFile: (input: CreateMediaFileInput) => repository.createMediaFile(input),
-    listMediaFiles: (filters?: { courseId?: string; sceneId?: string }) =>
-      repository.listMediaFiles(filters),
+    createMediaFile: async (input: CreateMediaFileInput, access?: TenantAccessContext) => {
+      if (input.courseId && !(await assertWritableCourse(repository, input.courseId, access))) {
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      }
+      return repository.createMediaFile({ ...input, tenantId: access?.tenantId ?? input.tenantId });
+    },
+    listMediaFiles: async (
+      filters?: { courseId?: string; sceneId?: string },
+      access?: TenantAccessContext,
+    ) => {
+      if (filters?.courseId && access) {
+        const content = await repository.getCourseContent(filters.courseId);
+        if (!content || !isCourseReadable(content.course, access)) {
+          throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+        }
+      }
+      return repository.listMediaFiles(filters);
+    },
     getMediaFileBlob: (courseId: string, mediaId: string, variant?: 'media' | 'poster') =>
       repository.getMediaFileBlob(courseId, mediaId, variant),
-    createCourseAudioBlob: (input: CreateCourseAudioBlobInput) =>
-      repository.createCourseAudioBlob(input),
+    createCourseAudioBlob: async (
+      input: CreateCourseAudioBlobInput,
+      access?: TenantAccessContext,
+    ) => {
+      if (!(await assertWritableCourse(repository, input.courseId, access))) {
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      }
+      return repository.createCourseAudioBlob({
+        ...input,
+        tenantId: access?.tenantId ?? input.tenantId,
+      });
+    },
     listCourseAudioBlobs: (courseId: string) => repository.listCourseAudioBlobs(courseId),
     getCourseAudioBlob: (courseId: string, audioId: string) =>
       repository.getCourseAudioBlob(courseId, audioId),
 
     async listExamPolicies() {
-      const policies = await repository.listExamPolicies();
+      const policies = (await repository.listExamPolicies()).filter(
+        (policy) => !defaultAccess || policy.tenantId === defaultAccess.tenantId,
+      );
       return Promise.all(policies.map(withCandidateQuestionCount));
     },
     async createExamPolicy(input: {
@@ -965,6 +1362,7 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
       passThreshold: number;
       timeLimitMinutes?: number | null;
     }) {
+      await assertExamScope(input);
       if (input.categoryIds.length === 0) {
         throw new EnterpriseStorageServiceError(
           'INVALID_REQUEST',
@@ -998,6 +1396,12 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
         status?: 'draft' | 'published' | 'archived';
       },
     ) => {
+      const existing = (await repository.listExamPolicies()).find(
+        (policy) =>
+          policy.id === id && (!defaultAccess || policy.tenantId === defaultAccess.tenantId),
+      );
+      if (!existing) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Exam policy not found');
+      await assertExamScope(patch);
       if (patch.categoryIds !== undefined && patch.categoryIds.length === 0) {
         throw new EnterpriseStorageServiceError(
           'INVALID_REQUEST',
@@ -1024,11 +1428,21 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
       return withCandidateQuestionCount(policy);
     },
     publishExamPolicy: async (id: string) => {
+      const existing = (await repository.listExamPolicies()).find(
+        (policy) =>
+          policy.id === id && (!defaultAccess || policy.tenantId === defaultAccess.tenantId),
+      );
+      if (!existing) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Exam policy not found');
       const policy = await repository.publishExamPolicy(id);
       if (!policy) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Exam policy not found');
       return withCandidateQuestionCount(policy);
     },
     deleteExamPolicy: async (id: string) => {
+      const existing = (await repository.listExamPolicies()).find(
+        (policy) =>
+          policy.id === id && (!defaultAccess || policy.tenantId === defaultAccess.tenantId),
+      );
+      if (!existing) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Exam policy not found');
       const result = await repository.deleteExamPolicy(id);
       if (result.outcome === 'not_found') {
         throw new EnterpriseStorageServiceError('NOT_FOUND', 'Exam policy not found');
@@ -1044,7 +1458,10 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
     async listAvailableExams(roleId: string): Promise<EnterpriseExamPolicy[]> {
       const policies = await repository.listExamPolicies();
       const available = policies.filter(
-        (policy) => policy.status === 'published' && policy.targetRoleId === roleId,
+        (policy) =>
+          policy.status === 'published' &&
+          policy.targetRoleId === roleId &&
+          (!defaultAccess || policy.tenantId === defaultAccess.tenantId),
       );
       return Promise.all(available.map(withCandidateQuestionCount));
     },

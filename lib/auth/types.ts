@@ -2,10 +2,27 @@ export type AuthSource = 'password' | 'host-sso' | 'api-key';
 
 export interface SessionIdentity {
   userId: string;
+  tenantId: string;
   roleId: string;
   roleCode: string;
   isAdmin: boolean;
   authSource: AuthSource;
+}
+
+export interface TenantAccessContext {
+  userId: string;
+  tenantId: string;
+  roleId: string;
+  isAdmin: boolean;
+}
+
+export function toTenantAccessContext(identity: SessionIdentity): TenantAccessContext {
+  return {
+    userId: identity.userId,
+    tenantId: identity.tenantId,
+    roleId: identity.roleId,
+    isAdmin: identity.isAdmin,
+  };
 }
 
 export type CourseVisibility =

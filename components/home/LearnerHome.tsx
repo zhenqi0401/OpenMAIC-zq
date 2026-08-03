@@ -586,7 +586,7 @@ function LearnerCourseCard({
               : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300',
           )}
         >
-          {local ? '本地导入' : '企业课程'}
+          {local ? '本地导入' : course.scope === 'platform' ? '精品课程' : '企业课程'}
         </span>
 
         {editing ? (

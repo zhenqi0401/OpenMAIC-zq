@@ -14,9 +14,13 @@ export function authErrorResponse(error: unknown) {
     const status =
       error.code === 'INVALID_CREDENTIALS' || error.code === 'USER_DISABLED'
         ? 401
-        : error.code === 'USER_NOT_FOUND'
-          ? 404
-          : 400;
+        : error.code === 'TENANT_SUSPENDED' || error.code === 'TENANT_MISMATCH'
+          ? 403
+          : error.code === 'ADMIN_ROLE_NOT_ALLOWED'
+            ? 403
+            : error.code === 'USER_NOT_FOUND'
+              ? 404
+              : 400;
     return apiError('INVALID_REQUEST', status, error.code);
   }
   const message = error instanceof Error ? error.message : String(error);

@@ -4,9 +4,10 @@ import { getEnterpriseRepository } from './enterprise-repository';
 import { createEnterpriseStorageService } from './enterprise-service';
 import { extractBearerToken } from '@/lib/host-api/access';
 import { normalizeHostQueryFilters, type HostQueryFilters } from '@/lib/host-api/types';
+import type { TenantAccessContext } from '@/lib/auth/types';
 
-export function getEnterpriseService() {
-  return createEnterpriseStorageService(getEnterpriseRepository());
+export function getEnterpriseService(access?: TenantAccessContext) {
+  return createEnterpriseStorageService(getEnterpriseRepository(), access);
 }
 
 export async function readJsonBody<T>(request: Request): Promise<T | null> {

@@ -1,4 +1,5 @@
 import { requireCurrentAdmin } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
   enterpriseErrorResponse,
@@ -26,7 +27,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   try {
     const { id } = await context.params;
-    const category = await getEnterpriseService().updateCategory(id, body);
+    const category = await getEnterpriseService().updateCategory(
+      id,
+      body,
+      toTenantAccessContext(admin.identity),
+    );
     return apiSuccess({ category });
   } catch (error) {
     return enterpriseErrorResponse(error);
@@ -38,7 +43,9 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   if (admin instanceof Response) return admin;
   try {
     const { id } = await context.params;
-    const category = await getAdminManagementService().deleteCategory(id);
+    const category = await getAdminManagementService(
+      toTenantAccessContext(admin.identity),
+    ).deleteCategory(id);
     return apiSuccess({ category });
   } catch (error) {
     return adminManagementErrorResponse(error);

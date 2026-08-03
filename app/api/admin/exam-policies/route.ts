@@ -1,4 +1,5 @@
 import { requireCurrentAdmin } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
   enterpriseErrorResponse,
@@ -34,7 +35,9 @@ export async function GET(request: Request) {
       defaultPageSize: 20,
       maxPageSize: 100,
     });
-    const result = await getAdminManagementService().queryExamPolicies({
+    const result = await getAdminManagementService(
+      toTenantAccessContext(admin.identity),
+    ).queryExamPolicies({
       q: parseAdminText(search, 'q'),
       status: parseAdminEnum(
         search,
@@ -73,7 +76,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const examPolicy = await getEnterpriseService().createExamPolicy({
+    const examPolicy = await getEnterpriseService(
+      toTenantAccessContext(admin.identity),
+    ).createExamPolicy({
       title: body.title.trim(),
       targetRoleId: body.targetRoleId,
       categoryIds: body.categoryIds,

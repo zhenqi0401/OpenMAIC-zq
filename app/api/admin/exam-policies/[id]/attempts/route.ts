@@ -1,4 +1,5 @@
 import { requireCurrentAdmin } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiSuccess } from '@/lib/server/api-response';
 import {
   adminManagementErrorResponse,
@@ -18,7 +19,13 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       maxPageSize: 100,
     });
     const { id } = await context.params;
-    return apiSuccess(await getAdminManagementService().getExamPolicyAttempts(id, page, pageSize));
+    return apiSuccess(
+      await getAdminManagementService(toTenantAccessContext(admin.identity)).getExamPolicyAttempts(
+        id,
+        page,
+        pageSize,
+      ),
+    );
   } catch (error) {
     return adminManagementErrorResponse(error);
   }

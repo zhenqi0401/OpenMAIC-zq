@@ -36,6 +36,7 @@ export async function GET(request: Request, context: RouteContext) {
       courseId,
       sceneKey: sceneKey.trim(),
       roleId: current.identity.roleId,
+      tenantId: current.identity.tenantId,
       after: decodeDanmakuCursor(search.get('cursor')),
       limit: parseDanmakuLimit(search.get('limit')),
     });
@@ -77,6 +78,7 @@ export async function POST(request: Request, context: RouteContext) {
       // The author is deliberately derived from the authenticated session. body.authorId is ignored.
       authorId: current.user.id,
       roleId: current.identity.roleId,
+      tenantId: current.identity.tenantId,
     });
     return apiSuccess(
       { danmaku: result.danmaku, idempotentReplay: !result.created },

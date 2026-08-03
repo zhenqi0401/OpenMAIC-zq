@@ -52,6 +52,7 @@ import type { PreparedEnterpriseCourseImport } from '@/lib/import/enterprise-cou
 function toRole(role: typeof roles.$inferSelect): AuthRole {
   return {
     id: role.id,
+    tenantId: role.tenantId,
     code: role.code,
     name: role.name,
     isAdmin: role.isAdmin,
@@ -61,6 +62,9 @@ function toRole(role: typeof roles.$inferSelect): AuthRole {
 function toCategory(category: typeof courseCategories.$inferSelect): EnterpriseCategory {
   return {
     id: category.id,
+    tenantId: category.tenantId,
+    scope: category.scope as EnterpriseCategory['scope'],
+    managementMode: category.scope === 'platform' ? 'read_only' : 'editable',
     name: category.name,
     sortOrder: category.sortOrder,
   };
@@ -75,6 +79,7 @@ function recordOrEmpty(value: unknown): Record<string, unknown> {
 function toInviteCode(inviteCode: typeof inviteCodes.$inferSelect): EnterpriseInviteCode {
   return {
     id: inviteCode.id,
+    tenantId: inviteCode.tenantId,
     roleId: inviteCode.roleId,
     enabled: inviteCode.enabled,
     expiresAt: inviteCode.expiresAt,
@@ -156,6 +161,7 @@ function toExamPolicy(
 ): EnterpriseExamPolicy {
   return {
     id: policy.id,
+    tenantId: policy.tenantId,
     title: policy.title,
     targetRoleId: policy.targetRoleId,
     categoryIds: policy.categoryIds,
@@ -190,6 +196,9 @@ function toCourse(
 ): EnterpriseCourse {
   return {
     id: row.id,
+    tenantId: row.tenantId,
+    scope: row.scope as EnterpriseCourse['scope'],
+    managementMode: row.scope === 'platform' ? 'read_only' : 'editable',
     name: row.name,
     description: row.description,
     categoryId: row.categoryId,
@@ -271,10 +280,20 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     return rows.map(toRole);
   }
 
-  async createRole(input: { code: string; name: string; isAdmin?: boolean }): Promise<AuthRole> {
+  async createRole(input: {
+    tenantId: string;
+    code: string;
+    name: string;
+    isAdmin?: boolean;
+  }): Promise<AuthRole> {
     const [role] = await getDb()
       .insert(roles)
-      .values({ code: input.code, name: input.name, isAdmin: input.isAdmin ?? false })
+      .values({
+        tenantId: input.tenantId,
+        code: input.code,
+        name: input.name,
+        isAdmin: input.isAdmin ?? false,
+      })
       .returning();
     return toRole(role);
   }
@@ -322,6 +341,7 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
   }
 
   async createInviteCode(input: {
+    tenantId: string;
     code: string;
     roleId: string;
     enabled?: boolean;
@@ -331,6 +351,7 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     const [inviteCode] = await getDb()
       .insert(inviteCodes)
       .values({
+        tenantId: input.tenantId,
         codeHash: hashInviteCode(input.code),
         roleId: input.roleId,
         enabled: input.enabled ?? true,
@@ -373,10 +394,19 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     return rows.map(toCategory);
   }
 
-  async createCategory(input: { name: string; sortOrder?: number }): Promise<EnterpriseCategory> {
+  async createCategory(input: {
+    tenantId: string;
+    name: string;
+    sortOrder?: number;
+  }): Promise<EnterpriseCategory> {
     const [category] = await getDb()
       .insert(courseCategories)
-      .values({ name: input.name, sortOrder: input.sortOrder ?? 0 })
+      .values({
+        tenantId: input.tenantId,
+        scope: 'tenant',
+        name: input.name,
+        sortOrder: input.sortOrder ?? 0,
+      })
       .returning();
     return toCategory(category);
   }
@@ -439,6 +469,8 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     const [course] = await getDb()
       .insert(courses)
       .values({
+        tenantId: input.tenantId,
+        scope: 'tenant',
         name: input.name,
         description: input.description ?? null,
         categoryId: input.categoryId,
@@ -453,7 +485,11 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
   }
 
   async importEnterpriseCourse(
-    input: PreparedEnterpriseCourseImport & { categoryId: string; createdBy?: string | null },
+    input: PreparedEnterpriseCourseImport & {
+      tenantId: string;
+      categoryId: string;
+      createdBy?: string | null;
+    },
   ): Promise<EnterpriseCourse> {
     return runDbTransaction(async (tx) => {
       const [category] = await tx
@@ -471,6 +507,8 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
       const [course] = await tx
         .insert(courses)
         .values({
+          tenantId: input.tenantId,
+          scope: 'tenant',
           name: stageName,
           description,
           categoryId: input.categoryId,
@@ -759,6 +797,7 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
   }
 
   async markCourseStarted(input: {
+    tenantId?: string;
     userId: string;
     courseId: string;
   }): Promise<EnterpriseCourseProgress> {
@@ -766,6 +805,7 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     const [progress] = await getDb()
       .insert(courseProgress)
       .values({
+        tenantId: input.tenantId!,
         userId: input.userId,
         courseId: input.courseId,
         sceneIndex: 0,
@@ -788,6 +828,7 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     const [progress] = await getDb()
       .insert(courseProgress)
       .values({
+        tenantId: input.tenantId!,
         userId: input.userId,
         courseId: input.courseId,
         sceneIndex: input.sceneIndex,
@@ -830,6 +871,7 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     const [attempt] = await getDb()
       .insert(assessmentAttempts)
       .values({
+        tenantId: input.tenantId!,
         userId: input.userId,
         courseId: input.courseId,
         roleSnapshot: input.roleSnapshot,
@@ -855,12 +897,17 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     const learners = learnerRows.filter(
       (row) =>
         !row.roles.isAdmin &&
+        (!filters?.tenantId || row.users.tenantId === filters.tenantId) &&
         (!filters?.roleId || row.roles.id === filters.roleId) &&
         (!filters?.userId || row.users.id === filters.userId),
     );
     const activeCourses = (
       filters?.courseId ? courseRows.filter((row) => row.id === filters.courseId) : courseRows
-    ).filter((row) => row.status === 'published');
+    ).filter(
+      (row) =>
+        row.status === 'published' &&
+        (!filters?.tenantId || row.scope === 'platform' || row.tenantId === filters.tenantId),
+    );
     const activeProgressRows = filterDashboardRowsForPublishedCourses(activeCourses, progressRows);
     const activeAssessmentRows = filterDashboardRowsForPublishedCourses(
       activeCourses,
@@ -885,6 +932,7 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     const clauses = [
       filters?.courseId ? eq(courseProgress.courseId, filters.courseId) : undefined,
       filters?.userId ? eq(courseProgress.userId, filters.userId) : undefined,
+      filters?.tenantId ? eq(courseProgress.tenantId, filters.tenantId) : undefined,
       ...dateFilters(filters),
     ].filter(Boolean);
     const rows = await getDb()
@@ -930,8 +978,11 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
       .innerJoin(users, eq(assessmentAttempts.userId, users.id))
       .innerJoin(roles, eq(users.roleId, roles.id))
       .innerJoin(courses, eq(assessmentAttempts.courseId, courses.id));
+    const tenantRows = filters?.tenantId
+      ? rows.filter((row) => row.attempt.tenantId === filters.tenantId)
+      : rows;
     return filterHostRowsForQuery(
-      rows.map((row) => ({
+      tenantRows.map((row) => ({
         id: row.attempt.id,
         userId: row.user.id,
         displayName: row.user.displayName,
@@ -956,6 +1007,9 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
       .innerJoin(users, eq(examAttempts.userId, users.id))
       .innerJoin(roles, eq(users.roleId, roles.id))
       .innerJoin(examPolicies, eq(examAttempts.examPolicyId, examPolicies.id));
+    const tenantRows = filters?.tenantId
+      ? rows.filter((row) => row.attempt.tenantId === filters.tenantId)
+      : rows;
     const allowedPolicyIds = filters?.courseId
       ? new Set(
           (
@@ -967,7 +1021,7 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
         )
       : null;
     const queryFilters = allowedPolicyIds ? { ...filters, courseId: undefined } : filters;
-    const details = rows
+    const details = tenantRows
       .filter((row) => !allowedPolicyIds || allowedPolicyIds.has(row.attempt.examPolicyId))
       .map((row) => ({
         id: row.attempt.id,
@@ -1010,9 +1064,16 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     timeLimitMinutes?: number | null;
   }): Promise<EnterpriseExamPolicy> {
     const policy = await runDbTransaction<typeof examPolicies.$inferSelect>(async (tx) => {
+      const [targetRole] = await tx
+        .select({ tenantId: roles.tenantId })
+        .from(roles)
+        .where(eq(roles.id, input.targetRoleId))
+        .limit(1);
+      if (!targetRole) throw new Error('Target role not found');
       const [created] = await tx
         .insert(examPolicies)
         .values({
+          tenantId: targetRole.tenantId,
           title: input.title,
           targetRoleId: input.targetRoleId,
           categoryIds: input.categoryIds,
@@ -1112,9 +1173,16 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
   }
 
   async createExamAttempt(input: EnterpriseExamAttemptInput): Promise<EnterpriseExamAttempt> {
+    const [user] = await getDb()
+      .select({ tenantId: users.tenantId })
+      .from(users)
+      .where(eq(users.id, input.userId))
+      .limit(1);
+    if (!user) throw new Error('Exam user not found');
     const [attempt] = await getDb()
       .insert(examAttempts)
       .values({
+        tenantId: user.tenantId,
         examPolicyId: input.examPolicyId,
         userId: input.userId,
         roleSnapshot: input.roleSnapshot,
@@ -1137,7 +1205,14 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
       .from(hostApiKeys)
       .where(eq(hostApiKeys.keyId, keyId))
       .limit(1);
-    return key ? { keyId: key.keyId, secretHash: key.secretHash, enabled: key.enabled } : null;
+    return key
+      ? {
+          keyId: key.keyId,
+          tenantId: key.tenantId,
+          secretHash: key.secretHash,
+          enabled: key.enabled,
+        }
+      : null;
   }
 
   async touchHostApiKey(keyId: string): Promise<void> {
@@ -1151,6 +1226,7 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     const [mediaFile] = await getDb()
       .insert(mediaFiles)
       .values({
+        tenantId: input.tenantId ?? null,
         courseId: input.courseId ?? null,
         sceneId: input.sceneId ?? null,
         sceneKey: input.sceneKey ?? null,
@@ -1206,6 +1282,7 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
   }
 
   async createCourseAudioBlob(input: {
+    tenantId?: string | null;
     courseId: string;
     sceneKey?: string | null;
     audioId: string;
@@ -1218,6 +1295,7 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     const [audio] = await getDb()
       .insert(courseAudioBlobs)
       .values({
+        tenantId: input.tenantId ?? null,
         courseId: input.courseId,
         sceneKey: input.sceneKey ?? null,
         audioId: input.audioId,

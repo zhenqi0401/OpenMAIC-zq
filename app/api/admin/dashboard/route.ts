@@ -1,4 +1,5 @@
 import { requireCurrentAdmin } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiSuccess } from '@/lib/server/api-response';
 import {
   adminManagementErrorResponse,
@@ -19,7 +20,9 @@ export async function GET(request: Request) {
       ['week', 'month', 'year'] as const,
       'month',
     );
-    const dashboard = await getAdminManagementService().getDashboard(range);
+    const dashboard = await getAdminManagementService(
+      toTenantAccessContext(admin.identity),
+    ).getDashboard(range);
     return apiSuccess(dashboard);
   } catch (error) {
     return adminManagementErrorResponse(error);

@@ -40,6 +40,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const result = await getEnterpriseService().submitCourseAssessment({
       courseId: id,
       userId: current.user.id,
+      tenantId: current.identity.tenantId,
       roleId: current.identity.roleId,
       roleSnapshot: current.identity.roleCode,
       answers: body.answers,

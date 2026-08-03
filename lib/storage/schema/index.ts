@@ -28,20 +28,45 @@ const timestamps = {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 };
 
-export const roles = pgTable('roles', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: uuid('tenant_id'),
-  code: varchar('code', { length: 64 }).notNull().unique(),
-  name: varchar('name', { length: 128 }).notNull(),
-  isAdmin: boolean('is_admin').notNull().default(false),
-  ...timestamps,
-});
+export const tenants = pgTable(
+  'tenants',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    companyId: varchar('company_id', { length: 128 }).notNull(),
+    name: varchar('name', { length: 128 }).notNull(),
+    type: varchar('type', { length: 16 }).notNull().default('company'),
+    status: varchar('status', { length: 16 }).notNull().default('active'),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex('tenants_company_id_unique').on(table.companyId),
+    check('tenants_type_check', sql`${table.type} IN ('internal', 'company')`),
+    check('tenants_status_check', sql`${table.status} IN ('active', 'suspended')`),
+  ],
+);
+
+export const roles = pgTable(
+  'roles',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    code: varchar('code', { length: 64 }).notNull(),
+    name: varchar('name', { length: 128 }).notNull(),
+    isAdmin: boolean('is_admin').notNull().default(false),
+    ...timestamps,
+  },
+  (table) => [uniqueIndex('roles_tenant_code_unique').on(table.tenantId, table.code)],
+);
 
 export const users = pgTable(
   'users',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    tenantId: uuid('tenant_id'),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
     phone: varchar('phone', { length: 32 }).unique(),
     passwordHash: text('password_hash'),
     hostUserId: varchar('host_user_id', { length: 128 }).unique(),
@@ -62,7 +87,9 @@ export const inviteCodes = pgTable(
   'invite_codes',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    tenantId: uuid('tenant_id'),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
     codeHash: text('code_hash').notNull().unique(),
     roleId: uuid('role_id')
       .notNull()
@@ -75,19 +102,36 @@ export const inviteCodes = pgTable(
   (table) => [index('invite_codes_role_id_idx').on(table.roleId)],
 );
 
-export const courseCategories = pgTable('course_categories', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: uuid('tenant_id'),
-  name: varchar('name', { length: 128 }).notNull(),
-  sortOrder: integer('sort_order').notNull().default(0),
-  ...timestamps,
-});
+export const courseCategories = pgTable(
+  'course_categories',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').references(() => tenants.id),
+    scope: varchar('scope', { length: 16 }).notNull().default('tenant'),
+    name: varchar('name', { length: 128 }).notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'course_categories_scope_tenant_check',
+      sql`(${table.scope} = 'platform' AND ${table.tenantId} IS NULL) OR (${table.scope} = 'tenant' AND ${table.tenantId} IS NOT NULL)`,
+    ),
+    uniqueIndex('course_categories_platform_name_unique')
+      .on(table.name)
+      .where(sql`${table.scope} = 'platform'`),
+    uniqueIndex('course_categories_tenant_name_unique')
+      .on(table.tenantId, table.name)
+      .where(sql`${table.scope} = 'tenant'`),
+  ],
+);
 
 export const courses = pgTable(
   'courses',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    tenantId: uuid('tenant_id'),
+    tenantId: uuid('tenant_id').references(() => tenants.id),
+    scope: varchar('scope', { length: 16 }).notNull().default('tenant'),
     name: text('name').notNull(),
     description: text('description'),
     categoryId: uuid('category_id')
@@ -112,6 +156,15 @@ export const courses = pgTable(
   (table) => [
     index('courses_category_id_idx').on(table.categoryId),
     index('courses_status_idx').on(table.status),
+    index('courses_scope_tenant_status_idx').on(table.scope, table.tenantId, table.status),
+    check(
+      'courses_scope_tenant_check',
+      sql`(${table.scope} = 'platform' AND ${table.tenantId} IS NULL) OR (${table.scope} = 'tenant' AND ${table.tenantId} IS NOT NULL)`,
+    ),
+    check(
+      'courses_platform_visibility_check',
+      sql`${table.scope} <> 'platform' OR ${table.visibilityMode} = 'all'`,
+    ),
   ],
 );
 
@@ -132,7 +185,9 @@ export const courseDanmaku = pgTable(
   'course_danmaku',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    tenantId: uuid('tenant_id'),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
     courseId: uuid('course_id')
       .notNull()
       .references(() => courses.id),
@@ -178,7 +233,9 @@ export const forumPosts = pgTable(
   'forum_posts',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    tenantId: uuid('tenant_id'),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
     authorId: uuid('author_id')
       .notNull()
       .references(() => users.id),
@@ -223,6 +280,9 @@ export const forumReplies = pgTable(
   'forum_replies',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
     postId: uuid('post_id')
       .notNull()
       .references(() => forumPosts.id, { onDelete: 'cascade' }),
@@ -284,6 +344,9 @@ export const communityModerationAudit = pgTable(
   'community_moderation_audit',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
     moderatorId: uuid('moderator_id')
       .notNull()
       .references(() => users.id),
@@ -397,6 +460,9 @@ export const courseAudioBlobs = pgTable(
 export const courseProgress = pgTable(
   'course_progress',
   {
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
@@ -421,7 +487,9 @@ export const assessmentAttempts = pgTable(
   'assessment_attempts',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    tenantId: uuid('tenant_id'),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
@@ -442,7 +510,9 @@ export const assessmentAttempts = pgTable(
 
 export const examPolicies = pgTable('exam_policies', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: uuid('tenant_id'),
+  tenantId: uuid('tenant_id')
+    .notNull()
+    .references(() => tenants.id),
   title: text('title').notNull(),
   targetRoleId: uuid('target_role_id')
     .notNull()
@@ -475,7 +545,9 @@ export const examAttempts = pgTable(
   'exam_attempts',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    tenantId: uuid('tenant_id'),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
     examPolicyId: uuid('exam_policy_id')
       .notNull()
       .references(() => examPolicies.id, { onDelete: 'cascade' }),
@@ -498,7 +570,9 @@ export const examAttempts = pgTable(
 
 export const hostApiKeys = pgTable('host_api_keys', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: uuid('tenant_id'),
+  tenantId: uuid('tenant_id')
+    .notNull()
+    .references(() => tenants.id),
   keyId: varchar('key_id', { length: 128 }).notNull().unique(),
   secretHash: text('secret_hash').notNull(),
   enabled: boolean('enabled').notNull().default(true),
@@ -508,7 +582,46 @@ export const hostApiKeys = pgTable('host_api_keys', {
   lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
 });
 
+export const platformAuditLog = pgTable(
+  'platform_audit_log',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    operation: varchar('operation', { length: 64 }).notNull(),
+    actor: varchar('actor', { length: 128 }).notNull(),
+    sourceCourseId: uuid('source_course_id').references(() => courses.id, {
+      onDelete: 'set null',
+    }),
+    targetCourseId: uuid('target_course_id').references(() => courses.id, {
+      onDelete: 'set null',
+    }),
+    parameters: jsonb('parameters')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    result: varchar('result', { length: 32 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('platform_audit_log_created_at_idx').on(table.createdAt)],
+);
+
+export const securityAuditLog = pgTable(
+  'security_audit_log',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').references(() => tenants.id),
+    event: varchar('event', { length: 64 }).notNull(),
+    subjectHash: varchar('subject_hash', { length: 64 }).notNull(),
+    metadata: jsonb('metadata')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('security_audit_log_created_at_idx').on(table.createdAt)],
+);
+
 export const enterpriseTableNames = [
+  'tenants',
   'roles',
   'users',
   'invite_codes',
@@ -525,6 +638,8 @@ export const enterpriseTableNames = [
   'exam_policy_courses',
   'exam_attempts',
   'host_api_keys',
+  'platform_audit_log',
+  'security_audit_log',
 ] as const;
 
 export type EnterpriseTableName = (typeof enterpriseTableNames)[number];

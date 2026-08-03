@@ -71,6 +71,14 @@ export function CourseTable({
                   <div className="break-words font-medium text-[var(--admin-foreground)]">
                     {course.name}
                   </div>
+                  {course.scope === 'platform' ? (
+                    <div className="mt-1 flex items-center gap-2">
+                      <AdminStatusBadge tone="success">精品课程</AdminStatusBadge>
+                      <span className="text-xs text-[var(--admin-muted-foreground)]">
+                        平台提供、只读
+                      </span>
+                    </div>
+                  ) : null}
                   {course.description ? (
                     <div className="mt-1 line-clamp-2 break-words text-xs leading-5 text-[var(--admin-muted-foreground)]">
                       {course.description}
@@ -113,19 +121,21 @@ export function CourseTable({
                     {
                       id: statusAction.action,
                       label: changing ? '处理中…' : statusAction.label,
-                      disabled: changing,
+                      disabled: changing || course.managementMode === 'read_only',
                       onSelect: () => onChangeStatus(course, statusAction.action),
                     },
                     {
                       id: 'delete',
                       label: '删除',
                       destructive: true,
+                      disabled: course.managementMode === 'read_only',
                       onSelect: () => onDelete(course),
                     },
                   ]}
                   primaryAction={
                     <div className="flex flex-wrap items-center justify-end gap-2">
-                      {course.generationComplete === false ? (
+                      {course.generationComplete === false &&
+                      course.managementMode !== 'read_only' ? (
                         <Button
                           asChild
                           className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
@@ -136,6 +146,7 @@ export function CourseTable({
                       <Button
                         className={adminSecondaryButtonClassName}
                         onClick={() => onEditVisibility(course)}
+                        disabled={course.managementMode === 'read_only'}
                         type="button"
                         variant="outline"
                       >

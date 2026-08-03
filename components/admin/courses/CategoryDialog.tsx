@@ -25,6 +25,8 @@ interface CategoryOption {
   id: string;
   name: string;
   sortOrder?: number;
+  scope?: 'platform' | 'tenant';
+  managementMode?: 'editable' | 'read_only';
 }
 
 export function CategoryDialog({
@@ -46,6 +48,18 @@ export function CategoryDialog({
 }) {
   const [categoryName, setCategoryName] = useState('');
   const [names, setNames] = useState<Record<string, string>>({});
+  const editableCategories = categories.filter(
+    (category) => category.managementMode !== 'read_only',
+  );
+
+  function reorder(categoryId: string, direction: -1 | 1) {
+    const ids = editableCategories.map((item) => item.id);
+    const index = ids.indexOf(categoryId);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= ids.length) return;
+    [ids[index], ids[target]] = [ids[target], ids[index]];
+    void onReorder(ids);
+  }
 
   async function submit() {
     const name = categoryName.trim();
@@ -92,18 +106,19 @@ export function CategoryDialog({
           </div>
           <div className="grid gap-2 rounded-[var(--admin-radius-control)] bg-[var(--admin-surface-subtle)] p-3">
             {categories.length > 0 ? (
-              categories.map((category, index) => (
+              categories.map((category) => (
                 <div className="flex min-w-0 items-center gap-2" key={category.id}>
                   <Input
                     aria-label={`${category.name}分类名称`}
                     className={`${adminInputClassName} min-w-0 flex-1`}
+                    disabled={category.managementMode === 'read_only'}
                     onChange={(event) =>
                       setNames((current) => ({ ...current, [category.id]: event.target.value }))
                     }
                     value={names[category.id] ?? category.name}
                   />
                   <Button
-                    disabled={busyId === category.id}
+                    disabled={busyId === category.id || category.managementMode === 'read_only'}
                     onClick={() =>
                       void onRename(category.id, (names[category.id] ?? category.name).trim())
                     }
@@ -115,12 +130,12 @@ export function CategoryDialog({
                   </Button>
                   <Button
                     aria-label="上移分类"
-                    disabled={index === 0 || busyId === 'reorder'}
-                    onClick={() => {
-                      const ids = categories.map((item) => item.id);
-                      [ids[index - 1], ids[index]] = [ids[index], ids[index - 1]];
-                      void onReorder(ids);
-                    }}
+                    disabled={
+                      category.managementMode === 'read_only' ||
+                      editableCategories.findIndex((item) => item.id === category.id) === 0 ||
+                      busyId === 'reorder'
+                    }
+                    onClick={() => reorder(category.id, -1)}
                     size="icon"
                     type="button"
                     variant="ghost"
@@ -129,12 +144,13 @@ export function CategoryDialog({
                   </Button>
                   <Button
                     aria-label="下移分类"
-                    disabled={index === categories.length - 1 || busyId === 'reorder'}
-                    onClick={() => {
-                      const ids = categories.map((item) => item.id);
-                      [ids[index], ids[index + 1]] = [ids[index + 1], ids[index]];
-                      void onReorder(ids);
-                    }}
+                    disabled={
+                      category.managementMode === 'read_only' ||
+                      editableCategories.findIndex((item) => item.id === category.id) ===
+                        editableCategories.length - 1 ||
+                      busyId === 'reorder'
+                    }
+                    onClick={() => reorder(category.id, 1)}
                     size="icon"
                     type="button"
                     variant="ghost"
@@ -150,6 +166,7 @@ export function CategoryDialog({
                     trigger={
                       <Button
                         aria-label={`删除分类${category.name}`}
+                        disabled={category.managementMode === 'read_only'}
                         size="icon"
                         type="button"
                         variant="ghost"

@@ -5,6 +5,7 @@ import { getInviteCodeValidationIssue, normalizeInviteCode } from './invite-code
 
 export interface AuthRole {
   id: string;
+  tenantId?: string;
   code: string;
   name: string;
   isAdmin: boolean;
@@ -12,6 +13,7 @@ export interface AuthRole {
 
 export interface AuthUser {
   id: string;
+  tenantId?: string;
   phone: string | null;
   passwordHash: string | null;
   hostUserId: string | null;
@@ -22,12 +24,14 @@ export interface AuthUser {
 
 export interface InviteCodeRecord {
   codeHash: string;
+  tenantId?: string;
   roleId: string;
   enabled: boolean;
   expiresAt: Date | null;
 }
 
 export interface CreateUserInput {
+  tenantId: string;
   phone?: string | null;
   passwordHash?: string | null;
   hostUserId?: string | null;
@@ -39,16 +43,31 @@ export interface HostSsoProfile {
   hostUserId: string;
   displayName: string;
   phone: string;
+  companyId: string;
+  companyName: string;
   timestamp: number;
+}
+
+export interface AuthTenant {
+  id: string;
+  companyId: string;
+  name: string;
+  type: 'internal' | 'company';
+  status: 'active' | 'suspended';
 }
 
 export interface AuthRepository {
   findUserByPhone(phone: string): Promise<AuthUser | null>;
   findUserByHostUserId(hostUserId: string): Promise<AuthUser | null>;
-  findUserWithRoleById(userId: string): Promise<{ user: AuthUser; role: AuthRole } | null>;
+  findUserWithRoleById(
+    userId: string,
+  ): Promise<{ user: AuthUser; role: AuthRole; tenant?: AuthTenant } | null>;
   findRoleById(roleId: string): Promise<AuthRole | null>;
   findRoleByCode(code: string): Promise<AuthRole | null>;
   findInviteCodeByHash(codeHash: string): Promise<InviteCodeRecord | null>;
+  provisionHostSsoUser?(
+    input: Omit<HostSsoProfile, 'timestamp'>,
+  ): Promise<{ user: AuthUser; role: AuthRole; tenant: AuthTenant }>;
   createUser(input: CreateUserInput): Promise<AuthUser>;
   updateUserFromHostSso(
     userId: string,
@@ -73,6 +92,9 @@ export type AuthServiceErrorCode =
   | 'INVALID_HOST_USER_ID'
   | 'USER_DISABLED'
   | 'ADMIN_ROLE_NOT_FOUND'
+  | 'ADMIN_ROLE_NOT_ALLOWED'
+  | 'TENANT_MISMATCH'
+  | 'TENANT_SUSPENDED'
   | 'USER_NOT_FOUND'
   | 'ROLE_NOT_FOUND';
 
@@ -137,6 +159,7 @@ export function hashInviteCode(code: string): string {
 function identityFrom(user: AuthUser, role: AuthRole, authSource: SessionIdentity['authSource']) {
   return {
     userId: user.id,
+    tenantId: user.tenantId ?? role.tenantId ?? 'legacy-tenant',
     roleId: role.id,
     roleCode: role.code,
     isAdmin: role.isAdmin,
@@ -168,6 +191,8 @@ function hostSsoSigningText(payload: HostSsoProfile): string {
     hostUserId: payload.hostUserId,
     displayName: payload.displayName,
     phone: payload.phone,
+    companyId: payload.companyId,
+    companyName: payload.companyName,
     timestamp: payload.timestamp,
   });
 }
@@ -224,8 +249,12 @@ export function createAuthService(repository: AuthRepository) {
       const role = await repository.findRoleById(inviteCode.roleId);
       if (!role) throw new AuthServiceError('INVITE_ROLE_NOT_FOUND');
       if (role.isAdmin) throw new AuthServiceError('INVITE_ROLE_NOT_ALLOWED');
+      if (role.tenantId && inviteCode.tenantId && role.tenantId !== inviteCode.tenantId) {
+        throw new AuthServiceError('INVITE_ROLE_NOT_ALLOWED');
+      }
 
       const user = await repository.createUser({
+        tenantId: inviteCode.tenantId ?? role.tenantId ?? 'legacy-tenant',
         phone,
         passwordHash: await hashPassword(input.password),
         roleId: role.id,
@@ -252,11 +281,32 @@ export function createAuthService(repository: AuthRepository) {
       const hostUserId = input.hostUserId.trim();
       const displayName = normalizeDisplayName(input.displayName);
       const phone = normalizePhone(input.phone);
+      const companyId = input.companyId.trim();
+      const companyName = input.companyName.trim();
       if (!hostUserId || hostUserId.length > 128) {
         throw new AuthServiceError('INVALID_HOST_USER_ID');
       }
       assertValidHostDisplayName(displayName);
       assertValidPhone(phone);
+      if (!companyId || companyId.length > 128 || !companyName || companyName.length > 128) {
+        throw new AuthServiceError('INVALID_HOST_USER_ID');
+      }
+
+      if (repository.provisionHostSsoUser) {
+        const record = await repository.provisionHostSsoUser({
+          hostUserId,
+          displayName,
+          phone,
+          companyId,
+          companyName,
+        });
+        if (record.tenant.status !== 'active') throw new AuthServiceError('TENANT_SUSPENDED');
+        return {
+          user: record.user,
+          role: record.role,
+          identity: identityFrom(record.user, record.role, 'host-sso'),
+        };
+      }
 
       let user = await repository.findUserByHostUserId(hostUserId);
       if (user && user.status !== 'active') throw new AuthServiceError('USER_DISABLED');
@@ -270,6 +320,7 @@ export function createAuthService(repository: AuthRepository) {
 
       if (!user) {
         user = await repository.createUser({
+          tenantId: role.tenantId ?? 'legacy-tenant',
           hostUserId,
           phone,
           roleId: role.id,
@@ -287,6 +338,9 @@ export function createAuthService(repository: AuthRepository) {
       const record = await repository.findUserWithRoleById(userId);
       if (!record) throw new AuthServiceError('USER_NOT_FOUND');
       if (record.user.status !== 'active') throw new AuthServiceError('USER_DISABLED');
+      if (record.tenant && record.tenant.status !== 'active') {
+        throw new AuthServiceError('TENANT_SUSPENDED');
+      }
       return {
         user: record.user,
         role: record.role,
@@ -299,15 +353,36 @@ export function createAuthService(repository: AuthRepository) {
       return records.map(toPublicUser);
     },
 
-    async updateUserRole(input: { userId: string; roleId: string }): Promise<AuthResult> {
+    async updateUserRole(input: {
+      userId: string;
+      roleId: string;
+      actorTenantId?: string;
+    }): Promise<AuthResult> {
+      const target = await repository.findUserWithRoleById(input.userId);
+      if (!target || (input.actorTenantId && target.user.tenantId !== input.actorTenantId)) {
+        throw new AuthServiceError('USER_NOT_FOUND');
+      }
       const role = await repository.findRoleById(input.roleId);
-      if (!role) throw new AuthServiceError('ROLE_NOT_FOUND');
+      if (!role || (input.actorTenantId && role.tenantId !== input.actorTenantId)) {
+        throw new AuthServiceError('ROLE_NOT_FOUND');
+      }
+      if (input.actorTenantId && role.isAdmin) {
+        throw new AuthServiceError('ADMIN_ROLE_NOT_ALLOWED');
+      }
       const user = await repository.updateUserRole(input.userId, role.id);
       if (!user) throw new AuthServiceError('USER_NOT_FOUND');
       return { user, role, identity: identityFrom(user, role, 'password') };
     },
 
-    async deleteUser(userId: string): Promise<AuthUser> {
+    async deleteUser(userId: string, actorTenantId?: string): Promise<AuthUser> {
+      const target = await repository.findUserWithRoleById(userId);
+      if (
+        !target ||
+        (actorTenantId && target.user.tenantId !== actorTenantId) ||
+        (actorTenantId && target.role.isAdmin)
+      ) {
+        throw new AuthServiceError('USER_NOT_FOUND');
+      }
       const user = await repository.deleteUser(userId);
       if (!user) throw new AuthServiceError('USER_NOT_FOUND');
       return user;

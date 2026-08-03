@@ -1,4 +1,5 @@
 import { requireCurrentAdmin } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
   adminManagementErrorResponse,
@@ -18,7 +19,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
   try {
     const { id } = await context.params;
-    const user = await getAdminManagementService().updateUserStatus({
+    const user = await getAdminManagementService(
+      toTenantAccessContext(admin.identity),
+    ).updateUserStatus({
       userId: id,
       currentUserId: admin.user.id,
       status: body.status,

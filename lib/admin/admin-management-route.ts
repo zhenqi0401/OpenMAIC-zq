@@ -4,11 +4,12 @@ import { getEnterpriseService } from '@/lib/storage/enterprise-route-utils';
 import { getAdminDataRepository } from '@/lib/admin/admin-data-repository';
 import { AdminManagementError, createAdminManagementService } from '@/lib/admin/admin-management';
 import { AdminQueryError } from '@/lib/admin/admin-query';
+import type { TenantAccessContext } from '@/lib/auth/types';
 
-export function getAdminManagementService() {
+export function getAdminManagementService(access?: TenantAccessContext) {
   return createAdminManagementService({
-    repository: getAdminDataRepository(),
-    enterprise: getEnterpriseService(),
+    repository: getAdminDataRepository(access?.tenantId),
+    enterprise: getEnterpriseService(access),
     flags: () => ({ forum: isForumEnabled(), danmaku: isDanmakuEnabled() }),
   });
 }

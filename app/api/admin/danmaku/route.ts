@@ -30,6 +30,7 @@ export async function GET(request: Request) {
     const limit = parseDanmakuLimit(search.get('limit'));
     const rows = await getDanmakuService().listAdmin({
       courseId: search.get('courseId') || undefined,
+      tenantId: admin.identity.tenantId,
       sceneKey: search.get('sceneKey') || undefined,
       authorId: search.get('authorId') || undefined,
       status: (status as DanmakuStatus | null) ?? undefined,

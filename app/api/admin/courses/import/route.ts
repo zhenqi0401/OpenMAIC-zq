@@ -1,4 +1,5 @@
 import { requireCurrentAdmin } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import {
   ENTERPRISE_COURSE_IMPORT_LIMITS,
   EnterpriseCourseImportError,
@@ -36,11 +37,14 @@ export async function POST(request: Request) {
 
   try {
     const prepared = await parseEnterpriseCourseZip(new Uint8Array(await file.arrayBuffer()));
-    const result = await getEnterpriseService().importEnterpriseCourse({
-      ...prepared,
-      categoryId: categoryId.trim(),
-      createdBy: admin.user.id,
-    });
+    const result = await getEnterpriseService().importEnterpriseCourse(
+      {
+        ...prepared,
+        categoryId: categoryId.trim(),
+        createdBy: admin.user.id,
+      },
+      toTenantAccessContext(admin.identity),
+    );
     return apiSuccess({ course: result.course, warnings: result.warnings }, 201);
   } catch (error) {
     if (error instanceof EnterpriseCourseImportError) {

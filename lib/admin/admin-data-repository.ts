@@ -107,8 +107,11 @@ function toUserRow(record: { user: typeof users.$inferSelect; role: typeof roles
 }
 
 export class AdminDataRepository {
+  constructor(private readonly tenantId?: string) {}
+
   async queryUsers(input: AdminUserQuery) {
     const where = and(
+      this.tenantId ? eq(users.tenantId, this.tenantId) : undefined,
       input.q
         ? or(
             ilike(users.displayName, `%${input.q}%`),
@@ -145,14 +148,24 @@ export class AdminDataRepository {
       await tx
         .select({ id: roles.id })
         .from(roles)
-        .where(eq(roles.isAdmin, true))
+        .where(
+          and(
+            eq(roles.isAdmin, true),
+            this.tenantId ? eq(roles.tenantId, this.tenantId) : undefined,
+          ),
+        )
         .orderBy(asc(roles.id))
         .for('update');
       const [record] = await tx
         .select({ user: users, role: roles })
         .from(users)
         .innerJoin(roles, eq(users.roleId, roles.id))
-        .where(eq(users.id, input.userId))
+        .where(
+          and(
+            eq(users.id, input.userId),
+            this.tenantId ? eq(users.tenantId, this.tenantId) : undefined,
+          ),
+        )
         .for('update')
         .limit(1);
       if (!record) return { outcome: 'not_found' } as const;
@@ -164,13 +177,24 @@ export class AdminDataRepository {
           .select({ value: count() })
           .from(users)
           .innerJoin(roles, eq(users.roleId, roles.id))
-          .where(and(eq(users.status, 'active'), eq(roles.isAdmin, true)));
+          .where(
+            and(
+              eq(users.status, 'active'),
+              eq(roles.isAdmin, true),
+              this.tenantId ? eq(users.tenantId, this.tenantId) : undefined,
+            ),
+          );
         if ((activeAdmin?.value ?? 0) <= 1) return { outcome: 'last_admin' } as const;
       }
       const [updated] = await tx
         .update(users)
         .set({ status: input.status, updatedAt: new Date() })
-        .where(eq(users.id, input.userId))
+        .where(
+          and(
+            eq(users.id, input.userId),
+            this.tenantId ? eq(users.tenantId, this.tenantId) : undefined,
+          ),
+        )
         .returning();
       return { outcome: 'updated', user: toUserRow({ user: updated, role: record.role }) } as const;
     });
@@ -186,7 +210,16 @@ export class AdminDataRepository {
         sceneOrder: courseScenes.sceneOrder,
       })
       .from(courseScenes)
-      .where(and(inArray(courseScenes.courseId, courseIds), eq(courseScenes.type, 'slide')))
+      .innerJoin(courses, eq(courseScenes.courseId, courses.id))
+      .where(
+        and(
+          inArray(courseScenes.courseId, courseIds),
+          eq(courseScenes.type, 'slide'),
+          this.tenantId
+            ? or(eq(courses.scope, 'platform'), eq(courses.tenantId, this.tenantId))
+            : undefined,
+        ),
+      )
       .orderBy(asc(courseScenes.courseId), asc(courseScenes.sceneOrder), asc(courseScenes.id));
     const firstByCourse = new Map<string, AdminCoursePreview>();
     for (const row of rows) {
@@ -209,6 +242,14 @@ export class AdminDataRepository {
       const current = await tx
         .select({ id: courseCategories.id })
         .from(courseCategories)
+        .where(
+          this.tenantId
+            ? and(
+                eq(courseCategories.scope, 'tenant'),
+                eq(courseCategories.tenantId, this.tenantId),
+              )
+            : undefined,
+        )
         .for('update');
       const currentIds = new Set(current.map((row) => row.id));
       if (
@@ -223,7 +264,12 @@ export class AdminDataRepository {
         await tx
           .update(courseCategories)
           .set({ sortOrder, updatedAt: now })
-          .where(eq(courseCategories.id, id));
+          .where(
+            and(
+              eq(courseCategories.id, id),
+              this.tenantId ? eq(courseCategories.tenantId, this.tenantId) : undefined,
+            ),
+          );
       }
       return true;
     });
@@ -234,7 +280,13 @@ export class AdminDataRepository {
       const [category] = await tx
         .select({ id: courseCategories.id })
         .from(courseCategories)
-        .where(eq(courseCategories.id, id))
+        .where(
+          and(
+            eq(courseCategories.id, id),
+            this.tenantId ? eq(courseCategories.tenantId, this.tenantId) : undefined,
+            this.tenantId ? eq(courseCategories.scope, 'tenant') : undefined,
+          ),
+        )
         .for('update')
         .limit(1);
       if (!category) return 'not_found' as const;
@@ -249,7 +301,10 @@ export class AdminDataRepository {
   }
 
   async getExamAttemptStats(examPolicyId?: string): Promise<ExamAttemptStats> {
-    const where = examPolicyId ? eq(examAttempts.examPolicyId, examPolicyId) : undefined;
+    const where = and(
+      examPolicyId ? eq(examAttempts.examPolicyId, examPolicyId) : undefined,
+      this.tenantId ? eq(examAttempts.tenantId, this.tenantId) : undefined,
+    );
     const [row] = await getDb()
       .select({
         participantCount: countDistinct(examAttempts.userId),
@@ -268,7 +323,10 @@ export class AdminDataRepository {
   }
 
   async queryExamAttempts(input: { examPolicyId: string; page: number; pageSize: number }) {
-    const where = eq(examAttempts.examPolicyId, input.examPolicyId);
+    const where = and(
+      eq(examAttempts.examPolicyId, input.examPolicyId),
+      this.tenantId ? eq(examAttempts.tenantId, this.tenantId) : undefined,
+    );
     const [rows, totalRows] = await Promise.all([
       getDb()
         .select({ attempt: examAttempts, user: users, role: roles })
@@ -303,15 +361,33 @@ export class AdminDataRepository {
       getDb()
         .select({ value: count() })
         .from(forumPosts)
-        .where(and(gte(forumPosts.createdAt, start), lt(forumPosts.createdAt, end))),
+        .where(
+          and(
+            gte(forumPosts.createdAt, start),
+            lt(forumPosts.createdAt, end),
+            this.tenantId ? eq(forumPosts.tenantId, this.tenantId) : undefined,
+          ),
+        ),
       getDb()
         .select({ value: count() })
         .from(forumReplies)
-        .where(and(gte(forumReplies.createdAt, start), lt(forumReplies.createdAt, end))),
+        .where(
+          and(
+            gte(forumReplies.createdAt, start),
+            lt(forumReplies.createdAt, end),
+            this.tenantId ? eq(forumReplies.tenantId, this.tenantId) : undefined,
+          ),
+        ),
       getDb()
         .select({ value: count() })
         .from(courseDanmaku)
-        .where(and(gte(courseDanmaku.createdAt, start), lt(courseDanmaku.createdAt, end))),
+        .where(
+          and(
+            gte(courseDanmaku.createdAt, start),
+            lt(courseDanmaku.createdAt, end),
+            this.tenantId ? eq(courseDanmaku.tenantId, this.tenantId) : undefined,
+          ),
+        ),
       getDb()
         .select({ value: count() })
         .from(communityModerationAudit)
@@ -320,6 +396,7 @@ export class AdminDataRepository {
             gte(communityModerationAudit.createdAt, start),
             lt(communityModerationAudit.createdAt, end),
             inArray(communityModerationAudit.action, moderationActions),
+            this.tenantId ? eq(communityModerationAudit.tenantId, this.tenantId) : undefined,
           ),
         ),
     ]);
@@ -336,15 +413,33 @@ export class AdminDataRepository {
       getDb()
         .select({ createdAt: forumPosts.createdAt })
         .from(forumPosts)
-        .where(and(gte(forumPosts.createdAt, start), lt(forumPosts.createdAt, end))),
+        .where(
+          and(
+            gte(forumPosts.createdAt, start),
+            lt(forumPosts.createdAt, end),
+            this.tenantId ? eq(forumPosts.tenantId, this.tenantId) : undefined,
+          ),
+        ),
       getDb()
         .select({ createdAt: forumReplies.createdAt })
         .from(forumReplies)
-        .where(and(gte(forumReplies.createdAt, start), lt(forumReplies.createdAt, end))),
+        .where(
+          and(
+            gte(forumReplies.createdAt, start),
+            lt(forumReplies.createdAt, end),
+            this.tenantId ? eq(forumReplies.tenantId, this.tenantId) : undefined,
+          ),
+        ),
       getDb()
         .select({ createdAt: courseDanmaku.createdAt })
         .from(courseDanmaku)
-        .where(and(gte(courseDanmaku.createdAt, start), lt(courseDanmaku.createdAt, end))),
+        .where(
+          and(
+            gte(courseDanmaku.createdAt, start),
+            lt(courseDanmaku.createdAt, end),
+            this.tenantId ? eq(courseDanmaku.tenantId, this.tenantId) : undefined,
+          ),
+        ),
     ]);
     return [
       ...postRows.map((row) => ({ type: 'posts' as const, createdAt: row.createdAt })),
@@ -355,7 +450,15 @@ export class AdminDataRepository {
 
   async getConfigurationHealth(now: Date) {
     const [[assignableRoles], [validInvites]] = await Promise.all([
-      getDb().select({ value: count() }).from(roles).where(eq(roles.isAdmin, false)),
+      getDb()
+        .select({ value: count() })
+        .from(roles)
+        .where(
+          and(
+            eq(roles.isAdmin, false),
+            this.tenantId ? eq(roles.tenantId, this.tenantId) : undefined,
+          ),
+        ),
       getDb()
         .select({ value: count() })
         .from(inviteCodes)
@@ -363,6 +466,7 @@ export class AdminDataRepository {
           and(
             eq(inviteCodes.enabled, true),
             or(isNull(inviteCodes.expiresAt), gte(inviteCodes.expiresAt, now)),
+            this.tenantId ? eq(inviteCodes.tenantId, this.tenantId) : undefined,
           ),
         ),
     ]);
@@ -376,7 +480,12 @@ export class AdminDataRepository {
     const [policy] = await getDb()
       .select()
       .from(examPolicies)
-      .where(eq(examPolicies.id, id))
+      .where(
+        and(
+          eq(examPolicies.id, id),
+          this.tenantId ? eq(examPolicies.tenantId, this.tenantId) : undefined,
+        ),
+      )
       .limit(1);
     return policy ?? null;
   }
@@ -384,7 +493,8 @@ export class AdminDataRepository {
 
 let repository: AdminDataRepository | null = null;
 
-export function getAdminDataRepository() {
+export function getAdminDataRepository(tenantId?: string) {
+  if (tenantId) return new AdminDataRepository(tenantId);
   if (!repository) repository = new AdminDataRepository();
   return repository;
 }

@@ -71,6 +71,8 @@ export function getAdminCourseContentStatus(course: EnterpriseCourse): AdminCour
 function courseForList(course: EnterpriseCourse) {
   return {
     id: course.id,
+    scope: course.scope,
+    managementMode: course.managementMode,
     name: course.name,
     description: course.description,
     categoryId: course.categoryId,

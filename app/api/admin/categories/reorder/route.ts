@@ -1,4 +1,5 @@
 import { requireCurrentAdmin } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
   adminManagementErrorResponse,
@@ -17,7 +18,9 @@ export async function PATCH(request: Request) {
     return apiError('INVALID_REQUEST', 400, 'categoryIds must be a string array');
   }
   try {
-    const result = await getAdminManagementService().reorderCategories(body.categoryIds);
+    const result = await getAdminManagementService(
+      toTenantAccessContext(admin.identity),
+    ).reorderCategories(body.categoryIds);
     return apiSuccess(result);
   } catch (error) {
     return adminManagementErrorResponse(error);

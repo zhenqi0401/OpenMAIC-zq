@@ -36,6 +36,8 @@ interface Category {
   id: string;
   name: string;
   sortOrder: number;
+  scope?: 'platform' | 'tenant';
+  managementMode?: 'editable' | 'read_only';
 }
 
 export {

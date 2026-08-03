@@ -1,4 +1,5 @@
 import { requireCurrentAdmin } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
   enterpriseErrorResponse,
@@ -33,10 +34,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   try {
     const { id } = await context.params;
-    const course = await getEnterpriseService().updateCourseVisibility(id, {
-      visibilityMode: body.visibilityMode,
-      visibleRoleIds: body.visibilityMode === 'roles' ? (body.visibleRoleIds ?? []) : [],
-    });
+    const course = await getEnterpriseService().updateCourseVisibility(
+      id,
+      {
+        visibilityMode: body.visibilityMode,
+        visibleRoleIds: body.visibilityMode === 'roles' ? (body.visibleRoleIds ?? []) : [],
+      },
+      toTenantAccessContext(admin.identity),
+    );
     return apiSuccess({ course });
   } catch (error) {
     return enterpriseErrorResponse(error);

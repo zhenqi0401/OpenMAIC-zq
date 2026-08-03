@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await getCommunityAdminRepository().list(filters);
+    const result = await getCommunityAdminRepository(admin.identity.tenantId).list(filters);
     return apiSuccess({
       ...result,
       page: filters.page,

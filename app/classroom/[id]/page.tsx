@@ -39,6 +39,9 @@ export default function ClassroomDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [authoringIdentity, setAuthoringIdentity] = useState<CourseAuthoringIdentity | null>(null);
   const [enterpriseCourseId, setEnterpriseCourseId] = useState<string | null>(null);
+  const [enterpriseCourseScope, setEnterpriseCourseScope] = useState<'platform' | 'tenant' | null>(
+    null,
+  );
 
   const generationStartedRef = useRef(false);
   const generatedCourseIdRef = useRef<string | null>(null);
@@ -169,6 +172,7 @@ export default function ClassroomDetailPage() {
           );
         }
         setEnterpriseCourseId(classroomId);
+        setEnterpriseCourseScope(enterpriseClassroom.scope);
         log.info('Loaded enterprise course from PostgreSQL:', classroomId);
       } else {
         await loadFromStorage(classroomId);
@@ -395,6 +399,11 @@ export default function ClassroomDetailPage() {
     <ThemeProvider>
       <MediaStageProvider value={classroomId}>
         <div className="h-screen flex flex-col overflow-hidden">
+          {enterpriseCourseScope === 'platform' ? (
+            <div className="pointer-events-none fixed right-4 top-4 z-50 rounded-full bg-violet-600 px-3 py-1 text-xs font-semibold text-white shadow-lg">
+              精品课程
+            </div>
+          ) : null}
           {loading ? (
             <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
               <div className="text-center text-muted-foreground">

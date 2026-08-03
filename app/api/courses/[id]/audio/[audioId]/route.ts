@@ -1,4 +1,5 @@
 import { getCurrentAuthResult } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiError } from '@/lib/server/api-response';
 import {
   enterpriseErrorResponse,
@@ -16,9 +17,10 @@ export async function GET(
 
   try {
     const { id, audioId } = await context.params;
+    const access = toTenantAccessContext(current.identity);
     const course = current.identity.isAdmin
-      ? await getEnterpriseService().getCourseContent(id)
-      : await getEnterpriseService().getVisibleCourse(id, current.identity.roleId);
+      ? await getEnterpriseService().getCourseContent(id, access)
+      : await getEnterpriseService().getVisibleCourse(id, access);
     if (!course) return apiError('INVALID_REQUEST', 404, 'Course not found');
     const audio = await getEnterpriseService().getCourseAudioBlob(id, decodeURIComponent(audioId));
     if (!audio) return apiError('INVALID_REQUEST', 404, 'Audio not found');

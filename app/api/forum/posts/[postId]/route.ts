@@ -18,6 +18,7 @@ export async function GET(_request: Request, context: Context) {
     const post = await getForumService().getPost({
       id: postId,
       roleId: current.identity.roleId,
+      tenantId: current.identity.tenantId,
     });
     return apiSuccess({ post });
   } catch (error) {
@@ -39,6 +40,7 @@ export async function PATCH(request: Request, context: Context) {
       id: postId,
       authorId: current.user.id,
       roleId: current.identity.roleId,
+      tenantId: current.identity.tenantId,
       title: body.title,
       body: body.body,
     });
@@ -57,6 +59,7 @@ export async function DELETE(_request: Request, context: Context) {
       id: postId,
       authorId: current.user.id,
       roleId: current.identity.roleId,
+      tenantId: current.identity.tenantId,
     });
     return apiSuccess({ post });
   } catch (error) {

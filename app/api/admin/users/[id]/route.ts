@@ -13,7 +13,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   const { id } = await context.params;
   try {
     const auth = createAuthService(getAuthRepository());
-    const user = await auth.deleteUser(id);
+    const user = await auth.deleteUser(id, admin.identity.tenantId);
     return apiSuccess({ user });
   } catch (error) {
     return authErrorResponse(error);

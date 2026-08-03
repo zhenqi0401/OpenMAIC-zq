@@ -1,4 +1,5 @@
 import { requireCurrentAdmin } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
   enterpriseErrorResponse,
@@ -34,7 +35,9 @@ export async function GET(request: Request) {
       defaultPageSize: 12,
       maxPageSize: 100,
     });
-    const result = await getAdminManagementService().queryCourses({
+    const result = await getAdminManagementService(
+      toTenantAccessContext(admin.identity),
+    ).queryCourses({
       q: parseAdminText(search, 'q'),
       status: parseAdminEnum(
         search,
@@ -70,16 +73,19 @@ export async function POST(request: Request) {
   }
 
   try {
-    const course = await getEnterpriseService().createCourse({
-      name: body.name.trim(),
-      description: body.description ?? null,
-      categoryId: body.categoryId,
-      assessmentQuestions: body.assessmentQuestions,
-      stageSnapshot: body.stageSnapshot,
-      generationStatus: body.generationStatus,
-      generationComplete: body.generationComplete,
-      createdBy: admin.user.id,
-    });
+    const course = await getEnterpriseService().createCourse(
+      {
+        name: body.name.trim(),
+        description: body.description ?? null,
+        categoryId: body.categoryId,
+        assessmentQuestions: body.assessmentQuestions,
+        stageSnapshot: body.stageSnapshot,
+        generationStatus: body.generationStatus,
+        generationComplete: body.generationComplete,
+        createdBy: admin.user.id,
+      },
+      toTenantAccessContext(admin.identity),
+    );
     return apiSuccess({ course }, 201);
   } catch (error) {
     return enterpriseErrorResponse(error);

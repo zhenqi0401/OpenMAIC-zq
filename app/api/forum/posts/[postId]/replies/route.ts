@@ -20,6 +20,7 @@ export async function GET(request: Request, context: Context) {
     const result = await getForumService().listReplies({
       postId,
       roleId: current.identity.roleId,
+      tenantId: current.identity.tenantId,
       ...pagination,
     });
     return apiSuccess({ ...result, ...pagination });
@@ -49,6 +50,7 @@ export async function POST(request: Request, context: Context) {
       postId,
       authorId: current.user.id,
       roleId: current.identity.roleId,
+      tenantId: current.identity.tenantId,
       body: body.body,
       parentReplyId: typeof body.parentReplyId === 'string' ? body.parentReplyId.trim() : null,
     });

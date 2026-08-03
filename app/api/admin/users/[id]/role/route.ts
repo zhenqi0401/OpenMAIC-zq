@@ -21,7 +21,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const { id } = await context.params;
   try {
     const auth = createAuthService(getAuthRepository());
-    const result = await auth.updateUserRole({ userId: id, roleId: body.roleId });
+    const result = await auth.updateUserRole({
+      userId: id,
+      roleId: body.roleId,
+      actorTenantId: admin.identity.tenantId,
+    });
     return apiSuccess({
       user: {
         id: result.user.id,

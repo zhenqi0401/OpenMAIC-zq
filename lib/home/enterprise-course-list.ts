@@ -11,6 +11,7 @@ export type LocalHomeCourse = StageListItem & {
 
 export type EnterpriseHomeCourse = StageListItem & {
   source: 'enterprise';
+  scope?: 'platform' | 'tenant';
   categoryId: string;
   categoryName: string | null;
   learnerCount: number;
@@ -56,6 +57,7 @@ interface EnterpriseCourseListResponse {
     createdAt?: unknown;
     updatedAt?: unknown;
     generationComplete?: unknown;
+    scope?: unknown;
     learnerCount?: unknown;
     sceneCount?: unknown;
   }>;
@@ -119,6 +121,9 @@ export async function loadEnterpriseHomeCatalog(
         createdAt: toTimestamp(course.createdAt),
         updatedAt: toTimestamp(course.updatedAt),
         source: 'enterprise' as const,
+        ...(course.scope === 'platform' || course.scope === 'tenant'
+          ? { scope: course.scope }
+          : {}),
         learnerCount:
           typeof course.learnerCount === 'number' && Number.isFinite(course.learnerCount)
             ? Math.max(0, Math.trunc(course.learnerCount))

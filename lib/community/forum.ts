@@ -72,6 +72,7 @@ export interface ForumReply {
 export interface ForumRepository {
   listPosts(input: {
     roleId: string;
+    tenantId?: string;
     authorId?: string;
     scope?: ForumScope;
     courseId?: string;
@@ -168,13 +169,14 @@ function redactUnavailableReply(reply: ForumReply): ForumReply {
 function assertCourseVisible(
   content: Awaited<ReturnType<Pick<EnterpriseRepository, 'getCourseContent'>['getCourseContent']>>,
   roleId: string,
+  tenantId?: string,
 ) {
   if (!content || content.course.status !== 'published') {
     throw new ForumServiceError('NOT_FOUND', 'Course not found');
   }
   if (
-    content.course.visibilityMode === 'roles' &&
-    !content.course.visibleRoleIds.includes(roleId)
+    (tenantId && content.course.scope !== 'platform' && content.course.tenantId !== tenantId) ||
+    (content.course.visibilityMode === 'roles' && !content.course.visibleRoleIds.includes(roleId))
   ) {
     throw new ForumServiceError('NOT_FOUND', 'Course not found');
   }
@@ -219,11 +221,11 @@ export function createForumService(
     }
   }
 
-  async function assertPostAccess(post: ForumPost, roleId: string) {
+  async function assertPostAccess(post: ForumPost, roleId: string, tenantId?: string) {
     assertPublicPost(post);
     if (post.scope === 'course') {
       if (!post.courseId) throw new ForumServiceError('NOT_FOUND', 'Post not found');
-      await assertCourseVisible(await courses.getCourseContent(post.courseId), roleId);
+      await assertCourseVisible(await courses.getCourseContent(post.courseId), roleId, tenantId);
     }
     return post;
   }
@@ -234,15 +236,16 @@ export function createForumService(
       return { ...result, items: result.items.map(redactDeletedPost) };
     },
 
-    async getPost(input: { id: string; roleId: string }) {
+    async getPost(input: { id: string; roleId: string; tenantId?: string }) {
       const post = await repository.getPost(input.id);
       if (!post) throw new ForumServiceError('NOT_FOUND', 'Post not found');
-      return redactDeletedPost(await assertPostAccess(post, input.roleId));
+      return redactDeletedPost(await assertPostAccess(post, input.roleId, input.tenantId));
     },
 
     async createPost(input: {
       authorId: string;
       roleId: string;
+      tenantId?: string;
       scope: ForumScope;
       courseId?: string | null;
       title: string;
@@ -257,7 +260,11 @@ export function createForumService(
       }
       if (input.scope === 'course') {
         if (!courseId) throw new ForumServiceError('INVALID_REQUEST', 'courseId is required');
-        await assertCourseVisible(await courses.getCourseContent(courseId), input.roleId);
+        await assertCourseVisible(
+          await courses.getCourseContent(courseId),
+          input.roleId,
+          input.tenantId,
+        );
       }
       const title = normalizeRequired(input.title, 'title', FORUM_TITLE_MAX_LENGTH);
       const body = normalizeRequired(input.body, 'body', FORUM_POST_MAX_LENGTH);
@@ -275,12 +282,13 @@ export function createForumService(
       id: string;
       authorId: string;
       roleId: string;
+      tenantId?: string;
       title: string;
       body: string;
     }) {
       const post = await repository.getPost(input.id);
       if (!post) throw new ForumServiceError('NOT_FOUND', 'Post not found');
-      await assertPostAccess(post, input.roleId);
+      await assertPostAccess(post, input.roleId, input.tenantId);
       if (post.authorId !== input.authorId) {
         throw new ForumServiceError('FORBIDDEN', 'Only the author can edit this post');
       }
@@ -294,10 +302,15 @@ export function createForumService(
       return updated;
     },
 
-    async deleteOwnPost(input: { id: string; authorId: string; roleId: string }) {
+    async deleteOwnPost(input: {
+      id: string;
+      authorId: string;
+      roleId: string;
+      tenantId?: string;
+    }) {
       const post = await repository.getPost(input.id);
       if (!post) throw new ForumServiceError('NOT_FOUND', 'Post not found');
-      await assertPostAccess(post, input.roleId);
+      await assertPostAccess(post, input.roleId, input.tenantId);
       if (post.authorId !== input.authorId) {
         throw new ForumServiceError('FORBIDDEN', 'Only the author can delete this post');
       }
@@ -306,10 +319,16 @@ export function createForumService(
       return deleted;
     },
 
-    async listReplies(input: { postId: string; roleId: string; page: number; pageSize: number }) {
+    async listReplies(input: {
+      postId: string;
+      roleId: string;
+      tenantId?: string;
+      page: number;
+      pageSize: number;
+    }) {
       const post = await repository.getPost(input.postId);
       if (!post) throw new ForumServiceError('NOT_FOUND', 'Post not found');
-      await assertPostAccess(post, input.roleId);
+      await assertPostAccess(post, input.roleId, input.tenantId);
       const result = await repository.listReplies(input);
       return { ...result, items: result.items.map(redactUnavailableReply) };
     },
@@ -318,12 +337,13 @@ export function createForumService(
       postId: string;
       authorId: string;
       roleId: string;
+      tenantId?: string;
       body: string;
       parentReplyId?: string | null;
     }) {
       const post = await repository.getPost(input.postId);
       if (!post) throw new ForumServiceError('NOT_FOUND', 'Post not found');
-      await assertPostAccess(post, input.roleId);
+      await assertPostAccess(post, input.roleId, input.tenantId);
       if (post.locked) throw new ForumServiceError('CONFLICT', 'Post is closed to new replies');
       if (post.status !== 'visible') {
         throw new ForumServiceError('CONFLICT', 'Deleted posts cannot receive new replies');
@@ -361,12 +381,18 @@ export function createForumService(
       });
     },
 
-    async updateOwnReply(input: { id: string; authorId: string; roleId: string; body: string }) {
+    async updateOwnReply(input: {
+      id: string;
+      authorId: string;
+      roleId: string;
+      tenantId?: string;
+      body: string;
+    }) {
       const reply = await repository.getReply(input.id);
       if (!reply) throw new ForumServiceError('NOT_FOUND', 'Reply not found');
       const post = await repository.getPost(reply.postId);
       if (!post) throw new ForumServiceError('NOT_FOUND', 'Post not found');
-      await assertPostAccess(post, input.roleId);
+      await assertPostAccess(post, input.roleId, input.tenantId);
       if (reply.authorId !== input.authorId) {
         throw new ForumServiceError('FORBIDDEN', 'Only the author can edit this reply');
       }
@@ -379,12 +405,17 @@ export function createForumService(
       return updated;
     },
 
-    async deleteOwnReply(input: { id: string; authorId: string; roleId: string }) {
+    async deleteOwnReply(input: {
+      id: string;
+      authorId: string;
+      roleId: string;
+      tenantId?: string;
+    }) {
       const reply = await repository.getReply(input.id);
       if (!reply) throw new ForumServiceError('NOT_FOUND', 'Reply not found');
       const post = await repository.getPost(reply.postId);
       if (!post) throw new ForumServiceError('NOT_FOUND', 'Post not found');
-      await assertPostAccess(post, input.roleId);
+      await assertPostAccess(post, input.roleId, input.tenantId);
       if (reply.authorId !== input.authorId) {
         throw new ForumServiceError('FORBIDDEN', 'Only the author can delete this reply');
       }

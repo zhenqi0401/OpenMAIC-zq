@@ -22,6 +22,7 @@ export async function PATCH(request: Request, context: Context) {
       id: replyId,
       authorId: current.user.id,
       roleId: current.identity.roleId,
+      tenantId: current.identity.tenantId,
       body: body.body,
     });
     return apiSuccess({ reply });
@@ -39,6 +40,7 @@ export async function DELETE(_request: Request, context: Context) {
       id: replyId,
       authorId: current.user.id,
       roleId: current.identity.roleId,
+      tenantId: current.identity.tenantId,
     });
     return apiSuccess({ reply });
   } catch (error) {

@@ -28,6 +28,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       courseId: id,
       userId: current.user.id,
       roleId: current.identity.roleId,
+      tenantId: current.identity.tenantId,
     });
     return apiSuccess({ progress });
   } catch (error) {

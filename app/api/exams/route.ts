@@ -1,4 +1,5 @@
 import { getCurrentAuthResult } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
   enterpriseErrorResponse,
@@ -12,7 +13,9 @@ export async function GET() {
   if (!current) return apiError('INVALID_REQUEST', 401, 'OpenMAIC session required');
 
   try {
-    const exams = await getEnterpriseService().listAvailableExams(current.identity.roleId);
+    const exams = await getEnterpriseService(
+      toTenantAccessContext(current.identity),
+    ).listAvailableExams(current.identity.roleId);
     return apiSuccess({ exams });
   } catch (error) {
     return enterpriseErrorResponse(error);

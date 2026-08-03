@@ -1,4 +1,5 @@
 import { requireCurrentAdmin } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
   enterpriseErrorResponse,
@@ -24,6 +25,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   try {
     const { id } = await context.params;
+    const access = toTenantAccessContext(admin.identity);
+    const visible = await getEnterpriseService().getCourseContent(id, access);
+    if (!visible) return apiError('INVALID_REQUEST', 404, 'Course not found');
+    if (visible.course.managementMode === 'read_only') {
+      return apiError('INVALID_REQUEST', 403, '平台精品课程只读');
+    }
     const course = await getEnterpriseService().updateCourseAssessmentQuestions(id, body.questions);
     return apiSuccess({ course });
   } catch (error) {

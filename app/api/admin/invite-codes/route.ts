@@ -1,4 +1,5 @@
 import { requireCurrentAdmin } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
   enterpriseErrorResponse,
@@ -22,7 +23,9 @@ export async function GET() {
   if (admin instanceof Response) return admin;
 
   try {
-    const inviteCodes = await getEnterpriseService().listInviteCodes();
+    const inviteCodes = await getEnterpriseService().listInviteCodes(
+      toTenantAccessContext(admin.identity),
+    );
     return apiSuccess({ inviteCodes });
   } catch (error) {
     return enterpriseErrorResponse(error);
@@ -45,13 +48,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    const inviteCode = await getEnterpriseService().createInviteCode({
-      code: body.code.trim(),
-      roleId: body.roleId,
-      enabled: body.enabled,
-      expiresAt,
-      createdBy: admin.user.id,
-    });
+    const inviteCode = await getEnterpriseService().createInviteCode(
+      {
+        code: body.code.trim(),
+        roleId: body.roleId,
+        enabled: body.enabled,
+        expiresAt,
+        createdBy: admin.user.id,
+      },
+      toTenantAccessContext(admin.identity),
+    );
     return apiSuccess({ inviteCode }, 201);
   } catch (error) {
     return enterpriseErrorResponse(error);

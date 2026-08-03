@@ -16,6 +16,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const assessment = await getEnterpriseService().getCourseAssessment({
       courseId: id,
       userId: current.user.id,
+      tenantId: current.identity.tenantId,
       roleId: current.identity.roleId,
       allowUnpublished: current.identity.isAdmin,
     });

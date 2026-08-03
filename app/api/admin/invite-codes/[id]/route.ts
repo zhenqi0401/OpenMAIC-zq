@@ -1,4 +1,5 @@
 import { requireCurrentAdmin } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
   enterpriseErrorResponse,
@@ -29,11 +30,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   try {
     const { id } = await context.params;
-    const inviteCode = await getEnterpriseService().updateInviteCode(id, {
-      roleId: body.roleId,
-      enabled: body.enabled,
-      ...(expiresAt !== undefined ? { expiresAt } : {}),
-    });
+    const inviteCode = await getEnterpriseService().updateInviteCode(
+      id,
+      {
+        roleId: body.roleId,
+        enabled: body.enabled,
+        ...(expiresAt !== undefined ? { expiresAt } : {}),
+      },
+      toTenantAccessContext(admin.identity),
+    );
     return apiSuccess({ inviteCode });
   } catch (error) {
     return enterpriseErrorResponse(error);
@@ -46,7 +51,10 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
 
   try {
     const { id } = await context.params;
-    const inviteCode = await getEnterpriseService().deleteInviteCode(id);
+    const inviteCode = await getEnterpriseService().deleteInviteCode(
+      id,
+      toTenantAccessContext(admin.identity),
+    );
     return apiSuccess({ inviteCode });
   } catch (error) {
     return enterpriseErrorResponse(error);

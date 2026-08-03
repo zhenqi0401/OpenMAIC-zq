@@ -13,6 +13,7 @@ interface CourseDetailPayload {
     name?: unknown;
     description?: unknown;
     generationComplete?: unknown;
+    scope?: unknown;
   };
   stage?: unknown;
   scenes?: unknown[];
@@ -27,6 +28,7 @@ interface CourseDetailPayload {
 }
 
 export interface EnterpriseClassroomData {
+  scope: 'platform' | 'tenant';
   stage: Stage;
   scenes: Scene[];
   currentSceneId: string | null;
@@ -114,6 +116,7 @@ export async function loadEnterpriseClassroom(
     });
 
   return {
+    scope: course.scope === 'platform' ? 'platform' : 'tenant',
     stage,
     scenes,
     currentSceneId: scenes[0]?.id ?? null,

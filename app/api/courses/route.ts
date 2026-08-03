@@ -1,4 +1,5 @@
 import { getCurrentAuthResult } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { isCoursePopularityEnabled } from '@/lib/config/feature-flags';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
@@ -23,8 +24,8 @@ export async function GET(request: Request) {
   try {
     const service = getEnterpriseService();
     const [courses, categories] = await Promise.all([
-      service.listVisibleCourses(current.identity.roleId, requestedSort),
-      service.listCategories(),
+      service.listVisibleCourses(toTenantAccessContext(current.identity), requestedSort),
+      service.listCategories(toTenantAccessContext(current.identity)),
     ]);
     return apiSuccess({ courses, categories });
   } catch (error) {

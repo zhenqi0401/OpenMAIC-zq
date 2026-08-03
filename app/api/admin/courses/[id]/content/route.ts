@@ -1,4 +1,5 @@
 import { requireCurrentAdmin } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
   enterpriseErrorResponse,
@@ -22,7 +23,10 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
   try {
     const { id } = await context.params;
-    const content = await getEnterpriseService().getCourseContent(id);
+    const content = await getEnterpriseService().getCourseContent(
+      id,
+      toTenantAccessContext(admin.identity),
+    );
     if (!content) return apiError('INVALID_REQUEST', 404, 'Course not found');
     return apiSuccess({ content });
   } catch (error) {
@@ -42,13 +46,17 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   try {
     const { id } = await context.params;
-    const content = await getEnterpriseService().replaceCourseContent(id, {
-      scenes: body.scenes,
-      outlines: body.outlines,
-      stage: body.stage,
-      generationStatus: body.generationStatus,
-      generationComplete: body.generationComplete,
-    });
+    const content = await getEnterpriseService().replaceCourseContent(
+      id,
+      {
+        scenes: body.scenes,
+        outlines: body.outlines,
+        stage: body.stage,
+        generationStatus: body.generationStatus,
+        generationComplete: body.generationComplete,
+      },
+      toTenantAccessContext(admin.identity),
+    );
     return apiSuccess({ content });
   } catch (error) {
     return enterpriseErrorResponse(error);

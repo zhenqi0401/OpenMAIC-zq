@@ -1,4 +1,5 @@
 import { getCurrentAuthResult } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
   enterpriseErrorResponse,
@@ -13,10 +14,12 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
 
   try {
     const { id } = await context.params;
-    const exam = await getEnterpriseService().startStageExam({
-      examPolicyId: id,
-      roleId: current.identity.roleId,
-    });
+    const exam = await getEnterpriseService(toTenantAccessContext(current.identity)).startStageExam(
+      {
+        examPolicyId: id,
+        roleId: current.identity.roleId,
+      },
+    );
     return apiSuccess({ exam });
   } catch (error) {
     return enterpriseErrorResponse(error);

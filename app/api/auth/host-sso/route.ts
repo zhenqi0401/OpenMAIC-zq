@@ -1,10 +1,6 @@
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { getAuthRepository } from '@/lib/auth/repository';
-import {
-  createAuthService,
-  verifyHostSsoSignature,
-  type HostSsoProfile,
-} from '@/lib/auth/service';
+import { createAuthService, verifyHostSsoSignature, type HostSsoProfile } from '@/lib/auth/service';
 import { readJsonBody, authErrorResponse } from '@/lib/auth/route-utils';
 import { setSessionCookie } from '@/lib/auth/session-cookie';
 
@@ -21,12 +17,14 @@ export async function POST(request: Request) {
     typeof body.hostUserId !== 'string' ||
     typeof body.displayName !== 'string' ||
     typeof body.phone !== 'string' ||
+    typeof body.companyId !== 'string' ||
+    typeof body.companyName !== 'string' ||
     typeof body.timestamp !== 'number'
   ) {
     return apiError(
       'MISSING_REQUIRED_FIELD',
       400,
-      'hostUserId, displayName, phone and timestamp are required',
+      'hostUserId, displayName, phone, companyId, companyName and timestamp are required',
     );
   }
   if (!Number.isSafeInteger(body.timestamp)) {
@@ -37,6 +35,8 @@ export async function POST(request: Request) {
     hostUserId: body.hostUserId,
     displayName: body.displayName,
     phone: body.phone,
+    companyId: body.companyId,
+    companyName: body.companyName,
     timestamp: body.timestamp,
   };
 

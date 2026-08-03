@@ -15,6 +15,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
       courseId,
       authorId: current.user.id,
       roleId: current.identity.roleId,
+      tenantId: current.identity.tenantId,
     });
     return apiSuccess({ danmaku });
   } catch (error) {

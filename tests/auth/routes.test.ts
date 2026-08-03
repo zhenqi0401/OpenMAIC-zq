@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => ({
   repository: null as AuthRepository | null,
 }));
 
+const tenantId = 'tenant-a';
+
 vi.mock('next/headers', () => ({
   cookies: async () => mocks.cookieStore,
 }));
@@ -67,6 +69,7 @@ vi.mock('@/lib/admin/admin-data-repository', () => ({
 
 const adminRole: AuthRole = {
   id: 'role-admin',
+  tenantId,
   code: 'admin',
   name: 'Administrator',
   isAdmin: true,
@@ -74,6 +77,7 @@ const adminRole: AuthRole = {
 
 const learnerRole: AuthRole = {
   id: 'role-learner',
+  tenantId,
   code: 'learner',
   name: 'Learner',
   isAdmin: false,
@@ -85,9 +89,10 @@ function makeRepo(): AuthRepository & { users: AuthUser[] } {
   const inviteCodes = [
     {
       codeHash: hashInviteCode('LEARN-2026'),
+      tenantId,
       roleId: learnerRole.id,
       enabled: true,
-      expiresAt: new Date('2026-08-01T00:00:00Z'),
+      expiresAt: new Date('2027-08-01T00:00:00Z'),
     },
   ];
 
@@ -103,7 +108,19 @@ function makeRepo(): AuthRepository & { users: AuthUser[] } {
       const user = users.find((candidate) => candidate.id === userId);
       if (!user) return null;
       const role = roles.find((candidate) => candidate.id === user.roleId);
-      return role ? { user, role } : null;
+      return role
+        ? {
+            user,
+            role,
+            tenant: {
+              id: tenantId,
+              companyId: 'company-a',
+              name: 'Company A',
+              type: 'company' as const,
+              status: 'active' as const,
+            },
+          }
+        : null;
     },
     async findRoleById(roleId) {
       return roles.find((role) => role.id === roleId) ?? null;
@@ -117,6 +134,7 @@ function makeRepo(): AuthRepository & { users: AuthUser[] } {
     async createUser(input) {
       const user: AuthUser = {
         id: `user-${users.length + 1}`,
+        tenantId: input.tenantId,
         phone: input.phone ?? null,
         passwordHash: input.passwordHash ?? null,
         hostUserId: input.hostUserId ?? null,
@@ -264,6 +282,8 @@ describe('Slice-07 auth routes', () => {
   test('POST /api/auth/host-sso requires a valid host signature and creates an admin session', async () => {
     const body = {
       hostUserId: 'host-admin-1',
+      companyId: 'company-a',
+      companyName: 'Company A',
       displayName: '宿主管理员',
       phone: '13800138000',
       timestamp: Math.floor(Date.now() / 1000),
@@ -308,6 +328,7 @@ describe('Slice-07 auth routes', () => {
     repo.users.push(
       {
         id: 'admin-1',
+        tenantId,
         phone: null,
         passwordHash: null,
         hostUserId: 'host-admin-1',
@@ -317,6 +338,7 @@ describe('Slice-07 auth routes', () => {
       },
       {
         id: 'learner-1',
+        tenantId,
         phone: '13800138000',
         passwordHash: null,
         hostUserId: null,
@@ -326,6 +348,7 @@ describe('Slice-07 auth routes', () => {
       },
       {
         id: 'learner-2',
+        tenantId,
         phone: '13800138001',
         passwordHash: null,
         hostUserId: null,
@@ -338,6 +361,7 @@ describe('Slice-07 auth routes', () => {
       value: createSessionToken(
         {
           userId: 'admin-1',
+          tenantId,
           roleId: adminRole.id,
           roleCode: 'admin',
           isAdmin: true,
@@ -357,9 +381,7 @@ describe('Slice-07 auth routes', () => {
       { roleId: adminRole.id },
       { params: Promise.resolve({ id: 'learner-1' }) },
     );
-    const updateJson = await updateResponse.json();
-    expect(updateResponse.status).toBe(200);
-    expect(updateJson.user.role.code).toBe('admin');
+    expect(updateResponse.status).toBe(403);
 
     const deleteResponse = await deleteRoute('@/app/api/admin/users/[id]/route', {
       params: Promise.resolve({ id: 'learner-1' }),
@@ -373,6 +395,7 @@ describe('Slice-07 auth routes', () => {
       value: createSessionToken(
         {
           userId: 'learner-2',
+          tenantId,
           roleId: learnerRole.id,
           roleCode: 'learner',
           isAdmin: false,

@@ -1,5 +1,6 @@
 import { apiSuccess } from '@/lib/server/api-response';
 import { requireCurrentAdmin } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import {
   adminManagementErrorResponse,
   getAdminManagementService,
@@ -18,7 +19,9 @@ export async function GET(request: Request) {
       defaultPageSize: 20,
       maxPageSize: 100,
     });
-    const result = await getAdminManagementService().queryUsers({
+    const result = await getAdminManagementService(
+      toTenantAccessContext(admin.identity),
+    ).queryUsers({
       q: parseAdminText(search, 'q'),
       roleId: parseAdminText(search, 'roleId'),
       status: parseAdminEnum(search, 'status', ['all', 'active', 'disabled'] as const, 'all'),

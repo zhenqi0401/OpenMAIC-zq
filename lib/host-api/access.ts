@@ -2,6 +2,7 @@ import { canUseHostApiKey, verifyHostApiSecret } from '@/lib/security/host-api-k
 
 export interface StoredHostApiKey {
   keyId: string;
+  tenantId?: string;
   secretHash: string;
   enabled: boolean;
 }

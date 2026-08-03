@@ -92,6 +92,7 @@ export interface DanmakuRepository {
     authorId: string;
   }): Promise<DanmakuRecord | null>;
   listAdmin(input: {
+    tenantId?: string;
     courseId?: string;
     sceneKey?: string;
     authorId?: string;
@@ -250,8 +251,12 @@ export function createDanmakuService(
   now: () => Date = () => new Date(),
   rateLimiter?: CommunityRateLimiter,
 ) {
-  async function getVisibleCourse(courseId: string, roleId: string) {
-    return assertPublishedCourseVisible(await courses.getCourseContent(courseId), roleId);
+  async function getVisibleCourse(courseId: string, roleId: string, tenantId?: string) {
+    const content = assertPublishedCourseVisible(await courses.getCourseContent(courseId), roleId);
+    if (tenantId && content.course.scope !== 'platform' && content.course.tenantId !== tenantId) {
+      throw new DanmakuServiceError('NOT_FOUND', 'Course not found');
+    }
+    return content;
   }
 
   return {
@@ -259,10 +264,11 @@ export function createDanmakuService(
       courseId: string;
       sceneKey: string;
       roleId: string;
+      tenantId?: string;
       after?: DanmakuCursor;
       limit: number;
     }) {
-      const content = await getVisibleCourse(input.courseId, input.roleId);
+      const content = await getVisibleCourse(input.courseId, input.roleId, input.tenantId);
       const scene = findScene(content, input.sceneKey);
       if (!scene) {
         throw new DanmakuServiceError('NOT_FOUND', 'Scene not found');
@@ -282,6 +288,7 @@ export function createDanmakuService(
       actionOffsetMs: number;
       authorId: string;
       roleId: string;
+      tenantId?: string;
       content: string;
       inputSource?: DanmakuInputSource;
       clientRequestId?: string;
@@ -309,7 +316,7 @@ export function createDanmakuService(
         throw new DanmakuServiceError('INVALID_REQUEST', 'Idempotency key is too long');
       }
 
-      const course = await getVisibleCourse(input.courseId, input.roleId);
+      const course = await getVisibleCourse(input.courseId, input.roleId, input.tenantId);
       const scene = findScene(course, input.sceneKey);
       if (!scene)
         throw new DanmakuServiceError('INVALID_REQUEST', 'Scene does not belong to course');
@@ -389,14 +396,20 @@ export function createDanmakuService(
       }
     },
 
-    async deleteOwn(input: { id: string; courseId: string; authorId: string; roleId: string }) {
-      await getVisibleCourse(input.courseId, input.roleId);
+    async deleteOwn(input: {
+      id: string;
+      courseId: string;
+      authorId: string;
+      roleId: string;
+      tenantId?: string;
+    }) {
+      await getVisibleCourse(input.courseId, input.roleId, input.tenantId);
       const deleted = await repository.softDeleteByAuthor(input);
       if (!deleted) throw new DanmakuServiceError('NOT_FOUND', 'Danmaku not found');
       return toPublicDanmaku(deleted);
     },
 
-    listAdmin: (input: Parameters<DanmakuRepository['listAdmin']>[0]) =>
+    listAdmin: (input: Parameters<DanmakuRepository['listAdmin']>[0] & { tenantId?: string }) =>
       repository.listAdmin(input),
 
     async moderate(input: {

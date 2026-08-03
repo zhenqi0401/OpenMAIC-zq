@@ -1,4 +1,5 @@
 import { requireCurrentAdmin } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiSuccess } from '@/lib/server/api-response';
 import {
   enterpriseErrorResponse,
@@ -13,7 +14,9 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
 
   try {
     const { id } = await context.params;
-    const examPolicy = await getEnterpriseService().publishExamPolicy(id);
+    const examPolicy = await getEnterpriseService(
+      toTenantAccessContext(admin.identity),
+    ).publishExamPolicy(id);
     return apiSuccess({ examPolicy });
   } catch (error) {
     return enterpriseErrorResponse(error);

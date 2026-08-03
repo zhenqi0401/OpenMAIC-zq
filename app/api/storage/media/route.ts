@@ -1,4 +1,5 @@
 import { requireCurrentAdmin } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
   enterpriseErrorResponse,
@@ -29,10 +30,13 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   try {
-    const mediaFiles = await getEnterpriseService().listMediaFiles({
-      courseId: url.searchParams.get('courseId') ?? undefined,
-      sceneId: url.searchParams.get('sceneId') ?? undefined,
-    });
+    const mediaFiles = await getEnterpriseService().listMediaFiles(
+      {
+        courseId: url.searchParams.get('courseId') ?? undefined,
+        sceneId: url.searchParams.get('sceneId') ?? undefined,
+      },
+      toTenantAccessContext(admin.identity),
+    );
     return apiSuccess({ mediaFiles });
   } catch (error) {
     return enterpriseErrorResponse(error);
@@ -45,26 +49,33 @@ export async function POST(request: Request) {
 
   const body = await readJsonBody<MediaBody>(request);
   if (!body) return apiError('INVALID_REQUEST', 400, 'Invalid JSON body');
-  if (!requiredString(body.mediaType) || !requiredString(body.mediaId) || !requiredString(body.base64)) {
+  if (
+    !requiredString(body.mediaType) ||
+    !requiredString(body.mediaId) ||
+    !requiredString(body.base64)
+  ) {
     return apiError('MISSING_REQUIRED_FIELD', 400, 'mediaType, mediaId and base64 are required');
   }
 
   try {
     const blob = Buffer.from(body.base64, 'base64');
     const posterBlob = body.posterBase64 ? Buffer.from(body.posterBase64, 'base64') : null;
-    const mediaFile = await getEnterpriseService().createMediaFile({
-      courseId: body.courseId ?? null,
-      sceneId: body.sceneId ?? null,
-      sceneKey: body.sceneKey ?? null,
-      mediaId: body.mediaId,
-      mediaType: body.mediaType,
-      mimeType: body.mimeType ?? null,
-      sizeBytes: body.sizeBytes ?? blob.byteLength,
-      prompt: body.prompt ?? null,
-      params: body.params ?? null,
-      blob,
-      posterBlob,
-    });
+    const mediaFile = await getEnterpriseService().createMediaFile(
+      {
+        courseId: body.courseId ?? null,
+        sceneId: body.sceneId ?? null,
+        sceneKey: body.sceneKey ?? null,
+        mediaId: body.mediaId,
+        mediaType: body.mediaType,
+        mimeType: body.mimeType ?? null,
+        sizeBytes: body.sizeBytes ?? blob.byteLength,
+        prompt: body.prompt ?? null,
+        params: body.params ?? null,
+        blob,
+        posterBlob,
+      },
+      toTenantAccessContext(admin.identity),
+    );
     return apiSuccess({ mediaFile }, 201);
   } catch (error) {
     return enterpriseErrorResponse(error);

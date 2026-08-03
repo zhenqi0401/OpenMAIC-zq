@@ -1,4 +1,5 @@
 import { requireCurrentAdmin } from '@/lib/auth/current-session';
+import { toTenantAccessContext } from '@/lib/auth/types';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import {
   enterpriseErrorResponse,
@@ -19,7 +20,9 @@ export async function GET() {
   if (admin instanceof Response) return admin;
 
   try {
-    const categories = await getEnterpriseService().listCategories();
+    const categories = await getEnterpriseService().listCategories(
+      toTenantAccessContext(admin.identity),
+    );
     return apiSuccess({ categories });
   } catch (error) {
     return enterpriseErrorResponse(error);
@@ -37,10 +40,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    const category = await getEnterpriseService().createCategory({
-      name: body.name.trim(),
-      sortOrder: body.sortOrder,
-    });
+    const category = await getEnterpriseService().createCategory(
+      {
+        name: body.name.trim(),
+        sortOrder: body.sortOrder,
+      },
+      toTenantAccessContext(admin.identity),
+    );
     return apiSuccess({ category }, 201);
   } catch (error) {
     return enterpriseErrorResponse(error);

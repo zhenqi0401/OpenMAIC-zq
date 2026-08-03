@@ -35,6 +35,8 @@ export interface DashboardSummary {
 }
 
 export interface HostQueryFilters {
+  /** Server-derived from the authenticated host API key; never accepted from request input. */
+  tenantId?: string;
   courseId?: string;
   roleId?: string;
   userId?: string;

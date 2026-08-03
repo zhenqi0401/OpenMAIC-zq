@@ -31,6 +31,7 @@ export async function GET(request: Request) {
     const pagination = parseForumPagination(search);
     const result = await getForumService().listPosts({
       roleId: current.identity.roleId,
+      tenantId: current.identity.tenantId,
       authorId: search.get('mine') === 'true' ? current.user.id : undefined,
       scope: (scope as ForumScope | null) ?? undefined,
       courseId: search.get('courseId') || undefined,
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
     const post = await getForumService().createPost({
       authorId: current.user.id,
       roleId: current.identity.roleId,
+      tenantId: current.identity.tenantId,
       scope: body.scope,
       courseId: body.courseId as string | null | undefined,
       title: body.title,

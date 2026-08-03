@@ -20,6 +20,11 @@ const communityPopularityMigrationSql = readFileSync(
   'utf8',
 );
 
+const tenantMigrationSql = readFileSync(
+  resolve(__dirname, '../../drizzle/0008_tenant_platform_courses.sql'),
+  'utf8',
+);
+
 const seedSql = readFileSync(resolve(__dirname, '../../drizzle/seed.sql'), 'utf8');
 
 describe('Slice-00 database foundation SQL', () => {
@@ -40,6 +45,8 @@ describe('Slice-00 database foundation SQL', () => {
     expect(getTableName(schema.examPolicyCourses)).toBe('exam_policy_courses');
     expect(getTableName(schema.examAttempts)).toBe('exam_attempts');
     expect(getTableName(schema.hostApiKeys)).toBe('host_api_keys');
+    expect(getTableName(schema.tenants)).toBe('tenants');
+    expect(getTableName(schema.platformAuditLog)).toBe('platform_audit_log');
     expect(getTableColumns(schema.courseProgress)).toMatchObject({
       startedAt: expect.any(Object),
       lastViewedAt: expect.any(Object),
@@ -48,7 +55,7 @@ describe('Slice-00 database foundation SQL', () => {
 
   test('creates every enterprise foundation table', () => {
     for (const table of schema.enterpriseTableNames) {
-      expect(migrationSql).toContain(`CREATE TABLE "${table}"`);
+      expect(`${migrationSql}\n${tenantMigrationSql}`).toContain(`CREATE TABLE "${table}"`);
     }
   });
 

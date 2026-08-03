@@ -114,6 +114,13 @@ export class DrizzleForumRepository implements ForumRepository {
         and(eq(forumPosts.status, 'deleted_by_author'), gt(forumPosts.replyCount, 0)),
       ),
       courseAccessClause(input.roleId),
+      input.tenantId
+        ? or(
+            eq(forumPosts.scope, 'global'),
+            eq(courses.scope, 'platform'),
+            eq(courses.tenantId, input.tenantId),
+          )
+        : undefined,
       input.authorId ? eq(forumPosts.authorId, input.authorId) : undefined,
       input.scope ? eq(forumPosts.scope, input.scope) : undefined,
       input.courseId ? eq(forumPosts.courseId, input.courseId) : undefined,
@@ -144,9 +151,15 @@ export class DrizzleForumRepository implements ForumRepository {
 
   async createPost(input: Parameters<ForumRepository['createPost']>[0]) {
     const now = new Date();
+    const [author] = await getDb()
+      .select({ tenantId: users.tenantId })
+      .from(users)
+      .where(eq(users.id, input.authorId))
+      .limit(1);
+    if (!author) throw new Error('Forum post author not found');
     const [row] = await getDb()
       .insert(forumPosts)
-      .values({ ...input, lastActivityAt: now })
+      .values({ ...input, tenantId: author.tenantId, lastActivityAt: now })
       .returning({ id: forumPosts.id });
     return (await loadPost(row.id))!;
   }
@@ -239,9 +252,15 @@ export class DrizzleForumRepository implements ForumRepository {
   async createReply(input: Parameters<ForumRepository['createReply']>[0]) {
     const id = await runDbTransaction<string>(async (tx) => {
       const now = new Date();
+      const [author] = await tx
+        .select({ tenantId: users.tenantId })
+        .from(users)
+        .where(eq(users.id, input.authorId))
+        .limit(1);
+      if (!author) throw new Error('Forum reply author not found');
       const [reply] = await tx
         .insert(forumReplies)
-        .values(input)
+        .values({ ...input, tenantId: author.tenantId })
         .returning({ id: forumReplies.id });
       await tx
         .update(forumPosts)
@@ -298,6 +317,13 @@ export class DrizzleForumRepository implements ForumRepository {
   async moderatePost(input: Parameters<ForumRepository['moderatePost']>[0]) {
     const id = await runDbTransaction<string | null>(async (tx) => {
       const now = new Date();
+      const [ownership] = await tx
+        .select({ moderatorTenantId: users.tenantId, authorTenantId: forumPosts.tenantId })
+        .from(users)
+        .innerJoin(forumPosts, eq(forumPosts.id, input.id))
+        .where(eq(users.id, input.adminId))
+        .limit(1);
+      if (!ownership || ownership.moderatorTenantId !== ownership.authorTenantId) return null;
       const statePatch =
         input.action === 'hide'
           ? { status: 'hidden' }
@@ -333,6 +359,7 @@ export class DrizzleForumRepository implements ForumRepository {
         .returning({ id: forumPosts.id });
       if (!row) return null;
       await tx.insert(communityModerationAudit).values({
+        tenantId: ownership.moderatorTenantId,
         moderatorId: input.adminId,
         targetType: 'forum_post',
         targetId: row.id,
@@ -348,6 +375,13 @@ export class DrizzleForumRepository implements ForumRepository {
   async moderateReply(input: Parameters<ForumRepository['moderateReply']>[0]) {
     const id = await runDbTransaction<string | null>(async (tx) => {
       const now = new Date();
+      const [ownership] = await tx
+        .select({ moderatorTenantId: users.tenantId, authorTenantId: forumReplies.tenantId })
+        .from(users)
+        .innerJoin(forumReplies, eq(forumReplies.id, input.id))
+        .where(eq(users.id, input.adminId))
+        .limit(1);
+      if (!ownership || ownership.moderatorTenantId !== ownership.authorTenantId) return null;
       const [reply] = await tx
         .update(forumReplies)
         .set({
@@ -377,6 +411,7 @@ export class DrizzleForumRepository implements ForumRepository {
         .returning({ id: forumReplies.id, postId: forumReplies.postId });
       if (!reply) return null;
       await tx.insert(communityModerationAudit).values({
+        tenantId: ownership.moderatorTenantId,
         moderatorId: input.adminId,
         targetType: 'forum_reply',
         targetId: reply.id,

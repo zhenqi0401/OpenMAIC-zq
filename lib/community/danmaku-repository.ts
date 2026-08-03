@@ -86,9 +86,16 @@ export class DrizzleDanmakuRepository implements DanmakuRepository {
   }
 
   async create(input: Parameters<DanmakuRepository['create']>[0]) {
+    const [author] = await getDb()
+      .select({ tenantId: users.tenantId })
+      .from(users)
+      .where(eq(users.id, input.authorId))
+      .limit(1);
+    if (!author) throw new Error('Danmaku author not found');
     const [row] = await getDb()
       .insert(courseDanmaku)
       .values({
+        tenantId: author.tenantId,
         courseId: input.courseId,
         sceneKey: input.sceneKey,
         actionId: input.actionId,
@@ -128,6 +135,7 @@ export class DrizzleDanmakuRepository implements DanmakuRepository {
       .where(
         and(
           input.courseId ? eq(courseDanmaku.courseId, input.courseId) : undefined,
+          input.tenantId ? eq(courseDanmaku.tenantId, input.tenantId) : undefined,
           input.sceneKey ? eq(courseDanmaku.sceneKey, input.sceneKey) : undefined,
           input.authorId ? eq(courseDanmaku.authorId, input.authorId) : undefined,
           input.status ? eq(courseDanmaku.status, input.status) : undefined,
@@ -151,6 +159,13 @@ export class DrizzleDanmakuRepository implements DanmakuRepository {
   async moderate(input: Parameters<DanmakuRepository['moderate']>[0]) {
     const id = await runDbTransaction<string | null>(async (tx) => {
       const now = new Date();
+      const [ownership] = await tx
+        .select({ moderatorTenantId: users.tenantId, authorTenantId: courseDanmaku.tenantId })
+        .from(users)
+        .innerJoin(courseDanmaku, eq(courseDanmaku.id, input.id))
+        .where(eq(users.id, input.adminId))
+        .limit(1);
+      if (!ownership || ownership.moderatorTenantId !== ownership.authorTenantId) return null;
       const status =
         input.action === 'hide'
           ? 'hidden'
@@ -177,6 +192,7 @@ export class DrizzleDanmakuRepository implements DanmakuRepository {
         .returning({ id: courseDanmaku.id });
       if (!row) return null;
       await tx.insert(communityModerationAudit).values({
+        tenantId: ownership.moderatorTenantId,
         moderatorId: input.adminId,
         targetType: 'danmaku',
         targetId: row.id,
