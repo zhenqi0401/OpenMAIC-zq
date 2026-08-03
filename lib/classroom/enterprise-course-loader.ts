@@ -18,6 +18,12 @@ interface CourseDetailPayload {
   scenes?: unknown[];
   outlines?: unknown[];
   audioManifest?: Array<{ audioId?: unknown; url?: unknown }>;
+  mediaManifest?: Array<{
+    mediaId?: unknown;
+    url?: unknown;
+    type?: unknown;
+    posterUrl?: unknown;
+  }>;
 }
 
 export interface EnterpriseClassroomData {
@@ -26,6 +32,12 @@ export interface EnterpriseClassroomData {
   currentSceneId: string | null;
   outlines: SceneOutline[];
   generationComplete: boolean;
+  mediaManifest: Array<{
+    mediaId: string;
+    url: string;
+    type: 'image' | 'video';
+    posterUrl?: string;
+  }>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -108,5 +120,18 @@ export async function loadEnterpriseClassroom(
     outlines: (Array.isArray(data.outlines) ? data.outlines : []) as SceneOutline[],
     generationComplete:
       typeof course.generationComplete === 'boolean' ? course.generationComplete : true,
+    mediaManifest: (Array.isArray(data.mediaManifest) ? data.mediaManifest : [])
+      .filter(
+        (item) =>
+          typeof item.mediaId === 'string' &&
+          typeof item.url === 'string' &&
+          (item.type === 'image' || item.type === 'video'),
+      )
+      .map((item) => ({
+        mediaId: item.mediaId as string,
+        url: item.url as string,
+        type: item.type as 'image' | 'video',
+        ...(typeof item.posterUrl === 'string' ? { posterUrl: item.posterUrl } : {}),
+      })),
   };
 }

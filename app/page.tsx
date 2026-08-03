@@ -51,7 +51,6 @@ import {
 } from '@/lib/utils/stage-storage';
 import {
   loadHomeCourses,
-  shouldPersistImportedClassroom,
   type HomeCourse,
   type HomeCourseCategory,
 } from '@/lib/home/enterprise-course-list';
@@ -62,16 +61,15 @@ import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDraftCache } from '@/lib/hooks/use-draft-cache';
 import { SpeechButton } from '@/components/audio/speech-button';
-import { useImportClassroom } from '@/lib/import/use-import-classroom';
 import { shouldShowVocationalTestUi } from '@/lib/config/feature-flags';
 import { useImportPptx } from '@/lib/import/use-import-pptx';
 import { shouldShowAdminEntry } from '@/lib/auth/route-policy';
 import type { SessionIdentity } from '@/lib/auth/types';
 import type { EnterpriseCategory } from '@/lib/storage/enterprise-service';
 import { logoutCurrentSession } from '@/lib/auth/logout-client';
-import { persistImportedClassroomToEnterprise } from '@/lib/authoring/course-draft';
 import { LearnerHome } from '@/components/home/LearnerHome';
 import { BrandLockup } from '@/components/brand/BrandLockup';
+import { EnterpriseCourseImportDialog } from '@/components/admin/courses/EnterpriseCourseImportDialog';
 
 const log = createLogger('Home');
 
@@ -139,7 +137,6 @@ function HomePage() {
   };
 
   // Hydrate client-only state after mount (avoids SSR mismatch)
-  /* eslint-disable react-hooks/set-state-in-effect -- Hydration from localStorage must happen in effect */
   useEffect(() => {
     try {
       const saved = localStorage.getItem(RECENT_OPEN_STORAGE_KEY);
@@ -160,7 +157,6 @@ function HomePage() {
       /* localStorage unavailable */
     }
   }, []);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     let cancelled = false;
@@ -215,14 +211,12 @@ function HomePage() {
   // render the comparison was always equal and the restore never fired. Use an effect
   // so the cache is hydrated into the form once we know the live requirement is empty.
   const draftRestoredRef = useRef(false);
-  /* eslint-disable react-hooks/set-state-in-effect -- Hydration from localStorage must happen in effect */
   useEffect(() => {
     if (draftRestoredRef.current) return;
     if (!cachedRequirement) return;
     draftRestoredRef.current = true;
     setForm((prev) => (prev.requirement ? prev : { ...prev, requirement: cachedRequirement }));
   }, [cachedRequirement]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const [themeOpen, setThemeOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -231,6 +225,7 @@ function HomePage() {
   const [thumbnails, setThumbnails] = useState<Record<string, Slide>>({});
   const [coursesLoading, setCoursesLoading] = useState(true);
   const [coursesError, setCoursesError] = useState<string | null>(null);
+  const [enterpriseImportOpen, setEnterpriseImportOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -263,7 +258,7 @@ function HomePage() {
     setCoursesLoading(true);
     setCoursesError(null);
     try {
-      const result = await loadHomeCourses();
+      const result = await loadHomeCourses(undefined, identity?.isAdmin === true);
       setClassrooms(result.courses);
       setLearnerCategories(result.categories);
       replaceThumbnails(result.thumbnails);
@@ -274,21 +269,6 @@ function HomePage() {
       setCoursesLoading(false);
     }
   };
-
-  const { importing, fileInputRef, triggerFileSelect, handleFileChange } = useImportClassroom({
-    onImported: shouldPersistImportedClassroom(identity, form.categoryId)
-      ? async (payload) => {
-          await persistImportedClassroomToEnterprise(fetch, {
-            stage: payload.stage,
-            scenes: payload.scenes,
-            categoryId: form.categoryId,
-          });
-        }
-      : undefined,
-    onSuccess: () => {
-      loadClassrooms();
-    },
-  });
 
   const {
     importing: pptxImporting,
@@ -304,14 +284,15 @@ function HomePage() {
     useMediaGenerationStore.getState().revokeObjectUrls();
     useMediaGenerationStore.setState({ tasks: {} });
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Store hydration on mount
     loadClassrooms();
 
     return () => {
       revokeThumbnailSlideMediaUrls(thumbnailsRef.current);
       thumbnailsRef.current = {};
     };
-  }, []);
+    // Reload only when the role changes; loadClassrooms intentionally closes over the current identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [identity?.isAdmin]);
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -515,41 +496,29 @@ function HomePage() {
 
   if (!identity.isAdmin) {
     return (
-      <>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".zip"
-          onChange={handleFileChange}
-          className="hidden"
-        />
-        <LearnerHome
-          identity={identity}
-          courses={classrooms}
-          categories={learnerCategories}
-          thumbnails={thumbnails}
-          loading={coursesLoading}
-          error={coursesError}
-          importing={importing}
-          onImport={triggerFileSelect}
-          onRetry={loadClassrooms}
-          onOpenCourse={(id) => router.push(`/classroom/${id}`)}
-          onRenameCourse={handleRename}
-          onDeleteCourse={confirmDelete}
-          onLogout={handleLogout}
-        />
-      </>
+      <LearnerHome
+        identity={identity}
+        courses={classrooms}
+        categories={learnerCategories}
+        thumbnails={thumbnails}
+        loading={coursesLoading}
+        error={coursesError}
+        onRetry={loadClassrooms}
+        onOpenCourse={(id) => router.push(`/classroom/${id}`)}
+        onRenameCourse={handleRename}
+        onDeleteCourse={confirmDelete}
+        onLogout={handleLogout}
+      />
     );
   }
 
   return (
     <div className="min-h-[100dvh] w-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex flex-col items-center p-4 pt-16 md:p-8 md:pt-16 overflow-x-hidden">
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".zip"
-        onChange={handleFileChange}
-        className="hidden"
+      <EnterpriseCourseImportDialog
+        categories={courseCategories}
+        onImported={loadClassrooms}
+        onOpenChange={setEnterpriseImportOpen}
+        open={enterpriseImportOpen}
       />
       {PPTX_IMPORT_ENABLED && (
         <input
@@ -967,8 +936,7 @@ function HomePage() {
         {classrooms.length === 0 && (
           <div className="relative z-10 mt-4 flex items-center gap-4">
             <button
-              onClick={triggerFileSelect}
-              disabled={importing}
+              onClick={() => setEnterpriseImportOpen(true)}
               className="flex items-center gap-1.5 text-[12px] text-muted-foreground/40 hover:text-foreground/60 transition-colors"
             >
               <Upload className="size-3.5" />
@@ -1098,8 +1066,7 @@ function HomePage() {
               </AnimatePresence>
 
               <button
-                onClick={triggerFileSelect}
-                disabled={importing}
+                onClick={() => setEnterpriseImportOpen(true)}
                 className="group/import grid grid-cols-[auto_0fr] hover:grid-cols-[auto_1fr] items-center gap-1 rounded-full px-1.5 py-0.5 text-[12px] text-muted-foreground/35 hover:text-muted-foreground/70 hover:bg-muted/50 transition-all duration-200 cursor-pointer"
               >
                 <Upload className="size-3" />

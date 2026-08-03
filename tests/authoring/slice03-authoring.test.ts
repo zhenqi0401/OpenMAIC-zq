@@ -6,7 +6,6 @@ import {
   createGeneratedCourseDraft,
   generatedCourseClassroomPath,
   applyCourseTitleToGeneratedStage,
-  persistImportedClassroomToEnterprise,
   persistGeneratedCourseDraft,
   regenerateGeneratedCourseAssessment,
   replaceGeneratedCourseDraftContent,
@@ -197,33 +196,6 @@ describe('Slice-03 authoring helpers', () => {
       },
       generationStatus: 'generating',
       generationComplete: false,
-    });
-  });
-
-  test('persists an imported classroom as a complete PostgreSQL course for admins', async () => {
-    const calls: Array<{ url: string; init?: RequestInit }> = [];
-    const fetcher = async (url: string, init?: RequestInit) => {
-      calls.push({ url, init });
-      if (url === '/api/admin/courses') {
-        return Response.json({ success: true, course: { id: 'course-imported' } });
-      }
-      return Response.json({ success: true, content: { courseId: 'course-imported' } });
-    };
-
-    await expect(
-      persistImportedClassroomToEnterprise(fetcher, {
-        stage: { id: 'stage-imported', name: 'Imported Classroom', description: null },
-        categoryId: 'cat-sales',
-        scenes: [{ id: 'scene-1', title: 'Intro' }],
-      }),
-    ).resolves.toMatchObject({ course: { id: 'course-imported' } });
-
-    expect(JSON.parse(calls[1].init?.body as string)).toEqual({
-      scenes: [{ id: 'scene-1', title: 'Intro' }],
-      outlines: [{ id: 'scene-1', title: 'Intro', order: 0, type: 'slide' }],
-      stage: { id: 'stage-imported', name: 'Imported Classroom', description: null },
-      generationStatus: 'ready',
-      generationComplete: true,
     });
   });
 

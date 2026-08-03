@@ -1,6 +1,5 @@
 import type { Slide } from '@openmaic/dsl';
 import { getFirstSlideByStages, listStages, type StageListItem } from '@/lib/utils/stage-storage';
-import type { SessionIdentity } from '@/lib/auth/types';
 
 export type HomeCourseSource = 'enterprise' | 'local';
 export type HomeCourseFilter = 'all' | HomeCourseSource;
@@ -68,6 +67,7 @@ interface EnterpriseCourseListResponse {
 }
 
 interface EnterpriseCourseContentResponse {
+  content?: EnterpriseCourseContentResponse;
   scenes?: Array<{
     content?: {
       type?: unknown;
@@ -141,6 +141,30 @@ export async function loadEnterpriseHomeCatalog(
   };
 }
 
+export async function loadAdminEnterpriseHomeCatalog(
+  fetcher: FetchLike = (url) => fetch(url),
+): Promise<EnterpriseHomeCatalog> {
+  return loadEnterpriseHomeCatalog(async () => {
+    const [coursesResponse, categoriesResponse] = await Promise.all([
+      fetcher('/api/admin/courses?page=1&pageSize=100'),
+      fetcher('/api/admin/categories'),
+    ]);
+    if (!coursesResponse.ok || !categoriesResponse.ok) {
+      return Response.json({ error: '课程加载失败' }, { status: 500 });
+    }
+    const courseData = (await coursesResponse.json().catch(() => ({}))) as {
+      items?: EnterpriseCourseListResponse['courses'];
+    };
+    const categoryData = (await categoriesResponse.json().catch(() => ({}))) as {
+      categories?: EnterpriseCourseListResponse['categories'];
+    };
+    return Response.json({
+      courses: courseData.items ?? [],
+      categories: categoryData.categories ?? [],
+    });
+  });
+}
+
 export function isLocalHomeCourse(course: HomeCourse): course is LocalHomeCourse {
   return course.source === 'local';
 }
@@ -204,13 +228,6 @@ export function changeHomeCourseCategory(
   };
 }
 
-export function shouldPersistImportedClassroom(
-  identity: SessionIdentity | null,
-  categoryId: string,
-): boolean {
-  return identity?.isAdmin === true && categoryId.trim().length > 0;
-}
-
 export async function loadEnterpriseHomeCourseThumbnails(
   courses: Array<{ id: string }>,
   fetcher: FetchLike = (url) => fetch(url),
@@ -218,10 +235,14 @@ export async function loadEnterpriseHomeCourseThumbnails(
   const thumbnails: Record<string, Slide> = {};
   await Promise.all(
     courses.map(async (course) => {
-      const response = await fetcher(`/api/courses/${encodeURIComponent(course.id)}`);
+      let response = await fetcher(`/api/courses/${encodeURIComponent(course.id)}`);
+      if (!response.ok) {
+        response = await fetcher(`/api/admin/courses/${encodeURIComponent(course.id)}/content`);
+      }
       if (!response.ok) return;
       const data = (await response.json().catch(() => ({}))) as EnterpriseCourseContentResponse;
-      const scenes = Array.isArray(data.scenes) ? data.scenes : [];
+      const payload = data.content ?? data;
+      const scenes = Array.isArray(payload.scenes) ? payload.scenes : [];
       const firstSlide = scenes.find((scene) => scene.content?.type === 'slide');
       const canvas = firstSlide?.content?.canvas;
       if (canvas && typeof canvas === 'object') {
@@ -238,10 +259,11 @@ export async function loadHomeCourses(
     loadEnterpriseCatalog: () => loadEnterpriseHomeCatalog(),
     getFirstSlides: getFirstSlideByStages,
   },
+  includeAdminDrafts = false,
 ): Promise<HomeCourseLoadResult> {
   const [localCourses, enterpriseCatalog] = await Promise.all([
     loaders.listLocalStages(),
-    loaders.loadEnterpriseCatalog(),
+    includeAdminDrafts ? loadAdminEnterpriseHomeCatalog() : loaders.loadEnterpriseCatalog(),
   ]);
   const enterpriseCourses = enterpriseCatalog.courses;
   const sourcedLocalCourses: LocalHomeCourse[] = localCourses.map((course) => ({

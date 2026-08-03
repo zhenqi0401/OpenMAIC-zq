@@ -31,6 +31,10 @@ import {
   type StageExamAttemptDetail,
   type StageExamQuestionRef,
 } from '@/lib/exams/stage-exam';
+import type {
+  EnterpriseCourseImportResult,
+  PreparedEnterpriseCourseImport,
+} from '@/lib/import/enterprise-course-import';
 
 export type CourseStatus = 'draft' | 'published' | 'archived';
 export type CourseVisibilityMode = 'all' | 'roles';
@@ -232,6 +236,7 @@ export interface EnterpriseMediaFile {
   sizeBytes: number | null;
   prompt: string | null;
   params: unknown;
+  hasPoster?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -263,6 +268,7 @@ export interface EnterpriseMediaManifestItem {
   type: 'image' | 'video';
   mimeType: string | null;
   sizeBytes: number | null;
+  posterUrl?: string;
 }
 
 export interface EnterpriseAudioManifestItem {
@@ -343,6 +349,9 @@ export interface EnterpriseRepository {
 
   listAdminCourses(filters?: HostQueryFilters): Promise<EnterpriseCourse[]>;
   createCourse(input: CreateCourseInput): Promise<EnterpriseCourse>;
+  importEnterpriseCourse?(
+    input: PreparedEnterpriseCourseImport & { categoryId: string; createdBy?: string | null },
+  ): Promise<EnterpriseCourse>;
   updateCourse(
     id: string,
     patch: { name?: string; description?: string | null; categoryId?: string },
@@ -412,7 +421,11 @@ export interface EnterpriseRepository {
 
   createMediaFile(input: CreateMediaFileInput): Promise<EnterpriseMediaFile>;
   listMediaFiles(filters?: { courseId?: string; sceneId?: string }): Promise<EnterpriseMediaFile[]>;
-  getMediaFileBlob(courseId: string, mediaId: string): Promise<EnterpriseMediaBlob | null>;
+  getMediaFileBlob(
+    courseId: string,
+    mediaId: string,
+    variant?: 'media' | 'poster',
+  ): Promise<EnterpriseMediaBlob | null>;
   createCourseAudioBlob(input: CreateCourseAudioBlobInput): Promise<EnterpriseAudioBlob>;
   listCourseAudioBlobs(courseId: string): Promise<EnterpriseAudioBlob[]>;
   getCourseAudioBlob(courseId: string, audioId: string): Promise<EnterpriseAudioBlob | null>;
@@ -501,6 +514,11 @@ function buildMediaManifest(courseId: string, mediaFiles: EnterpriseMediaFile[])
       type: media.mediaType,
       mimeType: media.mimeType,
       sizeBytes: media.sizeBytes,
+      ...(media.hasPoster
+        ? {
+            posterUrl: `/api/courses/${courseId}/media/${encodeURIComponent(media.mediaId)}?poster=1`,
+          }
+        : {}),
     }));
 }
 
@@ -642,6 +660,24 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
 
     listAdminCourses: (filters?: HostQueryFilters) => repository.listAdminCourses(filters),
     createCourse: (input: CreateCourseInput) => repository.createCourse(input),
+    importEnterpriseCourse: async (
+      input: PreparedEnterpriseCourseImport & { categoryId: string; createdBy?: string | null },
+    ): Promise<EnterpriseCourseImportResult<EnterpriseCourse>> => {
+      if (!repository.importEnterpriseCourse) {
+        throw new EnterpriseStorageServiceError(
+          'STORAGE_UNAVAILABLE',
+          'Enterprise course import is unavailable',
+        );
+      }
+      const categoryExists = (await repository.listCategories()).some(
+        (category) => category.id === input.categoryId,
+      );
+      if (!categoryExists) {
+        throw new EnterpriseStorageServiceError('INVALID_REQUEST', 'Course category not found');
+      }
+      const course = await repository.importEnterpriseCourse(input);
+      return { course, warnings: input.warnings };
+    },
     updateCourse: async (
       id: string,
       patch: { name?: string; description?: string | null; categoryId?: string },
@@ -898,8 +934,8 @@ export function createEnterpriseStorageService(repository: EnterpriseRepository)
     createMediaFile: (input: CreateMediaFileInput) => repository.createMediaFile(input),
     listMediaFiles: (filters?: { courseId?: string; sceneId?: string }) =>
       repository.listMediaFiles(filters),
-    getMediaFileBlob: (courseId: string, mediaId: string) =>
-      repository.getMediaFileBlob(courseId, mediaId),
+    getMediaFileBlob: (courseId: string, mediaId: string, variant?: 'media' | 'poster') =>
+      repository.getMediaFileBlob(courseId, mediaId, variant),
     createCourseAudioBlob: (input: CreateCourseAudioBlobInput) =>
       repository.createCourseAudioBlob(input),
     listCourseAudioBlobs: (courseId: string) => repository.listCourseAudioBlobs(courseId),

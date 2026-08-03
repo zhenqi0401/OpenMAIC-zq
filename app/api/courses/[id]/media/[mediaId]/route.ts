@@ -8,7 +8,7 @@ import {
 export const dynamic = 'force-dynamic';
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string; mediaId: string }> },
 ) {
   const current = await getCurrentAuthResult();
@@ -20,7 +20,12 @@ export async function GET(
       ? await getEnterpriseService().getCourseContent(id)
       : await getEnterpriseService().getVisibleCourse(id, current.identity.roleId);
     if (!course) return apiError('INVALID_REQUEST', 404, 'Course not found');
-    const media = await getEnterpriseService().getMediaFileBlob(id, decodeURIComponent(mediaId));
+    const variant = new URL(request.url).searchParams.get('poster') === '1' ? 'poster' : 'media';
+    const media = await getEnterpriseService().getMediaFileBlob(
+      id,
+      decodeURIComponent(mediaId),
+      variant,
+    );
     if (!media) return apiError('INVALID_REQUEST', 404, 'Media not found');
     return new Response(new Uint8Array(media.blob), {
       headers: {

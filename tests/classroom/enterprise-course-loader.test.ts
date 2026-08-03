@@ -15,7 +15,22 @@ describe('CHANGE-01 enterprise classroom loader', () => {
             description: 'Motivation and hygiene factors',
             generationComplete: true,
           },
-          stage: { id: 'course-pg-1', name: 'Two Factor Theory' },
+          stage: {
+            id: 'stage-pg-1',
+            name: 'Two Factor Theory',
+            agentIds: ['agent-imported'],
+            generatedAgentConfigs: [
+              {
+                id: 'agent-imported',
+                name: 'Student',
+                role: 'student',
+                persona: 'Learner',
+                avatar: '',
+                color: '#111111',
+                priority: 1,
+              },
+            ],
+          },
           scenes: [
             {
               id: 'scene-1',
@@ -37,17 +52,37 @@ describe('CHANGE-01 enterprise classroom loader', () => {
               sizeBytes: 10,
             },
           ],
-          mediaManifest: [],
+          mediaManifest: [
+            {
+              mediaId: 'gen_vid_1',
+              url: '/api/courses/course-pg-1/media/gen_vid_1',
+              posterUrl: '/api/courses/course-pg-1/media/gen_vid_1?poster=1',
+              type: 'video',
+            },
+          ],
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       );
     });
 
     await expect(loadEnterpriseClassroom('course-pg-1', fetcher)).resolves.toMatchObject({
-      stage: { id: 'course-pg-1', name: 'Two Factor Theory' },
+      stage: {
+        id: 'stage-pg-1',
+        name: 'Two Factor Theory',
+        agentIds: ['agent-imported'],
+        generatedAgentConfigs: [expect.objectContaining({ id: 'agent-imported' })],
+      },
       currentSceneId: 'scene-1',
       outlines: [{ id: 'outline-1' }],
       generationComplete: true,
+      mediaManifest: [
+        {
+          mediaId: 'gen_vid_1',
+          type: 'video',
+          url: '/api/courses/course-pg-1/media/gen_vid_1',
+          posterUrl: '/api/courses/course-pg-1/media/gen_vid_1?poster=1',
+        },
+      ],
       scenes: [
         {
           id: 'scene-1',

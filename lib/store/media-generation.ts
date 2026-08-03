@@ -55,6 +55,15 @@ interface MediaGenerationState {
 
   // Restore from IndexedDB on page load
   restoreFromDB: (stageId: string) => Promise<void>;
+  restoreFromManifest: (
+    stageId: string,
+    items: Array<{
+      mediaId: string;
+      type: 'image' | 'video';
+      url: string;
+      posterUrl?: string;
+    }>,
+  ) => void;
 
   // Cleanup
   clearStage: (stageId: string) => void;
@@ -205,6 +214,24 @@ export const useMediaGenerationStore = create<MediaGenerationState>()((set, get)
     }
   },
 
+  restoreFromManifest: (stageId, items) => {
+    const restored: Record<string, MediaTask> = {};
+    for (const item of items) {
+      restored[item.mediaId] = {
+        elementId: item.mediaId,
+        type: item.type,
+        status: 'done',
+        prompt: '',
+        params: {},
+        objectUrl: item.url,
+        poster: item.posterUrl,
+        retryCount: 0,
+        stageId,
+      };
+    }
+    set({ tasks: restored });
+  },
+
   clearStage: (stageId) =>
     set((s) => {
       const remaining: Record<string, MediaTask> = {};
@@ -212,8 +239,8 @@ export const useMediaGenerationStore = create<MediaGenerationState>()((set, get)
         if (task.stageId !== stageId) {
           remaining[id] = task;
         } else if (task.objectUrl) {
-          URL.revokeObjectURL(task.objectUrl);
-          if (task.poster) URL.revokeObjectURL(task.poster);
+          if (task.objectUrl.startsWith('blob:')) URL.revokeObjectURL(task.objectUrl);
+          if (task.poster?.startsWith('blob:')) URL.revokeObjectURL(task.poster);
         }
       }
       return { tasks: remaining };
@@ -222,8 +249,8 @@ export const useMediaGenerationStore = create<MediaGenerationState>()((set, get)
   revokeObjectUrls: () => {
     const tasks = get().tasks;
     for (const task of Object.values(tasks)) {
-      if (task.objectUrl) URL.revokeObjectURL(task.objectUrl);
-      if (task.poster) URL.revokeObjectURL(task.poster);
+      if (task.objectUrl?.startsWith('blob:')) URL.revokeObjectURL(task.objectUrl);
+      if (task.poster?.startsWith('blob:')) URL.revokeObjectURL(task.poster);
     }
   },
 }));

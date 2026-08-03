@@ -211,15 +211,15 @@ describe('filterAdminCourses', () => {
     const markup = renderToStaticMarkup(createElement(CourseAdminPanel));
 
     expect(markup).toContain('课程列表');
-    expect(markup).toContain('课程由首页生成，此处负责筛选、分类、发布、可见范围和删除。');
+    expect(markup).toContain('课程可由首页生成或在此导入');
     expect(markup).not.toContain('新建课程草稿');
     expect(markup).toContain('分类管理');
     expect(markup).not.toContain('新建分类');
     expect(markup).not.toContain('发布结构');
     expect(markup).not.toContain('创建草稿');
     expect(markup).toContain('暂无课程');
-    expect(markup).toContain('课程需要从首页生成');
-    expect(markup).toContain('返回首页创建课程');
+    expect(markup).toContain('课程可从首页生成或在课程管理中导入');
+    expect(markup).toContain('返回首页生成或导入课程');
     expect(markup).toContain('清除筛选');
     expect(markup).toContain('上一页');
     expect(markup).toContain('下一页');
@@ -243,7 +243,7 @@ describe('filterAdminCourses', () => {
     );
 
     expect(emptyMarkup).toContain('暂无课程');
-    expect(emptyMarkup).toContain('返回首页创建课程');
+    expect(emptyMarkup).toContain('返回首页生成或导入课程');
     expect(emptyMarkup).not.toContain('没有符合当前筛选条件的课程');
     expect(filteredMarkup).toContain('没有符合当前筛选条件的课程');
     expect(filteredMarkup).toContain('清除筛选');

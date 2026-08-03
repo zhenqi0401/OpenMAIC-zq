@@ -9,9 +9,7 @@ import {
   loadEnterpriseHomeCourseThumbnails,
   loadHomeCourses,
   sortHomeCourses,
-  shouldPersistImportedClassroom,
 } from '@/lib/home/enterprise-course-list';
-import type { SessionIdentity } from '@/lib/auth/types';
 
 describe('CHANGE-01 home enterprise course list', () => {
   test('loads visible courses and all categories from one learner API request', async () => {
@@ -259,16 +257,7 @@ describe('CHANGE-01 home enterprise course list', () => {
     });
   });
 
-  test('allows management and enterprise persistence only for their intended sources', () => {
-    const learner: SessionIdentity = {
-      userId: 'learner-1',
-      roleId: 'role-learner',
-      roleCode: 'learner',
-      isAdmin: false,
-      authSource: 'password',
-    };
-    const admin: SessionIdentity = { ...learner, userId: 'admin-1', isAdmin: true };
-
+  test('identifies local home courses', () => {
     expect(
       isLocalHomeCourse({
         id: 'local-1',
@@ -292,8 +281,5 @@ describe('CHANGE-01 home enterprise course list', () => {
         learnerCount: 0,
       }),
     ).toBe(false);
-    expect(shouldPersistImportedClassroom(learner, 'category-1')).toBe(false);
-    expect(shouldPersistImportedClassroom(admin, '')).toBe(false);
-    expect(shouldPersistImportedClassroom(admin, 'category-1')).toBe(true);
   });
 });

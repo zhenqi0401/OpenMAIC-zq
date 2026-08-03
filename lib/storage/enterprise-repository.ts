@@ -47,6 +47,7 @@ import {
   type EnterpriseRepository,
   type ReplaceCourseContentInput,
 } from './enterprise-service';
+import type { PreparedEnterpriseCourseImport } from '@/lib/import/enterprise-course-import';
 
 function toRole(role: typeof roles.$inferSelect): AuthRole {
   return {
@@ -93,6 +94,7 @@ function toMediaFile(mediaFile: typeof mediaFiles.$inferSelect): EnterpriseMedia
     sizeBytes: mediaFile.sizeBytes,
     prompt: mediaFile.prompt,
     params: mediaFile.params,
+    hasPoster: mediaFile.posterBlob !== null,
     createdAt: mediaFile.createdAt,
     updatedAt: mediaFile.updatedAt,
   };
@@ -448,6 +450,92 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
       })
       .returning();
     return toCourse(course, []);
+  }
+
+  async importEnterpriseCourse(
+    input: PreparedEnterpriseCourseImport & { categoryId: string; createdBy?: string | null },
+  ): Promise<EnterpriseCourse> {
+    return runDbTransaction(async (tx) => {
+      const [category] = await tx
+        .select()
+        .from(courseCategories)
+        .where(eq(courseCategories.id, input.categoryId))
+        .limit(1);
+      if (!category) {
+        throw new Error('Course category not found');
+      }
+      const stageName =
+        typeof input.stage.name === 'string' ? input.stage.name : 'Imported Classroom';
+      const description =
+        typeof input.stage.description === 'string' ? input.stage.description : null;
+      const [course] = await tx
+        .insert(courses)
+        .values({
+          name: stageName,
+          description,
+          categoryId: input.categoryId,
+          createdBy: input.createdBy ?? null,
+          status: 'draft',
+          stageSnapshot: input.stage,
+          generationStatus: 'ready',
+          generationComplete: true,
+          assessmentQuestions: [],
+        })
+        .returning();
+
+      if (input.scenes.length > 0) {
+        await tx.insert(scenes).values(
+          input.scenes.map((scene, index) => ({
+            courseId: course.id,
+            sceneKey: typeof scene.id === 'string' ? scene.id : `scene-${index + 1}`,
+            type: typeof scene.type === 'string' ? scene.type : 'slide',
+            title: typeof scene.title === 'string' ? scene.title : `Scene ${index + 1}`,
+            sceneOrder: index,
+            sceneData: scene,
+            content: scene.content ?? scene,
+            actions: scene.actions ?? null,
+            whiteboards: scene.whiteboards ?? null,
+          })),
+        );
+      }
+      await tx.insert(outlines).values({
+        courseId: course.id,
+        outline: input.outlines,
+        generationStatus: 'ready',
+        generationComplete: true,
+      });
+
+      const mediaBinaries = input.binaries.filter((binary) => binary.kind !== 'audio');
+      if (mediaBinaries.length > 0) {
+        await tx.insert(mediaFiles).values(
+          mediaBinaries.map((binary) => ({
+            courseId: course.id,
+            mediaId: binary.mediaId,
+            mediaType: binary.kind,
+            mimeType: binary.mimeType,
+            sizeBytes: binary.data.byteLength,
+            prompt: binary.prompt ?? null,
+            params: {},
+            blob: Buffer.from(binary.data),
+            posterBlob: binary.posterData ? Buffer.from(binary.posterData) : null,
+          })),
+        );
+      }
+      const audioBinaries = input.binaries.filter((binary) => binary.kind === 'audio');
+      if (audioBinaries.length > 0) {
+        await tx.insert(courseAudioBlobs).values(
+          audioBinaries.map((binary) => ({
+            courseId: course.id,
+            audioId: binary.mediaId,
+            mimeType: binary.mimeType,
+            sizeBytes: binary.data.byteLength,
+            voice: binary.voice ?? null,
+            blob: Buffer.from(binary.data),
+          })),
+        );
+      }
+      return toCourse({ ...course, categoryName: category.name }, []);
+    });
   }
 
   async updateCourse(
@@ -1094,20 +1182,25 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     return rows.map(toMediaFile);
   }
 
-  async getMediaFileBlob(courseId: string, mediaId: string): Promise<EnterpriseMediaBlob | null> {
+  async getMediaFileBlob(
+    courseId: string,
+    mediaId: string,
+    variant: 'media' | 'poster' = 'media',
+  ): Promise<EnterpriseMediaBlob | null> {
     const [mediaFile] = await getDb()
       .select()
       .from(mediaFiles)
       .where(and(eq(mediaFiles.courseId, courseId), eq(mediaFiles.mediaId, mediaId)))
       .limit(1);
-    return mediaFile
+    const selectedBlob = variant === 'poster' ? mediaFile?.posterBlob : mediaFile?.blob;
+    return mediaFile && selectedBlob
       ? {
           courseId,
           mediaId,
           mediaType: mediaFile.mediaType,
-          mimeType: mediaFile.mimeType,
-          sizeBytes: mediaFile.sizeBytes,
-          blob: mediaFile.blob,
+          mimeType: variant === 'poster' ? 'image/jpeg' : mediaFile.mimeType,
+          sizeBytes: selectedBlob.byteLength,
+          blob: selectedBlob,
         }
       : null;
   }

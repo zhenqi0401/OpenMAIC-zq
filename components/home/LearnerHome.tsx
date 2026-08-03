@@ -16,7 +16,6 @@ import {
   Search,
   Sun,
   Trash2,
-  Upload,
   X,
 } from 'lucide-react';
 import type { Slide } from '@openmaic/dsl';
@@ -58,8 +57,6 @@ interface LearnerHomeProps {
   thumbnails: Record<string, Slide>;
   loading: boolean;
   error: string | null;
-  importing: boolean;
-  onImport: () => void;
   onRetry: () => void;
   onOpenCourse: (id: string) => void;
   onRenameCourse: (id: string, name: string) => Promise<void>;
@@ -125,8 +122,6 @@ export function LearnerHome({
   thumbnails,
   loading,
   error,
-  importing,
-  onImport,
   onRetry,
   onOpenCourse,
   onRenameCourse,
@@ -267,19 +262,6 @@ export function LearnerHome({
                   我的课程
                 </h2>
               </div>
-              <Button
-                variant="outline"
-                onClick={onImport}
-                disabled={importing}
-                className="rounded-md bg-white dark:bg-[#1a1d25]"
-              >
-                {importing ? (
-                  <RefreshCw className="size-4 animate-spin" />
-                ) : (
-                  <Upload className="size-4" />
-                )}
-                {importing ? '正在导入' : '导入本地课程'}
-              </Button>
             </div>
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -425,7 +407,7 @@ export function LearnerHome({
                   {selection.categoryId && !selectedCategoryHasCourses
                     ? '可切换其他分类查看课程。'
                     : courses.length === 0
-                      ? '导入本地课程，或等待管理员发布岗位课程。'
+                      ? '请等待管理员发布岗位课程。'
                       : '调整搜索词或课程来源。'}
                 </p>
                 {(query || selection.source !== 'all' || selection.categoryId) && (

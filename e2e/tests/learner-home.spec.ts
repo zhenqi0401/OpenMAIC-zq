@@ -185,6 +185,8 @@ test.beforeEach(async ({ page }) => {
 
 test('separates learner courses and completes the recoverable exam flow', async ({ page }) => {
   await expect(page.locator('textarea')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '导入本地课程' })).toHaveCount(0);
+  await expect(page.locator('input[type="file"][accept*="zip"]')).toHaveCount(0);
   await expect(page.getByRole('button', { name: '主题设置' })).toBeVisible();
   await expect(page.getByText('企业课程', { exact: true })).toBeVisible();
   await expect(page.getByText('本地导入', { exact: true })).toBeVisible();

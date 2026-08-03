@@ -37,12 +37,6 @@ export interface GeneratedCourseDraftContentInput {
   generationComplete?: boolean;
 }
 
-export interface ImportedClassroomEnterpriseInput {
-  stage: GeneratedCourseDraftMetadataInput['stage'];
-  categoryId: string;
-  scenes: unknown[];
-}
-
 export type CourseDraftFetcher = (url: string, init?: RequestInit) => Promise<Response>;
 
 export interface RegenerateCourseAssessmentRequest {
@@ -205,42 +199,6 @@ export async function persistGeneratedCourseDraft(
   if (!courseId) throw new Error('Creating generated course draft failed');
 
   const savedContent = await replaceGeneratedCourseDraftContent(fetcher, courseId, draft.content);
-  return {
-    course: created.course,
-    content: savedContent.content,
-  };
-}
-
-function buildImportedOutlines(scenes: unknown[]) {
-  return scenes.map((scene, index) => {
-    const record = scene && typeof scene === 'object' ? (scene as Record<string, unknown>) : {};
-    return {
-      id: typeof record.id === 'string' ? record.id : `scene-${index + 1}`,
-      title: typeof record.title === 'string' ? record.title : `Scene ${index + 1}`,
-      order: typeof record.order === 'number' ? record.order : index,
-      type: typeof record.type === 'string' ? record.type : 'slide',
-    };
-  });
-}
-
-export async function persistImportedClassroomToEnterprise(
-  fetcher: CourseDraftFetcher,
-  input: ImportedClassroomEnterpriseInput,
-) {
-  const created = await createGeneratedCourseDraft(fetcher, {
-    stage: input.stage,
-    categoryId: input.categoryId,
-  });
-  const courseId = getCourseId(created.course);
-  if (!courseId) throw new Error('Creating imported course failed');
-
-  const savedContent = await replaceGeneratedCourseDraftContent(fetcher, courseId, {
-    scenes: input.scenes,
-    outlines: buildImportedOutlines(input.scenes),
-    stage: input.stage,
-    generationStatus: 'ready',
-    generationComplete: true,
-  });
   return {
     course: created.course,
     content: savedContent.content,

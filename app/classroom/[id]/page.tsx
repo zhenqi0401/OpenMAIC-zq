@@ -174,6 +174,16 @@ export default function ClassroomDetailPage() {
           generatingOutlines: [],
           mode: 'playback',
         });
+        useMediaGenerationStore
+          .getState()
+          .restoreFromManifest(classroomId, enterpriseClassroom.mediaManifest);
+        if (enterpriseClassroom.stage.generatedAgentConfigs?.length) {
+          const { saveGeneratedAgents } = await import('@/lib/orchestration/registry/store');
+          await saveGeneratedAgents(
+            enterpriseClassroom.stage.id,
+            enterpriseClassroom.stage.generatedAgentConfigs,
+          );
+        }
         setEnterpriseCourseId(classroomId);
         log.info('Loaded enterprise course from PostgreSQL:', classroomId);
       } else {
@@ -228,7 +238,8 @@ export default function ClassroomDetailPage() {
       // Restore agents for this stage
       const { loadGeneratedAgentsForStage, useAgentRegistry } =
         await import('@/lib/orchestration/registry/store');
-      const generatedAgentIds = await loadGeneratedAgentsForStage(classroomId);
+      const activeStageId = useStageStore.getState().stage?.id ?? classroomId;
+      const generatedAgentIds = await loadGeneratedAgentsForStage(activeStageId);
       const { useSettingsStore } = await import('@/lib/store/settings');
       const { restoreAgentSelection } =
         await import('@/lib/orchestration/registry/agent-selection');

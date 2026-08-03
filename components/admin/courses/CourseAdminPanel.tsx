@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Upload } from 'lucide-react';
 import { adminToast } from '@/lib/admin/toast';
 import {
   AdminCard,
@@ -30,6 +30,7 @@ import { CategoryDialog } from './CategoryDialog';
 import { CourseFilters } from './CourseFilters';
 import { CourseTable } from './CourseTable';
 import { CourseVisibilityDialog, type CourseVisibilityDraft } from './CourseVisibilityDialog';
+import { EnterpriseCourseImportDialog } from './EnterpriseCourseImportDialog';
 
 interface Category {
   id: string;
@@ -91,10 +92,10 @@ export function CourseListEmptyState({
               asChild
               className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
             >
-              <Link href="/">返回首页创建课程</Link>
+              <Link href="/">返回首页生成或导入课程</Link>
             </Button>
           }
-          description="课程需要从首页生成，生成后可在这里配置发布与可见范围。"
+          description="课程可从首页生成或在课程管理中导入，之后在这里配置发布与可见范围。"
           title="暂无课程"
         />
       </div>
@@ -144,6 +145,7 @@ export function CourseAdminPanel() {
   });
   const [previews, setPreviews] = useState<Record<string, { canvas: unknown } | null>>({});
   const [loading, setLoading] = useState(true);
+  const [importOpen, setImportOpen] = useState(false);
 
   const learnerRoles = useMemo(() => roles.filter((role) => !role.isAdmin), [roles]);
   const roleNames = useMemo(
@@ -346,6 +348,14 @@ export function CourseAdminPanel() {
     setCoursePage(1);
   }
 
+  async function handleImportedCourse() {
+    if (coursePage !== 1) {
+      setCoursePage(1);
+      return;
+    }
+    await loadAll();
+  }
+
   return (
     <AdminPage id="admin-courses">
       <AdminSectionHeader
@@ -370,10 +380,19 @@ export function CourseAdminPanel() {
               课程列表
             </div>
             <p className="mt-1 text-sm text-[var(--admin-muted-foreground)]">
-              课程由首页生成，此处负责筛选、分类、发布、可见范围和删除。
+              课程可由首页生成或在此导入，此处负责筛选、分类、发布、可见范围和删除。
             </p>
           </div>
-          <div className="shrink-0" data-course-category-action>
+          <div className="flex shrink-0 flex-wrap gap-2" data-course-category-action>
+            <Button
+              className={adminSecondaryButtonClassName}
+              onClick={() => setImportOpen(true)}
+              type="button"
+              variant="outline"
+            >
+              <Upload className="size-4" />
+              导入企业课程
+            </Button>
             <CategoryDialog
               busyId={categoryBusyId}
               categories={categories}
@@ -450,6 +469,13 @@ export function CourseAdminPanel() {
         open={visibilityCourse !== null}
         roles={learnerRoles}
         saving={savingVisibility}
+      />
+
+      <EnterpriseCourseImportDialog
+        categories={categories}
+        onImported={handleImportedCourse}
+        onOpenChange={setImportOpen}
+        open={importOpen}
       />
 
       {courseToDelete ? (
