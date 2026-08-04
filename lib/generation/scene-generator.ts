@@ -86,6 +86,8 @@ export interface SceneContentOptions {
   /** Original course request/profile, used by PBL v2 for explicit learner-level signals. */
   userRequirements?: UserRequirements;
   allowProceduralSkill?: boolean;
+  /** Stops a targeted interactive HTML repair after the originating request is cancelled. */
+  abortSignal?: AbortSignal;
   /**
    * Natural-language edit instruction for whole-slide regeneration (MAIC Editor
    * agent `regenerate_scene`). When set, the slide content prompt switches to
@@ -323,6 +325,7 @@ export async function generateSceneContent(
     targetLanguage,
     userRequirements,
     allowProceduralSkill = false,
+    abortSignal,
     editDirective,
     baselineContent,
   } = options;
@@ -348,7 +351,10 @@ export async function generateSceneContent(
     }
 
     // Route to widget generation (handles all 5 types)
-    return generateWidgetContent(outline, aiCall, languageDirective, { allowProceduralSkill });
+    return generateWidgetContent(outline, aiCall, languageDirective, {
+      allowProceduralSkill,
+      abortSignal,
+    });
   }
 
   switch (outline.type) {
@@ -1208,40 +1214,60 @@ async function generatePBLSceneContent(
 }
 
 /**
- * Extract HTML document from AI response.
- * Tries to find <!DOCTYPE html>...</html> first, then falls back to code block extraction.
+ * Extract a complete HTML document from raw or Markdown-wrapped model output.
  */
-function extractHtml(response: string): string | null {
-  // Strategy 1: Find complete HTML document
-  const doctypeStart = response.indexOf('<!DOCTYPE html>');
-  const htmlTagStart = response.indexOf('<html');
-  const start = doctypeStart !== -1 ? doctypeStart : htmlTagStart;
+export type HtmlExtractionResult =
+  | { ok: true; html: string }
+  | {
+      ok: false;
+      reason:
+        | 'empty_response'
+        | 'missing_html_start'
+        | 'missing_html_end'
+        | 'unterminated_code_fence';
+    };
 
-  if (start !== -1) {
-    const htmlEnd = response.lastIndexOf('</html>');
-    if (htmlEnd !== -1) {
-      return response.substring(start, htmlEnd + 7);
-    }
+export type HtmlExtractionFailureReason = Extract<HtmlExtractionResult, { ok: false }>['reason'];
+
+/** A format-only failure. Raw model output is deliberately never retained. */
+export class InteractiveHtmlParseError extends Error {
+  readonly reason: HtmlExtractionFailureReason;
+
+  constructor(reason: HtmlExtractionFailureReason) {
+    super(`Interactive HTML parse failed: ${reason}`);
+    this.name = 'InteractiveHtmlParseError';
+    this.reason = reason;
+  }
+}
+
+/** Extract exactly one complete HTML document without retaining surrounding model prose. */
+export function extractHtml(response: string): HtmlExtractionResult {
+  if (!response.trim()) return { ok: false, reason: 'empty_response' };
+
+  const startMatch = /<!doctype\s+html\b[^>]*>|<html\b[^>]*>/i.exec(response);
+  if (!startMatch) return { ok: false, reason: 'missing_html_start' };
+
+  const start = startMatch.index;
+  const closingTag = /<\/html\s*>/gi;
+  closingTag.lastIndex = start + startMatch[0].length;
+  let lastEnd = -1;
+  for (let match = closingTag.exec(response); match; match = closingTag.exec(response)) {
+    lastEnd = match.index + match[0].length;
   }
 
-  // Strategy 2: Extract from code block
-  const codeBlockMatch = response.match(/```(?:html)?\s*([\s\S]*?)```/);
-  if (codeBlockMatch) {
-    const content = codeBlockMatch[1].trim();
-    if (content.includes('<html') || content.includes('<!DOCTYPE')) {
-      return content;
-    }
+  if (lastEnd === -1) {
+    const fenceBeforeHtml = response.lastIndexOf('```', start);
+    const fenceAfterHtml = response.indexOf('```', start);
+    return {
+      ok: false,
+      reason:
+        fenceBeforeHtml !== -1 && fenceAfterHtml === -1
+          ? 'unterminated_code_fence'
+          : 'missing_html_end',
+    };
   }
 
-  // Strategy 3: If response itself looks like HTML
-  const trimmed = response.trim();
-  if (trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')) {
-    return trimmed;
-  }
-
-  log.error('Could not extract HTML from response');
-  log.error('Response preview:', response.substring(0, 200));
-  return null;
+  return { ok: true, html: response.slice(start, lastEnd) };
 }
 
 // ==================== Ultra Mode Widget Generation ====================
@@ -1253,7 +1279,7 @@ export async function generateWidgetContent(
   outline: SceneOutline,
   aiCall: AICallFn,
   languageDirective?: string,
-  options: { allowProceduralSkill?: boolean } = {},
+  options: { allowProceduralSkill?: boolean; abortSignal?: AbortSignal } = {},
 ): Promise<GeneratedInteractiveContent | null> {
   const widgetType = outline.widgetType;
   const widgetOutline = outline.widgetOutline;
@@ -1363,12 +1389,34 @@ export async function generateWidgetContent(
 
   log.info(`Generating ${widgetType} widget for: ${outline.title}`);
   const response = await aiCall(prompts.system, prompts.user);
-  const html = extractHtml(response);
+  let extraction = extractHtml(response);
 
-  if (!html) {
-    log.error(`Failed to extract HTML from ${widgetType} response for: ${outline.title}`);
-    return null;
+  if (!extraction.ok) {
+    log.error(`Failed to extract HTML from ${widgetType} response: ${extraction.reason}`);
+    if (options.abortSignal?.aborted) {
+      throw new DOMException('Aborted', 'AbortError');
+    }
+    const repairInstruction = `Your previous response was incomplete or was not a complete HTML document.
+Return exactly one complete raw HTML document.
+Do not use Markdown code fences or add explanations.
+The final non-whitespace content must be </html>.`;
+    const repairedResponse = await aiCall(
+      prompts.system,
+      `${prompts.user}\n\n${repairInstruction}`,
+    );
+    if (options.abortSignal?.aborted) {
+      throw new DOMException('Aborted', 'AbortError');
+    }
+    extraction = extractHtml(repairedResponse);
+    if (!extraction.ok) {
+      log.error(
+        `Failed to extract repaired HTML from ${widgetType} response: ${extraction.reason}`,
+      );
+      throw new InteractiveHtmlParseError(extraction.reason);
+    }
   }
+
+  const html = extraction.html;
 
   // Extract widget config from HTML if present
   const widgetConfig = extractWidgetConfig(html);

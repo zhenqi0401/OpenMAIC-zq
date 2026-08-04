@@ -122,6 +122,72 @@ describe('browser scene generation retry wrappers', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
+  it('limits interactive transport failures to one retry even when the caller requests more', async () => {
+    const { fetchSceneContent } = await import('@/lib/hooks/use-scene-generator');
+    const interactiveOutline = { ...outline, type: 'interactive' as const };
+    mockFetch.mockResolvedValue(jsonResponse(429, { error: 'rate limited' }));
+
+    const result = await fetchSceneContent(
+      {
+        outline: interactiveOutline,
+        allOutlines: [interactiveOutline],
+        stageId: 'stage-1',
+        stageInfo: { name: 'Retry Course' },
+      },
+      undefined,
+      { ...retryOptions, maxRetries: 5 },
+    );
+
+    expect(result.success).toBe(false);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves PARSE_FAILED and does not retry an interactive 422 response', async () => {
+    const { fetchSceneContent } = await import('@/lib/hooks/use-scene-generator');
+    const interactiveOutline = { ...outline, type: 'interactive' as const };
+    mockFetch.mockResolvedValue(
+      jsonResponse(422, {
+        success: false,
+        errorCode: 'PARSE_FAILED',
+        error: 'Interactive HTML response was incomplete',
+      }),
+    );
+
+    const result = await fetchSceneContent(
+      {
+        outline: interactiveOutline,
+        allOutlines: [interactiveOutline],
+        stageId: 'stage-1',
+        stageInfo: { name: 'Retry Course' },
+      },
+      undefined,
+      retryOptions,
+    );
+
+    expect(result).toMatchObject({ success: false, errorCode: 'PARSE_FAILED' });
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not apply the generic 409 retry rule to interactive content', async () => {
+    const { fetchSceneContent } = await import('@/lib/hooks/use-scene-generator');
+    const interactiveOutline = { ...outline, type: 'interactive' as const };
+    mockFetch.mockResolvedValue(jsonResponse(409, { error: 'conflict' }));
+
+    const result = await fetchSceneContent(
+      {
+        outline: interactiveOutline,
+        allOutlines: [interactiveOutline],
+        stageId: 'stage-1',
+        stageInfo: { name: 'Retry Course' },
+      },
+      undefined,
+      retryOptions,
+    );
+
+    expect(result.success).toBe(false);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
   it('does not retry permanent scene action HTTP failures', async () => {
     const { fetchSceneActions } = await import('@/lib/hooks/use-scene-generator');
     mockFetch.mockResolvedValue(jsonResponse(401, { error: 'unauthorized' }));

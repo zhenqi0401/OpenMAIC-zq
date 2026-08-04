@@ -93,9 +93,77 @@ describe('scene-content vocational gate', () => {
     expect(body.content.widgetConfig.type).toBe('procedural-skill');
     expect(callLLMMock.mock.calls[0][0].system).toContain('Procedural Skill');
   });
+
+  test('returns 422 PARSE_FAILED after one targeted HTML repair also fails', async () => {
+    vi.resetModules();
+    callLLMMock.mockResolvedValue({ text: '<html><body>truncated' });
+
+    const { POST } = await import('@/app/api/generate/scene-content/route');
+    const response = await POST(
+      mockRequest({
+        ...createProceduralSkillOutline(),
+        widgetType: 'diagram',
+        widgetOutline: { concept: 'test', diagramType: 'flowchart' },
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toMatchObject({ success: false, errorCode: 'PARSE_FAILED' });
+    expect(callLLMMock).toHaveBeenCalledTimes(2);
+  });
+
+  test('coalesces and caches the same interactive generation run request', async () => {
+    vi.resetModules();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    callLLMMock.mockImplementation(async () => {
+      await gate;
+      return { text: htmlForWidget('diagram') };
+    });
+    const interactiveOutline = {
+      ...createProceduralSkillOutline(),
+      widgetType: 'diagram' as const,
+      widgetOutline: { concept: 'test', diagramType: 'flowchart' as const },
+    };
+
+    const { POST } = await import('@/app/api/generate/scene-content/route');
+    const first = POST(mockRequest(interactiveOutline, undefined, 'run-1'));
+    const second = POST(mockRequest(interactiveOutline, undefined, 'run-1'));
+    await vi.waitFor(() => expect(callLLMMock).toHaveBeenCalledTimes(1));
+    release();
+
+    const [firstResponse, secondResponse] = await Promise.all([first, second]);
+    expect(await firstResponse.json()).toMatchObject({ success: true });
+    expect(await secondResponse.json()).toMatchObject({ success: true });
+
+    const cachedResponse = await POST(mockRequest(interactiveOutline, undefined, 'run-1'));
+    expect(await cachedResponse.json()).toMatchObject({ success: true });
+    expect(callLLMMock).toHaveBeenCalledTimes(1);
+  });
+
+  test('does not share interactive content without a generation run ID', async () => {
+    vi.resetModules();
+    callLLMMock.mockResolvedValue({ text: htmlForWidget('diagram') });
+    const interactiveOutline = {
+      ...createProceduralSkillOutline(),
+      widgetType: 'diagram' as const,
+      widgetOutline: { concept: 'test', diagramType: 'flowchart' as const },
+    };
+
+    const { POST } = await import('@/app/api/generate/scene-content/route');
+    await POST(mockRequest(interactiveOutline));
+    await POST(mockRequest(interactiveOutline));
+
+    expect(callLLMMock).toHaveBeenCalledTimes(2);
+  });
 });
 
-function mockRequest(outline: SceneOutline, requirements?: { taskEngineMode?: boolean }) {
+function mockRequest(
+  outline: SceneOutline,
+  requirements?: { taskEngineMode?: boolean },
+  generationRunId?: string,
+) {
   return {
     json: async () => ({
       outline,
@@ -103,6 +171,7 @@ function mockRequest(outline: SceneOutline, requirements?: { taskEngineMode?: bo
       stageId: 'stage-1',
       stageInfo: { name: 'Test Stage' },
       requirements,
+      generationRunId,
     }),
   } as unknown as Parameters<typeof import('@/app/api/generate/scene-content/route').POST>[0];
 }

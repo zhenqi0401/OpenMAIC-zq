@@ -38,7 +38,9 @@ export {
   generateSceneContent,
   generateSceneActions,
   createSceneWithActions,
+  InteractiveHtmlParseError,
 } from './scene-generator';
+export type { HtmlExtractionResult, HtmlExtractionFailureReason } from './scene-generator';
 export type { SceneContentOptions, SceneActionsOptions } from './scene-generator';
 
 // Scene builder (standalone)

@@ -13,6 +13,7 @@ import {
   generateSceneContent,
   buildVisionUserContent,
 } from '@/lib/generation/generation-pipeline';
+import { InteractiveHtmlParseError } from '@/lib/generation/scene-generator';
 import type { AgentInfo } from '@/lib/generation/generation-pipeline';
 import type {
   SceneOutline,
@@ -26,6 +27,11 @@ import { llmApiError } from '@/lib/server/llm-error-response';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 import { resolveVocationalActive } from '@/lib/config/feature-flags';
 import { isTrainingCourseType } from '@/lib/generation/input-fidelity';
+import {
+  createInteractiveRequestFingerprint,
+  digestSecret,
+  interactiveRequestCoalescer,
+} from '@/lib/server/interactive-content-cache';
 
 const log = createLogger('Scene Content API');
 
@@ -46,6 +52,7 @@ export async function POST(req: NextRequest) {
       agents,
       languageDirective,
       requirements,
+      generationRunId,
     } = body as {
       outline: SceneOutline;
       allOutlines: SceneOutline[];
@@ -60,6 +67,7 @@ export async function POST(req: NextRequest) {
       agents?: AgentInfo[];
       languageDirective?: string;
       requirements?: UserRequirements;
+      generationRunId?: string;
     };
 
     // Validate required fields
@@ -99,6 +107,10 @@ export async function POST(req: NextRequest) {
       model: languageModel,
       modelInfo,
       modelString,
+      providerId,
+      modelId,
+      apiKey,
+      baseUrl,
       thinkingConfig,
     } = await resolveModelFromRequest(req, body, stage);
     outlineTitle = rawOutline?.title;
@@ -126,6 +138,7 @@ export async function POST(req: NextRequest) {
             ],
             maxOutputTokens: modelInfo?.outputWindow,
             maxRetries: 0,
+            abortSignal: req.signal,
           },
           'scene-content',
           undefined,
@@ -140,6 +153,7 @@ export async function POST(req: NextRequest) {
           prompt: userPrompt,
           maxOutputTokens: modelInfo?.outputWindow,
           maxRetries: 0,
+          abortSignal: req.signal,
         },
         'scene-content',
         undefined,
@@ -178,23 +192,63 @@ export async function POST(req: NextRequest) {
 
     const userLocale = req.headers?.get('x-user-locale') ?? '';
 
-    const content = await generateSceneContent(effectiveOutline, aiCall, {
-      assignedImages,
-      imageMapping,
-      languageModel: effectiveOutline.type === 'pbl' ? languageModel : undefined,
-      visionEnabled: hasVision,
-      generatedMediaMapping,
-      agents,
-      languageDirective,
-      thinkingConfig,
-      targetLanguage: userLocale || undefined,
-      userRequirements: requirements,
-      allowProceduralSkill: vocationalActive,
-    });
+    const generate = async () => {
+      const content = await generateSceneContent(effectiveOutline, aiCall, {
+        assignedImages,
+        imageMapping,
+        languageModel: effectiveOutline.type === 'pbl' ? languageModel : undefined,
+        visionEnabled: hasVision,
+        generatedMediaMapping,
+        agents,
+        languageDirective,
+        thinkingConfig,
+        targetLanguage: userLocale || undefined,
+        userRequirements: requirements,
+        allowProceduralSkill: vocationalActive,
+        abortSignal: req.signal,
+      });
 
-    if (!content) {
-      log.error(`Failed to generate content for: "${effectiveOutline.title}"`);
+      if (!content) {
+        log.error(`Failed to generate content for: "${effectiveOutline.title}"`);
+        return null;
+      }
+      return { content, effectiveOutline };
+    };
 
+    const normalizedRunId =
+      typeof generationRunId === 'string' && generationRunId.trim()
+        ? generationRunId.trim()
+        : undefined;
+    const coalescingKey =
+      effectiveOutline.type === 'interactive' && normalizedRunId
+        ? createInteractiveRequestFingerprint({
+            generationRunId: normalizedRunId,
+            stageId,
+            outline: effectiveOutline,
+            title: effectiveOutline.title,
+            description: effectiveOutline.description,
+            keyPoints: effectiveOutline.keyPoints,
+            widgetType: effectiveOutline.widgetType,
+            widgetOutline: effectiveOutline.widgetOutline,
+            languageDirective: languageDirective || '',
+            trainingCourseType:
+              effectiveOutline.trainingCourseType ?? requirements?.trainingCourseType ?? '',
+            proceduralFeatureActive: vocationalActive,
+            modelNamespace: { providerId, modelId, modelString, baseUrl: baseUrl || '' },
+            thinkingConfig,
+            apiKeyDigest: digestSecret(apiKey || ''),
+          })
+        : undefined;
+
+    const generated = coalescingKey
+      ? await interactiveRequestCoalescer.run(coalescingKey, async () => {
+          const result = await generate();
+          if (!result) throw new Error('Interactive content generation returned no content');
+          return result;
+        })
+      : await generate();
+
+    if (!generated) {
       return apiError(
         'GENERATION_FAILED',
         500,
@@ -204,8 +258,12 @@ export async function POST(req: NextRequest) {
 
     log.info(`Content generated successfully: "${effectiveOutline.title}"`);
 
-    return apiSuccess({ content, effectiveOutline });
+    return apiSuccess({ content: generated.content, effectiveOutline: generated.effectiveOutline });
   } catch (error) {
+    if (error instanceof InteractiveHtmlParseError) {
+      log.error(`Interactive HTML parsing failed: ${error.reason}`);
+      return apiError('PARSE_FAILED', 422, 'Interactive HTML response was incomplete');
+    }
     log.error(
       `Scene content generation failed [scene="${outlineTitle ?? 'unknown'}", model=${resolvedModelString ?? 'unknown'}]:`,
       error,

@@ -37,6 +37,7 @@ interface SceneContentResult {
   content?: unknown;
   effectiveOutline?: SceneOutline;
   error?: string;
+  errorCode?: string;
 }
 
 interface SceneActionsResult {
@@ -91,17 +92,18 @@ async function readJsonResponse(response: Response): Promise<Record<string, unkn
 
 function createHttpError(
   response: Response,
-  data: { details?: unknown; error?: unknown },
+  data: { details?: unknown; error?: unknown; errorCode?: unknown },
   fallback: string,
-): Error & { statusCode?: number } {
+): Error & { statusCode?: number; errorCode?: string } {
   const message =
     typeof data.details === 'string'
       ? data.details
       : typeof data.error === 'string'
         ? data.error
         : `${fallback}: HTTP ${response.status}`;
-  const error = new Error(message) as Error & { statusCode?: number };
+  const error = new Error(message) as Error & { statusCode?: number; errorCode?: string };
   error.statusCode = response.status;
+  if (typeof data.errorCode === 'string') error.errorCode = data.errorCode;
   return error;
 }
 
@@ -126,6 +128,7 @@ export async function fetchSceneContent(
     agents?: AgentInfo[];
     languageDirective?: string;
     requirements?: UserRequirements;
+    generationRunId?: string;
   },
   signal?: AbortSignal,
   retryOptions?: ClientRetryOptions<SceneContentResult>,
@@ -142,21 +145,38 @@ export async function fetchSceneContent(
 
         const data = await readJsonResponse(response);
         if (!response.ok) {
-          throw createHttpError(response, data, 'Scene content request failed');
+          const error = createHttpError(response, data, 'Scene content request failed');
+          if (params.outline.type === 'interactive') {
+            Object.assign(error, {
+              isRetryable:
+                response.status === 408 || response.status === 429 || response.status >= 500,
+            });
+          }
+          throw error;
         }
 
         return data as unknown as SceneContentResult;
       },
       {
         label: `scene content "${params.outline.title}"`,
-        shouldRetryResult: (result) => !result.success || !result.content,
         ...retryOptions,
+        shouldRetryResult:
+          params.outline.type === 'interactive'
+            ? () => false
+            : (result) => !result.success || !result.content,
+        maxRetries: params.outline.type === 'interactive' ? 1 : retryOptions?.maxRetries,
         signal,
       },
     );
   } catch (error) {
     if (isAbortError(error)) throw error;
-    return { success: false, error: messageFromError(error, 'Content generation failed') };
+    return {
+      success: false,
+      error: messageFromError(error, 'Content generation failed'),
+      ...(typeof (error as { errorCode?: unknown })?.errorCode === 'string'
+        ? { errorCode: (error as { errorCode: string }).errorCode }
+        : {}),
+    };
   }
 }
 
@@ -442,6 +462,8 @@ export interface GenerationParams {
   agents?: AgentInfo[];
   userProfile?: string;
   languageDirective?: string;
+  generationRunId?: string;
+  requirements?: UserRequirements;
   courseStorage?: {
     courseId: string;
   };
@@ -559,6 +581,8 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
               stageInfo: params.stageInfo,
               agents: params.agents,
               languageDirective: params.languageDirective,
+              generationRunId: params.generationRunId,
+              requirements: params.requirements,
             },
             signal,
           );
@@ -803,6 +827,8 @@ export function useSceneGenerator(options: UseSceneGeneratorOptions = {}) {
             stageInfo: params.stageInfo,
             agents: params.agents,
             languageDirective: params.languageDirective,
+            generationRunId: params.generationRunId,
+            requirements: params.requirements,
           },
           signal,
         );

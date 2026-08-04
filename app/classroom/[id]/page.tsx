@@ -328,6 +328,10 @@ export default function ClassroomDetailPage() {
       // Load generation params from sessionStorage (stored by generation-preview before navigating)
       const genParamsStr = sessionStorage.getItem('generationParams');
       const params = genParamsStr ? JSON.parse(genParamsStr) : {};
+      if (typeof params.generationRunId !== 'string' || !params.generationRunId.trim()) {
+        params.generationRunId = crypto.randomUUID();
+        sessionStorage.setItem('generationParams', JSON.stringify(params));
+      }
       const stageServerCourseId = (stage as unknown as { serverCourseId?: unknown }).serverCourseId;
       const generatedCourseId =
         resolveStageCourseStorageId(classroomId, stage) ??
@@ -356,6 +360,8 @@ export default function ClassroomDetailPage() {
           agents: params.agents,
           userProfile: params.userProfile,
           languageDirective: params.languageDirective || stage.languageDirective,
+          generationRunId: params.generationRunId,
+          requirements: params.requirements,
           courseStorage: generatedCourseId ? { courseId: generatedCourseId } : undefined,
         });
       });

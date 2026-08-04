@@ -1128,6 +1128,7 @@ function GenerationPreviewContent() {
           agents,
           languageDirective,
           requirements: currentSession.requirements,
+          generationRunId: currentSession.sessionId,
         },
         signal,
         FOREGROUND_SCENE_RETRY_OPTIONS,
@@ -1223,6 +1224,8 @@ function GenerationPreviewContent() {
           userProfile,
           languageDirective,
           generatedCourseId,
+          generationRunId: currentSession.sessionId,
+          requirements: currentSession.requirements,
         }),
       );
 
