@@ -402,11 +402,9 @@ export function createAuthService(repository: AuthRepository) {
 
     async deleteUser(userId: string, actorTenantId: string): Promise<AuthUser> {
       const result = await repository.deleteTenantUser({ userId, actorTenantId });
+      if (result.outcome === 'deleted') return result.user;
       if (result.outcome === 'user_not_found') throw new AuthServiceError('USER_NOT_FOUND');
-      if (result.outcome === 'admin_user') {
-        throw new AuthServiceError('ADMIN_USER_DELETE_NOT_ALLOWED');
-      }
-      return result.user;
+      throw new AuthServiceError('ADMIN_USER_DELETE_NOT_ALLOWED');
     },
   };
 }

@@ -40,6 +40,12 @@ describe('auth repository tenant administrator contracts', () => {
     );
   });
 
+  test('serializes tenant bootstrap and assigns later SSO users to learner', () => {
+    expect(source).toMatch(
+      /where\(eq\(tenants\.id, tenant\.id\)\)[\s\S]*?for\('update'\)[\s\S]*?firstTenantUser[\s\S]*?roleId: firstTenantUser \? learnerRole\.id : adminRole\.id/,
+    );
+  });
+
   test('locks tenant administrator roles before refusing direct administrator deletion', () => {
     expect(source).toMatch(
       /deleteTenantUser[\s\S]*?eq\(roles\.tenantId, input\.actorTenantId\)[\s\S]*?eq\(roles\.isAdmin, true\)[\s\S]*?for\('update'\)[\s\S]*?target\.role\.isAdmin/,

@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 const tenantId = 'tenant-a';
+const tenantBId = 'tenant-b';
 
 vi.mock('next/headers', () => ({
   cookies: async () => mocks.cookieStore,
@@ -29,7 +30,7 @@ vi.mock('@/lib/auth/repository', () => ({
 }));
 
 vi.mock('@/lib/admin/admin-data-repository', () => ({
-  getAdminDataRepository: () => ({
+  getAdminDataRepository: (actorTenantId?: string) => ({
     async queryUsers(input: {
       q?: string;
       roleId?: string;
@@ -38,6 +39,7 @@ vi.mock('@/lib/admin/admin-data-repository', () => ({
       pageSize: number;
     }) {
       const records = (await mocks.repository!.listUsersWithRoles()).filter(({ user, role }) => {
+        if (actorTenantId && user.tenantId !== actorTenantId) return false;
         if (input.q) {
           const q = input.q.toLowerCase();
           if (
@@ -64,6 +66,28 @@ vi.mock('@/lib/admin/admin-data-repository', () => ({
         total: records.length,
       };
     },
+    async updateUserStatus(input: {
+      userId: string;
+      currentUserId: string;
+      status: 'active' | 'disabled';
+    }) {
+      const record = (await mocks.repository!.listUsersWithRoles()).find(
+        ({ user }) => user.id === input.userId && user.tenantId === actorTenantId,
+      );
+      if (!record) return { outcome: 'not_found' } as const;
+      record.user.status = input.status;
+      return {
+        outcome: 'updated',
+        user: {
+          id: record.user.id,
+          phone: record.user.phone,
+          hostUserId: record.user.hostUserId,
+          displayName: record.user.displayName,
+          status: record.user.status,
+          role: record.role,
+        },
+      } as const;
+    },
   }),
 }));
 
@@ -83,9 +107,17 @@ const learnerRole: AuthRole = {
   isAdmin: false,
 };
 
-function makeRepo(): AuthRepository & { users: AuthUser[] } {
+const tenantBRole: AuthRole = {
+  id: 'role-b-learner',
+  tenantId: tenantBId,
+  code: 'learner',
+  name: 'Tenant B Learner',
+  isAdmin: false,
+};
+
+function makeRepo(): AuthRepository & { users: AuthUser[]; roles: AuthRole[] } {
   const users: AuthUser[] = [];
-  const roles = [adminRole, learnerRole];
+  const roles = [adminRole, learnerRole, tenantBRole];
   const inviteCodes = [
     {
       codeHash: hashInviteCode('LEARN-2026'),
@@ -98,6 +130,7 @@ function makeRepo(): AuthRepository & { users: AuthUser[] } {
 
   return {
     users,
+    roles,
     async findUserByPhone(phone) {
       return users.find((user) => user.phone === phone) ?? null;
     },
@@ -113,9 +146,9 @@ function makeRepo(): AuthRepository & { users: AuthUser[] } {
             user,
             role,
             tenant: {
-              id: tenantId,
-              companyId: 'company-a',
-              name: 'Company A',
+              id: user.tenantId ?? tenantId,
+              companyId: user.tenantId === tenantBId ? 'company-b' : 'company-a',
+              name: user.tenantId === tenantBId ? 'Company B' : 'Company A',
               type: 'company' as const,
               status: 'active' as const,
             },
@@ -387,6 +420,16 @@ describe('Slice-07 auth routes', () => {
         displayName: 'Learner 2',
       },
     );
+    repo.users.push({
+      id: 'tenant-b-user',
+      tenantId: tenantBId,
+      phone: '13800138002',
+      passwordHash: null,
+      hostUserId: null,
+      roleId: tenantBRole.id,
+      status: 'active',
+      displayName: 'Tenant B User',
+    });
     mocks.cookieStore.get.mockReturnValue({
       value: createSessionToken(
         {
@@ -405,6 +448,7 @@ describe('Slice-07 auth routes', () => {
     const listJson = await listResponse.json();
     expect(listResponse.status).toBe(200);
     expect(listJson.users).toHaveLength(3);
+    expect(JSON.stringify(listJson)).not.toContain('tenant-b-user');
 
     const sessionResponse = await getRoute('@/app/api/auth/session/route');
     const sessionJson = await sessionResponse.json();
@@ -414,6 +458,31 @@ describe('Slice-07 auth routes', () => {
       user: { id: 'admin-1' },
     });
     expect(JSON.stringify(sessionJson)).not.toContain('companyId');
+
+    for (const [targetUserId, targetRoleId] of [
+      ['tenant-b-user', adminRole.id],
+      ['learner-1', tenantBRole.id],
+    ] as const) {
+      const crossTenantRoleResponse = await patchRoute(
+        '@/app/api/admin/users/[id]/role/route',
+        { roleId: targetRoleId },
+        { params: Promise.resolve({ id: targetUserId }) },
+      );
+      expect(crossTenantRoleResponse.status).toBe(404);
+    }
+
+    const crossTenantStatusResponse = await patchRoute(
+      '@/app/api/admin/users/[id]/status/route',
+      { status: 'disabled' },
+      { params: Promise.resolve({ id: 'tenant-b-user' }) },
+    );
+    expect(crossTenantStatusResponse.status).toBe(404);
+
+    const crossTenantDeleteResponse = await deleteRoute('@/app/api/admin/users/[id]/route', {
+      params: Promise.resolve({ id: 'tenant-b-user' }),
+    });
+    expect(crossTenantDeleteResponse.status).toBe(404);
+    expect(repo.users.find((user) => user.id === 'tenant-b-user')?.status).toBe('active');
 
     const updateResponse = await patchRoute(
       '@/app/api/admin/users/[id]/role/route',
@@ -445,7 +514,7 @@ describe('Slice-07 auth routes', () => {
     const deleteJson = await deleteResponse.json();
     expect(deleteResponse.status).toBe(200);
     expect(deleteJson.user.id).toBe('learner-1');
-    expect(repo.users.map((user) => user.id)).toEqual(['admin-1', 'learner-2']);
+    expect(repo.users.map((user) => user.id)).toEqual(['admin-1', 'learner-2', 'tenant-b-user']);
 
     mocks.cookieStore.get.mockReturnValue({
       value: createSessionToken(

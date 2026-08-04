@@ -175,6 +175,15 @@ export class DrizzleAuthRepository implements AuthRepository {
           })
           .returning();
       }
+      // Serialize first-user provisioning for this tenant. Without this row lock, two concurrent
+      // first SSO requests could both observe an empty tenant and both become administrators.
+      [tenant] = await tx
+        .select()
+        .from(tenants)
+        .where(eq(tenants.id, tenant.id))
+        .for('update')
+        .limit(1);
+      if (!tenant) throw new Error('TENANT_NOT_FOUND');
       await tx
         .insert(roles)
         .values([
@@ -215,16 +224,29 @@ export class DrizzleAuthRepository implements AuthRepository {
         .where(and(eq(roles.tenantId, tenant.id), eq(roles.code, 'admin'), eq(roles.isAdmin, true)))
         .limit(1);
       if (!adminRole) throw new Error('ADMIN_ROLE_NOT_FOUND');
+      const [learnerRole] = await tx
+        .select()
+        .from(roles)
+        .where(
+          and(eq(roles.tenantId, tenant.id), eq(roles.code, 'learner'), eq(roles.isAdmin, false)),
+        )
+        .limit(1);
+      if (!learnerRole) throw new Error('LEARNER_ROLE_NOT_FOUND');
 
       let user = existing;
       if (!user) {
+        const [firstTenantUser] = await tx
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.tenantId, tenant.id))
+          .limit(1);
         [user] = await tx
           .insert(users)
           .values({
             tenantId: tenant.id,
             hostUserId: input.hostUserId,
             phone: input.phone,
-            roleId: adminRole.id,
+            roleId: firstTenantUser ? learnerRole.id : adminRole.id,
             displayName: input.displayName,
           })
           .returning();
