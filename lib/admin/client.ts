@@ -118,6 +118,11 @@ export interface RoleOption {
   isAdmin: boolean;
 }
 
+export interface AdminSessionSummary {
+  authenticated: boolean;
+  user?: { id: string };
+}
+
 export type InviteCodeViewStatus = 'active' | 'disabled' | 'expired';
 
 export interface InviteCodeView {
@@ -141,10 +146,19 @@ export class AdminClientError extends Error {
 }
 
 async function readJson<T>(response: Response, fallbackMessage: string): Promise<T> {
-  if (!response.ok) {
-    throw new AdminClientError(response.status, fallbackMessage);
+  let data: (T & { error?: unknown }) | null = null;
+  try {
+    data = (await response.json()) as T & { error?: unknown };
+  } catch (error) {
+    if (response.ok) throw error;
   }
-  return (await response.json()) as T;
+  if (!response.ok) {
+    throw new AdminClientError(
+      response.status,
+      typeof data?.error === 'string' && data.error.trim() ? data.error : fallbackMessage,
+    );
+  }
+  return data as T;
 }
 
 function jsonRequest(method: 'POST' | 'PATCH', body: unknown): RequestInit {
@@ -177,6 +191,10 @@ function buildAdminQuery(filters?: Record<string, string | number | undefined>):
 
 export function createAdminClient(fetcher: AdminFetch = fetch) {
   return {
+    async getCurrentSession(): Promise<AdminSessionSummary> {
+      const response = await fetcher('/api/auth/session');
+      return readJson<AdminSessionSummary>(response, '当前管理员读取失败');
+    },
     async getDashboard(range?: 'week' | 'month' | 'year'): Promise<AdminDashboard> {
       const response = await fetcher(
         `/api/admin/dashboard${range ? buildAdminQuery({ range }) : ''}`,
@@ -385,7 +403,7 @@ export function createAdminClient(fetcher: AdminFetch = fetch) {
 export function buildRoleOptions(roles: readonly AdminRole[]): RoleOption[] {
   return roles.map((role) => ({
     value: role.id,
-    label: `${role.name} (${role.code})`,
+    label: `${role.name} (${role.code}) · ${role.isAdmin ? '管理员' : '普通角色'}`,
     isAdmin: role.isAdmin,
   }));
 }

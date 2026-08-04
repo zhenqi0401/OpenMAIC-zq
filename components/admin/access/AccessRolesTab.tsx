@@ -54,11 +54,15 @@ export function getRoleUsageCounts(
 function RoleForm({
   draft,
   disabled,
+  editMode = false,
   onChange,
+  protectCode = false,
 }: {
   draft: RoleDraft;
   disabled: boolean;
+  editMode?: boolean;
   onChange: (draft: RoleDraft) => void;
+  protectCode?: boolean;
 }) {
   return (
     <div className="grid gap-4">
@@ -66,7 +70,7 @@ function RoleForm({
         <span>角色代码</span>
         <Input
           className={adminInputClassName}
-          disabled={disabled}
+          disabled={disabled || protectCode}
           onChange={(event) => onChange({ ...draft, code: event.target.value })}
           placeholder="例如 ops"
           value={draft.code}
@@ -82,15 +86,30 @@ function RoleForm({
           value={draft.name}
         />
       </label>
-      <label className="inline-flex items-center gap-2 text-sm text-[var(--admin-muted-foreground)]">
-        <input
-          checked={draft.isAdmin}
-          disabled={disabled}
-          onChange={(event) => onChange({ ...draft, isAdmin: event.target.checked })}
-          type="checkbox"
-        />
-        管理员角色
-      </label>
+      {editMode ? (
+        <div className="grid gap-1.5 text-sm text-[var(--admin-muted-foreground)]">
+          <span>角色类型</span>
+          <strong className="font-medium text-[var(--admin-foreground)]">
+            {draft.isAdmin ? '管理员角色' : '普通角色'}
+          </strong>
+          <span className="text-xs">角色类型在创建后不可修改。</span>
+        </div>
+      ) : (
+        <label className="grid gap-1.5 text-sm text-[var(--admin-muted-foreground)]">
+          <span className="inline-flex items-center gap-2">
+            <input
+              checked={draft.isAdmin}
+              disabled={disabled}
+              onChange={(event) => onChange({ ...draft, isAdmin: event.target.checked })}
+              type="checkbox"
+            />
+            管理员类型
+          </span>
+          <span className="text-xs leading-5">
+            管理员角色拥有本租户课程、用户、考试和社区的完整管理权限。
+          </span>
+        </label>
+      )}
     </div>
   );
 }
@@ -102,6 +121,7 @@ function RoleDialog({
   onOpenChange,
   onSave,
   open,
+  protectCode,
   title,
 }: {
   busy: boolean;
@@ -110,6 +130,7 @@ function RoleDialog({
   onOpenChange: (open: boolean) => void;
   onSave: () => void;
   open: boolean;
+  protectCode: boolean;
   title: string;
 }) {
   return (
@@ -121,10 +142,16 @@ function RoleDialog({
         <DialogHeader>
           <DialogTitle className="text-xl font-normal">{title}</DialogTitle>
           <DialogDescription className="leading-6 text-[var(--admin-muted-foreground)]">
-            角色代码、名称和管理员权限会提交到现有角色 API。系统保护仍由服务端执行。
+            仅可修改角色代码和名称；角色类型保持创建时的设置。
           </DialogDescription>
         </DialogHeader>
-        <RoleForm disabled={busy} draft={draft} onChange={onDraftChange} />
+        <RoleForm
+          editMode
+          disabled={busy}
+          draft={draft}
+          onChange={onDraftChange}
+          protectCode={protectCode}
+        />
         <DialogFooter>
           <DialogClose asChild>
             <Button
@@ -319,10 +346,11 @@ export function AccessRolesTab({
                         <AccessDangerDialog
                           busy={deletingRoleId === role.id}
                           confirmLabel="确认删除"
-                          description={`确认删除角色「${role.name}（${role.code}）」？至少需要保留一个管理员角色；若已有用户、邀请码或阶段考试策略引用该角色，服务端会拒绝删除。`}
+                          description={`确认删除角色「${role.name}（${role.code}）」？若已有用户、邀请码或阶段考试策略引用该角色，服务端会拒绝删除。`}
+                          disabled={role.code === 'admin'}
                           onConfirm={() => onDeleteRole(role)}
                           title="删除角色"
-                          triggerLabel="删除"
+                          triggerLabel={role.code === 'admin' ? '默认角色不可删除' : '删除'}
                         />
                       </div>
                     </td>
@@ -372,10 +400,11 @@ export function AccessRolesTab({
                   <AccessDangerDialog
                     busy={deletingRoleId === role.id}
                     confirmLabel="确认删除"
-                    description={`确认删除角色「${role.name}（${role.code}）」？至少需要保留一个管理员角色；若已有用户、邀请码或阶段考试策略引用该角色，服务端会拒绝删除。`}
+                    description={`确认删除角色「${role.name}（${role.code}）」？若已有用户、邀请码或阶段考试策略引用该角色，服务端会拒绝删除。`}
+                    disabled={role.code === 'admin'}
                     onConfirm={() => onDeleteRole(role)}
                     title="删除角色"
-                    triggerLabel="删除"
+                    triggerLabel={role.code === 'admin' ? '默认角色不可删除' : '删除'}
                   />
                 </div>
               </article>
@@ -393,6 +422,7 @@ export function AccessRolesTab({
         }}
         onSave={() => void submitEdit()}
         open={editingRole !== null}
+        protectCode={editingRole?.code === 'admin'}
         title="编辑角色"
       />
     </AdminCard>

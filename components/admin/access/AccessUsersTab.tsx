@@ -33,6 +33,7 @@ export function AccessDangerDialog({
   busy,
   confirmLabel,
   description,
+  disabled = false,
   onConfirm,
   title,
   triggerLabel,
@@ -40,6 +41,7 @@ export function AccessDangerDialog({
   busy: boolean;
   confirmLabel: string;
   description: string;
+  disabled?: boolean;
   onConfirm: () => void;
   title: string;
   triggerLabel: string;
@@ -50,7 +52,7 @@ export function AccessDangerDialog({
         <Button
           aria-busy={busy}
           className={adminDangerOutlineButtonClassName}
-          disabled={busy}
+          disabled={busy || disabled}
           type="button"
           variant="outline"
         >
@@ -89,43 +91,101 @@ export function AccessDangerDialog({
 }
 
 function UserRoleEditor({
+  currentUserId,
   disabled,
   onChange,
   onSave,
   roleId,
   roleOptions,
+  user,
 }: {
+  currentUserId: string | null;
   disabled: boolean;
   onChange: (roleId: string) => void;
   onSave: () => void;
   roleId: string;
   roleOptions: readonly RoleOption[];
+  user: AdminUser;
 }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const nextRole = roleOptions.find((role) => role.value === roleId);
+  const promoting = !user.role.isAdmin && nextRole?.isAdmin === true;
+  const demoting = user.role.isAdmin && nextRole?.isAdmin === false;
+  const selfDemotion = demoting && user.id === currentUserId;
+  const disabledPromotion = promoting && user.status !== 'active';
+  const unchanged = user.role.id === roleId;
+  const saveDisabled = disabled || unchanged || selfDemotion || disabledPromotion;
+
+  function requestSave() {
+    if (promoting || demoting) setConfirmOpen(true);
+    else onSave();
+  }
+
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-2">
-      <select
-        aria-label="当前角色"
-        className={`${adminSelectClassName} min-w-0 flex-1`}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        value={roleId}
-      >
-        {roleOptions.map((role) => (
-          <option key={role.value} value={role.value}>
-            {role.label}
-          </option>
-        ))}
-      </select>
-      <Button
-        aria-busy={disabled}
-        className={adminSecondaryButtonClassName}
-        disabled={disabled}
-        onClick={onSave}
-        type="button"
-        variant="outline"
-      >
-        {disabled ? '保存中…' : '保存'}
-      </Button>
+    <div className="grid min-w-0 gap-1.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <select
+          aria-label="当前角色"
+          className={`${adminSelectClassName} min-w-0 flex-1`}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value)}
+          value={roleId}
+        >
+          {roleOptions.map((role) => (
+            <option
+              disabled={
+                (user.status !== 'active' && role.isAdmin) ||
+                (user.id === currentUserId && !role.isAdmin)
+              }
+              key={role.value}
+              value={role.value}
+            >
+              {role.label}
+            </option>
+          ))}
+        </select>
+        <Button
+          aria-busy={disabled}
+          className={adminSecondaryButtonClassName}
+          disabled={saveDisabled}
+          onClick={requestSave}
+          type="button"
+          variant="outline"
+        >
+          {disabled ? '保存中…' : '保存'}
+        </Button>
+      </div>
+      {selfDemotion ? (
+        <span className="text-xs text-[var(--admin-danger)]">
+          不能取消当前登录账号的管理员权限。
+        </span>
+      ) : disabledPromotion ? (
+        <span className="text-xs text-[var(--admin-danger)]">请先恢复账号，再提升为管理员。</span>
+      ) : null}
+      <AlertDialog onOpenChange={setConfirmOpen} open={confirmOpen}>
+        <AlertDialogContent
+          {...adminThemeAttributes}
+          className="max-w-[460px] rounded-[var(--admin-radius-dialog)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)]"
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>{promoting ? '确认提升为管理员' : '确认取消管理员'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {promoting
+                ? `用户「${user.displayName}」将获得本租户课程、用户、考试和社区的完整管理权限。`
+                : `用户「${user.displayName}」将保留学习账号和本租户数据，但失去全部后台管理权限。`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className={adminSecondaryButtonClassName}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className={promoting ? adminSecondaryButtonClassName : adminDangerButtonClassName}
+              onClick={onSave}
+            >
+              {promoting ? '确认提升' : '确认取消管理员'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -194,12 +254,14 @@ function UserDeleteAction({
 
 function UserActions({
   busy,
+  currentUserId,
   deleting,
   onDelete,
   onToggleStatus,
   user,
 }: {
   busy: boolean;
+  currentUserId: string | null;
   deleting: boolean;
   onDelete: () => void;
   onToggleStatus: () => void;
@@ -212,14 +274,20 @@ function UserActions({
         actions={[
           {
             id: 'status',
-            label: user.status === 'disabled' ? '恢复账号' : '冻结账号',
-            disabled: busy,
+            label:
+              user.status === 'disabled'
+                ? '恢复账号'
+                : user.id === currentUserId
+                  ? '当前账号不可冻结'
+                  : '冻结账号',
+            disabled: busy || (user.status !== 'disabled' && user.id === currentUserId),
             onSelect: onToggleStatus,
           },
           {
             id: 'delete',
-            label: '永久删除',
+            label: user.role.isAdmin ? '请先取消管理员' : '永久删除',
             destructive: true,
+            disabled: user.role.isAdmin,
             onSelect: () => setDeleteOpen(true),
           },
         ]}
@@ -238,6 +306,7 @@ function UserActions({
 
 export function AccessUsersTab({
   changingStatusUserId,
+  currentUserId,
   deletingUserId,
   filters,
   loading,
@@ -254,6 +323,7 @@ export function AccessUsersTab({
   users,
 }: {
   changingStatusUserId: string | null;
+  currentUserId: string | null;
   deletingUserId: string | null;
   filters: { q: string; roleId: string; status: 'all' | 'active' | 'disabled' };
   loading: boolean;
@@ -311,11 +381,13 @@ export function AccessUsersTab({
                     </td>
                     <td className="py-3 pr-3">
                       <UserRoleEditor
+                        currentUserId={currentUserId}
                         disabled={saving}
                         onChange={(roleId) => onRoleChange(user.id, roleId)}
                         onSave={() => onSaveUserRole(user)}
                         roleId={userRoleDrafts[user.id] ?? user.role.id}
                         roleOptions={roleOptions}
+                        user={user}
                       />
                     </td>
                     <td className="py-3 pr-3">
@@ -326,6 +398,7 @@ export function AccessUsersTab({
                     <td className="py-3 text-right">
                       <UserActions
                         busy={changingStatusUserId === user.id}
+                        currentUserId={currentUserId}
                         deleting={deletingUserId === user.id}
                         onDelete={() => onDeleteUser(user)}
                         onToggleStatus={() => onToggleStatus(user)}
@@ -354,15 +427,18 @@ export function AccessUsersTab({
                   {user.status === 'disabled' ? '已冻结' : '正常'}
                 </AdminStatusChip>
                 <UserRoleEditor
+                  currentUserId={currentUserId}
                   disabled={saving}
                   onChange={(roleId) => onRoleChange(user.id, roleId)}
                   onSave={() => onSaveUserRole(user)}
                   roleId={userRoleDrafts[user.id] ?? user.role.id}
                   roleOptions={roleOptions}
+                  user={user}
                 />
                 <div className="flex justify-end">
                   <UserActions
                     busy={changingStatusUserId === user.id}
+                    currentUserId={currentUserId}
                     deleting={deletingUserId === user.id}
                     onDelete={() => onDeleteUser(user)}
                     onToggleStatus={() => onToggleStatus(user)}

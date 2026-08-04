@@ -33,6 +33,7 @@ type InMemoryAuthRepository = AuthRepository & {
   roles: AuthRole[];
   inviteCodes: Array<{
     codeHash: string;
+    tenantId?: string;
     roleId: string;
     enabled: boolean;
     expiresAt: Date | null;
@@ -112,17 +113,34 @@ function makeRepo(): InMemoryAuthRepository {
         role: repo.roles.find((role) => role.id === user.roleId)!,
       }));
     },
-    async updateUserRole(userId: string, roleId: string) {
-      const user = repo.users.find((candidate) => candidate.id === userId);
-      if (!user) return null;
-      user.roleId = roleId;
-      return user;
+    async transitionUserRole(input) {
+      const user = repo.users.find(
+        (candidate) => candidate.id === input.userId && candidate.tenantId === input.actorTenantId,
+      );
+      if (!user) return { outcome: 'user_not_found' } as const;
+      const currentRole = repo.roles.find((role) => role.id === user.roleId)!;
+      const role = repo.roles.find(
+        (candidate) => candidate.id === input.roleId && candidate.tenantId === input.actorTenantId,
+      );
+      if (!role) return { outcome: 'role_not_found' } as const;
+      if (!currentRole.isAdmin && role.isAdmin && user.status !== 'active') {
+        return { outcome: 'disabled_admin' } as const;
+      }
+      if (currentRole.isAdmin && !role.isAdmin && user.id === input.actorUserId) {
+        return { outcome: 'self_demote' } as const;
+      }
+      user.roleId = role.id;
+      return { outcome: 'updated', user, role } as const;
     },
-    async deleteUser(userId: string) {
-      const index = repo.users.findIndex((candidate) => candidate.id === userId);
-      if (index === -1) return null;
+    async deleteTenantUser(input) {
+      const index = repo.users.findIndex(
+        (candidate) => candidate.id === input.userId && candidate.tenantId === input.actorTenantId,
+      );
+      if (index === -1) return { outcome: 'user_not_found' } as const;
+      const role = repo.roles.find((candidate) => candidate.id === repo.users[index].roleId);
+      if (role?.isAdmin) return { outcome: 'admin_user' } as const;
       const [user] = repo.users.splice(index, 1);
-      return user;
+      return { outcome: 'deleted', user } as const;
     },
   };
 
@@ -364,6 +382,44 @@ describe('Slice-07 auth service', () => {
     ).rejects.toMatchObject(new AuthServiceError('PHONE_ALREADY_REGISTERED'));
   });
 
+  test('keeps the database-assigned learner role when a previously demoted SSO user logs in', async () => {
+    const repo = makeRepo();
+    repo.provisionHostSsoUser = async () => ({
+      user: {
+        id: 'host-user-1',
+        tenantId,
+        phone: '13900139000',
+        passwordHash: null,
+        hostUserId: 'host-admin-1',
+        roleId: learnerRole.id,
+        status: 'active',
+        displayName: '已降权用户',
+      },
+      role: learnerRole,
+      tenant: {
+        id: tenantId,
+        companyId: 'company-a',
+        name: 'Company A',
+        type: 'company',
+        status: 'active',
+      },
+    });
+
+    await expect(
+      createAuthService(repo).loginWithHostSso({
+        hostUserId: 'host-admin-1',
+        companyId: 'company-a',
+        companyName: 'Company A',
+        displayName: '已降权用户',
+        phone: '13900139000',
+        timestamp: 1,
+      }),
+    ).resolves.toMatchObject({
+      role: { id: learnerRole.id, isAdmin: false },
+      identity: { roleId: learnerRole.id, isAdmin: false },
+    });
+  });
+
   test('lists users and lets administrators update the current role only', async () => {
     const repo = makeRepo();
     const service = createAuthService(repo);
@@ -391,7 +447,12 @@ describe('Slice-07 auth service', () => {
       },
     ]);
 
-    const updated = await service.updateUserRole({ userId: 'user-1', roleId: adminRole.id });
+    const updated = await service.updateUserRole({
+      userId: 'user-1',
+      roleId: adminRole.id,
+      actorUserId: 'admin-1',
+      actorTenantId: tenantId,
+    });
 
     expect(updated.identity).toMatchObject({
       userId: 'user-1',
@@ -399,6 +460,17 @@ describe('Slice-07 auth service', () => {
       roleCode: 'admin',
       isAdmin: true,
     });
+
+    repo.users[0].status = 'disabled';
+    repo.users[0].roleId = learnerRole.id;
+    await expect(
+      service.updateUserRole({
+        userId: 'user-1',
+        roleId: adminRole.id,
+        actorUserId: 'admin-1',
+        actorTenantId: tenantId,
+      }),
+    ).rejects.toMatchObject(new AuthServiceError('DISABLED_ADMIN_PROMOTION'));
   });
 
   test('deletes users by id and reports missing users', async () => {
@@ -411,12 +483,18 @@ describe('Slice-07 auth service', () => {
       inviteCode: 'LEARN-2026',
     });
 
-    await expect(service.deleteUser('user-1')).resolves.toMatchObject({
+    repo.users[0].roleId = adminRole.id;
+    await expect(service.deleteUser('user-1', tenantId)).rejects.toMatchObject(
+      new AuthServiceError('ADMIN_USER_DELETE_NOT_ALLOWED'),
+    );
+    repo.users[0].roleId = learnerRole.id;
+
+    await expect(service.deleteUser('user-1', tenantId)).resolves.toMatchObject({
       id: 'user-1',
       phone: '13800138000',
     });
     expect(repo.users).toHaveLength(0);
-    await expect(service.deleteUser('missing-user')).rejects.toMatchObject({
+    await expect(service.deleteUser('missing-user', tenantId)).rejects.toMatchObject({
       code: 'USER_NOT_FOUND',
     });
   });

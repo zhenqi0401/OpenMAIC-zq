@@ -96,7 +96,7 @@ describe('Slice-05 admin exam client helpers', () => {
 
     await expect(client.deleteExamPolicy('policy-published')).rejects.toMatchObject({
       status: 409,
-      message: '考核策略删除失败',
+      message: 'Only draft exam policies can be deleted',
     });
   });
 });

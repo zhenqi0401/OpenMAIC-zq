@@ -74,8 +74,28 @@ export interface AuthRepository {
     input: { displayName: string; phone: string },
   ): Promise<AuthUser | null>;
   listUsersWithRoles(): Promise<Array<{ user: AuthUser; role: AuthRole }>>;
-  updateUserRole(userId: string, roleId: string): Promise<AuthUser | null>;
-  deleteUser(userId: string): Promise<AuthUser | null>;
+  transitionUserRole(input: {
+    actorUserId: string;
+    actorTenantId: string;
+    userId: string;
+    roleId: string;
+  }): Promise<
+    | { outcome: 'updated'; user: AuthUser; role: AuthRole }
+    | {
+        outcome:
+          | 'user_not_found'
+          | 'role_not_found'
+          | 'self_demote'
+          | 'last_admin'
+          | 'disabled_admin';
+      }
+  >;
+  deleteTenantUser(input: {
+    actorTenantId: string;
+    userId: string;
+  }): Promise<
+    { outcome: 'deleted'; user: AuthUser } | { outcome: 'user_not_found' | 'admin_user' }
+  >;
 }
 
 export type AuthServiceErrorCode =
@@ -93,6 +113,10 @@ export type AuthServiceErrorCode =
   | 'USER_DISABLED'
   | 'ADMIN_ROLE_NOT_FOUND'
   | 'ADMIN_ROLE_NOT_ALLOWED'
+  | 'SELF_ADMIN_DEMOTION'
+  | 'LAST_ACTIVE_ADMIN'
+  | 'DISABLED_ADMIN_PROMOTION'
+  | 'ADMIN_USER_DELETE_NOT_ALLOWED'
   | 'TENANT_MISMATCH'
   | 'TENANT_SUSPENDED'
   | 'USER_NOT_FOUND'
@@ -301,6 +325,7 @@ export function createAuthService(repository: AuthRepository) {
           companyName,
         });
         if (record.tenant.status !== 'active') throw new AuthServiceError('TENANT_SUSPENDED');
+        if (record.user.status !== 'active') throw new AuthServiceError('USER_DISABLED');
         return {
           user: record.user,
           role: record.role,
@@ -334,9 +359,9 @@ export function createAuthService(repository: AuthRepository) {
       return { user, role, identity: identityFrom(user, role, 'host-sso') };
     },
 
-    async getSessionUser(userId: string): Promise<AuthResult> {
+    async getSessionUser(userId: string): Promise<AuthResult & { tenant: AuthTenant }> {
       const record = await repository.findUserWithRoleById(userId);
-      if (!record) throw new AuthServiceError('USER_NOT_FOUND');
+      if (!record || !record.tenant) throw new AuthServiceError('USER_NOT_FOUND');
       if (record.user.status !== 'active') throw new AuthServiceError('USER_DISABLED');
       if (record.tenant && record.tenant.status !== 'active') {
         throw new AuthServiceError('TENANT_SUSPENDED');
@@ -344,6 +369,7 @@ export function createAuthService(repository: AuthRepository) {
       return {
         user: record.user,
         role: record.role,
+        tenant: record.tenant,
         identity: identityFrom(record.user, record.role, 'password'),
       };
     },
@@ -356,36 +382,31 @@ export function createAuthService(repository: AuthRepository) {
     async updateUserRole(input: {
       userId: string;
       roleId: string;
-      actorTenantId?: string;
+      actorUserId: string;
+      actorTenantId: string;
     }): Promise<AuthResult> {
-      const target = await repository.findUserWithRoleById(input.userId);
-      if (!target || (input.actorTenantId && target.user.tenantId !== input.actorTenantId)) {
-        throw new AuthServiceError('USER_NOT_FOUND');
+      const result = await repository.transitionUserRole(input);
+      if (result.outcome !== 'updated') {
+        if (result.outcome === 'user_not_found') throw new AuthServiceError('USER_NOT_FOUND');
+        if (result.outcome === 'role_not_found') throw new AuthServiceError('ROLE_NOT_FOUND');
+        if (result.outcome === 'self_demote') throw new AuthServiceError('SELF_ADMIN_DEMOTION');
+        if (result.outcome === 'last_admin') throw new AuthServiceError('LAST_ACTIVE_ADMIN');
+        throw new AuthServiceError('DISABLED_ADMIN_PROMOTION');
       }
-      const role = await repository.findRoleById(input.roleId);
-      if (!role || (input.actorTenantId && role.tenantId !== input.actorTenantId)) {
-        throw new AuthServiceError('ROLE_NOT_FOUND');
-      }
-      if (input.actorTenantId && role.isAdmin) {
-        throw new AuthServiceError('ADMIN_ROLE_NOT_ALLOWED');
-      }
-      const user = await repository.updateUserRole(input.userId, role.id);
-      if (!user) throw new AuthServiceError('USER_NOT_FOUND');
-      return { user, role, identity: identityFrom(user, role, 'password') };
+      return {
+        user: result.user,
+        role: result.role,
+        identity: identityFrom(result.user, result.role, 'password'),
+      };
     },
 
-    async deleteUser(userId: string, actorTenantId?: string): Promise<AuthUser> {
-      const target = await repository.findUserWithRoleById(userId);
-      if (
-        !target ||
-        (actorTenantId && target.user.tenantId !== actorTenantId) ||
-        (actorTenantId && target.role.isAdmin)
-      ) {
-        throw new AuthServiceError('USER_NOT_FOUND');
+    async deleteUser(userId: string, actorTenantId: string): Promise<AuthUser> {
+      const result = await repository.deleteTenantUser({ userId, actorTenantId });
+      if (result.outcome === 'user_not_found') throw new AuthServiceError('USER_NOT_FOUND');
+      if (result.outcome === 'admin_user') {
+        throw new AuthServiceError('ADMIN_USER_DELETE_NOT_ALLOWED');
       }
-      const user = await repository.deleteUser(userId);
-      if (!user) throw new AuthServiceError('USER_NOT_FOUND');
-      return user;
+      return result.user;
     },
   };
 }

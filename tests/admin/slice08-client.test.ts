@@ -91,11 +91,11 @@ describe('Slice-08 admin client helpers', () => {
     ];
 
     expect(buildRoleOptions(roles)).toEqual([
-      { value: 'role-admin', label: '管理员 (admin)', isAdmin: true },
-      { value: 'role-sales', label: '销售 (sales)', isAdmin: false },
+      { value: 'role-admin', label: '管理员 (admin) · 管理员', isAdmin: true },
+      { value: 'role-sales', label: '销售 (sales) · 普通角色', isAdmin: false },
     ]);
     expect(createUserRoleDrafts(users)).toEqual({ 'user-1': 'role-sales' });
-    expect(getRoleLabel('role-sales', roles)).toBe('销售 (sales)');
+    expect(getRoleLabel('role-sales', roles)).toBe('销售 (sales) · 普通角色');
     expect(getRoleLabel('missing-role', roles)).toBe('missing-role');
   });
 
@@ -115,7 +115,7 @@ describe('Slice-08 admin client helpers', () => {
     ).toMatchObject({
       id: 'invite-1',
       status: 'active',
-      roleLabel: '销售 (sales)',
+      roleLabel: '销售 (sales) · 普通角色',
       cleartextCode: null,
     });
 

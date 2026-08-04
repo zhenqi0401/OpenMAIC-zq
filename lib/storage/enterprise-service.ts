@@ -717,12 +717,11 @@ export function createEnterpriseStorageService(
     ) => {
       if (!access)
         throw new EnterpriseStorageServiceError('INVALID_REQUEST', 'Tenant context required');
-      if (input.isAdmin)
-        throw new EnterpriseStorageServiceError(
-          'FORBIDDEN',
-          'Administrator roles are created by host SSO only',
-        );
-      return repository.createRole({ ...input, tenantId: access.tenantId, isAdmin: false });
+      return repository.createRole({
+        ...input,
+        tenantId: access.tenantId,
+        isAdmin: input.isAdmin ?? false,
+      });
     },
     updateRole: async (
       id: string,
@@ -736,7 +735,13 @@ export function createEnterpriseStorageService(
       if (patch.isAdmin !== undefined) {
         throw new EnterpriseStorageServiceError(
           'FORBIDDEN',
-          'Administrator status is managed by host SSO',
+          'Role type cannot be changed after creation',
+        );
+      }
+      if (existing?.code === 'admin' && patch.code !== undefined && patch.code !== 'admin') {
+        throw new EnterpriseStorageServiceError(
+          'FORBIDDEN',
+          'The default administrator role code is protected',
         );
       }
       const role = await repository.updateRole(id, patch);
@@ -749,19 +754,10 @@ export function createEnterpriseStorageService(
       if (!role || (access && role.tenantId !== access.tenantId)) {
         throw new EnterpriseStorageServiceError('NOT_FOUND', 'Role not found');
       }
-      if (role.isAdmin) {
-        if (!access) {
-          const adminRoleCount = currentRoles.filter((candidate) => candidate.isAdmin).length;
-          if (adminRoleCount <= 1) {
-            throw new EnterpriseStorageServiceError(
-              'CONFLICT',
-              'At least one administrator role must remain',
-            );
-          }
-        }
+      if (role.code === 'admin') {
         throw new EnterpriseStorageServiceError(
           'FORBIDDEN',
-          'Administrator roles are managed by host SSO',
+          'The default administrator role cannot be deleted',
         );
       }
       const usage = await repository.getRoleUsage(id);

@@ -604,11 +604,71 @@ describe('Slice-01 enterprise storage service', () => {
       message: 'Role is still assigned to users, invite codes, or exam policies',
     });
     await expect(service.deleteRole(adminRole.id)).rejects.toMatchObject({
-      code: 'CONFLICT',
-      message: 'At least one administrator role must remain',
+      code: 'FORBIDDEN',
+      message: 'The default administrator role cannot be deleted',
     });
     await expect(service.deleteRole(salesRole.id)).resolves.toMatchObject({
       id: salesRole.id,
+    });
+  });
+
+  test('lets tenant administrators create an immutable administrator role type', async () => {
+    const repository = makeRepository();
+    const createRole = vi.spyOn(repository, 'createRole');
+    const service = createEnterpriseStorageService(repository);
+    const access = {
+      userId: 'admin-1',
+      tenantId: 'tenant-a',
+      roleId: adminRole.id,
+      isAdmin: true,
+    };
+
+    await expect(
+      service.createRole({ code: 'ops-admin', name: '运营管理员', isAdmin: true }, access),
+    ).resolves.toMatchObject({ code: 'ops-admin', isAdmin: true, tenantId: 'tenant-a' });
+    expect(createRole).toHaveBeenCalledWith({
+      code: 'ops-admin',
+      name: '运营管理员',
+      tenantId: 'tenant-a',
+      isAdmin: true,
+    });
+  });
+
+  test('protects role type and the default admin code while allowing unused extra admin roles to be deleted', async () => {
+    const repository = makeRepository();
+    const tenantRoles = [
+      { ...adminRole, tenantId: 'tenant-a' },
+      { ...learnerRole, tenantId: 'tenant-a' },
+      {
+        id: 'role-ops-admin',
+        tenantId: 'tenant-a',
+        code: 'ops-admin',
+        name: '运营管理员',
+        isAdmin: true,
+      },
+    ];
+    repository.listRoles = async () => tenantRoles;
+    repository.deleteRole = async (id) => tenantRoles.find((role) => role.id === id) ?? null;
+    const service = createEnterpriseStorageService(repository);
+    const access = {
+      userId: 'admin-1',
+      tenantId: 'tenant-a',
+      roleId: adminRole.id,
+      isAdmin: true,
+    };
+
+    await expect(service.updateRole(adminRole.id, { code: 'root' }, access)).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    await expect(
+      service.updateRole(learnerRole.id, { isAdmin: true }, access),
+    ).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+      message: 'Role type cannot be changed after creation',
+    });
+    await expect(service.deleteRole('role-ops-admin', access)).resolves.toMatchObject({
+      id: 'role-ops-admin',
+      isAdmin: true,
     });
   });
 

@@ -25,6 +25,7 @@ export async function GET() {
         displayName: current.user.displayName,
         role: current.role,
       },
+      tenant: { name: current.tenant.name },
       identity: { ...current.identity, authSource: identity.authSource },
     });
   } catch (error) {

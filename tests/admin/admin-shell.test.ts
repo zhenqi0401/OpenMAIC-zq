@@ -39,14 +39,18 @@ describe('AdminShell', () => {
 
   it('formats the current session user and role for the sidebar', () => {
     expect(
-      formatAdminIdentity({
-        id: 'user-1',
-        displayName: '张三',
-        phone: '13800138000',
-        role: { name: '管理员', code: 'admin' },
-      }),
-    ).toEqual({ user: '张三', role: '管理员（admin）' });
-    expect(formatAdminIdentity({ id: 'user-2', phone: '13900139000' })).toEqual({
+      formatAdminIdentity(
+        {
+          id: 'user-1',
+          displayName: '张三',
+          phone: '13800138000',
+          role: { name: '管理员', code: 'admin' },
+        },
+        { name: '美视智能' },
+      ),
+    ).toEqual({ company: '美视智能', user: '张三', role: '管理员（admin）' });
+    expect(formatAdminIdentity({ id: 'user-2', phone: '13900139000' }, null)).toEqual({
+      company: '未知公司',
       user: '13900139000',
       role: '未知角色',
     });
@@ -75,6 +79,8 @@ describe('AdminShell', () => {
     expect(markup).toContain('fixed inset-y-0 left-0');
     expect(markup).toContain('w-[var(--admin-sidebar-compact-width)]');
     expect(markup).toContain('xl:w-[var(--admin-sidebar-width)]');
+    expect(markup.indexOf('公司：')).toBeLessThan(markup.indexOf('角色：'));
+    expect(markup.indexOf('角色：')).toBeLessThan(markup.indexOf('用户：'));
     expect(markup).toContain('md:col-start-2');
     expect(markup).not.toContain('<aside class="sticky');
     expect(markup).not.toContain('max-w-[1280px]');

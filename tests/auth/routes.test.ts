@@ -158,17 +158,47 @@ function makeRepo(): AuthRepository & { users: AuthUser[] } {
         role: roles.find((role) => role.id === user.roleId)!,
       }));
     },
-    async updateUserRole(userId, roleId) {
-      const user = users.find((candidate) => candidate.id === userId);
-      if (!user) return null;
-      user.roleId = roleId;
-      return user;
+    async transitionUserRole(input) {
+      const user = users.find(
+        (candidate) => candidate.id === input.userId && candidate.tenantId === input.actorTenantId,
+      );
+      if (!user) return { outcome: 'user_not_found' } as const;
+      const currentRole = roles.find((role) => role.id === user.roleId)!;
+      const role = roles.find(
+        (candidate) => candidate.id === input.roleId && candidate.tenantId === input.actorTenantId,
+      );
+      if (!role) return { outcome: 'role_not_found' } as const;
+      if (!currentRole.isAdmin && role.isAdmin && user.status !== 'active') {
+        return { outcome: 'disabled_admin' } as const;
+      }
+      if (currentRole.isAdmin && !role.isAdmin && user.id === input.actorUserId) {
+        return { outcome: 'self_demote' } as const;
+      }
+      if (
+        currentRole.isAdmin &&
+        !role.isAdmin &&
+        user.status === 'active' &&
+        users.filter(
+          (candidate) =>
+            candidate.tenantId === input.actorTenantId &&
+            candidate.status === 'active' &&
+            roles.find((candidateRole) => candidateRole.id === candidate.roleId)?.isAdmin,
+        ).length <= 1
+      ) {
+        return { outcome: 'last_admin' } as const;
+      }
+      user.roleId = role.id;
+      return { outcome: 'updated', user, role } as const;
     },
-    async deleteUser(userId) {
-      const index = users.findIndex((candidate) => candidate.id === userId);
-      if (index === -1) return null;
+    async deleteTenantUser(input) {
+      const index = users.findIndex(
+        (candidate) => candidate.id === input.userId && candidate.tenantId === input.actorTenantId,
+      );
+      if (index === -1) return { outcome: 'user_not_found' } as const;
+      const role = roles.find((candidate) => candidate.id === users[index].roleId);
+      if (role?.isAdmin) return { outcome: 'admin_user' } as const;
       const [user] = users.splice(index, 1);
-      return user;
+      return { outcome: 'deleted', user } as const;
     },
   };
 }
@@ -376,12 +406,38 @@ describe('Slice-07 auth routes', () => {
     expect(listResponse.status).toBe(200);
     expect(listJson.users).toHaveLength(3);
 
+    const sessionResponse = await getRoute('@/app/api/auth/session/route');
+    const sessionJson = await sessionResponse.json();
+    expect(sessionJson).toMatchObject({
+      authenticated: true,
+      tenant: { name: 'Company A' },
+      user: { id: 'admin-1' },
+    });
+    expect(JSON.stringify(sessionJson)).not.toContain('companyId');
+
     const updateResponse = await patchRoute(
       '@/app/api/admin/users/[id]/role/route',
       { roleId: adminRole.id },
       { params: Promise.resolve({ id: 'learner-1' }) },
     );
-    expect(updateResponse.status).toBe(403);
+    expect(updateResponse.status).toBe(200);
+    await expect(updateResponse.json()).resolves.toMatchObject({
+      user: { id: 'learner-1', role: { id: adminRole.id, isAdmin: true } },
+    });
+
+    const demoteSelfResponse = await patchRoute(
+      '@/app/api/admin/users/[id]/role/route',
+      { roleId: learnerRole.id },
+      { params: Promise.resolve({ id: 'admin-1' }) },
+    );
+    expect(demoteSelfResponse.status).toBe(409);
+
+    const demoteLearnerResponse = await patchRoute(
+      '@/app/api/admin/users/[id]/role/route',
+      { roleId: learnerRole.id },
+      { params: Promise.resolve({ id: 'learner-1' }) },
+    );
+    expect(demoteLearnerResponse.status).toBe(200);
 
     const deleteResponse = await deleteRoute('@/app/api/admin/users/[id]/route', {
       params: Promise.resolve({ id: 'learner-1' }),

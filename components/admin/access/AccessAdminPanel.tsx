@@ -66,6 +66,7 @@ export function AccessAdminPanel({ initialSection = 'users' }: { initialSection?
   const [roles, setRoles] = useState<AdminRole[]>([]);
   const [inviteCodes, setInviteCodes] = useState<AdminInviteCode[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [userRoleDrafts, setUserRoleDrafts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [creatingRole, setCreatingRole] = useState(false);
@@ -95,7 +96,7 @@ export function AccessAdminPanel({ initialSection = 'users' }: { initialSection?
     async (notify = false) => {
       setLoading(true);
       try {
-        const [roles, inviteCodes, userResult] = await Promise.all([
+        const [roles, inviteCodes, userResult, session] = await Promise.all([
           client.listRoles(),
           client.listInviteCodes(),
           client.queryUsers({
@@ -105,12 +106,14 @@ export function AccessAdminPanel({ initialSection = 'users' }: { initialSection?
             page: userRolePage,
             pageSize: 20,
           }),
+          client.getCurrentSession(),
         ]);
         setRoles(roles);
         setInviteCodes(inviteCodes);
         setUsers(userResult.items);
         setUserPagination(userResult.pagination);
         setUserRoleDrafts(createUserRoleDrafts(userResult.items));
+        setCurrentUserId(session.authenticated ? (session.user?.id ?? null) : null);
         if (notify) adminToast.success('用户管理数据已刷新');
       } catch (loadError) {
         notifyAdminError(loadError, '后台数据加载失败');
@@ -180,7 +183,6 @@ export function AccessAdminPanel({ initialSection = 'users' }: { initialSection?
       await client.updateRole(roleId, {
         code: draft.code.trim(),
         name: draft.name.trim(),
-        isAdmin: draft.isAdmin,
       });
       adminToast.success('角色已保存');
       await loadAll();
@@ -351,6 +353,7 @@ export function AccessAdminPanel({ initialSection = 'users' }: { initialSection?
         {section === 'users' ? (
           <AccessUsersTab
             changingStatusUserId={changingStatusUserId}
+            currentUserId={currentUserId}
             deletingUserId={deletingUserId}
             filters={{ q: userQuery, roleId: userRoleFilter, status: userStatusFilter }}
             loading={loading}
@@ -398,7 +401,7 @@ export function AccessAdminPanel({ initialSection = 'users' }: { initialSection?
             onCreateInvite={createInviteCode}
             onDeleteInvite={(inviteCode) => void deleteInviteCode(inviteCode)}
             onSaveInvite={saveInviteCode}
-            roleOptions={roleOptions}
+            roleOptions={roleOptions.filter((role) => !role.isAdmin)}
             roles={roles}
             savingInviteCodeId={savingInviteCodeId}
           />

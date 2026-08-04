@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, count, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import type {
@@ -235,7 +235,17 @@ export class DrizzleAuthRepository implements AuthRepository {
           .where(eq(users.id, user.id))
           .returning();
       }
-      return { user: toAuthUser(user), role: toAuthRole(adminRole), tenant: toAuthTenant(tenant) };
+      const [assignedRole] = await tx
+        .select()
+        .from(roles)
+        .where(and(eq(roles.id, user.roleId), eq(roles.tenantId, tenant.id)))
+        .limit(1);
+      if (!assignedRole) throw new Error('ROLE_NOT_FOUND');
+      return {
+        user: toAuthUser(user),
+        role: toAuthRole(assignedRole),
+        tenant: toAuthTenant(tenant),
+      };
     }).catch(async (error: unknown) => {
       if (
         error instanceof Error &&
@@ -289,24 +299,131 @@ export class DrizzleAuthRepository implements AuthRepository {
     }));
   }
 
-  async updateUserRole(userId: string, roleId: string): Promise<AuthUser | null> {
-    const [user] = await getDb()
-      .update(users)
-      .set({ roleId, updatedAt: new Date() })
-      .where(eq(users.id, userId))
-      .returning();
-    return user ? toAuthUser(user) : null;
+  async transitionUserRole(input: {
+    actorUserId: string;
+    actorTenantId: string;
+    userId: string;
+    roleId: string;
+  }): Promise<
+    | { outcome: 'updated'; user: AuthUser; role: AuthRole }
+    | {
+        outcome:
+          | 'user_not_found'
+          | 'role_not_found'
+          | 'self_demote'
+          | 'last_admin'
+          | 'disabled_admin';
+      }
+  > {
+    return runDbTransaction(async (tx) => {
+      // A shared, ordered lock on this tenant's administrator-role set serializes demotions with
+      // status changes, so two administrators cannot concurrently remove the final active admin.
+      await tx
+        .select({ id: roles.id })
+        .from(roles)
+        .where(and(eq(roles.tenantId, input.actorTenantId), eq(roles.isAdmin, true)))
+        .orderBy(asc(roles.id))
+        .for('update');
+
+      const [target] = await tx
+        .select({ user: users, role: roles })
+        .from(users)
+        .innerJoin(roles, eq(users.roleId, roles.id))
+        .where(and(eq(users.id, input.userId), eq(users.tenantId, input.actorTenantId)))
+        .for('update')
+        .limit(1);
+      if (!target) return { outcome: 'user_not_found' } as const;
+
+      const [nextRole] = await tx
+        .select()
+        .from(roles)
+        .where(and(eq(roles.id, input.roleId), eq(roles.tenantId, input.actorTenantId)))
+        .for('update')
+        .limit(1);
+      if (!nextRole) return { outcome: 'role_not_found' } as const;
+
+      const promoting = !target.role.isAdmin && nextRole.isAdmin;
+      const demoting = target.role.isAdmin && !nextRole.isAdmin;
+      if (promoting && target.user.status !== 'active') {
+        return { outcome: 'disabled_admin' } as const;
+      }
+      if (demoting && input.userId === input.actorUserId) {
+        return { outcome: 'self_demote' } as const;
+      }
+      if (demoting && target.user.status === 'active') {
+        const [activeAdmins] = await tx
+          .select({ value: count() })
+          .from(users)
+          .innerJoin(roles, eq(users.roleId, roles.id))
+          .where(
+            and(
+              eq(users.tenantId, input.actorTenantId),
+              eq(users.status, 'active'),
+              eq(roles.isAdmin, true),
+            ),
+          );
+        if ((activeAdmins?.value ?? 0) <= 1) return { outcome: 'last_admin' } as const;
+      }
+
+      const [updated] = await tx
+        .update(users)
+        .set({ roleId: nextRole.id, updatedAt: new Date() })
+        .where(and(eq(users.id, target.user.id), eq(users.tenantId, input.actorTenantId)))
+        .returning();
+
+      if (promoting || demoting) {
+        await tx.insert(securityAuditLog).values({
+          tenantId: input.actorTenantId,
+          event: promoting ? 'admin_role.promoted' : 'admin_role.demoted',
+          subjectHash: createHash('sha256').update(target.user.id).digest('hex'),
+          metadata: {
+            actorUserId: input.actorUserId,
+            previousRoleId: target.role.id,
+            nextRoleId: nextRole.id,
+          },
+        });
+      }
+
+      return { outcome: 'updated', user: toAuthUser(updated), role: toAuthRole(nextRole) } as const;
+    });
   }
 
-  async deleteUser(userId: string): Promise<AuthUser | null> {
-    return getDb().transaction(async (tx) => {
+  async deleteTenantUser(input: {
+    actorTenantId: string;
+    userId: string;
+  }): Promise<
+    { outcome: 'deleted'; user: AuthUser } | { outcome: 'user_not_found' | 'admin_user' }
+  > {
+    return runDbTransaction(async (tx) => {
+      await tx
+        .select({ id: roles.id })
+        .from(roles)
+        .where(and(eq(roles.tenantId, input.actorTenantId), eq(roles.isAdmin, true)))
+        .orderBy(asc(roles.id))
+        .for('update');
+      const [target] = await tx
+        .select({ user: users, role: roles })
+        .from(users)
+        .innerJoin(roles, eq(users.roleId, roles.id))
+        .where(and(eq(users.id, input.userId), eq(users.tenantId, input.actorTenantId)))
+        .for('update')
+        .limit(1);
+      if (!target) return { outcome: 'user_not_found' } as const;
+      if (target.role.isAdmin) return { outcome: 'admin_user' } as const;
       await tx
         .update(inviteCodes)
         .set({ createdBy: null })
-        .where(eq(inviteCodes.createdBy, userId));
-      await tx.update(courses).set({ createdBy: null }).where(eq(courses.createdBy, userId));
-      const [user] = await tx.delete(users).where(eq(users.id, userId)).returning();
-      return user ? toAuthUser(user) : null;
+        .where(eq(inviteCodes.createdBy, target.user.id));
+      await tx
+        .update(courses)
+        .set({ createdBy: null })
+        .where(eq(courses.createdBy, target.user.id));
+      const [user] = await tx
+        .delete(users)
+        .where(and(eq(users.id, target.user.id), eq(users.tenantId, input.actorTenantId)))
+        .returning();
+      if (!user) return { outcome: 'user_not_found' } as const;
+      return { outcome: 'deleted', user: toAuthUser(user) } as const;
     });
   }
 }

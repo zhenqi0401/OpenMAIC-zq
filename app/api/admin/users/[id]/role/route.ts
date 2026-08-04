@@ -24,6 +24,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const result = await auth.updateUserRole({
       userId: id,
       roleId: body.roleId,
+      actorUserId: admin.user.id,
       actorTenantId: admin.identity.tenantId,
     });
     return apiSuccess({

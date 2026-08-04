@@ -16,17 +16,21 @@ interface AdminSessionUser {
 interface AdminSessionResponse {
   authenticated?: boolean;
   user?: AdminSessionUser;
+  tenant?: { name?: string | null };
 }
 
 export interface AdminIdentityLabels {
+  company: string;
   user: string;
   role: string;
 }
 
 export function formatAdminIdentity(
   user: AdminSessionUser | null | undefined,
+  tenant: AdminSessionResponse['tenant'] | null | undefined,
 ): AdminIdentityLabels {
-  if (!user) return { user: '未知用户', role: '未知角色' };
+  const companyLabel = tenant?.name?.trim() || '未知公司';
+  if (!user) return { company: companyLabel, user: '未知用户', role: '未知角色' };
 
   const userLabel =
     user.displayName?.trim() ||
@@ -39,11 +43,12 @@ export function formatAdminIdentity(
   const roleLabel =
     roleName && roleCode ? `${roleName}（${roleCode}）` : roleName || roleCode || '未知角色';
 
-  return { user: userLabel, role: roleLabel };
+  return { company: companyLabel, user: userLabel, role: roleLabel };
 }
 
 export function AdminCurrentIdentity() {
   const [identity, setIdentity] = useState<AdminIdentityLabels>({
+    company: '读取中…',
     user: '读取中…',
     role: '读取中…',
   });
@@ -58,10 +63,15 @@ export function AdminCurrentIdentity() {
       })
       .then((session) => {
         if (!cancelled)
-          setIdentity(formatAdminIdentity(session.authenticated ? session.user : null));
+          setIdentity(
+            formatAdminIdentity(
+              session.authenticated ? session.user : null,
+              session.authenticated ? session.tenant : null,
+            ),
+          );
       })
       .catch(() => {
-        if (!cancelled) setIdentity({ user: '无法读取', role: '无法读取' });
+        if (!cancelled) setIdentity({ company: '无法读取', user: '无法读取', role: '无法读取' });
       });
 
     return () => {
@@ -75,12 +85,16 @@ export function AdminCurrentIdentity() {
       data-admin-current-identity
     >
       <span>
-        当前用户：
-        <strong className="font-medium text-[var(--admin-foreground)]">{identity.user}</strong>
+        公司：
+        <strong className="font-medium text-[var(--admin-foreground)]">{identity.company}</strong>
       </span>
       <span>
-        当前角色：
+        角色：
         <strong className="font-medium text-[var(--admin-foreground)]">{identity.role}</strong>
+      </span>
+      <span>
+        用户：
+        <strong className="font-medium text-[var(--admin-foreground)]">{identity.user}</strong>
       </span>
     </div>
   );

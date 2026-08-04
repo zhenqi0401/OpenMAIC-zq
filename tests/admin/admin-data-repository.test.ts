@@ -7,10 +7,10 @@ describe('stage 2 admin repository contracts', () => {
 
   test('serializes administrator status changes and locks the target user', () => {
     expect(source).toMatch(
-      /select\(\{ id: roles\.id \}\)[\s\S]*?where\(eq\(roles\.isAdmin, true\)\)[\s\S]*?orderBy\(asc\(roles\.id\)\)[\s\S]*?for\('update'\)/,
+      /select\(\{ id: roles\.id \}\)[\s\S]*?eq\(roles\.isAdmin, true\)[\s\S]*?orderBy\(asc\(roles\.id\)\)[\s\S]*?for\('update'\)/,
     );
     expect(source).toMatch(
-      /where\(eq\(users\.id, input\.userId\)\)[\s\S]*?for\('update'\)[\s\S]*?if \(!record\)/,
+      /eq\(users\.id, input\.userId\)[\s\S]*?for\('update'\)[\s\S]*?if \(!record\)/,
     );
     expect(source).toMatch(
       /count\(\)[\s\S]*?eq\(users\.status, 'active'\)[\s\S]*?eq\(roles\.isAdmin, true\)/,
