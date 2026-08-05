@@ -170,7 +170,13 @@ Interactive 3D scenes using Three.js for immersive learning experiences.
 
 ## Widget Distribution Guidelines
 
-1. **Opening scenes (slides)**: Introduction, learning objectives, context setting
+### Knowledge-course opening cover (required)
+
+Interactive-first changes what follows the opening; it does not turn the first knowledge page into a dashboard. For a knowledge/theory course, scene 1 MUST be a PPT-style cover Slide with `type: "slide"`, `sceneRole: "cover"`, and `coverBrief.narrationPoints`. The visible cover contains only the course title and optional `coverBrief.attribution`; use attribution only when the originator/proposer is reliably established. If attribution is disputed, unclear, collective, or cannot be confirmed, omit it and never invent a person, institution, or date. Keep background color, abstract shapes, or a theme image if useful, but show no subtitle, learning objectives, key-point cards, agenda, directory, introduction, or body paragraphs. Narration points carry the formation background, problem addressed, and course entry route; they are not visible cover copy. The narration starts directly with the topic, without greetings or speaker introductions.
+
+If the course is genuinely centered on a substantial PBL project or role-play scenario, it may begin directly with the `pbl` project/situation scene and omit the knowledge cover.
+
+1. **Opening scene (cover slide)**: Minimal title and reliable optional attribution only
 2. **Middle scenes (widgets)**: Hands-on exploration, practice, discovery
 3. **Transition scenes (slides)**: Concept explanations between widgets
 4. **Closing scenes (slides)**: Summary, key takeaways, next steps
@@ -278,9 +284,13 @@ Rules:
     {
       "id": "scene_1",
       "type": "slide",
-      "title": "Introduction to Projectile Motion",
-      "description": "Introduce the concept and learning objectives",
-      "keyPoints": ["What is projectile motion", "Real-world examples", "Key variables"],
+      "title": "Projectile Motion",
+      "description": "A minimal cover; narration establishes why trajectory prediction matters",
+      "keyPoints": [],
+      "sceneRole": "cover",
+      "coverBrief": {
+        "narrationPoints": ["Background of trajectory prediction", "The practical question this topic answers", "How the simulator will support later exploration"]
+      },
       "order": 1
     },
     {
@@ -317,3 +327,5 @@ Rules:
 8. **REQUIRED for interactive scenes**: Every scene with `type: "interactive"` MUST include both `widgetType` AND `widgetOutline` fields.
 9. **Game quality**: Game widgets should be INTERACTIVE and FUN, not boring quizzes.
 10. **Mobile-first**: All widgets should work well on mobile devices.
+11. **Knowledge cover first**: A knowledge course starts with the marked minimal cover; interactive widgets begin after it. Core PBL/role-play may open directly in its project or situation.
+12. **Cover field exception**: The marked cover may use an empty `keyPoints` array; put background/problem/course-route context only in `coverBrief.narrationPoints`. Non-cover scenes keep normal key points.

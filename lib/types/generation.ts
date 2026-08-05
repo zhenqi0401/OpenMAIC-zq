@@ -120,6 +120,13 @@ export interface SceneOutline {
   teachingObjective?: string;
   estimatedDuration?: number; // seconds
   order: number;
+  /** Explicit marker for a newly generated knowledge-course cover slide. */
+  sceneRole?: 'cover';
+  /** Cover attribution is visible; narrationPoints are narration-only context. */
+  coverBrief?: {
+    attribution?: string;
+    narrationPoints: string[];
+  };
   /** Present only for the input-fidelity demo policies. */
   trainingCourseType?: TrainingCourseType;
   /** Authoritative must-cover items confirmed in outline review. */

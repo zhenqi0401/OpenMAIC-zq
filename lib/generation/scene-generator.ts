@@ -55,6 +55,7 @@ import type {
 import type { ThinkingConfig } from '@/lib/types/provider';
 import { createLogger } from '@/lib/logger';
 import { buildSceneFidelityContext } from './input-fidelity';
+import { isKnowledgeCover } from './knowledge-cover';
 import { validateAndRepairSlideLayout, type SlideLayoutIssueCode } from './slide-layout-guard';
 const log = createLogger('Generation');
 
@@ -711,6 +712,7 @@ async function generateSlideContent(
   editDirective?: string,
   baselineContent?: GeneratedSlideContent,
 ): Promise<GeneratedSlideContent | null> {
+  const cover = isKnowledgeCover(outline);
   // Build assigned images description for the prompt
   let assignedImagesText = '无可用图片，禁止插入任何 image 元素';
   let visionImages: Array<{ id: string; src: string }> | undefined;
@@ -785,8 +787,8 @@ async function generateSlideContent(
 
   const prompts = buildPrompt(PROMPT_IDS.SLIDE_CONTENT, {
     title: outline.title,
-    description: outline.description,
-    keyPoints: (outline.keyPoints || []).map((p, i) => `${i + 1}. ${p}`).join('\n'),
+    description: cover ? '' : outline.description,
+    keyPoints: cover ? '' : (outline.keyPoints || []).map((p, i) => `${i + 1}. ${p}`).join('\n'),
     elements: '（根据要点自动生成）',
     assignedImages: assignedImagesText,
     canvas_width: canvasWidth,
@@ -816,9 +818,15 @@ async function generateSlideContent(
   // the existing slide rather than generating from scratch. Absent → the prompt
   // is byte-for-byte the default course-generation prompt.
   const fidelityContext = buildSceneFidelityContext(outline);
-  let userPrompt = fidelityContext
-    ? `${prompts.user}\n\n${fidelityContext}\n\nFor this visible Slide, cover as many must-cover items as legibility allows. Preserve remaining important details for the narration stage; do not invent facts to fill gaps.`
-    : prompts.user;
+  let userPrompt = cover
+    ? `${prompts.user}\n\n## KNOWLEDGE COVER CONTRACT (NON-NEGOTIABLE)\nCreate a spacious, centered PPT cover. Visible text is limited to the exact title ${JSON.stringify(outline.title)}${
+        outline.coverBrief?.attribution
+          ? ` and the exact reliable attribution ${JSON.stringify(outline.coverBrief.attribution)}`
+          : '; there is no reliable attribution, so do not add any person, institution, date, or subtitle'
+      }. Do not render description, key points, narration points, learning objectives, agenda, directory, cards, chart, table, list, paragraph, dashboard, or explanatory copy. Background color, abstract decorative shapes/lines, and a relevant theme image are allowed. Use few elements, generous whitespace, and a calm centered title treatment.`
+    : fidelityContext
+      ? `${prompts.user}\n\n${fidelityContext}\n\nFor this visible Slide, cover as many must-cover items as legibility allows. Preserve remaining important details for the narration stage; do not invent facts to fill gaps.`
+      : prompts.user;
   if (editDirective || baselineContent) {
     // The baseline handed here for whole-slide regeneration already carries small
     // image-ID references (`img_N`) instead of base64 payloads — the caller lifts
@@ -855,6 +863,78 @@ async function generateSlideContent(
   if (!generatedData || !generatedData.elements || !Array.isArray(generatedData.elements)) {
     log.error(`Failed to parse AI response for: ${outline.title}`);
     return null;
+  }
+
+  if (cover) {
+    const normalizeVisibleText = (value: unknown) =>
+      String(value ?? '')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const allowedText = new Set(
+      [outline.title, outline.coverBrief?.attribution]
+        .filter((value): value is string => !!value)
+        .map((value) => value.replace(/\s+/g, ' ').trim()),
+    );
+    generatedData.elements = generatedData.elements
+      .map((element) => {
+        if (element.type === 'text') {
+          const visible = normalizeVisibleText((element as { content?: unknown }).content);
+          return allowedText.has(visible) ? element : null;
+        }
+        if (element.type === 'shape') {
+          const shape = element as typeof element & { text?: { content?: string } };
+          if (!shape.text?.content) return element;
+          const visible = normalizeVisibleText(shape.text.content);
+          return allowedText.has(visible) ? element : { ...element, text: undefined };
+        }
+        return element.type === 'image' || element.type === 'line' ? element : null;
+      })
+      .filter((element): element is NonNullable<typeof element> => element !== null);
+
+    const visibleTexts = new Set(
+      generatedData.elements.flatMap((element) => {
+        if (element.type === 'text') {
+          return [normalizeVisibleText((element as { content?: unknown }).content)];
+        }
+        if (element.type === 'shape') {
+          return [
+            normalizeVisibleText(
+              (element as typeof element & { text?: { content?: string } }).text?.content,
+            ),
+          ];
+        }
+        return [];
+      }),
+    );
+    const escapeHtml = (value: string) =>
+      value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    if (!visibleTexts.has(outline.title)) {
+      generatedData.elements.push({
+        type: 'text',
+        left: 100,
+        top: outline.coverBrief?.attribution ? 205 : 225,
+        width: 800,
+        height: 90,
+        content: `<p style="font-size:44px;text-align:center;"><strong>${escapeHtml(outline.title)}</strong></p>`,
+        defaultFontName: 'Microsoft YaHei',
+        defaultColor: '#1F2937',
+      });
+    }
+    const attribution = outline.coverBrief?.attribution;
+    if (attribution && !visibleTexts.has(attribution)) {
+      generatedData.elements.push({
+        type: 'text',
+        left: 180,
+        top: 320,
+        width: 640,
+        height: 40,
+        content: `<p style="font-size:20px;text-align:center;">${escapeHtml(attribution)}</p>`,
+        defaultFontName: 'Microsoft YaHei',
+        defaultColor: '#4B5563',
+      });
+    }
   }
 
   log.debug(`Got ${generatedData.elements.length} elements for: ${outline.title}`);
@@ -1474,8 +1554,10 @@ export async function generateSceneActions(
 
     const prompts = buildPrompt(PROMPT_IDS.SLIDE_ACTIONS, {
       title: outline.title,
-      keyPoints: (outline.keyPoints || []).map((p, i) => `${i + 1}. ${p}`).join('\n'),
-      description: outline.description,
+      keyPoints: isKnowledgeCover(outline)
+        ? ''
+        : (outline.keyPoints || []).map((p, i) => `${i + 1}. ${p}`).join('\n'),
+      description: isKnowledgeCover(outline) ? '' : outline.description,
       elements: elementsText,
       courseContext: buildCourseContext(ctx),
       agents: agentsText,
@@ -1487,10 +1569,21 @@ export async function generateSceneActions(
       return generateDefaultSlideActions(outline, content.elements);
     }
 
+    const cover = isKnowledgeCover(outline);
     const fidelityContext = buildSceneFidelityContext(outline);
-    const userPrompt = fidelityContext
-      ? `${prompts.user}\n\n${fidelityContext}\n\nThe Slide narration must explicitly explain every must-cover item that is not already fully conveyed by visible content. Do not speak internal source IDs aloud.`
-      : prompts.user;
+    const coverPoints = outline.coverBrief?.narrationPoints ?? [];
+    const coverInstruction = cover
+      ? `\n\n## KNOWLEDGE COVER NARRATION CONTRACT (NON-NEGOTIABLE)\nEnter the topic directly: no greeting, welcome, pleasantry, course-host introduction, or speaker identity. ${
+          outline.coverBrief?.attribution
+            ? `The reliable visible attribution is ${JSON.stringify(outline.coverBrief.attribution)}. State consistently who proposed/originated the theory or topic; do not add another person, institution, or date.`
+            : 'No reliable attribution is available. Omit names, institutions, and dates; never guess or fabricate them to complete a format.'
+        } Explain the formation/background context, the real problem, judgment difficulty, or management pain point this topic responds to, and briefly state how the course will enter the topic without revealing the complete theory answer. Use these narration-only points; never imply they are visible cover text:\n${coverPoints.map((point, index) => `${index + 1}. ${point}`).join('\n') || '(No specific narration points supplied; stay general and fact-bounded.)'}`
+      : '';
+    const userPrompt = cover
+      ? `${prompts.user}${coverInstruction}`
+      : fidelityContext
+        ? `${prompts.user}\n\n${fidelityContext}\n\nThe Slide narration must explicitly explain every must-cover item that is not already fully conveyed by visible content. Do not speak internal source IDs aloud.`
+        : prompts.user;
     const response = await aiCall(prompts.system, userPrompt);
     const actions = parseActionsFromStructuredOutput(response, outline.type);
 
@@ -1732,9 +1825,18 @@ function generateDefaultSlideActions(outline: SceneOutline, elements: PPTElement
   }
 
   // Add opening speech based on key points
-  const speechText = outline.keyPoints?.length
-    ? outline.keyPoints.join('。') + '。'
-    : outline.description || outline.title;
+  const cover = isKnowledgeCover(outline);
+  const coverPoints = outline.coverBrief?.narrationPoints ?? [];
+  const speechText = cover
+    ? [
+        outline.coverBrief?.attribution ? `这一主题由${outline.coverBrief.attribution}提出。` : '',
+        coverPoints.length
+          ? `${coverPoints.join('。')}。`
+          : '这一主题源于现实中反复出现的判断与行动难题，重点回应我们如何理解问题并选择更合适的处理方式。接下来将从形成背景、核心线索和实际应用逐步展开。',
+      ].join('')
+    : outline.keyPoints?.length
+      ? outline.keyPoints.join('。') + '。'
+      : outline.description || outline.title;
   actions.push({
     id: `action_${nanoid(8)}`,
     type: 'speech',

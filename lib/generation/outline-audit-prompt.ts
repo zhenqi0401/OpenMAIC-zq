@@ -11,6 +11,8 @@ function auditOutlineView(outline: OutlineAuditRequest['outlines'][number]) {
     keyPoints: outline.keyPoints,
     teachingObjective: outline.teachingObjective,
     estimatedDuration: outline.estimatedDuration,
+    sceneRole: outline.sceneRole,
+    coverBrief: outline.coverBrief,
     quizConfig: outline.quizConfig,
     widgetType: outline.widgetType,
     widgetOutline: outline.widgetOutline,
@@ -42,13 +44,13 @@ Allowed finding categories:
 - scene_configuration_error
 
 Allowed operation shapes:
-1. {"type":"update_field","sceneId":"existing-id","field":"title|description|keyPoints|teachingObjective|estimatedDuration|teachingBrief.mustCover","value":"or array/number","sourceRefIds":["REQ-001"]}
+1. {"type":"update_field","sceneId":"existing-id","field":"title|description|keyPoints|teachingObjective|estimatedDuration|teachingBrief.mustCover|coverBrief.narrationPoints","value":"or array/number","sourceRefIds":["REQ-001"]}
 2. {"type":"insert_scene","afterSceneId":"existing-id or null","scene":{"type":"slide|quiz|interactive|pbl","title":"...","description":"...","keyPoints":["..."],"teachingObjective":"optional","estimatedDuration":120,"quizConfig":"only for quiz","widgetType":"only for interactive","widgetOutline":"only for interactive","pblConfig":"only for pbl","teachingBrief":{"mustCover":["enhanced strategies only"]}},"sourceRefIds":["REQ-001"]}
 3. {"type":"delete_scene","sceneId":"existing-id"}
 4. {"type":"move_scene","sceneId":"existing-id","afterSceneId":"existing-id or null"}
 5. {"type":"change_scene_type","sceneId":"existing-id","newType":"slide|quiz|interactive|pbl","config":{"quizConfig|widgetType+widgetOutline|pblConfig":"matching target type only"},"sourceRefIds":["REQ-001"]}
 
-Never output or modify id, order, trainingCourseType, sourceEvidence, source body text, suggestedImageIds, mediaGenerations, languageNote, or language fields. Never create procedural-skill. Use scene IDs, never array indexes.
+Never output or modify id, order, sceneRole, coverBrief.attribution, trainingCourseType, sourceEvidence, source body text, suggestedImageIds, mediaGenerations, languageNote, or language fields. The first scene marked sceneRole:"cover" is structurally protected: never delete it, move it away from first position, insert before it, or change its type. You may update its title or coverBrief.narrationPoints through the explicit whitelisted update fields. Never create procedural-skill. Use scene IDs, never array indexes.
 A finding may have an empty operations array only when the problem is real but no safe evidence-backed automatic patch exists. Keep every finding internally atomic.
 For the "other" strategy, never emit teachingBrief, sourceEvidence, trainingCourseType, or any input-fidelity field.
 For enhanced strategies, an inserted scene requires at least one REQ-* or DOC-* sourceRefId. WEB-* may support a reason but cannot be the sole evidence for a new enhanced scene.

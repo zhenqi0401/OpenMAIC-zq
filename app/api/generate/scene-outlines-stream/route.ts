@@ -47,6 +47,10 @@ import {
   satisfiesManagementBCStructure,
   stripFidelityForStreaming,
 } from '@/lib/generation/input-fidelity';
+import {
+  normalizeKnowledgeCoverFields,
+  satisfiesKnowledgeCoverStructure,
+} from '@/lib/generation/knowledge-cover';
 const log = createLogger('Outlines Stream');
 
 export const maxDuration = 300;
@@ -252,11 +256,12 @@ function normalizeTaskEngineOutline(outline: SceneOutline, requirement: string):
 }
 
 function sanitizeNonTaskEngineOutline(outline: SceneOutline): SceneOutline {
-  if (outline.widgetType !== 'procedural-skill') {
-    return outline;
+  const coverNormalized = normalizeKnowledgeCoverFields(outline);
+  if (coverNormalized.widgetType !== 'procedural-skill') {
+    return coverNormalized;
   }
 
-  const widgetOutline = { ...(outline.widgetOutline ?? {}) };
+  const widgetOutline = { ...(coverNormalized.widgetOutline ?? {}) };
   delete widgetOutline.procedureType;
   delete widgetOutline.task;
   delete widgetOutline.tools;
@@ -266,11 +271,11 @@ function sanitizeNonTaskEngineOutline(outline: SceneOutline): SceneOutline {
 
   // procedural-skill is gated behind taskEngineMode to protect ordinary MAIC generation.
   return {
-    ...outline,
+    ...coverNormalized,
     type: 'interactive',
     widgetType: 'diagram',
-    description: outline.description
-      ? `${outline.description} Present this as a process or structure diagram.`
+    description: coverNormalized.description
+      ? `${coverNormalized.description} Present this as a process or structure diagram.`
       : 'Present this topic as a process or structure diagram.',
     widgetOutline,
   };
@@ -610,6 +615,25 @@ export async function POST(req: NextRequest) {
                     'The generated outline omitted a Quiz explicitly required by the user';
                   log.warn(
                     `Outlines attempt ${attempt} omitted an explicitly required Quiz; rejecting the attempt`,
+                  );
+                  parsedOutlines = [];
+                  if (attempt <= MAX_STREAM_RETRIES) {
+                    const retryEvent = JSON.stringify({
+                      type: 'retry',
+                      attempt,
+                      maxAttempts: MAX_STREAM_RETRIES + 1,
+                    });
+                    controller.enqueue(encoder.encode(`data: ${retryEvent}\n\n`));
+                  }
+                  continue;
+                }
+                const missingKnowledgeCover =
+                  !taskEngineMode && !satisfiesKnowledgeCoverStructure(parsedOutlines);
+                if (missingKnowledgeCover) {
+                  lastError =
+                    'The generated knowledge outline omitted the required first cover slide';
+                  log.warn(
+                    `Outlines attempt ${attempt} omitted the knowledge cover structure; rejecting the attempt`,
                   );
                   parsedOutlines = [];
                   if (attempt <= MAX_STREAM_RETRIES) {

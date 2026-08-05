@@ -74,6 +74,18 @@ Produce a **`courseTitle`** (required): a concise, human-readable name for the *
 - **Logical Flow**: Scenes form a natural teaching progression
 - **Experience Design**: Consider learning experience and emotional response from the student's perspective
 
+### Knowledge-course opening cover (required, except core PBL)
+
+For an ordinary knowledge/theory course, scene 1 MUST be a PPT-style cover Slide with:
+
+- `type: "slide"` and `sceneRole: "cover"`.
+- `coverBrief.narrationPoints`: concise narration-only points covering the topic/theory's formation background, the practical problem or judgment difficulty it responds to, and how the course will enter the topic. These points are never visible cover copy.
+- Optional `coverBrief.attribution`: include only a reliably established originator/proposer from the user's input, supplied documents, trustworthy research, or highly certain common knowledge. If attribution is disputed, conflicting, unclear, collective, or cannot be confirmed, OMIT it. Never invent a person, institution, or date to complete the format.
+- The visible cover is extremely minimal: course title only, plus `coverBrief.attribution` when present. Background color, abstract shapes, or a relevant theme image are allowed. Do not put subtitles, learning objectives, key-point cards, agendas, introductions, directories, or body paragraphs on the cover.
+- The cover narration enters the topic directly: no greeting, welcome, or speaker introduction. It explains background, the problem addressed, and the course's route without giving away the full theory answer.
+
+Exception: when the course is genuinely centered on a substantial PBL project or role-play scenario, it may begin directly with the `pbl` project/situation scene and MUST NOT insert a forced knowledge cover before it.
+
 ---
 
 ## Default Assumption Rules
@@ -258,9 +270,13 @@ Rules:
     {
       "id": "scene_1",
       "type": "slide",
-      "title": "Introduction",
-      "description": "Welcome students and introduce the core concept.",
-      "keyPoints": ["Context", "Agenda", "Goals"],
+      "title": "Projectile Motion",
+      "description": "A minimal knowledge-course cover whose narration establishes the topic background.",
+      "keyPoints": [],
+      "sceneRole": "cover",
+      "coverBrief": {
+        "narrationPoints": ["Why predicting a moving object's path matters", "How the course will connect motion variables to trajectory"]
+      },
       "order": 1
     },
     {
@@ -305,6 +321,10 @@ Rules:
 | teachingObjective | string                   | ❌       | Corresponding learning objective                                                                 |
 | estimatedDuration | number                   | ❌       | Estimated duration (seconds)                                                                     |
 | order             | number                   | ✅       | Sort order, starting from 1                                                                      |
+| sceneRole         | `"cover"`                | ❌       | Required on scene 1 for knowledge courses; omit for all non-cover scenes                         |
+| coverBrief        | object                   | ❌       | Required with `sceneRole:"cover"`; narrationPoints are narration-only and attribution is optional/reliability-gated |
+
+For the marked cover scene only, `keyPoints` may be an empty array because `coverBrief.narrationPoints` carries the narration-only context. All non-cover scenes retain the normal key-point requirement.
 {{#if hasSourceImages}}
 | suggestedImageIds | string[]                 | ❌       | Suggested image IDs to use                                                                       |
 {{/if}}

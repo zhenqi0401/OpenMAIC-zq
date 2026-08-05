@@ -15,6 +15,10 @@ import {
 } from '@/lib/generation/input-fidelity';
 import { changeOutlineType } from '@/lib/generation/outline-type';
 import { generateSceneActions, generateSceneContent } from '@/lib/generation/scene-generator';
+import {
+  normalizeKnowledgeCoverFields,
+  satisfiesKnowledgeCoverStructure,
+} from '@/lib/generation/knowledge-cover';
 import type { AICallFn } from '@/lib/generation/pipeline-types';
 import type {
   GeneratedQuizContent,
@@ -44,6 +48,35 @@ function capturingCall(response: string) {
 }
 
 describe('input-fidelity contracts', () => {
+  it('accepts a marked knowledge cover or direct core PBL opening and rejects malformed cover fields', () => {
+    const cover = normalizeKnowledgeCoverFields(
+      outline({
+        sceneRole: 'cover',
+        coverBrief: {
+          attribution: '  约翰·斯泰西·亚当斯  ',
+          narrationPoints: [' 形成背景 ', '', '现实问题', '课程切入方向'],
+        },
+      }),
+    );
+    expect(cover.coverBrief).toEqual({
+      attribution: '约翰·斯泰西·亚当斯',
+      narrationPoints: ['形成背景', '现实问题', '课程切入方向'],
+    });
+    expect(satisfiesKnowledgeCoverStructure([cover])).toBe(true);
+    expect(satisfiesKnowledgeCoverStructure([outline()])).toBe(false);
+    expect(
+      satisfiesKnowledgeCoverStructure([
+        outline({
+          type: 'pbl',
+          pblConfig: {
+            projectTopic: '项目',
+            projectDescription: '完成一个项目',
+            targetSkills: ['协作'],
+          },
+        }),
+      ]),
+    ).toBe(true);
+  });
   it('accepts exactly five strategies and enhances only the four new policies', () => {
     for (const type of ['management', 'sales', 'professional', 'company_policy', 'other']) {
       expect(isTrainingCourseType(type)).toBe(true);
@@ -246,8 +279,9 @@ describe('input-fidelity contracts', () => {
       buildSourceCatalog({ requirement: '帮我生成一门公平理论的课程' }),
     );
 
-    expect(prompt).toContain('第一个场景必须是 1 页案例 Slide');
-    expect(prompt).toContain('第二个场景必须是包含 3 道单选题的无分数诊断 Quiz');
+    expect(prompt).toContain('第一个场景必须是知识封面 Slide');
+    expect(prompt).toContain('第二个场景必须是 1 页案例 Slide');
+    expect(prompt).toContain('第三个场景必须是包含 3 道单选题的无分数诊断 Quiz');
     expect(prompt).toContain('"mode":"diagnostic"');
     expect(prompt).toContain('逐项回到开篇三个痛点');
     expect(prompt).toContain('最后一个场景必须是总结 Slide');
@@ -296,9 +330,19 @@ describe('input-fidelity contracts', () => {
 
   it('validates the complete management B+C outline before accepting a simple request', () => {
     const outlines = [
-      outline({ order: 1, type: 'slide', title: '李经理的三个公平痛点' }),
       outline({
-        order: 2,
+        order: 1,
+        type: 'slide',
+        title: '公平理论',
+        sceneRole: 'cover',
+        coverBrief: {
+          attribution: '约翰·斯泰西·亚当斯',
+          narrationPoints: ['形成背景', '公平感知问题', '课程切入方向'],
+        },
+      }),
+      outline({ order: 2, type: 'slide', title: '李经理的三个公平痛点' }),
+      outline({
+        order: 3,
         type: 'quiz',
         title: '锁定你的初始判断',
         quizConfig: {
@@ -308,9 +352,9 @@ describe('input-fidelity contracts', () => {
           questionTypes: ['single'],
         },
       }),
-      outline({ order: 3, title: '公平理论的投入、产出与参照对象' }),
-      outline({ order: 4, title: '回到三个痛点重新判断管理动作' }),
-      outline({ order: 5, title: '总结：痛点、理论线索与行动闭环' }),
+      outline({ order: 4, title: '公平理论的投入、产出与参照对象' }),
+      outline({ order: 5, title: '回到三个痛点重新判断管理动作' }),
+      outline({ order: 6, title: '总结：痛点、理论线索与行动闭环' }),
     ];
 
     expect(satisfiesManagementBCStructure(outlines)).toBe(true);
@@ -322,6 +366,19 @@ describe('input-fidelity contracts', () => {
         outlines.map((item) =>
           item.type === 'quiz'
             ? { ...item, quizConfig: { ...item.quizConfig!, mode: 'graded' } }
+            : item,
+        ),
+      ),
+    ).toBe(false);
+    expect(satisfiesManagementBCStructure(outlines.slice(1))).toBe(false);
+    expect(
+      satisfiesManagementBCStructure([outlines[0], outlines[2], outlines[1], ...outlines.slice(3)]),
+    ).toBe(false);
+    expect(
+      satisfiesManagementBCStructure(
+        outlines.map((item) =>
+          item.type === 'quiz'
+            ? { ...item, quizConfig: { ...item.quizConfig!, questionCount: 2 } }
             : item,
         ),
       ),
@@ -407,5 +464,83 @@ describe('Slide/Quiz fidelity prompt wiring', () => {
     await generateSceneContent(outline({ trainingCourseType: 'other' }), other.aiCall);
     expect(other.users[0]).toBe(legacy.users[0]);
     expect(other.users[0]).not.toContain('场景输入保真上下文');
+  });
+});
+
+describe('knowledge cover content and narration wiring', () => {
+  const coverOutline = outline({
+    title: '公平理论',
+    sceneRole: 'cover',
+    coverBrief: {
+      attribution: '约翰·斯泰西·亚当斯',
+      narrationPoints: [
+        '理论形成于组织交换关系研究',
+        '回应员工如何判断投入与回报是否公平',
+        '后续从参照比较进入管理行动',
+      ],
+    },
+    keyPoints: ['不得出现在封面的内部要点'],
+  });
+
+  it('keeps narration points and ordinary key points out of visible cover generation', async () => {
+    const captured = capturingCall(
+      JSON.stringify({
+        elements: [
+          { type: 'text', content: '<p>公平理论</p>', left: 100, top: 100, width: 800, height: 76 },
+          { type: 'text', content: '<p>学习目标</p>', left: 100, top: 220, width: 800, height: 40 },
+          { type: 'chart', chartType: 'bar', left: 0, top: 0, width: 100, height: 100 },
+        ],
+      }),
+    );
+    const content = (await generateSceneContent(
+      coverOutline,
+      captured.aiCall,
+    )) as GeneratedSlideContent;
+
+    expect(captured.users[0]).toContain('KNOWLEDGE COVER CONTRACT');
+    expect(captured.users[0]).toContain('约翰·斯泰西·亚当斯');
+    expect(captured.users[0]).not.toContain('理论形成于组织交换关系研究');
+    expect(captured.users[0]).not.toContain('不得出现在封面的内部要点');
+    expect(content.elements).toHaveLength(2);
+    expect(JSON.stringify(content.elements)).toContain('公平理论');
+    expect(JSON.stringify(content.elements)).toContain('约翰·斯泰西·亚当斯');
+    expect(JSON.stringify(content.elements)).not.toContain('学习目标');
+  });
+
+  it('gives cover narration attribution, background, problem and route constraints', async () => {
+    const captured = capturingCall('not-json');
+    const actions = await generateSceneActions(
+      coverOutline,
+      { elements: [], background: undefined },
+      captured.aiCall,
+    );
+
+    expect(captured.users[0]).toContain('KNOWLEDGE COVER NARRATION CONTRACT');
+    expect(captured.users[0]).toContain('约翰·斯泰西·亚当斯');
+    expect(captured.users[0]).toContain('formation/background context');
+    expect(captured.users[0]).toContain('real problem');
+    expect(captured.users[0]).toContain('how the course will enter the topic');
+    expect(actions.find((action) => action.type === 'speech')?.text).toContain(
+      '约翰·斯泰西·亚当斯',
+    );
+  });
+
+  it('omits attribution rather than fabricating one when none is reliable', async () => {
+    const noAttribution = {
+      ...coverOutline,
+      coverBrief: { narrationPoints: ['主题形成背景', '所回应的现实问题', '课程切入方向'] },
+    };
+    const contentCall = capturingCall(JSON.stringify({ elements: [] }));
+    await generateSceneContent(noAttribution, contentCall.aiCall);
+    expect(contentCall.users[0]).toContain('there is no reliable attribution');
+
+    const actionCall = capturingCall('not-json');
+    const actions = await generateSceneActions(
+      noAttribution,
+      { elements: [], background: undefined },
+      actionCall.aiCall,
+    );
+    expect(actionCall.users[0]).toContain('Omit names, institutions, and dates');
+    expect(actions.find((action) => action.type === 'speech')?.text).not.toMatch(/由.+提出/);
   });
 });

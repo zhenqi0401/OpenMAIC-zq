@@ -4,6 +4,7 @@ import {
   type SourceEvidence,
   type TrainingCourseType,
 } from '@/lib/types/generation';
+import { isKnowledgeCover } from '@/lib/generation/knowledge-cover';
 
 export const ENHANCED_TRAINING_COURSE_TYPES = [
   'management',
@@ -66,12 +67,13 @@ const MANAGEMENT_BC_STRUCTURE = `
 ### 管理精品课 B+C 教学结构（强制）
 
 仅管理知识培训采用以下结构，并保持同一人物、同一团队背景和同一冲突线贯穿全课：
-1. 第一个场景必须是 1 页案例 Slide：建立管理者、团队或业务背景，并清楚提出三个具体管理痛点；只呈现冲突，不提前讲理论答案。
-2. 第二个场景必须是包含 3 道单选题的无分数诊断 Quiz，\`quizConfig\` 固定为 \`{"mode":"diagnostic","questionCount":3,"difficulty":"medium","questionTypes":["single"]}\`。三题分别对应开篇三个痛点，都从“如果你是这位管理者，你会先怎么做？”的决策角度提问；每题给出 3 个都有现实合理性的行动选项，不设置一眼可见的唯一正确答案。
-3. 诊断 Quiz 只锁定学员的初始判断，不显示分数、正误、标准答案或解析；不得在 Quiz 场景及其讲稿中提前泄露后续理论结论。
-4. 完成核心管理理论讲解后，必须安排至少一个中段 call back 场景，逐项回到开篇三个痛点和学员当时面对的三项决策，用刚讲完的理论重新解释“问题在哪里、应先判断什么、下一步怎么做”。
-5. 最后一个场景必须是总结 Slide，明确形成“开篇痛点 → 理论线索 → 管理动作”的三组闭环，并给出可立即使用的行动提示。
-6. 案例 Slide、诊断三题、中段 call back 与结尾总结中的三个痛点必须一一对应，不得换案例、漏项或只做泛化总结。`;
+1. 第一个场景必须是知识封面 Slide：设置 \`sceneRole: "cover"\` 和 \`coverBrief\`，可见内容只放课程标题与可靠时的理论提出者。
+2. 第二个场景必须是 1 页案例 Slide：建立管理者、团队或业务背景，并清楚提出三个具体管理痛点；只呈现冲突，不提前讲理论答案。
+3. 第三个场景必须是包含 3 道单选题的无分数诊断 Quiz，\`quizConfig\` 固定为 \`{"mode":"diagnostic","questionCount":3,"difficulty":"medium","questionTypes":["single"]}\`。三题分别对应开篇三个痛点，都从“如果你是这位管理者，你会先怎么做？”的决策角度提问；每题给出 3 个都有现实合理性的行动选项，不设置一眼可见的唯一正确答案。
+4. 诊断 Quiz 只锁定学员的初始判断，不显示分数、正误、标准答案或解析；不得在 Quiz 场景及其讲稿中提前泄露后续理论结论。
+5. 完成核心管理理论讲解后，必须安排至少一个中段 call back 场景，逐项回到开篇三个痛点和学员当时面对的三项决策，用刚讲完的理论重新解释“问题在哪里、应先判断什么、下一步怎么做”。
+6. 最后一个场景必须是总结 Slide，明确形成“开篇痛点 → 理论线索 → 管理动作”的三组闭环，并给出可立即使用的行动提示。
+7. 案例 Slide、诊断三题、中段 call back 与结尾总结中的三个痛点必须一一对应，不得换案例、漏项或只做泛化总结。`;
 
 export function isTrainingCourseType(value: unknown): value is TrainingCourseType {
   return typeof value === 'string' && allTypes.has(value);
@@ -224,13 +226,17 @@ function outlineSearchText(outline: SceneOutline): string {
  * strategies and the legacy `other` contract keep their existing freedom.
  */
 export function satisfiesManagementBCStructure(outlines: SceneOutline[]): boolean {
-  if (outlines.length < 5) return false;
-  const [opening, diagnostic] = outlines;
+  if (outlines.length < 6) return false;
+  const [cover, opening, diagnostic] = outlines;
   const closing = outlines[outlines.length - 1];
   const config = diagnostic.quizConfig;
 
   const hasRequiredFrame =
+    isKnowledgeCover(cover) &&
     opening.type === 'slide' &&
+    /(?:三|3)(?:个|项)?[^\n。；;]{0,16}痛点|痛点[^\n。；;]{0,16}(?:三|3)(?:个|项)?/i.test(
+      outlineSearchText(opening),
+    ) &&
     diagnostic.type === 'quiz' &&
     config?.mode === 'diagnostic' &&
     config.questionCount === 3 &&
@@ -239,7 +245,7 @@ export function satisfiesManagementBCStructure(outlines: SceneOutline[]): boolea
     closing.type === 'slide';
   if (!hasRequiredFrame) return false;
 
-  const middleText = outlines.slice(2, -1).map(outlineSearchText).join(' ');
+  const middleText = outlines.slice(3, -1).map(outlineSearchText).join(' ');
   const closingText = outlineSearchText(closing);
   const hasCallback =
     /call\s*back|回访|回看|回到|重新判断|重新审视|再判断|三(?:个|项)痛点|痛点.{0,20}(?:理论|行动)|(?:理论|行动).{0,20}痛点/i.test(

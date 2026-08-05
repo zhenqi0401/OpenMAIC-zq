@@ -284,6 +284,18 @@ describe('task-engine outline route', () => {
           languageDirective: 'Teach in English.',
           outlines: [
             {
+              id: 'cover',
+              type: 'slide',
+              title: 'Motion',
+              description: 'Minimal knowledge cover.',
+              keyPoints: [],
+              order: 1,
+              sceneRole: 'cover',
+              coverBrief: {
+                narrationPoints: ['Motion background', 'Problem addressed', 'Course route'],
+              },
+            },
+            {
               id: 'scene_1',
               type: 'interactive',
               title: 'Interactive Scene',
@@ -337,6 +349,16 @@ describe('task-engine outline route', () => {
           languageDirective: 'Teach in English.',
           outlines: [
             {
+              id: 'cover',
+              type: 'slide',
+              title: 'Operation Process',
+              description: 'Minimal knowledge cover.',
+              keyPoints: [],
+              order: 1,
+              sceneRole: 'cover',
+              coverBrief: { narrationPoints: ['Background', 'Problem addressed', 'Course route'] },
+            },
+            {
               id: 'scene_1',
               type: 'interactive',
               title: 'Operation Process',
@@ -368,18 +390,18 @@ describe('task-engine outline route', () => {
     const events = parseSseEvents(await readStreamBody(response));
     const done = events.find((event) => event.type === 'done');
     expect(done).toBeDefined();
-    expect(done.outlines[0]).toMatchObject({
+    expect(done.outlines[1]).toMatchObject({
       type: 'interactive',
       widgetType: 'diagram',
     });
-    expect(done.outlines[0].description).toContain('process or structure diagram');
-    expect(done.outlines[0].widgetOutline.diagramType).toBeUndefined();
-    expect(done.outlines[0].widgetOutline.nodeCount).toBeUndefined();
-    expect(done.outlines[0].widgetOutline.procedureType).toBeUndefined();
-    expect(done.outlines[0].widgetOutline.task).toBeUndefined();
-    expect(done.outlines[0].widgetOutline.tools).toBeUndefined();
-    expect(done.outlines[0].widgetOutline.steps).toBeUndefined();
-    expect(done.outlines[0].widgetOutline.successCriteria).toBeUndefined();
+    expect(done.outlines[1].description).toContain('process or structure diagram');
+    expect(done.outlines[1].widgetOutline.diagramType).toBeUndefined();
+    expect(done.outlines[1].widgetOutline.nodeCount).toBeUndefined();
+    expect(done.outlines[1].widgetOutline.procedureType).toBeUndefined();
+    expect(done.outlines[1].widgetOutline.task).toBeUndefined();
+    expect(done.outlines[1].widgetOutline.tools).toBeUndefined();
+    expect(done.outlines[1].widgetOutline.steps).toBeUndefined();
+    expect(done.outlines[1].widgetOutline.successCriteria).toBeUndefined();
   });
 
   test('preserves model-authored scenario PBL subtype through streamed outlines', async () => {
@@ -464,8 +486,10 @@ describe('task-engine outline route', () => {
               type: 'slide',
               title: 'First Scene',
               description: 'First scene.',
-              keyPoints: ['A'],
+              keyPoints: [],
               order: 1,
+              sceneRole: 'cover',
+              coverBrief: { narrationPoints: ['Background', 'Problem addressed', 'Course route'] },
             },
             {
               id: 'scene_4',
@@ -494,6 +518,74 @@ describe('task-engine outline route', () => {
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids[0]).toBe('scene_4');
     expect(ids[1]).not.toBe('scene_4');
+  });
+
+  test('retries a new knowledge outline that omits the marked first cover', async () => {
+    vi.resetModules();
+    streamLLMMock.mockReset();
+    resolveModelFromRequestMock.mockReset();
+    resolveModelFromRequestMock.mockResolvedValue({
+      model: { provider: 'glm.chat', modelId: 'glm-5.1' },
+      modelInfo: { outputWindow: 4096, capabilities: {} },
+      modelString: 'glm:glm-5.1',
+      providerId: 'glm',
+      modelId: 'glm-5.1',
+      thinkingConfig: undefined,
+    });
+    const responseFor = (outlines: unknown[]) =>
+      JSON.stringify({ languageDirective: '用中文授课。', courseTitle: '公平理论', outlines });
+    streamLLMMock
+      .mockReturnValueOnce({
+        textStream: (async function* () {
+          yield responseFor([
+            {
+              id: 'body',
+              type: 'slide',
+              title: '公平理论的核心概念',
+              description: '直接进入正文。',
+              keyPoints: ['投入', '产出', '参照对象'],
+              order: 1,
+            },
+          ]);
+        })(),
+      })
+      .mockReturnValueOnce({
+        textStream: (async function* () {
+          yield responseFor([
+            {
+              id: 'cover',
+              type: 'slide',
+              title: '公平理论',
+              description: '极简知识封面。',
+              keyPoints: [],
+              order: 1,
+              sceneRole: 'cover',
+              coverBrief: {
+                attribution: '约翰·斯泰西·亚当斯',
+                narrationPoints: ['形成背景', '公平感知问题', '课程切入方向'],
+              },
+            },
+            {
+              id: 'body',
+              type: 'slide',
+              title: '公平理论的核心概念',
+              description: '进入正文。',
+              keyPoints: ['投入', '产出', '参照对象'],
+              order: 2,
+            },
+          ]);
+        })(),
+      });
+
+    const { POST } = await import('@/app/api/generate/scene-outlines-stream/route');
+    const response = await POST(
+      mockRequest({ requirement: '讲解公平理论' }) as unknown as Parameters<typeof POST>[0],
+    );
+    const events = parseSseEvents(await readStreamBody(response));
+    expect(events.some((event) => event.type === 'retry')).toBe(true);
+    expect(streamLLMMock).toHaveBeenCalledTimes(2);
+    const done = events.find((event) => event.type === 'done');
+    expect(done.outlines[0]).toMatchObject({ id: 'cover', type: 'slide', sceneRole: 'cover' });
   });
 
   test('falls back to a slide for invalid task-engine outlines without regex promotion', async () => {
@@ -569,6 +661,18 @@ describe('task-engine outline route', () => {
         textStream: (async function* () {
           yield responseFor([
             {
+              id: 'cover',
+              type: 'slide',
+              title: '管理实践',
+              description: '知识封面。',
+              keyPoints: [],
+              order: 1,
+              sceneRole: 'cover',
+              coverBrief: { narrationPoints: ['形成背景', '现实问题', '课程切入方向'] },
+              teachingBrief: { mustCover: ['管理实践课程'] },
+              sourceRefIds: ['REQ-001'],
+            },
+            {
               id: 'slide_only',
               type: 'slide',
               title: '理论讲解',
@@ -584,6 +688,18 @@ describe('task-engine outline route', () => {
       .mockReturnValueOnce({
         textStream: (async function* () {
           yield responseFor([
+            {
+              id: 'cover',
+              type: 'slide',
+              title: '管理实践',
+              description: '知识封面。',
+              keyPoints: [],
+              order: 1,
+              sceneRole: 'cover',
+              coverBrief: { narrationPoints: ['形成背景', '现实问题', '课程切入方向'] },
+              teachingBrief: { mustCover: ['管理实践课程'] },
+              sourceRefIds: ['REQ-001'],
+            },
             {
               id: 'model_quiz',
               type: 'quiz',
@@ -617,7 +733,7 @@ describe('task-engine outline route', () => {
     const response = await POST(
       mockRequest({
         requirement: '设计管理课程，必须包含测验；测验位置由课程设计决定。',
-        trainingCourseType: 'management',
+        trainingCourseType: 'professional',
       }) as unknown as Parameters<typeof POST>[0],
     );
 
@@ -626,10 +742,11 @@ describe('task-engine outline route', () => {
     expect(streamLLMMock).toHaveBeenCalledTimes(2);
     const done = events.find((event) => event.type === 'done');
     expect(done.outlines.map((item: { id: string }) => item.id)).toEqual([
+      'cover',
       'model_quiz',
       'closing_slide',
     ]);
-    expect(done.outlines[0].quizConfig).toEqual({
+    expect(done.outlines[1].quizConfig).toEqual({
       questionCount: 4,
       difficulty: 'hard',
       questionTypes: ['multiple', 'text'],
@@ -649,39 +766,55 @@ describe('task-engine outline route', () => {
       thinkingConfig: undefined,
     });
 
-    const wrapper = (scene: Record<string, unknown>) =>
+    const wrapper = (scenes: Record<string, unknown>[]) =>
       JSON.stringify({
         languageDirective: '用中文授课。',
         courseTitle: '水果课程',
-        outlines: [scene],
+        outlines: scenes,
       });
     streamLLMMock
       .mockReturnValueOnce({
         textStream: (async function* () {
-          yield wrapper({
-            id: 'unlinked',
-            type: 'slide',
-            title: '量子力学',
-            description: '讲解波函数。',
-            keyPoints: ['波函数'],
-            order: 1,
-            teachingBrief: { mustCover: ['解释量子叠加'] },
-            sourceRefIds: [],
-          });
+          yield wrapper([
+            {
+              id: 'unlinked',
+              type: 'slide',
+              title: '量子力学',
+              description: '讲解波函数。',
+              keyPoints: ['波函数'],
+              order: 1,
+              teachingBrief: { mustCover: ['解释量子叠加'] },
+              sourceRefIds: [],
+            },
+          ]);
         })(),
       })
       .mockReturnValueOnce({
         textStream: (async function* () {
-          yield wrapper({
-            id: 'linked',
-            type: 'slide',
-            title: '苹果识别',
-            description: '根据用户要求讲解苹果。',
-            keyPoints: ['苹果'],
-            order: 1,
-            teachingBrief: { mustCover: ['讲解苹果'] },
-            sourceRefIds: ['REQ-001'],
-          });
+          yield wrapper([
+            {
+              id: 'cover',
+              type: 'slide',
+              title: '水果课程',
+              description: '知识封面。',
+              keyPoints: [],
+              order: 1,
+              sceneRole: 'cover',
+              coverBrief: { narrationPoints: ['形成背景', '现实问题', '课程切入方向'] },
+              teachingBrief: { mustCover: ['讲解苹果'] },
+              sourceRefIds: ['REQ-001'],
+            },
+            {
+              id: 'linked',
+              type: 'slide',
+              title: '苹果识别',
+              description: '根据用户要求讲解苹果。',
+              keyPoints: ['苹果'],
+              order: 1,
+              teachingBrief: { mustCover: ['讲解苹果'] },
+              sourceRefIds: ['REQ-001'],
+            },
+          ]);
         })(),
       });
 
@@ -697,9 +830,9 @@ describe('task-engine outline route', () => {
     expect(events.some((event) => event.type === 'retry')).toBe(true);
     expect(streamLLMMock).toHaveBeenCalledTimes(2);
     const done = events.find((event) => event.type === 'done');
-    expect(done.outlines).toHaveLength(1);
-    expect(done.outlines[0].id).toBe('linked');
-    expect(done.outlines[0].sourceEvidence).toEqual([
+    expect(done.outlines).toHaveLength(2);
+    expect(done.outlines[1].id).toBe('linked');
+    expect(done.outlines[1].sourceEvidence).toEqual([
       { id: 'REQ-001', kind: 'requirement', label: '用户需求', excerpt: '第一部分讲解苹果。' },
     ]);
   });

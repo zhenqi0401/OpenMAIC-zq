@@ -64,7 +64,8 @@ export type OutlineAuditOperation =
         | 'keyPoints'
         | 'teachingObjective'
         | 'estimatedDuration'
-        | 'teachingBrief.mustCover';
+        | 'teachingBrief.mustCover'
+        | 'coverBrief.narrationPoints';
       value: string | string[] | number;
       sourceRefIds?: string[];
     }

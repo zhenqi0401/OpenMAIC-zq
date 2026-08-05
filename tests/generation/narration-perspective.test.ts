@@ -48,4 +48,23 @@ describe('generated narration perspective', () => {
     expect(guidelines).toContain('Never introduce the speaker by name, title, role, or identity');
     expect(guidelines).toContain('prefer first-person plural language');
   });
+
+  test('normal and interactive outline prompts require the minimal marked cover and reliable attribution', () => {
+    for (const promptId of ['requirements-to-outlines', 'interactive-outlines'] as const) {
+      const prompt = loadPrompt(promptId);
+      expect(prompt?.systemPrompt).toContain('sceneRole: "cover"');
+      expect(prompt?.systemPrompt).toContain('coverBrief.narrationPoints');
+      expect(prompt?.systemPrompt).toContain('reliably established');
+      expect(prompt?.systemPrompt.toLowerCase()).toContain('never invent');
+      expect(prompt?.systemPrompt).toContain('PBL');
+      expect(prompt?.systemPrompt).toContain('role-play');
+    }
+  });
+
+  test('task-engine keeps the task briefing opening without a theory attribution contract', () => {
+    const prompt = loadPrompt('task-engine-outlines');
+    expect(prompt?.systemPrompt).toContain('task briefing / course overview');
+    expect(prompt?.systemPrompt).not.toContain('coverBrief.attribution');
+    expect(prompt?.systemPrompt).not.toContain('reliably established originator');
+  });
 });

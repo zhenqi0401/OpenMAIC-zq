@@ -370,6 +370,101 @@ describe('outline audit atomic patch application', () => {
       ),
     ).toThrow(/without trusted requirement or document evidence/);
   });
+
+  it('protects the first cover from deletion, movement, insertion before it, and type changes', () => {
+    const cover = scene('cover', 1, {
+      sceneRole: 'cover',
+      title: '公平理论',
+      coverBrief: {
+        attribution: '约翰·斯泰西·亚当斯',
+        narrationPoints: ['形成背景', '公平感知问题', '课程切入方向'],
+      },
+    });
+    const outlines = [cover, scene('s2', 2)];
+    const operations = [
+      [{ type: 'delete_scene', sceneId: 'cover' }],
+      [{ type: 'move_scene', sceneId: 'cover', afterSceneId: 's2' }],
+      [
+        {
+          type: 'insert_scene',
+          afterSceneId: null,
+          scene: {
+            type: 'slide',
+            title: '插入页',
+            description: '试图放到封面前',
+            keyPoints: ['插入'],
+          },
+        },
+      ],
+      [
+        {
+          type: 'change_scene_type',
+          sceneId: 'cover',
+          newType: 'quiz',
+          config: {
+            quizConfig: { questionCount: 1, difficulty: 'easy', questionTypes: ['single'] },
+          },
+        },
+      ],
+    ];
+
+    for (const operationSet of operations) {
+      expect(() =>
+        normalizedFindings(
+          outlines,
+          [rawFinding({ relatedSceneIds: ['cover'], operations: operationSet })],
+          {
+            requirement: '公平理论知识课程',
+            trainingCourseType: 'other',
+          },
+        ),
+      ).toThrow(/first knowledge cover/);
+    }
+  });
+
+  it('allows title and narration-point edits while preserving cover attribution', () => {
+    const outlines = [
+      scene('cover', 1, {
+        sceneRole: 'cover',
+        title: '公平理论入门',
+        coverBrief: {
+          attribution: '约翰·斯泰西·亚当斯',
+          narrationPoints: ['旧背景'],
+        },
+      }),
+      scene('s2', 2),
+    ];
+    const findings = normalizedFindings(
+      outlines,
+      [
+        rawFinding({
+          relatedSceneIds: ['cover'],
+          operations: [
+            { type: 'update_field', sceneId: 'cover', field: 'title', value: '公平理论' },
+            {
+              type: 'update_field',
+              sceneId: 'cover',
+              field: 'coverBrief.narrationPoints',
+              value: ['形成背景', '所回应的公平感知问题', '课程切入方向'],
+              sourceRefIds: ['REQ-001'],
+            },
+          ],
+        }),
+      ],
+      { requirement: '公平理论知识课程', trainingCourseType: 'other' },
+    );
+    const patched = applyAuditFindings(
+      outlines,
+      findings,
+      ['finding-1'],
+      context({ requirement: '公平理论知识课程', trainingCourseType: 'other' }),
+    );
+    expect(patched[0].title).toBe('公平理论');
+    expect(patched[0].coverBrief).toEqual({
+      attribution: '约翰·斯泰西·亚当斯',
+      narrationPoints: ['形成背景', '所回应的公平感知问题', '课程切入方向'],
+    });
+  });
 });
 
 describe('outline audit session state', () => {

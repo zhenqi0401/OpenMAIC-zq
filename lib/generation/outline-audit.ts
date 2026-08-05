@@ -4,7 +4,9 @@ import {
   buildSourceCatalog,
   isEnhancedTrainingCourseType,
   requiresExplicitQuizScene,
+  satisfiesManagementBCStructure,
 } from '@/lib/generation/input-fidelity';
+import { isKnowledgeCover } from '@/lib/generation/knowledge-cover';
 import type {
   OutlineAuditCategory,
   OutlineAuditEvidence,
@@ -46,6 +48,7 @@ const UPDATE_FIELDS = new Set<Extract<OutlineAuditOperation, { type: 'update_fie
   'teachingObjective',
   'estimatedDuration',
   'teachingBrief.mustCover',
+  'coverBrief.narrationPoints',
 ]);
 
 export type AuditTrustedSource = OutlineAuditEvidence;
@@ -479,7 +482,14 @@ function normalizeOperation(
       fail(`${label} cannot add fidelity fields to the other strategy`);
     }
     let normalizedValue: string | string[] | number;
-    if (field === 'keyPoints' || field === 'teachingBrief.mustCover') {
+    if (field === 'coverBrief.narrationPoints' && !isKnowledgeCover(outlinesById.get(sceneId))) {
+      fail(`${label} can update narration points only on the protected cover scene`);
+    }
+    if (
+      field === 'keyPoints' ||
+      field === 'teachingBrief.mustCover' ||
+      field === 'coverBrief.narrationPoints'
+    ) {
       normalizedValue = boundedStringArray(operation.value, `${label}.value`, {
         maxItems: field === 'keyPoints' ? 12 : 8,
         maxChars: 500,
@@ -501,6 +511,9 @@ function normalizeOperation(
       fail(
         `${label} cannot update must-cover content without trusted requirement or document evidence`,
       );
+    }
+    if (field === 'coverBrief.narrationPoints' && !(sourceRefIds ?? []).length) {
+      fail(`${label} cannot update cover narration points without trusted evidence`);
     }
     return {
       type,
@@ -798,7 +811,11 @@ function normalizeOrders(outlines: SceneOutline[]): SceneOutline[] {
   return outlines.map((outline, index) => ({ ...outline, order: index + 1 }));
 }
 
-function validateFinalOutlines(outlines: SceneOutline[], context: OutlineAuditValidationContext) {
+function validateFinalOutlines(
+  outlines: SceneOutline[],
+  context: OutlineAuditValidationContext,
+  protectedCover?: Pick<SceneOutline, 'id' | 'sceneRole' | 'type' | 'coverBrief'>,
+) {
   if (outlines.length === 0) fail('an audit patch cannot delete the final scene');
   const ids = new Set<string>();
   for (const [index, outline] of outlines.entries()) {
@@ -855,6 +872,23 @@ function validateFinalOutlines(outlines: SceneOutline[], context: OutlineAuditVa
       }
     }
   }
+  if (protectedCover) {
+    const first = outlines[0];
+    if (first.id !== protectedCover.id || first.type !== 'slide' || first.sceneRole !== 'cover') {
+      fail('audit patch cannot delete, move, or change the type of the first knowledge cover');
+    }
+    if (first.coverBrief?.attribution !== protectedCover.coverBrief?.attribution) {
+      fail('audit patch cannot rewrite the protected cover attribution');
+    }
+  }
+  if (
+    context.requirements.trainingCourseType === 'management' &&
+    !satisfiesManagementBCStructure(outlines)
+  ) {
+    fail(
+      'audit patch cannot break the management cover, case, diagnostic, callback, or closing loop',
+    );
+  }
   if (
     requiresExplicitQuizScene(context.requirements.requirement) &&
     !outlines.some((outline) => outline.type === 'quiz')
@@ -870,6 +904,16 @@ export function applyAuditFindings(
   selectedFindingIds: string[],
   context: OutlineAuditValidationContext,
 ): SceneOutline[] {
+  const protectedCover = isKnowledgeCover(outlines[0])
+    ? {
+        id: outlines[0].id,
+        type: outlines[0].type,
+        sceneRole: outlines[0].sceneRole,
+        coverBrief: outlines[0].coverBrief
+          ? JSON.parse(JSON.stringify(outlines[0].coverBrief))
+          : undefined,
+      }
+    : undefined;
   const selected = new Set(selectedFindingIds);
   if (selected.size !== selectedFindingIds.length) fail('selected finding IDs must be unique');
   const findingsById = new Map(findings.map((finding) => [finding.id, finding]));
@@ -885,6 +929,13 @@ export function applyAuditFindings(
         const outline = { ...next[index] };
         if (operation.field === 'teachingBrief.mustCover') {
           outline.teachingBrief = { mustCover: operation.value as string[] };
+        } else if (operation.field === 'coverBrief.narrationPoints') {
+          outline.coverBrief = {
+            ...(outline.coverBrief?.attribution
+              ? { attribution: outline.coverBrief.attribution }
+              : {}),
+            narrationPoints: operation.value as string[],
+          };
         } else {
           Object.assign(outline, { [operation.field]: operation.value });
         }
@@ -962,6 +1013,6 @@ export function applyAuditFindings(
     }
   }
   next = normalizeOrders(next);
-  validateFinalOutlines(next, context);
+  validateFinalOutlines(next, context, protectedCover);
   return next;
 }
