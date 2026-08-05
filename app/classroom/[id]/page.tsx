@@ -6,7 +6,7 @@ import { useStageStore } from '@/lib/store';
 import { loadImageMapping } from '@/lib/utils/image-storage';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { useSceneGenerator } from '@/lib/hooks/use-scene-generator';
+import { useSceneGenerator, type GenerationParams } from '@/lib/hooks/use-scene-generator';
 import { useMediaGenerationStore } from '@/lib/store/media-generation';
 import { useWhiteboardHistoryStore } from '@/lib/store/whiteboard-history';
 import { createLogger } from '@/lib/logger';
@@ -26,6 +26,7 @@ import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import { loadEnterpriseClassroom } from '@/lib/classroom/enterprise-course-loader';
 import { useCourseEditPersistence } from '@/lib/authoring/use-course-edit-persistence';
 import { findSceneForOutline } from '@/lib/generation/outline-scene-identity';
+import { loadResumeGenerationParams } from '@/lib/generation/resume-generation-params';
 
 const log = createLogger('Classroom');
 
@@ -326,12 +327,11 @@ export default function ClassroomDetailPage() {
       generationStartedRef.current = true;
 
       // Load generation params from sessionStorage (stored by generation-preview before navigating)
-      const genParamsStr = sessionStorage.getItem('generationParams');
-      const params = genParamsStr ? JSON.parse(genParamsStr) : {};
-      if (typeof params.generationRunId !== 'string' || !params.generationRunId.trim()) {
-        params.generationRunId = crypto.randomUUID();
-        sessionStorage.setItem('generationParams', JSON.stringify(params));
-      }
+      type StoredGenerationParams = Omit<
+        GenerationParams,
+        'stageInfo' | 'imageMapping' | 'courseStorage'
+      > & { generatedCourseId?: unknown };
+      const params = loadResumeGenerationParams<StoredGenerationParams>(sessionStorage);
       const stageServerCourseId = (stage as unknown as { serverCourseId?: unknown }).serverCourseId;
       const generatedCourseId =
         resolveStageCourseStorageId(classroomId, stage) ??
@@ -346,7 +346,7 @@ export default function ClassroomDetailPage() {
       // Reconstruct imageMapping from IndexedDB using pdfImages storageIds
       const storageIds = (params.pdfImages || [])
         .map((img: { storageId?: string }) => img.storageId)
-        .filter(Boolean);
+        .filter((storageId): storageId is string => Boolean(storageId));
 
       loadImageMapping(storageIds).then((imageMapping) => {
         generateRemaining({
