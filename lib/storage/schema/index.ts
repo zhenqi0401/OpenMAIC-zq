@@ -127,9 +127,12 @@ export const courseCategories = pgTable(
     uniqueIndex('course_categories_tenant_key_unique')
       .on(table.tenantId, table.categoryKey)
       .where(sql`${table.scope} = 'tenant' AND ${table.categoryKey} IS NOT NULL`),
+    uniqueIndex('course_categories_platform_key_unique')
+      .on(table.categoryKey)
+      .where(sql`${table.scope} = 'platform' AND ${table.categoryKey} IS NOT NULL`),
     check(
       'course_categories_category_key_check',
-      sql`${table.categoryKey} IS NULL OR (${table.scope} = 'tenant' AND ${table.categoryKey} IN ('management', 'professional', 'tob-sales', 'toc-sales', 'company-policy'))`,
+      sql`(${table.scope} = 'platform' AND ${table.categoryKey} IN ('management', 'professional', 'tob-sales', 'toc-sales', 'company-policy')) OR (${table.scope} = 'tenant' AND ((${table.categoryKey} IS NULL AND lower(btrim(${table.name})) NOT IN ('管理知识培训', '专业知识培训', 'tob销售培训', 'toc销售培训', '公司制度培训')) OR ${table.categoryKey} IN ('management', 'professional', 'tob-sales', 'toc-sales', 'company-policy')))`,
     ),
   ],
 );
@@ -226,7 +229,7 @@ export const courseDanmaku = pgTable(
       .references(() => tenants.id),
     courseId: uuid('course_id')
       .notNull()
-      .references(() => courses.id),
+      .references(() => courses.id, { onDelete: 'cascade' }),
     sceneKey: varchar('scene_key', { length: 128 }).notNull(),
     actionId: varchar('action_id', { length: 128 }).notNull(),
     actionOffsetMs: integer('action_offset_ms').notNull(),
@@ -283,6 +286,7 @@ export const forumPosts = pgTable(
     pinned: boolean('pinned').notNull().default(false),
     locked: boolean('locked').notNull().default(false),
     replyCount: integer('reply_count').notNull().default(0),
+    viewCount: integer('view_count').notNull().default(0),
     lastActivityAt: timestamp('last_activity_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     moderatedBy: uuid('moderated_by').references(() => users.id),
@@ -354,6 +358,23 @@ export const forumReplies = pgTable(
       'forum_replies_parent_depth_check',
       sql`(${table.parentReplyId} IS NULL AND ${table.depth} = 1) OR (${table.parentReplyId} IS NOT NULL AND ${table.depth} BETWEEN 2 AND 5)`,
     ),
+  ],
+);
+
+export const forumPostViews = pgTable(
+  'forum_post_views',
+  {
+    postId: uuid('post_id')
+      .notNull()
+      .references(() => forumPosts.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    viewedAt: timestamp('viewed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.postId, table.userId] }),
+    index('forum_post_views_user_viewed_idx').on(table.userId, table.viewedAt),
   ],
 );
 

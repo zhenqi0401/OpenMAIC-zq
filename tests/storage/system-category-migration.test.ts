@@ -3,6 +3,10 @@ import { describe, expect, test } from 'vitest';
 import { SYSTEM_COURSE_CATEGORIES } from '@/lib/courses/system-categories';
 
 const migration = readFileSync('drizzle/0009_host_sso_category_deep_links.sql', 'utf8');
+const sharedScopeMigration = readFileSync(
+  'drizzle/0010_learner_forum_catalog_refinement.sql',
+  'utf8',
+);
 
 describe('system course category migration', () => {
   test('defines the stable five-key contract and tenant-scoped uniqueness', () => {
@@ -31,5 +35,17 @@ describe('system course category migration', () => {
     expect(migration).toContain('"code_hash" text NOT NULL');
     expect(migration).toContain('"request_id_hash" text NOT NULL');
     expect(migration).not.toMatch(/"code" text/);
+  });
+
+  test('shares the five fixed keys across platform and tenant scopes', () => {
+    expect(sharedScopeMigration).toContain('course_categories_platform_key_unique');
+    expect(sharedScopeMigration).toContain('category."scope" = \'platform\'');
+    expect(sharedScopeMigration).toContain('source_category."category_key" IS NOT NULL');
+    expect(sharedScopeMigration).toContain(
+      'platform courses must be mapped to one of the five fixed categories before migration',
+    );
+    expect(sharedScopeMigration).toContain(
+      '("category_key" IS NULL AND lower(btrim("name")) NOT IN',
+    );
   });
 });

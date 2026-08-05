@@ -141,6 +141,9 @@ describe('FOR learner routes', () => {
   test('supports detail, author update and author soft-delete routes', async () => {
     const context = { params: Promise.resolve({ postId: 'post-1' }) };
     expect((await getPost(new Request('http://localhost'), context)).status).toBe(200);
+    expect(mocks.service.getPost).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'post-1', viewerId: 'session-user' }),
+    );
     await updatePost(
       new Request('http://localhost', {
         method: 'PATCH',

@@ -12,6 +12,7 @@ export interface ForumClientPost {
   pinned: boolean;
   locked: boolean;
   replyCount: number;
+  viewCount: number;
   lastActivityAt: string;
   createdAt: string;
   updatedAt: string;

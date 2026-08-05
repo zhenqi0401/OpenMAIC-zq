@@ -7,6 +7,7 @@ import { getDb, runDbTransaction } from './db';
 import {
   assessmentAttempts,
   courseCategories,
+  courseDanmaku,
   courseProgress,
   courses,
   courseAudioBlobs,
@@ -642,6 +643,7 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
       await tx.delete(examPolicyCourses).where(eq(examPolicyCourses.courseId, id));
       await tx.delete(courseVisibilityRoles).where(eq(courseVisibilityRoles.courseId, id));
       await tx.delete(courseAudioBlobs).where(eq(courseAudioBlobs.courseId, id));
+      await tx.delete(courseDanmaku).where(eq(courseDanmaku.courseId, id));
       await tx
         .update(forumPosts)
         .set({ status: 'archived', courseId: null, updatedAt: new Date() })

@@ -17,6 +17,7 @@ export async function GET(_request: Request, context: Context) {
     const { postId } = await context.params;
     const post = await getForumService().getPost({
       id: postId,
+      viewerId: current.user.id,
       roleId: current.identity.roleId,
       tenantId: current.identity.tenantId,
     });

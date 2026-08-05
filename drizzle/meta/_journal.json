@@ -71,6 +71,13 @@
       "when": 1785888000000,
       "tag": "0009_host_sso_category_deep_links",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785891600000,
+      "tag": "0010_learner_forum_catalog_refinement",
+      "breakpoints": true
     }
   ]
 }

@@ -65,6 +65,7 @@ const learnerAuth: AuthResult = {
 function makeCourse(id: string, status: EnterpriseCourse['status']): EnterpriseCourse {
   return {
     id,
+    scope: 'tenant',
     name: id,
     description: null,
     categoryId: 'cat-1',
@@ -146,7 +147,7 @@ function makeRepository(): EnterpriseRepository {
       };
     },
     async listCategories() {
-      return [{ id: 'cat-1', name: 'Default', sortOrder: 0 }];
+      return [{ id: 'cat-1', scope: 'tenant', name: 'Default', sortOrder: 0 }];
     },
     async createCategory(input) {
       return { id: 'cat-2', sortOrder: 0, ...input };
@@ -614,9 +615,9 @@ describe('Slice-01 API routes', () => {
       ...repository,
       async listCategories() {
         return [
-          { id: 'cat-handbook', name: '员工手册', sortOrder: 10 },
-          { id: 'cat-rules', name: '公司规范规章制度', sortOrder: 20 },
-          { id: 'cat-onboarding', name: '新员工入职', sortOrder: 30 },
+          { id: 'cat-handbook', scope: 'tenant' as const, name: '员工手册', sortOrder: 10 },
+          { id: 'cat-rules', scope: 'tenant' as const, name: '公司规范规章制度', sortOrder: 20 },
+          { id: 'cat-onboarding', scope: 'tenant' as const, name: '新员工入职', sortOrder: 30 },
         ];
       },
       async listAdminCourses() {
@@ -629,9 +630,9 @@ describe('Slice-01 API routes', () => {
       success: true,
       courses: [],
       categories: [
-        { id: 'cat-handbook', name: '员工手册', sortOrder: 10 },
-        { id: 'cat-rules', name: '公司规范规章制度', sortOrder: 20 },
-        { id: 'cat-onboarding', name: '新员工入职', sortOrder: 30 },
+        { id: 'cat-handbook', name: '员工手册', sortOrder: 10, scope: 'tenant' },
+        { id: 'cat-rules', name: '公司规范规章制度', sortOrder: 20, scope: 'tenant' },
+        { id: 'cat-onboarding', name: '新员工入职', sortOrder: 30, scope: 'tenant' },
       ],
     });
   });

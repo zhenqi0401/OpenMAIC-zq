@@ -42,6 +42,7 @@ export interface ForumPost {
   pinned: boolean;
   locked: boolean;
   replyCount: number;
+  viewCount: number;
   lastActivityAt: Date;
   deletedAt: Date | null;
   moderatedBy: string | null;
@@ -81,6 +82,7 @@ export interface ForumRepository {
     pageSize: number;
   }): Promise<{ items: ForumPost[]; total: number }>;
   getPost(id: string): Promise<ForumPost | null>;
+  recordPostView(postId: string, userId: string): Promise<boolean>;
   createPost(input: {
     authorId: string;
     scope: ForumScope;
@@ -236,10 +238,14 @@ export function createForumService(
       return { ...result, items: result.items.map(redactDeletedPost) };
     },
 
-    async getPost(input: { id: string; roleId: string; tenantId?: string }) {
+    async getPost(input: { id: string; viewerId: string; roleId: string; tenantId?: string }) {
       const post = await repository.getPost(input.id);
       if (!post) throw new ForumServiceError('NOT_FOUND', 'Post not found');
-      return redactDeletedPost(await assertPostAccess(post, input.roleId, input.tenantId));
+      await assertPostAccess(post, input.roleId, input.tenantId);
+      await repository.recordPostView(input.id, input.viewerId);
+      const viewedPost = await repository.getPost(input.id);
+      if (!viewedPost) throw new ForumServiceError('NOT_FOUND', 'Post not found');
+      return redactDeletedPost(viewedPost);
     },
 
     async createPost(input: {

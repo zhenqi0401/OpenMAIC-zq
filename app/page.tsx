@@ -50,10 +50,8 @@ import {
   revokeThumbnailSlideMediaUrls,
 } from '@/lib/utils/stage-storage';
 import {
-  isEnterpriseHomeCourse,
-  loadHomeCourses,
   loadLearnerHomeCourses,
-  type HomeCourse,
+  type EnterpriseHomeCourse,
   type HomeCourseCategory,
 } from '@/lib/home/enterprise-course-list';
 import { SlideThumbnail } from '@/components/slide-renderer/SlideThumbnail';
@@ -113,6 +111,7 @@ function HomePage() {
   const [form, setForm] = useState<FormState>(initialFormState);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [identity, setIdentity] = useState<SessionIdentity | null>(null);
+  const [sessionDisplayName, setSessionDisplayName] = useState('学习者');
   const [sessionState, setSessionState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [courseCategories, setCourseCategories] = useState<EnterpriseCategory[]>([]);
   const [settingsSection, setSettingsSection] = useState<
@@ -165,11 +164,18 @@ function HomePage() {
     fetch('/api/auth/session')
       .then(
         (response) =>
-          response.json() as Promise<{ authenticated: boolean; identity?: SessionIdentity }>,
+          response.json() as Promise<{
+            authenticated: boolean;
+            identity?: SessionIdentity;
+            user?: { displayName?: string };
+          }>,
       )
       .then((session) => {
         if (cancelled) return;
         setIdentity(session.authenticated ? (session.identity ?? null) : null);
+        if (session.authenticated && session.user?.displayName?.trim()) {
+          setSessionDisplayName(session.user.displayName.trim());
+        }
         setSessionState('ready');
       })
       .catch(() => {
@@ -222,7 +228,7 @@ function HomePage() {
 
   const [themeOpen, setThemeOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [classrooms, setClassrooms] = useState<HomeCourse[]>([]);
+  const [classrooms, setClassrooms] = useState<EnterpriseHomeCourse[]>([]);
   const [learnerCategories, setLearnerCategories] = useState<HomeCourseCategory[]>([]);
   const [thumbnails, setThumbnails] = useState<Record<string, Slide>>({});
   const [coursesLoading, setCoursesLoading] = useState(true);
@@ -261,9 +267,7 @@ function HomePage() {
     setCoursesLoading(true);
     setCoursesError(null);
     try {
-      const result = identity.isAdmin
-        ? await loadHomeCourses(undefined, true)
-        : await loadLearnerHomeCourses();
+      const result = await loadLearnerHomeCourses();
       setClassrooms(result.courses);
       setLearnerCategories(result.categories);
       replaceThumbnails(result.thumbnails);
@@ -505,7 +509,8 @@ function HomePage() {
     return (
       <LearnerHome
         identity={identity}
-        courses={classrooms.filter(isEnterpriseHomeCourse)}
+        displayName={sessionDisplayName}
+        courses={classrooms}
         categories={learnerCategories}
         thumbnails={thumbnails}
         loading={coursesLoading}

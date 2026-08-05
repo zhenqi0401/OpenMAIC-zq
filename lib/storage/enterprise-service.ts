@@ -2,6 +2,7 @@ import { assertHostApiAccess, type StoredHostApiKey } from '@/lib/host-api/acces
 import type { DashboardSummary, HostQueryFilters } from '@/lib/host-api/types';
 import type { AuthRole } from '@/lib/auth/service';
 import type { TenantAccessContext } from '@/lib/auth/types';
+import { SYSTEM_COURSE_CATEGORIES } from '@/lib/courses/system-categories';
 import {
   getInviteCodeValidationIssue,
   INVITE_CODE_MAX_LENGTH,
@@ -514,6 +515,14 @@ function withManagementMode(
   };
 }
 
+function normalizeCourseCategoryName(name: string): string {
+  return name.trim().toLocaleLowerCase('zh-CN');
+}
+
+const FIXED_COURSE_CATEGORY_NAMES = new Set(
+  SYSTEM_COURSE_CATEGORIES.map((category) => normalizeCourseCategoryName(category.name)),
+);
+
 async function assertWritableCourse(
   repository: EnterpriseRepository,
   id: string,
@@ -864,10 +873,27 @@ export function createEnterpriseStorageService(
               : ('read_only' as const),
         }));
     },
-    createCategory: (input: { name: string; sortOrder?: number }, access?: TenantAccessContext) => {
+    createCategory: async (
+      input: { name: string; sortOrder?: number },
+      access?: TenantAccessContext,
+    ) => {
       if (!access)
         throw new EnterpriseStorageServiceError('INVALID_REQUEST', 'Tenant context required');
-      return repository.createCategory({ ...input, tenantId: access.tenantId });
+      const name = input.name.trim();
+      const normalizedName = normalizeCourseCategoryName(name);
+      const categories = await repository.listCategories();
+      if (
+        FIXED_COURSE_CATEGORY_NAMES.has(normalizedName) ||
+        categories.some(
+          (category) =>
+            category.scope === 'tenant' &&
+            category.tenantId === access.tenantId &&
+            normalizeCourseCategoryName(category.name) === normalizedName,
+        )
+      ) {
+        throw new EnterpriseStorageServiceError('CONFLICT', '课程分类名称已存在');
+      }
+      return repository.createCategory({ ...input, name, tenantId: access.tenantId });
     },
     updateCategory: async (
       id: string,
@@ -884,7 +910,25 @@ export function createEnterpriseStorageService(
       if (existing?.categoryKey && patch.name !== undefined && patch.name !== existing.name) {
         throw new EnterpriseStorageServiceError('CONFLICT', '系统固定分类禁止改名');
       }
-      const category = await repository.updateCategory(id, patch);
+      const nextPatch = { ...patch };
+      if (patch.name !== undefined) {
+        const name = patch.name.trim();
+        const normalizedName = normalizeCourseCategoryName(name);
+        if (
+          FIXED_COURSE_CATEGORY_NAMES.has(normalizedName) ||
+          (await repository.listCategories()).some(
+            (category) =>
+              category.id !== id &&
+              category.scope === 'tenant' &&
+              category.tenantId === access?.tenantId &&
+              normalizeCourseCategoryName(category.name) === normalizedName,
+          )
+        ) {
+          throw new EnterpriseStorageServiceError('CONFLICT', '课程分类名称已存在');
+        }
+        nextPatch.name = name;
+      }
+      const category = await repository.updateCategory(id, nextPatch);
       if (!category) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Category not found');
       return category;
     },

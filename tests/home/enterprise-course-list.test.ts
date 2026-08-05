@@ -4,10 +4,8 @@ import {
   changeHomeCourseCategory,
   changeHomeCourseScope,
   filterHomeCourses,
-  isLocalHomeCourse,
   loadEnterpriseHomeCatalog,
   loadEnterpriseHomeCourseThumbnails,
-  loadHomeCourses,
   loadLearnerHomeCourses,
   sortHomeCourses,
   type EnterpriseHomeCourse,
@@ -29,6 +27,7 @@ function course(
     scope,
     categoryId: scope === 'platform' ? 'category-platform' : 'category-tenant',
     categoryName: scope === 'platform' ? '精品分类' : '企业分类',
+    categoryKey: 'management',
     learnerCount: 0,
     ...overrides,
   };
@@ -71,6 +70,8 @@ describe('learner home server course catalogue', () => {
             name: '精品分类',
             sortOrder: 5,
             scope: 'platform',
+            categoryKey: 'management',
+            isSystem: true,
           },
           {
             id: 'category-tenant',
@@ -91,6 +92,7 @@ describe('learner home server course catalogue', () => {
           name: '精品领导力',
           description: '平台发布课程',
           categoryId: 'category-platform',
+          categoryKey: 'management',
           categoryName: '精品分类',
           sceneCount: 6,
           createdAt: Date.parse('2026-07-05T06:00:00.000Z'),
@@ -105,6 +107,7 @@ describe('learner home server course catalogue', () => {
           name: '企业销售规范',
           description: undefined,
           categoryId: 'category-tenant',
+          categoryKey: 'management',
           categoryName: '管理知识',
           sceneCount: 0,
           createdAt: Date.parse('2026-07-03T06:00:00.000Z'),
@@ -121,8 +124,8 @@ describe('learner home server course catalogue', () => {
           name: '精品分类',
           sortOrder: 5,
           scope: 'platform',
-          categoryKey: null,
-          isSystem: false,
+          categoryKey: 'management',
+          isSystem: true,
         },
         {
           id: 'category-tenant',
@@ -190,71 +193,74 @@ describe('learner home server course catalogue', () => {
         ],
       }),
       loadEnterpriseFirstSlides: vi.fn(async () => ({
-        'platform-new': { id: 'slide-platform', elements: [] },
+        'platform-new': {
+          id: 'slide-platform',
+          viewportSize: 1000,
+          viewportRatio: 0.5625,
+          theme: {
+            backgroundColor: '#fff',
+            themeColors: ['#000'],
+            fontColor: '#000',
+            fontName: 'Inter',
+          },
+          elements: [],
+        },
       })),
     };
 
     await expect(loadLearnerHomeCourses(loaders)).resolves.toEqual({
       courses: serverCourses,
       categories: [{ id: 'category-platform', name: '精品分类', sortOrder: 1, scope: 'platform' }],
-      thumbnails: { 'platform-new': { id: 'slide-platform', elements: [] } },
+      thumbnails: {
+        'platform-new': {
+          id: 'slide-platform',
+          viewportSize: 1000,
+          viewportRatio: 0.5625,
+          theme: {
+            backgroundColor: '#fff',
+            themeColors: ['#000'],
+            fontColor: '#000',
+            fontName: 'Inter',
+          },
+          elements: [],
+        },
+      },
     });
     expect(listLocalStages).not.toHaveBeenCalled();
   });
 
-  test('retains the combined IndexedDB loader only for the administrator workbench', async () => {
-    const localCourse = {
-      id: 'local-admin-draft',
-      name: '管理员本地草稿',
-      sceneCount: 2,
-      createdAt: 1,
-      updatedAt: 4,
-    };
-    const serverCourse = course('tenant-server', 'tenant', { updatedAt: 2 });
-
-    const result = await loadHomeCourses({
-      listLocalStages: async () => [localCourse],
-      loadEnterpriseCatalog: async () => ({ courses: [serverCourse], categories: [] }),
-      getFirstSlides: async () => ({
-        'local-admin-draft': { id: 'local-slide', elements: [] },
-      }),
-      loadEnterpriseFirstSlides: async () => ({
-        'tenant-server': { id: 'server-slide', elements: [] },
-      }),
-    });
-
-    expect(result.courses.map((item) => item.id)).toEqual(['local-admin-draft', 'tenant-server']);
-    expect(isLocalHomeCourse(result.courses[0])).toBe(true);
-  });
-
-  test('filters all, platform, tenant, search, and tenant categories together', () => {
+  test('filters shared fixed keys and tenant-only custom categories across scopes', () => {
     const courses = [
       course('platform-leadership', 'platform', {
         name: '领导力精品课',
         description: '面向管理者',
-        categoryId: 'shared-category-id',
+        categoryId: 'platform-management-id',
+        categoryKey: 'management',
       }),
       course('tenant-management', 'tenant', {
         name: '企业管理知识',
         description: '岗位必修',
-        categoryId: 'shared-category-id',
+        categoryId: 'tenant-management-id',
+        categoryKey: 'management',
       }),
       course('tenant-sales', 'tenant', {
         name: 'ToB 销售实战',
         description: '客户沟通',
         categoryId: 'tenant-sales-category',
+        categoryKey: null,
       }),
     ];
 
-    expect(filterHomeCourses(courses, 'all', '', null)).toEqual(courses);
-    expect(filterHomeCourses(courses, 'platform', '', null)).toEqual([courses[0]]);
-    expect(filterHomeCourses(courses, 'tenant', '', null)).toEqual([courses[1], courses[2]]);
-    expect(filterHomeCourses(courses, 'tenant', '', 'shared-category-id')).toEqual([courses[1]]);
-    expect(filterHomeCourses(courses, 'all', '', 'shared-category-id')).toEqual([courses[1]]);
-    expect(filterHomeCourses(courses, 'tenant', '客户', 'tenant-sales-category')).toEqual([
+    expect(filterHomeCourses(courses, 'all', '')).toEqual(courses);
+    expect(filterHomeCourses(courses, 'platform', '')).toEqual([courses[0]]);
+    expect(filterHomeCourses(courses, 'tenant', '')).toEqual([courses[1], courses[2]]);
+    expect(filterHomeCourses(courses, 'all', '', 'management')).toEqual([courses[0], courses[1]]);
+    expect(filterHomeCourses(courses, 'platform', '', 'management')).toEqual([courses[0]]);
+    expect(filterHomeCourses(courses, 'tenant', '', 'management')).toEqual([courses[1]]);
+    expect(filterHomeCourses(courses, 'tenant', '客户', null, 'tenant-sales-category')).toEqual([
       courses[2],
     ]);
-    expect(filterHomeCourses(courses, 'platform', '岗位', null)).toEqual([]);
+    expect(filterHomeCourses(courses, 'platform', '岗位')).toEqual([]);
   });
 
   test('sorts latest and popular with latest and stable ID tie breakers', () => {
@@ -280,21 +286,35 @@ describe('learner home server course catalogue', () => {
   });
 
   test('keeps scope and enterprise category selection transitions consistent', () => {
-    expect(changeHomeCourseCategory({ scope: 'all', categoryId: null }, 'category-sales')).toEqual({
-      scope: 'tenant',
-      categoryId: 'category-sales',
-    });
     expect(
-      changeHomeCourseCategory({ scope: 'tenant', categoryId: 'category-sales' }, null),
-    ).toEqual({ scope: 'tenant', categoryId: null });
+      changeHomeCourseCategory(
+        { scope: 'all', categoryKey: null, categoryId: null },
+        { id: 'fixed:management', categoryKey: 'management' },
+      ),
+    ).toEqual({ scope: 'all', categoryKey: 'management', categoryId: null });
     expect(
-      changeHomeCourseScope({ scope: 'tenant', categoryId: 'category-sales' }, 'platform'),
-    ).toEqual({ scope: 'platform', categoryId: null });
-    expect(changeHomeCourseScope({ scope: 'tenant', categoryId: 'category-sales' }, 'all')).toEqual(
-      { scope: 'all', categoryId: null },
-    );
+      changeHomeCourseScope(
+        { scope: 'tenant', categoryKey: 'management', categoryId: null },
+        'platform',
+      ),
+    ).toEqual({ scope: 'platform', categoryKey: 'management', categoryId: null });
     expect(
-      changeHomeCourseScope({ scope: 'tenant', categoryId: 'category-sales' }, 'tenant'),
-    ).toEqual({ scope: 'tenant', categoryId: 'category-sales' });
+      changeHomeCourseCategory(
+        { scope: 'all', categoryKey: null, categoryId: null },
+        { id: 'tenant-custom', categoryKey: null },
+      ),
+    ).toEqual({ scope: 'tenant', categoryKey: null, categoryId: 'tenant-custom' });
+    expect(
+      changeHomeCourseScope(
+        { scope: 'tenant', categoryKey: null, categoryId: 'tenant-custom' },
+        'platform',
+      ),
+    ).toEqual({ scope: 'platform', categoryKey: null, categoryId: null });
+    expect(
+      changeHomeCourseCategory(
+        { scope: 'tenant', categoryKey: null, categoryId: 'tenant-custom' },
+        null,
+      ),
+    ).toEqual({ scope: 'tenant', categoryKey: null, categoryId: null });
   });
 });

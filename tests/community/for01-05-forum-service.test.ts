@@ -26,6 +26,7 @@ function post(patch: Partial<ForumPost> = {}): ForumPost {
     pinned: false,
     locked: false,
     replyCount: 0,
+    viewCount: 0,
     lastActivityAt: now,
     deletedAt: null,
     moderatedBy: null,
@@ -62,6 +63,7 @@ function setup(course: { status?: 'published' | 'draft' | 'archived'; visible?: 
   const repository: ForumRepository = {
     listPosts: vi.fn(async () => ({ items: [], total: 0 })),
     getPost: vi.fn(async () => post()),
+    recordPostView: vi.fn(async () => true),
     createPost: vi.fn(async (input) => post({ ...input })),
     updateOwnPost: vi.fn(async (input) => post({ ...input })),
     deleteOwnPost: vi.fn(async () => post({ status: 'deleted_by_author' })),
@@ -125,9 +127,9 @@ describe('FOR-02 posts and FOR-04 course permission inheritance', () => {
     vi.mocked(repository.getPost).mockResolvedValue(
       post({ scope: 'course', courseId: 'course-1' }),
     );
-    await expect(service.getPost({ id: 'post-1', roleId: 'role-1' })).rejects.toMatchObject({
-      code: 'NOT_FOUND',
-    });
+    await expect(
+      service.getPost({ id: 'post-1', viewerId: 'user-1', roleId: 'role-1' }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
     await expect(
       service.createPost({
         authorId: 'user-1',
@@ -185,8 +187,13 @@ describe('FOR-02 posts and FOR-04 course permission inheritance', () => {
   test('redacts an author-deleted thread while preserving its structure', async () => {
     const { service, repository } = setup();
     vi.mocked(repository.getPost).mockResolvedValue(post({ status: 'deleted_by_author' }));
-    const deleted = await service.getPost({ id: 'post-1', roleId: 'role-1' });
+    const deleted = await service.getPost({
+      id: 'post-1',
+      viewerId: 'user-1',
+      roleId: 'role-1',
+    });
     expect(deleted).toMatchObject({ title: '原帖已由作者删除', body: '' });
+    expect(repository.recordPostView).toHaveBeenCalledWith('post-1', 'user-1');
 
     vi.mocked(repository.listPosts).mockResolvedValue({
       items: [post({ status: 'deleted_by_author', replyCount: 1 })],

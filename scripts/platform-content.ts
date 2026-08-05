@@ -1,4 +1,5 @@
 import postgres, { type Sql, type TransactionSql } from 'postgres';
+import { SYSTEM_COURSE_CATEGORIES } from '../lib/courses/system-categories';
 
 type Args = Record<string, string | boolean | string[]> & { _: string[] };
 type QuerySql = Sql | TransactionSql;
@@ -81,9 +82,10 @@ async function promote(sql: Sql, args: Args, apply: boolean) {
   if (!source.generation_complete || source.generation_status !== 'ready') {
     throw new Error('Source course generation is not complete');
   }
-  const [category] = await sql<Array<{ id: string; name: string }>>`
-    SELECT id, name FROM course_categories
+  const [category] = await sql<Array<{ id: string; name: string; category_key: string }>>`
+    SELECT id, name, category_key FROM course_categories
     WHERE id = ${categoryId} AND scope = 'platform' AND tenant_id IS NULL
+      AND category_key IN ('management', 'professional', 'tob-sales', 'toc-sales', 'company-policy')
   `;
   if (!category) throw new Error('Platform category not found');
   const [integrity] = await sql<
@@ -232,36 +234,23 @@ async function mutatePlatformCourse(sql: Sql, args: Args, command: string, apply
 
 async function category(sql: Sql, args: Args, command: string, apply: boolean) {
   if (command === 'list') {
-    return sql`SELECT id, name, sort_order, created_at, updated_at FROM course_categories WHERE scope = 'platform' ORDER BY sort_order, name`;
+    return sql`SELECT id, category_key, name, sort_order, created_at, updated_at FROM course_categories WHERE scope = 'platform' ORDER BY sort_order, name`;
   }
-  if (command === 'create') {
-    const name = required(args, 'name');
-    const plan = { operation: 'category.create', name };
-    if (!apply) return plan;
-    const result = await sql.begin(async (tx) => {
-      const [created] = await tx<Array<{ id: string; name: string }>>`
-        INSERT INTO course_categories (tenant_id, scope, name, sort_order)
-        VALUES (NULL, 'platform', ${name}, 0) RETURNING id, name
-      `;
-      await auditWrite(tx, {
-        operation: 'category.create',
-        parameters: { categoryId: created.id, name },
-      });
-      return created;
-    });
-    return { ...plan, applied: true, category: result };
+  if (command !== 'sync') {
+    throw new Error('Platform categories are fixed; use category list or category sync');
   }
-  const categoryId = required(args, 'category-id');
-  const name = required(args, 'name');
-  const [existing] = await sql<Array<{ id: string; name: string }>>`
-    SELECT id, name FROM course_categories WHERE id = ${categoryId} AND scope = 'platform'
-  `;
-  if (!existing) throw new Error('Platform category not found');
-  const plan = { operation: 'category.update', category: existing, name };
+  const plan = { operation: 'category.sync', categories: SYSTEM_COURSE_CATEGORIES };
   if (!apply) return plan;
   await sql.begin(async (tx) => {
-    await tx`UPDATE course_categories SET name = ${name}, updated_at = now() WHERE id = ${categoryId} AND scope = 'platform'`;
-    await auditWrite(tx, { operation: 'category.update', parameters: { categoryId, name } });
+    for (const item of SYSTEM_COURSE_CATEGORIES) {
+      await tx`
+        INSERT INTO course_categories (tenant_id, scope, category_key, name, sort_order)
+        VALUES (NULL, 'platform', ${item.categoryKey}, ${item.name}, ${item.sortOrder})
+        ON CONFLICT (category_key) WHERE scope = 'platform' AND category_key IS NOT NULL
+        DO UPDATE SET name = EXCLUDED.name, sort_order = EXCLUDED.sort_order, updated_at = now()
+      `;
+    }
+    await auditWrite(tx, { operation: 'category.sync', parameters: { count: 5 } });
   });
   return { ...plan, applied: true };
 }

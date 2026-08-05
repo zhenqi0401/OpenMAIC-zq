@@ -8,14 +8,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
+  Eye,
   Lock,
   MessageCircle,
   PenLine,
   Pin,
   RefreshCw,
   Send,
-  UserRound,
 } from 'lucide-react';
+import { getDisplayNameInitial } from '@/components/home/LearnerHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -52,6 +53,63 @@ const VIEWS: Array<{ value: ForumView; label: string }> = [
   { value: 'course', label: '课程讨论' },
   { value: 'mine', label: '我发布的' },
 ];
+
+function ForumTopic({ post, mobile = false }: { post: ForumClientPost; mobile?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+        {post.pinned && (
+          <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            <Pin className="size-3" />
+            置顶
+          </span>
+        )}
+        {post.locked && (
+          <span className="inline-flex items-center gap-1 rounded bg-slate-200 px-2 py-0.5 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+            <Lock className="size-3" />
+            已关闭
+          </span>
+        )}
+        {post.courseName && (
+          <span className="inline-flex max-w-full items-center gap-1 truncate rounded bg-emerald-50 px-2 py-0.5 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+            <BookOpen className="size-3" />
+            {post.courseName}
+          </span>
+        )}
+      </div>
+      <h3
+        className={cn(
+          'font-semibold group-hover:text-violet-700 dark:group-hover:text-violet-300',
+          mobile ? 'line-clamp-2 text-lg' : 'truncate text-lg',
+        )}
+      >
+        {post.title}
+      </h3>
+      <p
+        className={cn(
+          'mt-1.5 whitespace-pre-wrap text-slate-600 dark:text-slate-400',
+          mobile ? 'line-clamp-2 text-base leading-7' : 'line-clamp-1 text-sm leading-6',
+        )}
+      >
+        {post.body || '原帖内容已删除，回复仍保留。'}
+      </p>
+    </div>
+  );
+}
+
+function ForumAuthorCell({ post }: { post: ForumClientPost }) {
+  return (
+    <span className="flex min-w-0 items-center gap-2.5">
+      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-violet-100 font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-200">
+        {getDisplayNameInitial(post.author.displayName)}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-medium">{post.author.displayName}</span>
+        <span className="block truncate text-xs text-slate-400">{post.author.roleName}</span>
+      </span>
+    </span>
+  );
+}
 
 export function ForumListPage() {
   const router = useRouter();
@@ -158,14 +216,14 @@ export function ForumListPage() {
 
   return (
     <ForumFrame>
-      <main className="mx-auto w-[min(1120px,calc(100%-2rem))] py-10 md:w-[min(1120px,calc(100%-3rem))] md:py-14">
+      <main className="mx-auto w-[min(1600px,calc(100%-1.25rem))] py-7 sm:w-[min(1600px,calc(100%-2rem))] md:py-10">
         <section className="flex flex-col gap-5 border-b border-[#d9dce3] pb-8 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="mb-2 font-mono text-[11px] font-semibold text-violet-600 dark:text-violet-300">
               COMMUNITY
             </p>
-            <h1 className="text-3xl font-semibold">学习交流区</h1>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+            <h1 className="text-3xl font-semibold sm:text-4xl">学习交流区</h1>
+            <p className="mt-2 text-base text-slate-600 dark:text-slate-400">
               分享学习心得、提出问题，并围绕课程继续讨论。
             </p>
           </div>
@@ -261,9 +319,9 @@ export function ForumListPage() {
           </form>
         )}
 
-        <div className="mt-8 grid gap-8 lg:grid-cols-[210px_minmax(0,1fr)]">
-          <aside>
-            <nav className="grid gap-1" aria-label="讨论分类">
+        <div className="mt-7">
+          <aside className="flex flex-col gap-3 border-b border-[#d9dce3] pb-5 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
+            <nav className="flex flex-wrap gap-2" aria-label="讨论分类">
               {VIEWS.map((item) => (
                 <button
                   key={item.value}
@@ -276,7 +334,7 @@ export function ForumListPage() {
                     })
                   }
                   className={cn(
-                    'rounded-lg px-3 py-2.5 text-left text-sm transition-colors',
+                    'min-h-11 rounded-lg px-4 py-2.5 text-left text-base transition-colors',
                     view === item.value
                       ? 'bg-violet-100 font-semibold text-violet-800 dark:bg-violet-950/60 dark:text-violet-200'
                       : 'text-slate-600 hover:bg-white dark:text-slate-300 dark:hover:bg-slate-800',
@@ -287,14 +345,14 @@ export function ForumListPage() {
               ))}
             </nav>
             {view === 'course' && (
-              <label className="mt-5 grid gap-2 text-xs font-medium text-slate-500">
+              <label className="grid gap-2 text-sm font-medium text-slate-500 sm:min-w-64">
                 按课程筛选
                 <select
                   value={courseId}
                   onChange={(event) =>
                     setQuery({ courseId: event.target.value || null, page: null })
                   }
-                  className="h-10 min-w-0 rounded-md border border-[#d9dce3] bg-white px-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-[#1a1d25] dark:text-slate-100"
+                  className="h-11 min-w-0 rounded-md border border-[#d9dce3] bg-white px-3 text-base text-slate-800 dark:border-slate-700 dark:bg-[#1a1d25] dark:text-slate-100"
                 >
                   <option value="">全部课程</option>
                   {courses.map((course) => (
@@ -307,16 +365,16 @@ export function ForumListPage() {
             )}
           </aside>
 
-          <section className="min-w-0" aria-labelledby="forum-list-title">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d9dce3] pb-4 dark:border-slate-800">
+          <section className="mt-7 min-w-0" aria-labelledby="forum-list-title">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-4">
               <div>
-                <h2 id="forum-list-title" className="text-xl font-semibold">
+                <h2 id="forum-list-title" className="text-2xl font-semibold">
                   {activeCourse
                     ? `${activeCourse.name} · 课程讨论`
                     : VIEWS.find((item) => item.value === view)?.label}
                 </h2>
                 {!loading && !error && (
-                  <p className="mt-1 text-xs text-slate-500">共 {total} 个讨论</p>
+                  <p className="mt-1 text-sm text-slate-500">共 {total} 个讨论</p>
                 )}
               </div>
               <div
@@ -338,7 +396,7 @@ export function ForumListPage() {
                       setQuery({ sort: value === 'latest' ? null : value, page: null })
                     }
                     className={cn(
-                      'rounded px-3 py-1.5 text-xs',
+                      'min-h-9 rounded px-4 py-1.5 text-sm',
                       sort === value
                         ? 'bg-violet-100 font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-200'
                         : 'text-slate-500',
@@ -371,63 +429,68 @@ export function ForumListPage() {
                 ))}
               </div>
             ) : posts.length ? (
-              <div className="divide-y divide-[#e1e3e8] dark:divide-slate-800">
-                {posts.map((post) => (
-                  <article key={post.id} className="py-5">
-                    <Link
-                      href={`/forum/posts/${post.id}`}
-                      className="group block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-4 dark:focus-visible:ring-offset-[#12141a]"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                          <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                            {post.pinned && (
-                              <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200">
-                                <Pin className="size-3" />
-                                置顶
-                              </span>
-                            )}
-                            {post.locked && (
-                              <span className="inline-flex items-center gap-1 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                                <Lock className="size-3" />
-                                已关闭
-                              </span>
-                            )}
-                            {post.courseName && (
-                              <span className="inline-flex max-w-full items-center gap-1 truncate rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-                                <BookOpen className="size-3" />
-                                {post.courseName}
-                              </span>
-                            )}
-                          </div>
-                          <h3 className="truncate text-base font-semibold group-hover:text-violet-700 dark:group-hover:text-violet-300">
-                            {post.title}
-                          </h3>
-                          <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-sm leading-6 text-slate-600 dark:text-slate-400">
-                            {post.body || '原帖内容已删除，回复仍保留。'}
-                          </p>
+              <div className="overflow-hidden rounded-xl border border-[#d9dce3] bg-white dark:border-slate-800 dark:bg-[#1a1d25]">
+                <div className="hidden grid-cols-[minmax(260px,1fr)_180px_88px_88px_160px] items-center gap-4 border-b border-[#d9dce3] bg-slate-50 px-5 py-3 text-sm font-medium text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 lg:grid">
+                  <span>话题</span>
+                  <span>用户</span>
+                  <span className="text-center">回复</span>
+                  <span className="text-center">浏览量</span>
+                  <span>发布时间</span>
+                </div>
+                <div className="divide-y divide-[#e1e3e8] dark:divide-slate-800">
+                  {posts.map((post) => (
+                    <article key={post.id}>
+                      <Link
+                        href={`/forum/posts/${post.id}`}
+                        className="group block px-4 py-5 outline-none transition-colors hover:bg-violet-50/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500 dark:hover:bg-violet-950/20 sm:px-5"
+                      >
+                        <div className="hidden grid-cols-[minmax(260px,1fr)_180px_88px_88px_160px] items-center gap-4 lg:grid">
+                          <ForumTopic post={post} />
+                          <ForumAuthorCell post={post} />
+                          <span
+                            className="text-center font-mono text-base text-slate-600 dark:text-slate-300"
+                            aria-label={`${post.replyCount} 条回复`}
+                          >
+                            {post.replyCount}
+                          </span>
+                          <span
+                            className="text-center font-mono text-base text-slate-600 dark:text-slate-300"
+                            aria-label={`${post.viewCount} 次浏览`}
+                          >
+                            {post.viewCount}
+                          </span>
+                          <time
+                            className="text-sm text-slate-500 dark:text-slate-400"
+                            dateTime={post.createdAt}
+                          >
+                            {formatForumTime(post.createdAt)}
+                          </time>
                         </div>
-                        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 font-mono text-xs text-slate-500 dark:bg-slate-800">
-                          <MessageCircle className="mr-1 inline size-3.5" />
-                          {post.replyCount}
-                        </span>
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-400">
-                        <span className="inline-flex items-center gap-1">
-                          <UserRound className="size-3" />
-                          {post.author.displayName} · {post.author.roleName}
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <Clock3 className="size-3" />
-                          {sort === 'activity' ? '最后活动' : '发布于'}{' '}
-                          {formatForumTime(
-                            sort === 'activity' ? post.lastActivityAt : post.createdAt,
-                          )}
-                        </span>
-                      </div>
-                    </Link>
-                  </article>
-                ))}
+
+                        <div className="lg:hidden">
+                          <ForumTopic post={post} mobile />
+                          <div className="mt-4">
+                            <ForumAuthorCell post={post} />
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-slate-500 dark:text-slate-400">
+                            <span className="inline-flex items-center gap-1.5">
+                              <MessageCircle className="size-4" /> {post.replyCount} 回复
+                            </span>
+                            <span className="inline-flex items-center gap-1.5">
+                              <Eye className="size-4" /> {post.viewCount} 浏览
+                            </span>
+                            <time
+                              className="inline-flex items-center gap-1.5"
+                              dateTime={post.createdAt}
+                            >
+                              <Clock3 className="size-4" /> {formatForumTime(post.createdAt)}
+                            </time>
+                          </div>
+                        </div>
+                      </Link>
+                    </article>
+                  ))}
+                </div>
               </div>
             ) : !error ? (
               <div className="py-16 text-center">

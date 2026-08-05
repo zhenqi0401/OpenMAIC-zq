@@ -329,12 +329,17 @@ export function CourseAdminPanel() {
         method: 'DELETE',
       });
       if (!response.ok) {
-        adminToast.error('课程删除失败');
+        const data = (await response.json().catch(() => ({}))) as { error?: string };
+        adminToast.error(data.error || '课程删除失败');
+        setCourseToDelete(null);
         return;
       }
       adminToast.success('课程已删除');
       setCourseToDelete(null);
       await loadAll();
+    } catch {
+      adminToast.error('课程删除失败，请检查网络后重试');
+      setCourseToDelete(null);
     } finally {
       setDeletingCourseId(null);
     }

@@ -356,6 +356,93 @@ test.describe('P0 overall acceptance', () => {
 });
 
 test.describe('course administration interactions', () => {
+  test('surfaces a deletion failure and allows the administrator to retry successfully', async ({
+    page,
+  }) => {
+    const course = {
+      id: 'course-delete',
+      name: '待删除课程',
+      description: '验证课程删除重试',
+      categoryId: 'category-training',
+      categoryName: '培训课程',
+      status: 'published',
+      visibilityMode: 'all',
+      visibleRoleIds: [],
+      assessmentQuestions: [],
+      learnerCount: 2,
+      generationStatus: 'ready',
+      generationComplete: true,
+      publishedAt: '2026-07-01T00:00:00.000Z',
+      createdAt: '2026-07-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+    };
+    let courseExists = true;
+    let deleteRequests = 0;
+
+    await page.route('**/api/admin/**', async (route) => {
+      const request = route.request();
+      const pathname = new URL(request.url()).pathname;
+      if (request.method() === 'DELETE' && pathname === '/api/admin/courses/course-delete') {
+        deleteRequests += 1;
+        if (deleteRequests === 1) {
+          return route.fulfill({
+            status: 409,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: '课程存在未清理的关联数据' }),
+          });
+        }
+        courseExists = false;
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ course }),
+        });
+      }
+      const payloads: Record<string, unknown> = {
+        '/api/admin/roles': { roles },
+        '/api/admin/categories': {
+          categories: [{ id: 'category-training', name: '培训课程', sortOrder: 0 }],
+        },
+        '/api/admin/courses': {
+          courses: courseExists ? [course] : [],
+          pagination: {
+            page: 1,
+            pageSize: 12,
+            total: courseExists ? 1 : 0,
+            totalPages: courseExists ? 1 : 0,
+          },
+        },
+        '/api/admin/courses/previews': { previews: {} },
+      };
+      if (!(pathname in payloads)) return route.fallback();
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(payloads[pathname]),
+      });
+    });
+
+    await page.goto('/admin?module=courses');
+    await expect(page.getByText('待删除课程', { exact: true })).toBeVisible();
+
+    async function requestDeletion() {
+      await page.getByRole('button', { name: '待删除课程的更多操作' }).click();
+      await page.getByRole('menuitem', { name: '删除' }).click();
+      const dialog = page.getByRole('alertdialog');
+      await expect(dialog.getByRole('heading', { name: '删除课程' })).toBeVisible();
+      await dialog.getByRole('button', { name: '确认删除' }).click();
+    }
+
+    await requestDeletion();
+    await expect(page.getByText('课程存在未清理的关联数据')).toBeVisible();
+    await expect(page.getByText('待删除课程', { exact: true })).toBeVisible();
+
+    await requestDeletion();
+    await expect(page.getByText('课程已删除')).toBeVisible();
+    await expect(page.getByText('待删除课程', { exact: true })).toHaveCount(0);
+    expect(deleteRequests).toBe(2);
+  });
+
   test('keeps the fixed navigation in place when opening course menus and dialogs', async ({
     page,
   }) => {

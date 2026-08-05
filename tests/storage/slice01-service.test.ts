@@ -587,6 +587,53 @@ describe('Slice-01 enterprise storage service', () => {
     });
   });
 
+  test('prevents tenant custom categories from reusing fixed or existing names', async () => {
+    const repository = makeRepository();
+    repository.listCategories = async () => [
+      {
+        id: 'fixed-management',
+        tenantId: 'tenant-a',
+        scope: 'tenant',
+        categoryKey: 'management',
+        isSystem: true,
+        name: '管理知识培训',
+        sortOrder: 10,
+      },
+      {
+        id: 'custom-operations',
+        tenantId: 'tenant-a',
+        scope: 'tenant',
+        categoryKey: null,
+        name: '运营规范',
+        sortOrder: 60,
+      },
+    ];
+    const createCategory = vi.spyOn(repository, 'createCategory');
+    const updateCategory = vi.spyOn(repository, 'updateCategory');
+    const service = createEnterpriseStorageService(repository);
+    const access = {
+      userId: 'admin-1',
+      tenantId: 'tenant-a',
+      roleId: adminRole.id,
+      isAdmin: true,
+    };
+
+    await expect(service.createCategory({ name: ' 管理知识培训 ' }, access)).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message: '课程分类名称已存在',
+    });
+    await expect(service.createCategory({ name: '运营规范' }, access)).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message: '课程分类名称已存在',
+    });
+    await expect(
+      service.updateCategory('custom-operations', { name: 'ToB销售培训' }, access),
+    ).rejects.toMatchObject({ code: 'CONFLICT', message: '课程分类名称已存在' });
+
+    expect(createCategory).not.toHaveBeenCalled();
+    expect(updateCategory).not.toHaveBeenCalled();
+  });
+
   test('deletes invite codes and protects referenced or final admin roles', async () => {
     const service = createEnterpriseStorageService(makeRepository());
 

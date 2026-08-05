@@ -4,6 +4,7 @@ import { expect, test } from '../fixtures/base';
 const now = '2026-07-15T09:00:00.000Z';
 const learner = {
   userId: 'learner-a',
+  tenantId: 'tenant-a',
   roleId: 'role-sales',
   roleCode: 'sales',
   isAdmin: false,
@@ -11,6 +12,7 @@ const learner = {
 };
 const admin = {
   userId: 'admin-1',
+  tenantId: 'tenant-a',
   roleId: 'role-admin',
   roleCode: 'admin',
   isAdmin: true,
@@ -36,6 +38,7 @@ async function installCommunityApi(page: Page) {
     pinned: false,
     locked: false,
     replyCount: 0,
+    viewCount: 12,
     lastActivityAt: now,
     createdAt: now,
     updatedAt: now,
@@ -47,7 +50,11 @@ async function installCommunityApi(page: Page) {
     route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ authenticated: true, identity }),
+      body: JSON.stringify({
+        authenticated: true,
+        identity,
+        user: { displayName: identity.isAdmin ? '管理员' : '学员 A' },
+      }),
     }),
   );
   await page.route('**/api/courses', (route) =>
@@ -138,9 +145,38 @@ test('course forum supports compose, pagination, reply, admin close, mobile and 
   const api = await installCommunityApi(page);
   await page.goto('/forum?view=course&courseId=course-1&compose=true');
 
+  await expect(page.getByRole('link', { name: '交流社区' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await expect(page.getByRole('banner').getByText('学员 A', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: '门店安全课 · 课程讨论' })).toBeVisible();
+  await expect(page.getByText('话题', { exact: true })).toBeVisible();
+  await expect(page.getByText('用户', { exact: true })).toBeVisible();
+  await expect(page.getByText('回复', { exact: true })).toBeVisible();
+  await expect(page.getByText('浏览量', { exact: true })).toBeVisible();
+  await expect(page.getByText('发布时间', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('12 次浏览')).toBeVisible();
   await expect(page.getByLabel('关联课程')).toHaveValue('course-1');
   await expect(page.getByText('第 1 / 3 页')).toBeVisible();
+  await page.screenshot({
+    path: 'output/playwright/forum-catalog-desktop.png',
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByText('12 浏览', { exact: false })).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      ),
+    )
+    .toBeLessThanOrEqual(1);
+  await page.screenshot({
+    path: 'output/playwright/forum-catalog-mobile.png',
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page.getByLabel('标题').fill('学员 A 的课程问题');
   await page.getByLabel('正文').fill('如何在现场应用本节内容？');
   await page.getByRole('button', { name: '立即发布' }).click();

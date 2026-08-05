@@ -27,7 +27,14 @@ export async function GET(request: Request) {
       service.listVisibleCourses(toTenantAccessContext(current.identity), requestedSort),
       service.listCategories(toTenantAccessContext(current.identity)),
     ]);
-    return apiSuccess({ courses, categories });
+    return apiSuccess({
+      courses: courses.map(
+        ({ managementMode: _managementMode, tenantId: _tenantId, ...course }) => course,
+      ),
+      categories: categories.map(
+        ({ managementMode: _managementMode, tenantId: _tenantId, ...category }) => category,
+      ),
+    });
   } catch (error) {
     return enterpriseErrorResponse(error);
   }

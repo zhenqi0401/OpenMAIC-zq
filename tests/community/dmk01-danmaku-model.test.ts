@@ -35,4 +35,11 @@ describe('DMK-01 danmaku model and migration', () => {
       '"course_danmaku_course_id_courses_id_fk" FOREIGN KEY ("course_id") REFERENCES "public"."courses"("id") ON DELETE no action',
     );
   });
+
+  test('upgrades course deletion to cascade danmaku records', () => {
+    const sql = readFileSync('drizzle/0010_learner_forum_catalog_refinement.sql', 'utf8');
+    expect(sql).toContain(
+      '"course_danmaku_course_id_courses_id_fk" FOREIGN KEY ("course_id") REFERENCES "public"."courses"("id") ON DELETE CASCADE',
+    );
+  });
 });

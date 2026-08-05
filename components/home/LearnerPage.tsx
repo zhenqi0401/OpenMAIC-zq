@@ -14,6 +14,7 @@ import { revokeThumbnailSlideMediaUrls } from '@/lib/utils/stage-storage';
 
 export function LearnerPage() {
   const [identity, setIdentity] = useState<SessionIdentity | null>(null);
+  const [displayName, setDisplayName] = useState('学习者');
   const [courses, setCourses] = useState<EnterpriseHomeCourse[]>([]);
   const [categories, setCategories] = useState<HomeCourseCategory[]>([]);
   const [thumbnails, setThumbnails] = useState<Record<string, Slide>>({});
@@ -48,15 +49,22 @@ export function LearnerPage() {
     let cancelled = false;
     void fetch('/api/auth/session')
       .then((response) => response.json())
-      .then((session: { authenticated?: boolean; identity?: SessionIdentity }) => {
-        if (cancelled) return;
-        if (!session.authenticated || !session.identity) {
-          window.location.assign('/login');
-          return;
-        }
-        setIdentity(session.identity);
-        void loadCourses();
-      })
+      .then(
+        (session: {
+          authenticated?: boolean;
+          identity?: SessionIdentity;
+          user?: { displayName?: string };
+        }) => {
+          if (cancelled) return;
+          if (!session.authenticated || !session.identity) {
+            window.location.assign('/login');
+            return;
+          }
+          setIdentity(session.identity);
+          if (session.user?.displayName?.trim()) setDisplayName(session.user.displayName.trim());
+          void loadCourses();
+        },
+      )
       .catch(() => {
         if (!cancelled) window.location.assign('/login');
       });
@@ -74,6 +82,7 @@ export function LearnerPage() {
   return (
     <LearnerHome
       identity={identity}
+      displayName={displayName}
       courses={courses}
       categories={categories}
       thumbnails={thumbnails}

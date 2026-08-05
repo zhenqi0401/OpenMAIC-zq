@@ -3,6 +3,7 @@ import { test, expect } from '../fixtures/base';
 
 const learnerIdentity = {
   userId: 'learner-e2e',
+  tenantId: 'tenant-e2e',
   roleId: 'role-sales',
   roleCode: 'sales',
   isAdmin: false,
@@ -23,8 +24,8 @@ const courses = [
     id: 'platform-new',
     name: '精品管理领导力',
     description: '面向管理者的精品课程',
-    categoryId: 'category-platform',
-    categoryName: '平台专题',
+    categoryId: 'category-platform-management',
+    categoryName: '管理知识培训',
     scope: 'platform',
     learnerCount: 10,
     createdAt: '2026-08-01T00:00:00.000Z',
@@ -35,8 +36,8 @@ const courses = [
     id: 'tenant-sales',
     name: 'ToB 销售实战',
     description: '客户沟通与商机推进',
-    categoryId: 'category-tob-sales',
-    categoryName: 'ToB 销售',
+    categoryId: 'category-tenant-tob-sales',
+    categoryName: 'ToB销售培训',
     scope: 'tenant',
     learnerCount: 90,
     createdAt: '2026-08-01T00:00:00.000Z',
@@ -47,8 +48,8 @@ const courses = [
     id: 'tenant-management',
     name: '企业管理知识基础',
     description: '管理制度与团队协作',
-    categoryId: 'category-management',
-    categoryName: '管理知识',
+    categoryId: 'category-tenant-management',
+    categoryName: '管理知识培训',
     scope: 'tenant',
     learnerCount: 90,
     createdAt: '2026-08-01T00:00:00.000Z',
@@ -59,8 +60,8 @@ const courses = [
     id: 'platform-hot',
     name: '精品服务沟通课',
     description: '高热度平台课程',
-    categoryId: 'category-platform',
-    categoryName: '平台专题',
+    categoryId: 'category-platform-professional',
+    categoryName: '专业知识培训',
     scope: 'platform',
     learnerCount: 220,
     createdAt: '2026-08-01T00:00:00.000Z',
@@ -71,14 +72,24 @@ const courses = [
 
 const categories = [
   {
-    id: 'category-platform',
-    name: '平台专题',
-    sortOrder: 1,
+    id: 'category-platform-management',
+    name: '管理知识培训',
+    sortOrder: 10,
     scope: 'platform',
+    categoryKey: 'management',
+    isSystem: true,
   },
   {
-    id: 'category-management',
-    name: '管理知识',
+    id: 'category-platform-professional',
+    name: '专业知识培训',
+    sortOrder: 20,
+    scope: 'platform',
+    categoryKey: 'professional',
+    isSystem: true,
+  },
+  {
+    id: 'category-tenant-management',
+    name: '管理知识培训',
     sortOrder: 10,
     scope: 'tenant',
     categoryKey: 'management',
@@ -86,15 +97,15 @@ const categories = [
   },
   {
     id: 'category-professional',
-    name: '专业知识',
+    name: '专业知识培训',
     sortOrder: 20,
     scope: 'tenant',
     categoryKey: 'professional',
     isSystem: true,
   },
   {
-    id: 'category-tob-sales',
-    name: 'ToB 销售',
+    id: 'category-tenant-tob-sales',
+    name: 'ToB销售培训',
     sortOrder: 30,
     scope: 'tenant',
     categoryKey: 'tob-sales',
@@ -102,7 +113,7 @@ const categories = [
   },
   {
     id: 'category-toc-sales',
-    name: 'ToC 销售',
+    name: 'ToC销售培训',
     sortOrder: 40,
     scope: 'tenant',
     categoryKey: 'toc-sales',
@@ -110,11 +121,19 @@ const categories = [
   },
   {
     id: 'category-policy',
-    name: '公司制度',
+    name: '公司制度培训',
     sortOrder: 50,
     scope: 'tenant',
     categoryKey: 'company-policy',
     isSystem: true,
+  },
+  {
+    id: 'category-custom-onboarding',
+    name: '新人训练专区',
+    sortOrder: 60,
+    scope: 'tenant',
+    categoryKey: null,
+    isSystem: false,
   },
 ];
 
@@ -122,7 +141,7 @@ const examPolicy = {
   id: 'exam-sales',
   title: '门店安全与服务规范',
   targetRoleId: 'role-sales',
-  categoryIds: ['category-tob-sales'],
+  categoryIds: ['category-tenant-tob-sales'],
   courseIds: ['tenant-sales'],
   questionCount: 2,
   passThreshold: 80,
@@ -148,7 +167,11 @@ async function mockLearnerApis(
     route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ authenticated: true, identity }),
+      body: JSON.stringify({
+        authenticated: true,
+        identity,
+        user: { displayName: identity.isAdmin ? '管理员甲' : '张琪' },
+      }),
     }),
   );
   await page.route('**/api/courses', (route) =>
@@ -342,6 +365,8 @@ test('uses a server-only scope catalogue with semantic whole-card links', async 
   await expect(page.getByRole('button', { name: '退出登录' }).locator('svg')).toHaveCount(1);
   await expect(page.getByRole('link', { name: '进入管理后台' })).toHaveCount(0);
   await expect(page.getByText('待办事项')).toHaveCount(0);
+  await expect(page.getByText('张琪', { exact: true })).toBeVisible();
+  await expect(page.getByText('张', { exact: true })).toBeVisible();
 
   await seedLocalCourse(page);
   await page.reload();
@@ -385,21 +410,27 @@ test('filters, searches, sorts, and isolates enterprise categories', async ({ pa
     'aria-pressed',
     'true',
   );
-  await expect(page.getByRole('button', { name: '管理知识' })).toHaveAttribute(
+  await expect(page.getByRole('button', { name: '管理知识培训' })).toHaveAttribute(
     'aria-pressed',
     'true',
   );
   await expect(page.getByText('企业管理知识基础')).toBeVisible();
   await expect(page.getByText('精品管理领导力')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '平台专题' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '新人训练专区' })).toBeVisible();
 
   await page.getByRole('button', { name: /精品课程\s*2/ }).click();
-  await expect(page).toHaveURL(/\/learn$/);
-  await expect(page.getByRole('group', { name: '企业课程分类' })).toHaveCount(0);
+  await expect(page).toHaveURL(/\/learn\?category=management$/);
+  await expect(page.getByRole('button', { name: '管理知识培训' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(page.getByRole('button', { name: '新人训练专区' })).toHaveCount(0);
   await expect(page.getByText('精品管理领导力')).toBeVisible();
+  await expect(page.getByText('精品服务沟通课')).toHaveCount(0);
   await expect(page.getByText('企业管理知识基础')).toHaveCount(0);
 
   await page.getByRole('button', { name: /全部课程\s*4/ }).click();
+  await page.getByRole('button', { name: '全部分类' }).click();
   expect(await courseOrder(page)).toEqual([
     'platform-new',
     'tenant-sales',
@@ -420,7 +451,7 @@ test('filters, searches, sorts, and isolates enterprise categories', async ({ pa
   await page.getByRole('searchbox', { name: '搜索课程' }).fill('');
 
   await page.getByRole('button', { name: /企业课程\s*2/ }).click();
-  await page.getByRole('button', { name: 'ToB 销售' }).click();
+  await page.getByRole('button', { name: 'ToB销售培训' }).click();
   await expect(page).toHaveURL(/\/learn\?category=tob-sales$/);
   await expect(page.locator('[data-course-id]')).toHaveCount(1);
   await expect(page.getByText('ToB 销售实战')).toBeVisible();
@@ -459,6 +490,22 @@ test('keeps invalid category links recoverable and uses learner mode for adminis
   await page.goto('/');
   await expect(page.locator('textarea')).toBeVisible();
   await expect(page.getByRole('heading', { name: '课程中心' })).toHaveCount(0);
+});
+
+test('shows only published server courses in the administrator root workbench', async ({
+  page,
+}) => {
+  await mockLearnerApis(page, { identity: adminIdentity, exams: [] });
+  await page.goto('/');
+  await seedLocalCourse(page);
+  await page.reload();
+
+  await expect(page.locator('textarea')).toBeVisible();
+  await expect(page.getByText('精品管理领导力', { exact: true })).toBeVisible();
+  await expect(page.getByText('ToB 销售实战', { exact: true })).toBeVisible();
+  await expect(page.getByText('企业管理知识基础', { exact: true })).toBeVisible();
+  await expect(page.getByText('精品服务沟通课', { exact: true })).toBeVisible();
+  await expect(page.getByText('不应出现的本地历史课程')).toHaveCount(0);
 });
 
 test('shows a recoverable todo error, defaults open, collapses, and preserves the exam flow', async ({
@@ -506,7 +553,7 @@ test('keeps navigation, wrapped categories, cards, and dialogs responsive', asyn
     [390, 844, 1],
     [768, 1024, 2],
     [1024, 768, 3],
-    [1440, 900, 4],
+    [1440, 900, 3],
   ] as const) {
     await page.setViewportSize({ width, height });
     await page.goto('/');
@@ -534,7 +581,7 @@ test('keeps navigation, wrapped categories, cards, and dialogs responsive', asyn
   await page.goto('/');
   await page.getByRole('button', { name: /企业课程\s*2/ }).click();
   const categoryRows = await page
-    .getByRole('group', { name: '企业课程分类' })
+    .getByRole('group', { name: '课程分类' })
     .getByRole('button')
     .evaluateAll(
       (buttons) =>

@@ -30,6 +30,7 @@ function post(patch: Partial<ForumPost> = {}): ForumPost {
     pinned: false,
     locked: false,
     replyCount: 0,
+    viewCount: 0,
     lastActivityAt: now,
     deletedAt: null,
     moderatedBy: null,
@@ -46,6 +47,7 @@ function forumSetup(rateLimiter: CommunityRateLimiter) {
   const repository: ForumRepository = {
     listPosts: vi.fn(async () => ({ items: [], total: 0 })),
     getPost: vi.fn(async () => post()),
+    recordPostView: vi.fn(async () => true),
     createPost: vi.fn(async (input) => post(input)),
     updateOwnPost: vi.fn(async (input) => post(input)),
     deleteOwnPost: vi.fn(async () => post({ status: 'deleted_by_author' })),

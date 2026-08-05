@@ -5,6 +5,7 @@ import {
   communityModerationAudit,
   courseVisibilityRoles,
   courses,
+  forumPostViews,
   forumPosts,
   forumReplies,
   roles,
@@ -147,6 +148,22 @@ export class DrizzleForumRepository implements ForumRepository {
 
   getPost(id: string) {
     return loadPost(id);
+  }
+
+  async recordPostView(postId: string, userId: string): Promise<boolean> {
+    return runDbTransaction<boolean>(async (tx) => {
+      const inserted = await tx
+        .insert(forumPostViews)
+        .values({ postId, userId })
+        .onConflictDoNothing()
+        .returning({ postId: forumPostViews.postId });
+      if (inserted.length === 0) return false;
+      await tx
+        .update(forumPosts)
+        .set({ viewCount: sql`${forumPosts.viewCount} + 1` })
+        .where(eq(forumPosts.id, postId));
+      return true;
+    });
   }
 
   async createPost(input: Parameters<ForumRepository['createPost']>[0]) {
