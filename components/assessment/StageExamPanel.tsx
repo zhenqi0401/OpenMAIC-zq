@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   CheckCircle2,
+  ChevronDown,
   ClipboardCheck,
   Loader2,
   RefreshCw,
@@ -65,6 +66,7 @@ export function StageExamPanel({ identity }: StageExamPanelProps) {
   const [submitting, setSubmitting] = useState(false);
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [confirmExitOpen, setConfirmExitOpen] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const dialogBodyRef = useRef<HTMLDivElement>(null);
 
   const loadExams = useCallback(async () => {
@@ -189,71 +191,102 @@ export function StageExamPanel({ identity }: StageExamPanelProps) {
 
   if (!identity) return null;
 
-  return (
-    <section className="mt-5" aria-label="阶段考核任务">
-      {listState === 'loading' && (
-        <div className="min-h-[220px] -rotate-1 rounded-sm bg-amber-100 p-6 shadow-[0_14px_28px_rgba(85,66,14,0.12)] dark:bg-amber-950/60">
-          <div className="h-3 w-24 animate-pulse rounded bg-amber-200/70 dark:bg-amber-900" />
-          <div className="mt-6 h-6 w-4/5 animate-pulse rounded bg-amber-200/70 dark:bg-amber-900" />
-          <div className="mt-2 h-6 w-3/5 animate-pulse rounded bg-amber-200/70 dark:bg-amber-900" />
-          <div className="mt-8 h-px w-full bg-amber-300/70 dark:bg-amber-900" />
-          <div className="mt-5 h-3 w-2/3 animate-pulse rounded bg-amber-200/70 dark:bg-amber-900" />
-        </div>
-      )}
+  if (listState === 'idle' || (listState === 'ready' && exams.length === 0)) return null;
 
-      {listState === 'error' && (
-        <div className="border-y border-red-200 py-6 dark:border-red-950">
+  if (listState === 'loading') {
+    return (
+      <section
+        className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-[#171a22]"
+        aria-label="正在加载待办事项"
+        aria-busy="true"
+      >
+        <div className="flex min-h-8 items-center gap-3">
+          <div className="size-5 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+          <div className="h-4 w-24 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+          <div className="ml-auto h-4 w-32 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
+        </div>
+      </section>
+    );
+  }
+
+  if (listState === 'error') {
+    return (
+      <section
+        className="flex flex-col gap-3 rounded-xl border border-red-200 bg-white px-4 py-3 shadow-sm dark:border-red-950 dark:bg-[#171a22] sm:flex-row sm:items-center"
+        aria-label="待办事项加载失败"
+      >
+        <div className="min-w-0">
           <p className="text-sm font-medium text-red-700 dark:text-red-300">考核任务加载失败</p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{listError}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void loadExams()}
-            className="mt-4 rounded-md"
+          <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{listError}</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void loadExams()}
+          className="min-h-11 shrink-0 rounded-lg sm:ml-auto"
+        >
+          <RefreshCw className="size-3.5" />
+          重试
+        </Button>
+      </section>
+    );
+  }
+
+  return (
+    <section aria-label="阶段考核任务">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-[#171a22]">
+        <button
+          type="button"
+          className="flex min-h-14 w-full items-center gap-3 px-4 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500 dark:hover:bg-slate-900/60 sm:px-5"
+          aria-expanded={expanded}
+          aria-controls="learner-exam-tasks"
+          onClick={() => setExpanded((current) => !current)}
+        >
+          <ClipboardCheck className="size-5 shrink-0 text-violet-600 dark:text-violet-300" />
+          <span className="font-semibold">待办事项</span>
+          <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-violet-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-200">
+            {exams.length}
+          </span>
+          <span className="hidden truncate text-sm text-slate-500 dark:text-slate-400 sm:block">
+            当前有 {exams.length} 项阶段考核待完成
+          </span>
+          <span className="ml-auto inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+            <span className="hidden sm:inline">{expanded ? '收起' : '展开'}</span>
+            <ChevronDown className={cn('size-4 transition-transform', expanded && 'rotate-180')} />
+          </span>
+        </button>
+
+        {expanded && (
+          <div
+            id="learner-exam-tasks"
+            className="grid gap-4 border-t border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-950/20 sm:grid-cols-2 xl:grid-cols-3"
           >
-            <RefreshCw className="size-3.5" />
-            重试
-          </Button>
-        </div>
-      )}
-
-      {listState === 'ready' && exams.length === 0 && (
-        <div className="border-y border-slate-200 py-6 dark:border-slate-800">
-          <ClipboardCheck className="size-5 text-slate-400" />
-          <p className="mt-2 text-sm font-medium">暂无待完成考核</p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            新考核发布后会显示在这里。
-          </p>
-        </div>
-      )}
-
-      {listState === 'ready' && exams.length > 0 && (
-        <div className="space-y-5">
-          {exams.map((exam) => (
-            <button
-              key={exam.id}
-              type="button"
-              onClick={() => openExam(exam)}
-              className="group relative flex min-h-[220px] w-full -rotate-1 flex-col items-start overflow-hidden rounded-sm bg-[#f4d36f] px-6 pb-5 pt-7 text-left text-[#382e14] shadow-[0_14px_28px_rgba(85,66,14,0.16)] transition duration-200 after:absolute after:bottom-0 after:right-0 after:size-6 after:bg-[#d2ad46] after:[clip-path:polygon(100%_0,0_100%,100%_100%)] hover:rotate-0 hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(85,66,14,0.22)] focus-visible:rotate-0"
-            >
-              <span className="absolute right-4 top-3 size-2.5 rounded-full border-[3px] border-[#382e14]/35" />
-              <span className="font-mono text-[10px] font-semibold">待完成考核</span>
-              <strong className="mt-4 text-xl leading-7">{exam.title}</strong>
-              <span className="my-4 h-px w-full bg-[#382e14]/25" />
-              <span className="text-xs">
-                {exam.questionCount} 道题 · {exam.passThreshold}% 通过
-              </span>
-              <span className="mt-1 text-xs">
-                {exam.timeLimitMinutes ? `${exam.timeLimitMinutes} 分钟` : '不限时'}
-              </span>
-              <span className="mt-auto flex w-full items-center justify-between pt-5 text-xs font-semibold">
-                进入考核
-                <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
+            {exams.map((exam) => (
+              <button
+                key={exam.id}
+                type="button"
+                onClick={() => openExam(exam)}
+                className="group flex min-h-40 w-full flex-col items-start rounded-lg border border-slate-200 bg-white p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-slate-700 dark:bg-[#171a22] dark:hover:border-violet-700 dark:focus-visible:ring-offset-[#171a22]"
+              >
+                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/60 dark:text-amber-200">
+                  阶段考核任务
+                </span>
+                <strong className="mt-3 line-clamp-2 text-base leading-6">{exam.title}</strong>
+                <span className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                  {exam.questionCount} 道题 · {exam.passThreshold}% 通过
+                </span>
+                <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {exam.timeLimitMinutes ? `${exam.timeLimitMinutes} 分钟` : '不限时'}
+                </span>
+                <span className="mt-auto flex w-full items-center justify-between pt-4 text-xs font-semibold text-violet-700 dark:text-violet-300">
+                  进入考核
+                  <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <Dialog
         open={dialogOpen}

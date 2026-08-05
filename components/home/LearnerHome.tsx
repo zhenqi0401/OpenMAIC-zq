@@ -2,48 +2,46 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useDeferredValue, useMemo, useRef, useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BookOpen,
   Check,
-  ChevronRight,
   LogOut,
+  Menu,
   Monitor,
-  MessagesSquare,
   Moon,
-  Pencil,
   RefreshCw,
   Search,
   Shield,
   Sun,
-  Trash2,
-  X,
+  UserRound,
 } from 'lucide-react';
 import type { Slide } from '@openmaic/dsl';
 import { SlideThumbnail } from '@/components/slide-renderer/SlideThumbnail';
 import { StageExamPanel } from '@/components/assessment/StageExamPanel';
 import { BrandLockup } from '@/components/brand/BrandLockup';
-import { LanguageSwitcher } from '@/components/language-switcher';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/lib/hooks/use-theme';
-import { useI18n } from '@/lib/hooks/use-i18n';
 import { useUserProfileStore } from '@/lib/store/user-profile';
 import {
   changeHomeCourseCategory,
-  changeHomeCourseSource,
+  changeHomeCourseScope,
   filterHomeCourses,
-  isLocalHomeCourse,
   sortHomeCourses,
-  type HomeCourse,
+  type EnterpriseHomeCourse,
   type HomeCourseFilter,
   type HomeCourseCategory,
   type HomeCourseSelection,
@@ -55,35 +53,28 @@ import { isSystemCourseCategoryKey } from '@/lib/courses/system-categories';
 
 interface LearnerHomeProps {
   identity: SessionIdentity;
-  courses: HomeCourse[];
+  courses: EnterpriseHomeCourse[];
   categories: HomeCourseCategory[];
   thumbnails: Record<string, Slide>;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
-  onOpenCourse: (id: string) => void;
-  onRenameCourse: (id: string, name: string) => Promise<void>;
-  onDeleteCourse: (id: string) => Promise<void>;
+  getCourseHref: (id: string) => string;
   onLogout: () => Promise<void>;
   enableCategoryDeepLink?: boolean;
 }
 
-const FILTERS: Array<{ value: HomeCourseFilter; label: string }> = [
-  { value: 'all', label: '全部' },
-  { value: 'enterprise', label: '企业课程' },
-  { value: 'local', label: '本地课程' },
+const COURSE_FILTERS: Array<{ value: HomeCourseFilter; label: string }> = [
+  { value: 'all', label: '全部课程' },
+  { value: 'platform', label: '精品课程' },
+  { value: 'tenant', label: '企业课程' },
 ];
 
-function formatCourseDate(timestamp: number) {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-  const days = Math.round((start - target) / 86_400_000);
-  if (days === 0) return '今天更新';
-  if (days === 1) return '昨天更新';
-  return `${date.getMonth() + 1} 月 ${date.getDate()} 日更新`;
-}
+const THEME_OPTIONS = [
+  ['light', '浅色', Sun],
+  ['dark', '深色', Moon],
+  ['system', '跟随系统', Monitor],
+] as const;
 
 function ThemeMenu() {
   const { theme, setTheme } = useTheme();
@@ -92,28 +83,99 @@ function ThemeMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label="主题设置" title="主题设置">
+        <Button variant="ghost" size="sm" className="min-h-11 gap-2 px-3" aria-label="主题设置">
           <Icon className="size-4" />
+          <span>主题</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={8}>
-        {(
-          [
-            ['light', '浅色', Sun],
-            ['dark', '深色', Moon],
-            ['system', '跟随系统', Monitor],
-          ] as const
-        ).map(([value, label, OptionIcon]) => (
+      <DropdownMenuContent align="end" sideOffset={8} className="min-w-40">
+        {THEME_OPTIONS.map(([value, label, OptionIcon]) => (
           <DropdownMenuItem
             key={value}
             onSelect={() => setTheme(value)}
-            className={cn('gap-2', theme === value && 'text-violet-600 dark:text-violet-300')}
+            className={cn(
+              'min-h-11 gap-2',
+              theme === value && 'text-violet-600 dark:text-violet-300',
+            )}
           >
             <OptionIcon className="size-4" />
             {label}
             {theme === value && <Check className="ml-auto size-3.5" />}
           </DropdownMenuItem>
         ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function MobileAccountMenu({
+  identity,
+  displayName,
+  onLogout,
+}: {
+  identity: SessionIdentity;
+  displayName: string;
+  onLogout: () => Promise<void>;
+}) {
+  const { theme, setTheme } = useTheme();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="size-11 shrink-0" aria-label="打开用户菜单">
+          <Menu className="size-5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" sideOffset={8} className="w-52">
+        <div className="px-2 py-2">
+          <p className="truncate text-sm font-semibold">{displayName}</p>
+          <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
+            {identity.roleCode}
+          </p>
+        </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="min-h-11">
+            {theme === 'dark' ? (
+              <Moon className="size-4" />
+            ) : theme === 'light' ? (
+              <Sun className="size-4" />
+            ) : (
+              <Monitor className="size-4" />
+            )}
+            主题
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="min-w-40">
+            {THEME_OPTIONS.map(([value, label, OptionIcon]) => (
+              <DropdownMenuItem
+                key={value}
+                onSelect={() => setTheme(value)}
+                className="min-h-11 gap-2"
+              >
+                <OptionIcon className="size-4" />
+                {label}
+                {theme === value && <Check className="ml-auto size-3.5" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        {identity.isAdmin && (
+          <DropdownMenuItem asChild className="min-h-11">
+            <Link href="/admin">
+              <Shield className="size-4" />
+              管理后台
+            </Link>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          variant="destructive"
+          className="min-h-11"
+          onSelect={() => void onLogout()}
+        >
+          <LogOut className="size-4" />
+          退出
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -127,25 +189,26 @@ export function LearnerHome({
   loading,
   error,
   onRetry,
-  onOpenCourse,
-  onRenameCourse,
-  onDeleteCourse,
+  getCourseHref,
   onLogout,
   enableCategoryDeepLink = false,
 }: LearnerHomeProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { t } = useI18n();
   const avatar = useUserProfileStore((state) => state.avatar);
   const nickname = useUserProfileStore((state) => state.nickname);
   const requestedCategoryKey = enableCategoryDeepLink ? searchParams.get('category') : null;
   const [selection, setSelection] = useState<HomeCourseSelection>({
-    source: requestedCategoryKey ? 'enterprise' : 'all',
+    scope: requestedCategoryKey ? 'tenant' : 'all',
     categoryId: null,
   });
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<HomeCourseSort>('latest');
-  const requestedCategory = categories.find(
+  const tenantCategories = useMemo(
+    () => categories.filter((category) => category.scope === 'tenant'),
+    [categories],
+  );
+  const requestedCategory = tenantCategories.find(
     (category) => category.categoryKey === requestedCategoryKey,
   );
   const categoryDeepLinkError =
@@ -155,7 +218,7 @@ export function LearnerHome({
   useEffect(() => {
     if (!enableCategoryDeepLink || !requestedCategoryKey || loading) return;
     const update = window.setTimeout(() => {
-      setSelection({ source: 'enterprise', categoryId: requestedCategory?.id ?? null });
+      setSelection({ scope: 'tenant', categoryId: requestedCategory?.id ?? null });
     }, 0);
     return () => window.clearTimeout(update);
   }, [enableCategoryDeepLink, loading, requestedCategory?.id, requestedCategoryKey]);
@@ -169,13 +232,15 @@ export function LearnerHome({
     router.replace(queryString ? `/learn?${queryString}` : '/learn');
   };
   const popularityEnabled = isCoursePopularityEnabled();
+  const forumEnabled = isForumEnabled();
   const deferredQuery = useDeferredValue(query);
-  const displayName = nickname || t('profile.defaultNickname');
+  const displayName = nickname || '学习者';
+  const homeHref = enableCategoryDeepLink ? '/learn' : '/';
 
   const filteredCourses = useMemo(
     () =>
       sortHomeCourses(
-        filterHomeCourses(courses, selection.source, deferredQuery, selection.categoryId),
+        filterHomeCourses(courses, selection.scope, deferredQuery, selection.categoryId),
         sort,
       ),
     [courses, deferredQuery, selection, sort],
@@ -183,58 +248,64 @@ export function LearnerHome({
   const selectedCategoryHasCourses = useMemo(
     () =>
       selection.categoryId === null ||
-      filterHomeCourses(courses, 'enterprise', '', selection.categoryId).length > 0,
+      filterHomeCourses(courses, 'tenant', '', selection.categoryId).length > 0,
     [courses, selection.categoryId],
   );
-  const sourceCounts = useMemo(
+  const scopeCounts = useMemo(
     () => ({
       all: courses.length,
-      enterprise: courses.filter((course) => course.source === 'enterprise').length,
-      local: courses.filter((course) => course.source === 'local').length,
+      platform: courses.filter((course) => course.scope === 'platform').length,
+      tenant: courses.filter((course) => course.scope === 'tenant').length,
     }),
     [courses],
   );
 
   return (
-    <div className="min-h-[100dvh] bg-[#f4f5f7] text-[#181a22] dark:bg-[#12141a] dark:text-slate-100">
-      <header className="sticky top-0 z-40 border-b border-[#d9dce3] bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-[#1a1d25]/95">
-        <div className="mx-auto flex min-h-16 w-[min(1240px,calc(100%-2rem))] items-center justify-between gap-4 md:w-[min(1240px,calc(100%-3rem))]">
-          <div className="flex min-w-0 items-center gap-3">
+    <div className="min-h-[100dvh] bg-[#f5f7fb] text-[#171a24] dark:bg-[#11131a] dark:text-slate-100">
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-[#171a22]/95">
+        <div className="mx-auto flex min-h-16 w-[min(1440px,calc(100%-1.5rem))] items-center gap-1 sm:w-[min(1440px,calc(100%-3rem))] sm:gap-4">
+          <Link
+            href={homeHref}
+            className="shrink-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#171a22]"
+            aria-label="元我智脑学习首页"
+          >
             <BrandLockup variant="compact" priority />
-            <span className="hidden h-5 w-px bg-slate-200 dark:bg-slate-700 sm:block" />
-            <span className="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">
-              学习中心
-            </span>
-          </div>
+          </Link>
 
-          <div className="flex items-center gap-1">
-            <div className="mr-1 hidden text-right leading-tight md:block">
-              <p className="text-xs font-semibold">{displayName}</p>
-              <p className="mt-0.5 font-mono text-[10px] text-slate-500 dark:text-slate-400">
-                {identity.roleCode}
-              </p>
-            </div>
-            <Image
-              src={avatar}
-              alt={`${displayName}的头像`}
-              width={34}
-              height={34}
-              unoptimized={avatar.startsWith('data:')}
-              className="size-8 rounded-full border border-violet-200 bg-violet-50 object-cover dark:border-violet-800 dark:bg-violet-950"
-            />
-            <span className="mx-1 hidden h-5 w-px bg-slate-200 dark:bg-slate-700 sm:block" />
-            <LanguageSwitcher />
-            <ThemeMenu />
-            {isForumEnabled() && (
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/forum" aria-label="进入学习交流区" title="学习交流区">
-                  <MessagesSquare className="size-4" />
-                  <span className="hidden lg:inline">交流区</span>
-                </Link>
-              </Button>
+          <nav className="ml-auto flex h-16 items-stretch sm:ml-5" aria-label="学习中心主导航">
+            <Link
+              href={homeHref}
+              aria-current="page"
+              className="relative inline-flex min-h-11 items-center px-2 text-sm font-medium text-slate-950 after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-gradient-to-r after:from-blue-600 after:to-violet-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500 dark:text-white sm:px-4 sm:after:inset-x-4"
+            >
+              首页
+            </Link>
+            {forumEnabled && (
+              <Link
+                href="/forum"
+                className="inline-flex min-h-11 items-center px-2 text-sm text-slate-600 transition-colors hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500 dark:text-slate-300 dark:hover:text-violet-300 sm:px-4"
+              >
+                <span className="sm:hidden">交流</span>
+                <span className="hidden sm:inline">交流社区</span>
+              </Link>
             )}
+          </nav>
+
+          <div className="ml-auto hidden items-center gap-1 md:flex">
+            <div className="mr-1 flex min-w-0 items-center gap-2.5">
+              <Image
+                src={avatar}
+                alt={`${displayName}的头像`}
+                width={36}
+                height={36}
+                unoptimized={avatar.startsWith('data:')}
+                className="size-9 rounded-full border border-violet-200 bg-violet-50 object-cover dark:border-violet-800 dark:bg-violet-950"
+              />
+              <span className="max-w-32 truncate text-sm font-medium">{displayName}</span>
+            </div>
+            <ThemeMenu />
             {identity.isAdmin && (
-              <Button asChild variant="ghost" size="sm">
+              <Button asChild variant="ghost" size="sm" className="min-h-11 gap-2 px-3">
                 <Link href="/admin" aria-label="进入管理后台">
                   <Shield className="size-4" />
                   <span>管理后台</span>
@@ -243,94 +314,61 @@ export function LearnerHome({
             )}
             <Button
               variant="ghost"
-              size="icon-sm"
+              size="sm"
+              className="min-h-11 gap-2 px-3"
               onClick={() => void onLogout()}
               aria-label="退出登录"
-              title="退出登录"
             >
               <LogOut className="size-4" />
+              <span>退出</span>
             </Button>
+          </div>
+
+          <div className="ml-0.5 md:hidden">
+            <MobileAccountMenu identity={identity} displayName={displayName} onLogout={onLogout} />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto w-[min(1240px,calc(100%-2rem))] pb-16 pt-10 md:w-[min(1240px,calc(100%-3rem))] md:pt-14">
-        <section className="flex flex-col gap-6 border-b border-[#d9dce3] pb-8 dark:border-slate-800 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="mb-2 font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-              {new Intl.DateTimeFormat('zh-CN', { dateStyle: 'long' }).format(new Date())}
-            </p>
-            <h1 className="text-3xl font-semibold leading-tight md:text-[34px]">
-              早上好，{displayName}
-            </h1>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              继续完成当前岗位的学习任务。
-            </p>
-          </div>
-          <div className="flex gap-5 text-xs text-slate-500 dark:text-slate-400 sm:gap-7">
-            <span>
-              <b className="mr-1 font-mono text-base text-slate-950 dark:text-white">
-                {courses.length}
-              </b>
-              门可学课程
-            </span>
-            <span className="border-l border-slate-300 pl-5 dark:border-slate-700 sm:pl-7">
-              角色课程按当前权限更新
-            </span>
-          </div>
-        </section>
+      <main className="mx-auto w-[min(1440px,calc(100%-2rem))] pb-16 pt-5 sm:w-[min(1440px,calc(100%-3rem))] sm:pt-7">
+        <StageExamPanel identity={identity} />
 
-        <div className="grid gap-12 pt-9 lg:grid-cols-[244px_minmax(0,1fr)] lg:gap-12">
-          <aside className="min-w-0" aria-labelledby="learner-tasks-title">
-            <p className="mb-1 font-mono text-[10px] font-semibold text-slate-500 dark:text-slate-400">
-              TODAY
-            </p>
-            <h2 id="learner-tasks-title" className="text-xl font-semibold">
-              待办事项
-            </h2>
-            <StageExamPanel identity={identity} />
-          </aside>
+        <section className="mt-7 min-w-0" aria-labelledby="learner-courses-title">
+          <h1 id="learner-courses-title" className="text-2xl font-semibold tracking-tight">
+            课程中心
+          </h1>
 
-          <section className="min-w-0" aria-labelledby="learner-courses-title">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="mb-1 font-mono text-[10px] font-semibold text-slate-500 dark:text-slate-400">
-                  COURSES
-                </p>
-                <h2 id="learner-courses-title" className="text-xl font-semibold">
-                  我的课程
-                </h2>
-              </div>
+          <div className="mt-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div
+              className="grid min-h-11 w-full grid-cols-3 rounded-lg border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-800/70 sm:w-fit"
+              role="group"
+              aria-label="课程来源"
+            >
+              {COURSE_FILTERS.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  aria-pressed={selection.scope === item.value}
+                  onClick={() => {
+                    setSelection((current) => changeHomeCourseScope(current, item.value));
+                    if (item.value !== 'tenant') replaceCategoryParameter(null);
+                  }}
+                  className={cn(
+                    'min-h-9 min-w-0 whitespace-nowrap rounded-md px-2 text-xs font-medium text-slate-600 transition-colors hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:text-slate-300 dark:hover:text-violet-300 sm:px-4 sm:text-sm',
+                    selection.scope === item.value &&
+                      'bg-white text-violet-700 shadow-sm dark:bg-[#171a22] dark:text-violet-300',
+                  )}
+                >
+                  {item.label}
+                  <span className="ml-1 font-mono text-[10px] opacity-65">
+                    {scopeCounts[item.value]}
+                  </span>
+                </button>
+              ))}
             </div>
 
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="grid h-10 grid-cols-3 rounded-md border border-[#d9dce3] bg-[#eef0f4] p-1 dark:border-slate-700 dark:bg-slate-800/70">
-                {FILTERS.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    aria-pressed={selection.source === item.value}
-                    onClick={() => {
-                      setSelection((current) => changeHomeCourseSource(current, item.value));
-                      if (item.value === 'all' || item.value === 'local') {
-                        replaceCategoryParameter(null);
-                      }
-                      if (item.value === 'local') setSort('latest');
-                    }}
-                    className={cn(
-                      'min-w-0 rounded px-2.5 text-xs text-slate-500 transition-colors dark:text-slate-400',
-                      selection.source === item.value &&
-                        'bg-white text-slate-950 shadow-sm dark:bg-[#1a1d25] dark:text-white',
-                    )}
-                  >
-                    {item.label}{' '}
-                    <span className="font-mono text-[10px] opacity-70">
-                      {sourceCounts[item.value]}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <label className="relative block w-full sm:w-60">
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-end lg:max-w-xl">
+              <label className="relative block w-full sm:min-w-64 sm:flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   type="search"
@@ -338,20 +376,50 @@ export function LearnerHome({
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="搜索课程"
                   aria-label="搜索课程"
-                  className="h-10 rounded-md border-[#d9dce3] bg-white pl-9 dark:border-slate-700 dark:bg-[#1a1d25]"
+                  className="h-11 rounded-lg border-slate-200 bg-white pl-9 dark:border-slate-700 dark:bg-[#171a22]"
                 />
               </label>
+              {popularityEnabled && (
+                <div
+                  className="ml-auto inline-flex min-h-11 shrink-0 rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-[#171a22]"
+                  role="group"
+                  aria-label="课程排序"
+                >
+                  {(
+                    [
+                      ['latest', '最新'],
+                      ['popular', '最热'],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={sort === value}
+                      onClick={() => setSort(value)}
+                      className={cn(
+                        'min-h-9 rounded-md px-4 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500',
+                        sort === value
+                          ? 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-200'
+                          : 'text-slate-500 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white',
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
+          </div>
 
+          {selection.scope === 'tenant' && (
             <div
-              className="flex flex-wrap items-center gap-2 border-b border-[#d9dce3] pb-4 dark:border-slate-800"
+              className="mt-4 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-4 dark:border-slate-800"
               role="group"
               aria-label="企业课程分类"
             >
-              <span className="mr-1 text-xs text-slate-500 dark:text-slate-400">课程分类</span>
               {[
                 { id: null, name: '全部分类', categoryKey: null },
-                ...categories.map((category) => ({
+                ...tenantCategories.map((category) => ({
                   id: category.id,
                   name: category.name,
                   categoryKey: category.categoryKey ?? null,
@@ -368,7 +436,7 @@ export function LearnerHome({
                       replaceCategoryParameter(category.categoryKey);
                     }}
                     className={cn(
-                      'max-w-full rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition-colors hover:border-violet-400 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-slate-700 dark:bg-[#1a1d25] dark:text-slate-300 dark:hover:border-violet-500 dark:hover:text-violet-300 dark:focus-visible:ring-offset-[#12141a]',
+                      'min-h-11 max-w-full rounded-full border border-slate-300 bg-white px-4 py-2 text-sm text-slate-600 transition-colors hover:border-violet-400 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-slate-700 dark:bg-[#171a22] dark:text-slate-300 dark:hover:border-violet-500 dark:hover:text-violet-300 dark:focus-visible:ring-offset-[#11131a]',
                       selected &&
                         'border-violet-500 bg-violet-50 text-violet-700 dark:border-violet-500 dark:bg-violet-950/50 dark:text-violet-200',
                     )}
@@ -378,89 +446,54 @@ export function LearnerHome({
                 );
               })}
             </div>
+          )}
 
-            {categoryDeepLinkError && (
-              <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
-                <p>指定的课程分类不存在或不可用</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-3"
-                  onClick={() => {
-                    setSelection({ source: 'enterprise', categoryId: null });
-                    replaceCategoryParameter(null);
-                  }}
-                >
-                  查看全部课程
-                </Button>
-              </div>
-            )}
-
-            <div className="flex min-h-11 items-center justify-between gap-3 py-3 text-xs text-slate-500 dark:text-slate-400">
-              <span role="status">
-                {!loading && !error && `当前显示 ${filteredCourses.length} 门课程`}
-              </span>
-              {popularityEnabled && (
-                <div
-                  className="inline-flex rounded-md border border-[#d9dce3] bg-white p-0.5 dark:border-slate-700 dark:bg-[#1a1d25]"
-                  role="group"
-                  aria-label="课程排序"
-                >
-                  {(
-                    [
-                      ['latest', '最新'],
-                      ['popular', '最热'],
-                    ] as const
-                  ).map(([value, label]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      aria-pressed={sort === value}
-                      disabled={value === 'popular' && selection.source === 'local'}
-                      onClick={() => setSort(value)}
-                      className={cn(
-                        'rounded px-3 py-1 text-xs transition-colors',
-                        value === 'popular' &&
-                          selection.source === 'local' &&
-                          'cursor-not-allowed opacity-40',
-                        sort === value
-                          ? 'bg-violet-100 font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-200'
-                          : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
+          {categoryDeepLinkError && (
+            <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+              <p>指定的课程分类不存在或不可用</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 min-h-11"
+                onClick={() => {
+                  setSelection({ scope: 'all', categoryId: null });
+                  replaceCategoryParameter(null);
+                }}
+              >
+                查看全部课程
+              </Button>
             </div>
+          )}
 
+          <div className="mt-5">
             {loading ? (
               <CourseGridSkeleton />
             ) : error ? (
-              <div className="border-y border-red-200 py-12 text-center dark:border-red-950">
+              <div className="rounded-lg border border-red-200 bg-white py-12 text-center dark:border-red-950 dark:bg-[#171a22]">
                 <p className="font-medium text-red-700 dark:text-red-300">课程加载失败</p>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{error}</p>
-                <Button variant="outline" onClick={onRetry} className="mt-5 rounded-md">
+                <Button variant="outline" onClick={onRetry} className="mt-5 min-h-11 rounded-lg">
                   <RefreshCw className="size-4" />
                   重新加载
                 </Button>
               </div>
             ) : filteredCourses.length > 0 ? (
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div
+                className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                data-testid="learner-course-grid"
+              >
                 {filteredCourses.map((course) => (
                   <LearnerCourseCard
                     key={course.id}
                     course={course}
                     slide={thumbnails[course.id]}
-                    onOpen={() => onOpenCourse(course.id)}
-                    onRename={onRenameCourse}
-                    onDelete={onDeleteCourse}
+                    href={getCourseHref(course.id)}
+                    popularityEnabled={popularityEnabled}
                   />
                 ))}
               </div>
             ) : (
-              <div className="border-y border-[#d9dce3] py-14 text-center dark:border-slate-800">
+              <div className="rounded-lg border border-slate-200 bg-white py-14 text-center dark:border-slate-800 dark:bg-[#171a22]">
                 <BookOpen className="mx-auto size-7 text-slate-400" />
                 <p className="mt-3 font-medium">
                   {selection.categoryId && !selectedCategoryHasCourses
@@ -471,16 +504,16 @@ export function LearnerHome({
                   {selection.categoryId && !selectedCategoryHasCourses
                     ? '可切换其他分类查看课程。'
                     : courses.length === 0
-                      ? '请等待管理员发布岗位课程。'
-                      : '调整搜索词或课程来源。'}
+                      ? '请等待管理员发布课程。'
+                      : '请调整搜索词或课程来源。'}
                 </p>
-                {(query || selection.source !== 'all' || selection.categoryId) && (
+                {(query || selection.scope !== 'all' || selection.categoryId) && (
                   <Button
                     variant="outline"
-                    className="mt-5 rounded-md"
+                    className="mt-5 min-h-11 rounded-lg"
                     onClick={() => {
                       setQuery('');
-                      setSelection({ source: 'all', categoryId: null });
+                      setSelection({ scope: 'all', categoryId: null });
                       replaceCategoryParameter(null);
                     }}
                   >
@@ -489,31 +522,28 @@ export function LearnerHome({
                 )}
               </div>
             )}
-          </section>
-        </div>
+          </div>
+        </section>
       </main>
-
-      <footer className="mx-auto flex w-[min(1240px,calc(100%-2rem))] justify-between border-t border-[#d9dce3] py-5 text-[11px] text-slate-400 dark:border-slate-800 md:w-[min(1240px,calc(100%-3rem))]">
-        <span>元我智脑</span>
-        <span>企业学习空间</span>
-      </footer>
     </div>
   );
 }
 
 function CourseGridSkeleton() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="正在加载课程">
-      {Array.from({ length: 6 }, (_, index) => (
+    <div
+      className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+      aria-label="正在加载课程"
+    >
+      {Array.from({ length: 8 }, (_, index) => (
         <div
           key={index}
-          className="overflow-hidden rounded-lg border border-[#d9dce3] bg-white dark:border-slate-800 dark:bg-[#1a1d25]"
+          className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-[#171a22]"
         >
           <div className="aspect-video w-full animate-pulse bg-slate-200 dark:bg-slate-800" />
           <div className="space-y-3 p-4">
-            <div className="h-4 w-20 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
             <div className="h-5 w-4/5 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
-            <div className="h-3 w-3/5 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+            <div className="h-4 w-2/5 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
           </div>
         </div>
       ))}
@@ -524,24 +554,16 @@ function CourseGridSkeleton() {
 function LearnerCourseCard({
   course,
   slide,
-  onOpen,
-  onRename,
-  onDelete,
+  href,
+  popularityEnabled,
 }: {
-  course: HomeCourse;
+  course: EnterpriseHomeCourse;
   slide?: Slide;
-  onOpen: () => void;
-  onRename: (id: string, name: string) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  href: string;
+  popularityEnabled: boolean;
 }) {
-  const local = isLocalHomeCourse(course);
-  const popularityEnabled = isCoursePopularityEnabled();
   const thumbnailRef = useRef<HTMLDivElement>(null);
   const [thumbnailWidth, setThumbnailWidth] = useState(0);
-  const [editing, setEditing] = useState(false);
-  const [nameDraft, setNameDraft] = useState(course.name);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const element = thumbnailRef.current;
@@ -551,200 +573,67 @@ function LearnerCourseCard({
     return () => observer.disconnect();
   }, []);
 
-  async function commitRename() {
-    const trimmed = nameDraft.trim();
-    if (!trimmed || trimmed === course.name) {
-      setNameDraft(course.name);
-      setEditing(false);
-      return;
-    }
-    setSaving(true);
-    try {
-      await onRename(course.id, trimmed);
-      setEditing(false);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function confirmDelete() {
-    setSaving(true);
-    try {
-      await onDelete(course.id);
-    } finally {
-      setSaving(false);
-      setConfirmingDelete(false);
-    }
-  }
-
   return (
-    <article className="group flex min-h-[288px] min-w-0 flex-col overflow-hidden rounded-lg border border-[#d9dce3] bg-white transition duration-200 hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-[0_10px_26px_rgba(24,26,34,0.08)] dark:border-slate-800 dark:bg-[#1a1d25] dark:hover:border-slate-600">
-      <div
-        ref={thumbnailRef}
-        className={cn(
-          'relative aspect-video overflow-hidden',
-          local ? 'bg-[#e8edfb] dark:bg-[#263355]' : 'bg-[#e3f3ef] dark:bg-[#1d3936]',
-        )}
+    <article className="min-w-0">
+      <Link
+        href={href}
+        aria-label={`学习课程：${course.name}`}
+        data-course-id={course.id}
+        data-course-scope={course.scope}
+        className="group block min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-violet-300 hover:shadow-[0_16px_34px_rgba(48,41,92,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-slate-800 dark:bg-[#171a22] dark:hover:border-violet-700 dark:focus-visible:ring-offset-[#11131a]"
       >
-        {slide && thumbnailWidth > 0 ? (
-          <SlideThumbnail
-            slide={slide}
-            size={thumbnailWidth}
-            viewportSize={slide.viewportSize ?? 1000}
-            viewportRatio={slide.viewportRatio ?? 0.5625}
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-end justify-between p-4" aria-hidden="true">
-            <div>
-              <BookOpen
-                className={cn('mb-3 size-7', local ? 'text-blue-700' : 'text-emerald-700')}
-              />
-              <span className="font-mono text-[10px] font-semibold">
-                {local ? 'LOCAL / ZIP' : 'ENTERPRISE'}
-              </span>
-            </div>
-            <div className="w-2/5 space-y-2 opacity-35">
-              <span className="block h-1 bg-current" />
-              <span className="block h-1 w-4/5 bg-current" />
-              <span className="block h-1 w-3/5 bg-current" />
-            </div>
-          </div>
-        )}
-
-        {confirmingDelete && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950/75 p-4 text-center text-white backdrop-blur-sm">
-            <p className="text-sm font-medium">删除这门本地课程？</p>
-            <p className="mt-1 text-xs text-white/70">课程数据将从当前浏览器移除。</p>
-            <div className="mt-4 flex gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setConfirmingDelete(false)}
-                disabled={saving}
-              >
-                取消
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => void confirmDelete()}
-                disabled={saving}
-              >
-                {saving ? (
-                  <RefreshCw className="size-3.5 animate-spin" />
-                ) : (
-                  <Trash2 className="size-3.5" />
-                )}
-                删除
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-1 flex-col p-4">
-        <span
-          className={cn(
-            'w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold',
-            local
-              ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300'
-              : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300',
-          )}
+        <div
+          ref={thumbnailRef}
+          className="relative aspect-video overflow-hidden bg-gradient-to-br from-indigo-100 via-blue-50 to-violet-100 dark:from-indigo-950 dark:via-slate-900 dark:to-violet-950"
         >
-          {local ? '本地导入' : course.scope === 'platform' ? '精品课程' : '企业课程'}
-        </span>
-
-        {editing ? (
-          <div className="mt-3 flex items-center gap-1">
-            <Input
-              autoFocus
-              value={nameDraft}
-              maxLength={100}
-              onChange={(event) => setNameDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') void commitRename();
-                if (event.key === 'Escape') {
-                  setNameDraft(course.name);
-                  setEditing(false);
-                }
-              }}
-              className="h-8 rounded-md"
-              aria-label="本地课程名称"
+          {slide && thumbnailWidth > 0 ? (
+            <SlideThumbnail
+              slide={slide}
+              size={thumbnailWidth}
+              viewportSize={slide.viewportSize ?? 1000}
+              viewportRatio={slide.viewportRatio ?? 0.5625}
             />
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => void commitRename()}
-              disabled={saving}
-              aria-label="保存名称"
+          ) : (
+            <div
+              className="absolute inset-0 flex items-center justify-center overflow-hidden p-5"
+              aria-hidden="true"
             >
-              <Check className="size-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setEditing(false)}
-              disabled={saving}
-              aria-label="取消重命名"
-            >
-              <X className="size-4" />
-            </Button>
-          </div>
-        ) : (
-          <h3
-            className="mt-3 line-clamp-2 min-h-10 text-[15px] font-semibold leading-5"
+              <span className="absolute -right-10 -top-12 size-36 rounded-full border-[22px] border-white/35 dark:border-white/5" />
+              <span className="absolute -bottom-14 -left-12 size-40 rounded-full border-[24px] border-violet-300/30 dark:border-violet-400/10" />
+              <div className="relative flex items-center gap-3 text-[#155fa8] dark:text-blue-300">
+                <span className="grid size-11 place-items-center rounded-xl bg-white/75 shadow-sm dark:bg-white/10">
+                  <BookOpen className="size-6" />
+                </span>
+                <span className="text-lg font-semibold tracking-wide">元我智脑</span>
+              </div>
+            </div>
+          )}
+
+          {course.scope === 'platform' && (
+            <span className="absolute left-3 top-3 rounded-md bg-gradient-to-r from-blue-600 to-violet-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
+              精品课程
+            </span>
+          )}
+        </div>
+
+        <div className="flex min-h-24 flex-col p-4">
+          <h2
+            className="line-clamp-2 text-base font-semibold leading-6 transition-colors group-hover:text-violet-700 dark:group-hover:text-violet-300"
             title={course.name}
           >
             {course.name}
-          </h3>
-        )}
-
-        <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-          {course.sceneCount} 个学习场景 ·{' '}
-          {local ? '保存在本机' : formatCourseDate(course.updatedAt)}
-        </p>
-        {!local && popularityEnabled && (
-          <p className="mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
-            {course.learnerCount} 人已开始学习
-          </p>
-        )}
-
-        <div className="mt-auto flex min-h-9 items-end justify-between gap-3 pt-4">
-          <button
-            type="button"
-            onClick={onOpen}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 hover:underline hover:underline-offset-4 dark:text-violet-300"
-          >
-            打开课程 <ChevronRight className="size-3.5" />
-          </button>
-          {local && !editing && (
-            <div className="flex gap-1">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => {
-                  setNameDraft(course.name);
-                  setEditing(true);
-                }}
-                aria-label={`重命名${course.name}`}
-                title="重命名"
-              >
-                <Pencil className="size-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setConfirmingDelete(true)}
-                aria-label={`删除${course.name}`}
-                title="删除"
-                className="text-red-600 hover:text-red-700 dark:text-red-400"
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            </div>
+          </h2>
+          {popularityEnabled && (
+            <span
+              className="mt-auto inline-flex items-center justify-end gap-1.5 pt-3 text-xs text-slate-500 dark:text-slate-400"
+              aria-label={`${course.learnerCount} 人已开始学习`}
+            >
+              <UserRound className="size-4" aria-hidden="true" />
+              <span aria-hidden="true">{course.learnerCount}</span>
+            </span>
           )}
         </div>
-      </div>
+      </Link>
     </article>
   );
 }

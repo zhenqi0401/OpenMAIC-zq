@@ -1,26 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import type { Slide } from '@openmaic/dsl';
 import { LearnerHome } from '@/components/home/LearnerHome';
 import type { SessionIdentity } from '@/lib/auth/types';
 import {
-  loadHomeCourses,
-  type HomeCourse,
+  loadLearnerHomeCourses,
+  type EnterpriseHomeCourse,
   type HomeCourseCategory,
 } from '@/lib/home/enterprise-course-list';
 import { logoutCurrentSession } from '@/lib/auth/logout-client';
-import {
-  deleteStageData,
-  renameStage,
-  revokeThumbnailSlideMediaUrls,
-} from '@/lib/utils/stage-storage';
+import { revokeThumbnailSlideMediaUrls } from '@/lib/utils/stage-storage';
 
 export function LearnerPage() {
-  const router = useRouter();
   const [identity, setIdentity] = useState<SessionIdentity | null>(null);
-  const [courses, setCourses] = useState<HomeCourse[]>([]);
+  const [courses, setCourses] = useState<EnterpriseHomeCourse[]>([]);
   const [categories, setCategories] = useState<HomeCourseCategory[]>([]);
   const [thumbnails, setThumbnails] = useState<Record<string, Slide>>({});
   const [loading, setLoading] = useState(true);
@@ -39,7 +33,7 @@ export function LearnerPage() {
     setError(null);
     try {
       // /learn is always a learner catalogue, including for administrators.
-      const result = await loadHomeCourses(undefined, false);
+      const result = await loadLearnerHomeCourses();
       setCourses(result.courses);
       setCategories(result.categories);
       replaceThumbnails(result.thumbnails);
@@ -86,17 +80,7 @@ export function LearnerPage() {
       loading={loading}
       error={error}
       onRetry={loadCourses}
-      onOpenCourse={(id) => router.push(`/classroom/${id}?mode=learn`)}
-      onRenameCourse={async (id, name) => {
-        await renameStage(id, name);
-        setCourses((current) =>
-          current.map((course) => (course.id === id ? { ...course, name } : course)),
-        );
-      }}
-      onDeleteCourse={async (id) => {
-        await deleteStageData(id);
-        await loadCourses();
-      }}
+      getCourseHref={(id) => `/classroom/${encodeURIComponent(id)}?mode=learn`}
       onLogout={async () => {
         await logoutCurrentSession();
         window.location.assign('/login');

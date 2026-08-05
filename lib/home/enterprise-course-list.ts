@@ -1,8 +1,8 @@
 import type { Slide } from '@openmaic/dsl';
 import { getFirstSlideByStages, listStages, type StageListItem } from '@/lib/utils/stage-storage';
 
-export type HomeCourseSource = 'enterprise' | 'local';
-export type HomeCourseFilter = 'all' | HomeCourseSource;
+export type HomeCourseScope = 'platform' | 'tenant';
+export type HomeCourseFilter = 'all' | HomeCourseScope;
 export type HomeCourseSort = 'latest' | 'popular';
 
 export type LocalHomeCourse = StageListItem & {
@@ -11,7 +11,7 @@ export type LocalHomeCourse = StageListItem & {
 
 export type EnterpriseHomeCourse = StageListItem & {
   source: 'enterprise';
-  scope?: 'platform' | 'tenant';
+  scope: HomeCourseScope;
   categoryId: string;
   categoryName: string | null;
   learnerCount: number;
@@ -24,6 +24,7 @@ export interface HomeCourseCategory {
   id: string;
   name: string;
   sortOrder: number;
+  scope: HomeCourseScope;
   categoryKey?: string | null;
   isSystem?: boolean;
 }
@@ -43,6 +44,15 @@ export interface HomeCourseLoaders {
   listLocalStages: () => Promise<StageListItem[]>;
   loadEnterpriseCatalog: () => Promise<EnterpriseHomeCatalog>;
   getFirstSlides: (stageIds: string[]) => Promise<Record<string, Slide>>;
+  loadEnterpriseFirstSlides?: (courses: EnterpriseHomeCourse[]) => Promise<Record<string, Slide>>;
+}
+
+export interface LearnerHomeCourseLoadResult extends Omit<HomeCourseLoadResult, 'courses'> {
+  courses: EnterpriseHomeCourse[];
+}
+
+export interface LearnerHomeCourseLoaders {
+  loadEnterpriseCatalog: () => Promise<EnterpriseHomeCatalog>;
   loadEnterpriseFirstSlides?: (courses: EnterpriseHomeCourse[]) => Promise<Record<string, Slide>>;
 }
 
@@ -67,6 +77,7 @@ interface EnterpriseCourseListResponse {
     id?: unknown;
     name?: unknown;
     sortOrder?: unknown;
+    scope?: unknown;
     categoryKey?: unknown;
     isSystem?: unknown;
   }>;
@@ -125,9 +136,7 @@ export async function loadEnterpriseHomeCatalog(
         createdAt: toTimestamp(course.createdAt),
         updatedAt: toTimestamp(course.updatedAt),
         source: 'enterprise' as const,
-        ...(course.scope === 'platform' || course.scope === 'tenant'
-          ? { scope: course.scope }
-          : {}),
+        scope: course.scope === 'platform' || course.scope === 'tenant' ? course.scope : 'tenant',
         learnerCount:
           typeof course.learnerCount === 'number' && Number.isFinite(course.learnerCount)
             ? Math.max(0, Math.trunc(course.learnerCount))
@@ -146,6 +155,8 @@ export async function loadEnterpriseHomeCatalog(
         id: category.id as string,
         name: category.name as string,
         sortOrder: category.sortOrder as number,
+        scope:
+          category.scope === 'platform' || category.scope === 'tenant' ? category.scope : 'tenant',
         categoryKey: typeof category.categoryKey === 'string' ? category.categoryKey : null,
         isSystem:
           typeof category.isSystem === 'boolean'
@@ -183,16 +194,20 @@ export function isLocalHomeCourse(course: HomeCourse): course is LocalHomeCourse
   return course.source === 'local';
 }
 
+export function isEnterpriseHomeCourse(course: HomeCourse): course is EnterpriseHomeCourse {
+  return course.source === 'enterprise';
+}
+
 export function filterHomeCourses(
-  courses: HomeCourse[],
-  source: HomeCourseFilter,
+  courses: EnterpriseHomeCourse[],
+  scope: HomeCourseFilter,
   query: string,
   categoryId: string | null = null,
-): HomeCourse[] {
+): EnterpriseHomeCourse[] {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   return courses.filter((course) => {
-    if (source !== 'all' && course.source !== source) return false;
-    if (categoryId && (course.source !== 'enterprise' || course.categoryId !== categoryId)) {
+    if (scope !== 'all' && course.scope !== scope) return false;
+    if (categoryId && (course.scope !== 'tenant' || course.categoryId !== categoryId)) {
       return false;
     }
     if (!normalizedQuery) return true;
@@ -202,14 +217,14 @@ export function filterHomeCourses(
   });
 }
 
-export function sortHomeCourses(courses: HomeCourse[], sort: HomeCourseSort): HomeCourse[] {
+export function sortHomeCourses(
+  courses: EnterpriseHomeCourse[],
+  sort: HomeCourseSort,
+): EnterpriseHomeCourse[] {
   return [...courses].sort((left, right) => {
     if (sort === 'popular') {
-      if (left.source !== right.source) return left.source === 'enterprise' ? -1 : 1;
-      if (left.source === 'enterprise' && right.source === 'enterprise') {
-        const countDifference = right.learnerCount - left.learnerCount;
-        if (countDifference !== 0) return countDifference;
-      }
+      const countDifference = right.learnerCount - left.learnerCount;
+      if (countDifference !== 0) return countDifference;
     }
     const dateDifference = right.updatedAt - left.updatedAt;
     if (dateDifference !== 0) return dateDifference;
@@ -218,17 +233,17 @@ export function sortHomeCourses(courses: HomeCourse[], sort: HomeCourseSort): Ho
 }
 
 export interface HomeCourseSelection {
-  source: HomeCourseFilter;
+  scope: HomeCourseFilter;
   categoryId: string | null;
 }
 
-export function changeHomeCourseSource(
+export function changeHomeCourseScope(
   selection: HomeCourseSelection,
-  source: HomeCourseFilter,
+  scope: HomeCourseFilter,
 ): HomeCourseSelection {
   return {
-    source,
-    categoryId: source === 'all' || source === 'local' ? null : selection.categoryId,
+    scope,
+    categoryId: scope === 'tenant' ? selection.categoryId : null,
   };
 }
 
@@ -237,7 +252,7 @@ export function changeHomeCourseCategory(
   categoryId: string | null,
 ): HomeCourseSelection {
   return {
-    source: categoryId ? 'enterprise' : selection.source,
+    scope: categoryId ? 'tenant' : selection.scope,
     categoryId,
   };
 }
@@ -265,6 +280,29 @@ export async function loadEnterpriseHomeCourseThumbnails(
     }),
   );
   return thumbnails;
+}
+
+/**
+ * Load the learner catalogue exclusively from the server-authoritative course API.
+ * Browser-local IndexedDB stages intentionally never enter this path.
+ */
+export async function loadLearnerHomeCourses(
+  loaders: LearnerHomeCourseLoaders = {
+    loadEnterpriseCatalog: () => loadEnterpriseHomeCatalog(),
+  },
+): Promise<LearnerHomeCourseLoadResult> {
+  const enterpriseCatalog = await loaders.loadEnterpriseCatalog();
+  const courses = sortHomeCourses(enterpriseCatalog.courses, 'latest');
+  const thumbnails =
+    courses.length > 0
+      ? await (loaders.loadEnterpriseFirstSlides ?? loadEnterpriseHomeCourseThumbnails)(courses)
+      : {};
+
+  return {
+    courses,
+    categories: enterpriseCatalog.categories,
+    thumbnails,
+  };
 }
 
 export async function loadHomeCourses(

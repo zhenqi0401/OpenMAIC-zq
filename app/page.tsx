@@ -50,7 +50,9 @@ import {
   revokeThumbnailSlideMediaUrls,
 } from '@/lib/utils/stage-storage';
 import {
+  isEnterpriseHomeCourse,
   loadHomeCourses,
+  loadLearnerHomeCourses,
   type HomeCourse,
   type HomeCourseCategory,
 } from '@/lib/home/enterprise-course-list';
@@ -255,10 +257,13 @@ function HomePage() {
   }, [themeOpen]);
 
   const loadClassrooms = async () => {
+    if (!identity) return;
     setCoursesLoading(true);
     setCoursesError(null);
     try {
-      const result = await loadHomeCourses(undefined, identity?.isAdmin === true);
+      const result = identity.isAdmin
+        ? await loadHomeCourses(undefined, true)
+        : await loadLearnerHomeCourses();
       setClassrooms(result.courses);
       setLearnerCategories(result.categories);
       replaceThumbnails(result.thumbnails);
@@ -278,13 +283,15 @@ function HomePage() {
   } = useImportPptx();
 
   useEffect(() => {
+    if (!identity) return;
+
     // Clear stale media store to prevent cross-course thumbnail contamination.
     // The store may hold tasks from a previously visited classroom whose elementIds
     // (gen_img_1, etc.) collide with other courses' placeholders.
     useMediaGenerationStore.getState().revokeObjectUrls();
     useMediaGenerationStore.setState({ tasks: {} });
 
-    loadClassrooms();
+    void loadClassrooms();
 
     return () => {
       revokeThumbnailSlideMediaUrls(thumbnailsRef.current);
@@ -498,15 +505,13 @@ function HomePage() {
     return (
       <LearnerHome
         identity={identity}
-        courses={classrooms}
+        courses={classrooms.filter(isEnterpriseHomeCourse)}
         categories={learnerCategories}
         thumbnails={thumbnails}
         loading={coursesLoading}
         error={coursesError}
         onRetry={loadClassrooms}
-        onOpenCourse={(id) => router.push(`/classroom/${id}`)}
-        onRenameCourse={handleRename}
-        onDeleteCourse={confirmDelete}
+        getCourseHref={(id) => `/classroom/${encodeURIComponent(id)}`}
         onLogout={handleLogout}
       />
     );

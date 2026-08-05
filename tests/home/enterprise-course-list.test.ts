@@ -2,78 +2,150 @@ import { describe, expect, test, vi } from 'vitest';
 
 import {
   changeHomeCourseCategory,
-  changeHomeCourseSource,
+  changeHomeCourseScope,
   filterHomeCourses,
   isLocalHomeCourse,
   loadEnterpriseHomeCatalog,
   loadEnterpriseHomeCourseThumbnails,
   loadHomeCourses,
+  loadLearnerHomeCourses,
   sortHomeCourses,
+  type EnterpriseHomeCourse,
 } from '@/lib/home/enterprise-course-list';
 
-describe('CHANGE-01 home enterprise course list', () => {
-  test('loads visible courses and all categories from one learner API request', async () => {
+function course(
+  id: string,
+  scope: 'platform' | 'tenant',
+  overrides: Partial<EnterpriseHomeCourse> = {},
+): EnterpriseHomeCourse {
+  return {
+    id,
+    name: id,
+    description: '',
+    sceneCount: 1,
+    createdAt: 1,
+    updatedAt: 1,
+    source: 'enterprise',
+    scope,
+    categoryId: scope === 'platform' ? 'category-platform' : 'category-tenant',
+    categoryName: scope === 'platform' ? '精品分类' : '企业分类',
+    learnerCount: 0,
+    ...overrides,
+  };
+}
+
+describe('learner home server course catalogue', () => {
+  test('parses course and category scopes from the learner API response', async () => {
     const fetcher = vi.fn(async (url: string) => {
       expect(url).toBe('/api/courses');
-      return new Response(
-        JSON.stringify({
-          success: true,
-          courses: [
-            {
-              id: 'course-pg-1',
-              name: 'Two Factor Theory',
-              description: 'Motivation and hygiene factors',
-              categoryId: 'cat-handbook',
-              categoryName: '员工手册',
-              updatedAt: '2026-07-06T06:00:00.000Z',
-              createdAt: '2026-07-05T06:00:00.000Z',
-              generationComplete: true,
-              learnerCount: 12,
-              sceneCount: 6,
-            },
-          ],
-          categories: [
-            { id: 'cat-handbook', name: '员工手册', sortOrder: 10 },
-            { id: 'cat-empty', name: '新员工入职', sortOrder: 30 },
-          ],
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      );
+      return Response.json({
+        success: true,
+        courses: [
+          {
+            id: 'course-platform',
+            name: '精品领导力',
+            description: '平台发布课程',
+            categoryId: 'category-platform',
+            categoryName: '精品分类',
+            scope: 'platform',
+            updatedAt: '2026-07-06T06:00:00.000Z',
+            createdAt: '2026-07-05T06:00:00.000Z',
+            generationComplete: true,
+            learnerCount: 12.9,
+            sceneCount: 6.8,
+          },
+          {
+            id: 'course-tenant',
+            name: '企业销售规范',
+            categoryId: 'category-tenant',
+            categoryName: '管理知识',
+            scope: 'tenant',
+            updatedAt: '2026-07-04T06:00:00.000Z',
+            createdAt: '2026-07-03T06:00:00.000Z',
+            learnerCount: -3,
+          },
+        ],
+        categories: [
+          {
+            id: 'category-platform',
+            name: '精品分类',
+            sortOrder: 5,
+            scope: 'platform',
+          },
+          {
+            id: 'category-tenant',
+            name: '管理知识',
+            sortOrder: 10,
+            scope: 'tenant',
+            categoryKey: 'management',
+            isSystem: true,
+          },
+        ],
+      });
     });
 
     await expect(loadEnterpriseHomeCatalog(fetcher)).resolves.toEqual({
       courses: [
         {
-          id: 'course-pg-1',
-          name: 'Two Factor Theory',
-          description: 'Motivation and hygiene factors',
-          categoryId: 'cat-handbook',
-          categoryName: '员工手册',
+          id: 'course-platform',
+          name: '精品领导力',
+          description: '平台发布课程',
+          categoryId: 'category-platform',
+          categoryName: '精品分类',
           sceneCount: 6,
           createdAt: Date.parse('2026-07-05T06:00:00.000Z'),
           updatedAt: Date.parse('2026-07-06T06:00:00.000Z'),
           source: 'enterprise',
+          scope: 'platform',
           generationComplete: true,
           learnerCount: 12,
+        },
+        {
+          id: 'course-tenant',
+          name: '企业销售规范',
+          description: undefined,
+          categoryId: 'category-tenant',
+          categoryName: '管理知识',
+          sceneCount: 0,
+          createdAt: Date.parse('2026-07-03T06:00:00.000Z'),
+          updatedAt: Date.parse('2026-07-04T06:00:00.000Z'),
+          source: 'enterprise',
+          scope: 'tenant',
+          generationComplete: undefined,
+          learnerCount: 0,
         },
       ],
       categories: [
         {
-          id: 'cat-handbook',
-          name: '员工手册',
-          sortOrder: 10,
+          id: 'category-platform',
+          name: '精品分类',
+          sortOrder: 5,
+          scope: 'platform',
           categoryKey: null,
           isSystem: false,
         },
         {
-          id: 'cat-empty',
-          name: '新员工入职',
-          sortOrder: 30,
-          categoryKey: null,
-          isSystem: false,
+          id: 'category-tenant',
+          name: '管理知识',
+          sortOrder: 10,
+          scope: 'tenant',
+          categoryKey: 'management',
+          isSystem: true,
         },
       ],
     });
+  });
+
+  test('keeps missing legacy scopes tenant-scoped instead of exposing a third learner type', async () => {
+    const result = await loadEnterpriseHomeCatalog(async () =>
+      Response.json({
+        courses: [{ id: 'legacy', name: 'Legacy', categoryId: 'legacy-category' }],
+        categories: [{ id: 'legacy-category', name: 'Legacy', sortOrder: 1 }],
+      }),
+    );
+
+    expect(result.courses[0].scope).toBe('tenant');
+    expect(result.categories[0].scope).toBe('tenant');
   });
 
   test('surfaces learner course API failures so the home page can offer retry', async () => {
@@ -82,216 +154,147 @@ describe('CHANGE-01 home enterprise course list', () => {
     await expect(loadEnterpriseHomeCatalog(fetcher)).rejects.toThrow('课程加载失败');
   });
 
-  test('loads the first PostgreSQL course slide as a home thumbnail', async () => {
+  test('loads the first server course slide as a home thumbnail', async () => {
     const fetcher = vi.fn(async (url: string) => {
-      expect(url).toBe('/api/courses/course-pg-1');
-      return new Response(
-        JSON.stringify({
-          success: true,
-          scenes: [
-            {
-              id: 'scene-1',
-              content: {
-                type: 'slide',
-                canvas: { id: 'slide-pg-1', elements: [] },
-              },
-            },
-          ],
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      );
+      expect(url).toBe('/api/courses/course-platform');
+      return Response.json({
+        success: true,
+        scenes: [
+          { id: 'non-slide', content: { type: 'video' } },
+          {
+            id: 'scene-1',
+            content: { type: 'slide', canvas: { id: 'slide-platform', elements: [] } },
+          },
+        ],
+      });
     });
 
     await expect(
-      loadEnterpriseHomeCourseThumbnails([{ id: 'course-pg-1' }], fetcher),
+      loadEnterpriseHomeCourseThumbnails([{ id: 'course-platform' }], fetcher),
     ).resolves.toEqual({
-      'course-pg-1': { id: 'slide-pg-1', elements: [] },
+      'course-platform': { id: 'slide-platform', elements: [] },
     });
   });
 
-  test('keeps browser IndexedDB courses and thumbnails on the home page', async () => {
-    const localCourses = [
-      {
-        id: 'local-1',
-        name: 'Imported ZIP',
-        sceneCount: 2,
-        createdAt: 1,
-        updatedAt: 3,
-      },
-    ];
-    const enterpriseCourses = [
-      {
-        id: 'course-pg-1',
-        name: 'Server Course',
-        sceneCount: 0,
-        createdAt: 2,
-        updatedAt: 2,
-        source: 'enterprise' as const,
-        categoryId: 'cat-handbook',
-        categoryName: '员工手册',
-        generationComplete: true,
-        learnerCount: 4,
-      },
-    ];
-    const thumbnail = {
-      id: 'slide-1',
-      elements: [],
-      viewportSize: 1000,
-      viewportRatio: 0.5625,
+  test('loads learner courses and thumbnails without calling the IndexedDB loader', async () => {
+    const listLocalStages = vi.fn(async () => [
+      { id: 'local-history', name: '历史本地课程', sceneCount: 1, createdAt: 1, updatedAt: 9 },
+    ]);
+    const serverCourses = [course('platform-new', 'platform', { updatedAt: 3 })];
+    const loaders = {
+      listLocalStages,
+      loadEnterpriseCatalog: async () => ({
+        courses: serverCourses,
+        categories: [
+          { id: 'category-platform', name: '精品分类', sortOrder: 1, scope: 'platform' as const },
+        ],
+      }),
+      loadEnterpriseFirstSlides: vi.fn(async () => ({
+        'platform-new': { id: 'slide-platform', elements: [] },
+      })),
     };
 
-    await expect(
-      loadHomeCourses({
-        listLocalStages: async () => localCourses,
-        loadEnterpriseCatalog: async () => ({
-          courses: enterpriseCourses,
-          categories: [{ id: 'cat-empty', name: '新员工入职', sortOrder: 30 }],
-        }),
-        loadEnterpriseFirstSlides: async (courses) => {
-          expect(courses).toEqual(enterpriseCourses);
-          return { 'course-pg-1': { id: 'slide-pg-1', elements: [] } };
-        },
-        getFirstSlides: async (stageIds) => {
-          expect(stageIds).toEqual(['local-1']);
-          return { 'local-1': thumbnail };
-        },
-      }),
-    ).resolves.toEqual({
-      courses: [{ ...localCourses[0], source: 'local' }, enterpriseCourses[0]],
-      categories: [{ id: 'cat-empty', name: '新员工入职', sortOrder: 30 }],
-      thumbnails: {
-        'local-1': thumbnail,
-        'course-pg-1': { id: 'slide-pg-1', elements: [] },
-      },
+    await expect(loadLearnerHomeCourses(loaders)).resolves.toEqual({
+      courses: serverCourses,
+      categories: [{ id: 'category-platform', name: '精品分类', sortOrder: 1, scope: 'platform' }],
+      thumbnails: { 'platform-new': { id: 'slide-platform', elements: [] } },
     });
+    expect(listLocalStages).not.toHaveBeenCalled();
   });
 
-  test('filters the unified course view by source and search query', () => {
+  test('retains the combined IndexedDB loader only for the administrator workbench', async () => {
+    const localCourse = {
+      id: 'local-admin-draft',
+      name: '管理员本地草稿',
+      sceneCount: 2,
+      createdAt: 1,
+      updatedAt: 4,
+    };
+    const serverCourse = course('tenant-server', 'tenant', { updatedAt: 2 });
+
+    const result = await loadHomeCourses({
+      listLocalStages: async () => [localCourse],
+      loadEnterpriseCatalog: async () => ({ courses: [serverCourse], categories: [] }),
+      getFirstSlides: async () => ({
+        'local-admin-draft': { id: 'local-slide', elements: [] },
+      }),
+      loadEnterpriseFirstSlides: async () => ({
+        'tenant-server': { id: 'server-slide', elements: [] },
+      }),
+    });
+
+    expect(result.courses.map((item) => item.id)).toEqual(['local-admin-draft', 'tenant-server']);
+    expect(isLocalHomeCourse(result.courses[0])).toBe(true);
+  });
+
+  test('filters all, platform, tenant, search, and tenant categories together', () => {
     const courses = [
-      {
-        id: 'enterprise-1',
-        name: '门店安全规范',
+      course('platform-leadership', 'platform', {
+        name: '领导力精品课',
+        description: '面向管理者',
+        categoryId: 'shared-category-id',
+      }),
+      course('tenant-management', 'tenant', {
+        name: '企业管理知识',
         description: '岗位必修',
-        sceneCount: 8,
-        createdAt: 1,
-        updatedAt: 3,
-        source: 'enterprise' as const,
-        categoryId: 'cat-rules',
-        categoryName: '公司规范规章制度',
-        learnerCount: 8,
-      },
-      {
-        id: 'local-1',
-        name: '本地服务话术',
-        description: '个人导入',
-        sceneCount: 4,
-        createdAt: 1,
-        updatedAt: 2,
-        source: 'local' as const,
-      },
+        categoryId: 'shared-category-id',
+      }),
+      course('tenant-sales', 'tenant', {
+        name: 'ToB 销售实战',
+        description: '客户沟通',
+        categoryId: 'tenant-sales-category',
+      }),
     ];
 
-    expect(filterHomeCourses(courses, 'enterprise', '', 'cat-rules')).toEqual([courses[0]]);
-    expect(filterHomeCourses(courses, 'enterprise', '', 'cat-empty')).toEqual([]);
-    expect(filterHomeCourses(courses, 'local', '服务', null)).toEqual([courses[1]]);
-    expect(filterHomeCourses(courses, 'all', '岗位', null)).toEqual([courses[0]]);
-    expect(filterHomeCourses(courses, 'all', 'missing', null)).toEqual([]);
+    expect(filterHomeCourses(courses, 'all', '', null)).toEqual(courses);
+    expect(filterHomeCourses(courses, 'platform', '', null)).toEqual([courses[0]]);
+    expect(filterHomeCourses(courses, 'tenant', '', null)).toEqual([courses[1], courses[2]]);
+    expect(filterHomeCourses(courses, 'tenant', '', 'shared-category-id')).toEqual([courses[1]]);
+    expect(filterHomeCourses(courses, 'all', '', 'shared-category-id')).toEqual([courses[1]]);
+    expect(filterHomeCourses(courses, 'tenant', '客户', 'tenant-sales-category')).toEqual([
+      courses[2],
+    ]);
+    expect(filterHomeCourses(courses, 'platform', '岗位', null)).toEqual([]);
   });
 
-  test('sorts latest across sources and keeps local courses out of popularity ranking', () => {
+  test('sorts latest and popular with latest and stable ID tie breakers', () => {
     const courses = [
-      {
-        id: 'local-new',
-        name: 'Local',
-        sceneCount: 1,
-        createdAt: 1,
-        updatedAt: 40,
-        source: 'local' as const,
-      },
-      {
-        id: 'enterprise-low',
-        name: 'Low',
-        sceneCount: 1,
-        createdAt: 1,
-        updatedAt: 30,
-        source: 'enterprise' as const,
-        categoryId: 'cat-1',
-        categoryName: null,
-        learnerCount: 2,
-      },
-      {
-        id: 'enterprise-hot',
-        name: 'Hot',
-        sceneCount: 1,
-        createdAt: 1,
-        updatedAt: 10,
-        source: 'enterprise' as const,
-        categoryId: 'cat-1',
-        categoryName: null,
-        learnerCount: 20,
-      },
+      course('course-z', 'tenant', { learnerCount: 10, updatedAt: 20 }),
+      course('course-a', 'platform', { learnerCount: 10, updatedAt: 20 }),
+      course('course-old-hot', 'tenant', { learnerCount: 30, updatedAt: 1 }),
+      course('course-new-cold', 'platform', { learnerCount: 1, updatedAt: 40 }),
     ];
 
-    expect(sortHomeCourses(courses, 'latest').map((course) => course.id)).toEqual([
-      'local-new',
-      'enterprise-low',
-      'enterprise-hot',
+    expect(sortHomeCourses(courses, 'latest').map((item) => item.id)).toEqual([
+      'course-new-cold',
+      'course-a',
+      'course-z',
+      'course-old-hot',
     ]);
-    expect(sortHomeCourses(courses, 'popular').map((course) => course.id)).toEqual([
-      'enterprise-hot',
-      'enterprise-low',
-      'local-new',
+    expect(sortHomeCourses(courses, 'popular').map((item) => item.id)).toEqual([
+      'course-old-hot',
+      'course-a',
+      'course-z',
+      'course-new-cold',
     ]);
   });
 
-  test('keeps source and category selection transitions consistent', () => {
-    expect(changeHomeCourseCategory({ source: 'all', categoryId: null }, 'cat-rules')).toEqual({
-      source: 'enterprise',
-      categoryId: 'cat-rules',
+  test('keeps scope and enterprise category selection transitions consistent', () => {
+    expect(changeHomeCourseCategory({ scope: 'all', categoryId: null }, 'category-sales')).toEqual({
+      scope: 'tenant',
+      categoryId: 'category-sales',
     });
     expect(
-      changeHomeCourseCategory({ source: 'enterprise', categoryId: 'cat-rules' }, null),
-    ).toEqual({
-      source: 'enterprise',
-      categoryId: null,
-    });
+      changeHomeCourseCategory({ scope: 'tenant', categoryId: 'category-sales' }, null),
+    ).toEqual({ scope: 'tenant', categoryId: null });
     expect(
-      changeHomeCourseSource({ source: 'enterprise', categoryId: 'cat-rules' }, 'all'),
-    ).toEqual({
-      source: 'all',
-      categoryId: null,
-    });
+      changeHomeCourseScope({ scope: 'tenant', categoryId: 'category-sales' }, 'platform'),
+    ).toEqual({ scope: 'platform', categoryId: null });
+    expect(changeHomeCourseScope({ scope: 'tenant', categoryId: 'category-sales' }, 'all')).toEqual(
+      { scope: 'all', categoryId: null },
+    );
     expect(
-      changeHomeCourseSource({ source: 'enterprise', categoryId: 'cat-rules' }, 'local'),
-    ).toEqual({
-      source: 'local',
-      categoryId: null,
-    });
-  });
-
-  test('identifies local home courses', () => {
-    expect(
-      isLocalHomeCourse({
-        id: 'local-1',
-        name: 'Local',
-        sceneCount: 1,
-        createdAt: 1,
-        updatedAt: 1,
-        source: 'local',
-      }),
-    ).toBe(true);
-    expect(
-      isLocalHomeCourse({
-        id: 'enterprise-1',
-        name: 'Enterprise',
-        sceneCount: 1,
-        createdAt: 1,
-        updatedAt: 1,
-        source: 'enterprise',
-        categoryId: 'cat-1',
-        categoryName: null,
-        learnerCount: 0,
-      }),
-    ).toBe(false);
+      changeHomeCourseScope({ scope: 'tenant', categoryId: 'category-sales' }, 'tenant'),
+    ).toEqual({ scope: 'tenant', categoryId: 'category-sales' });
   });
 });
