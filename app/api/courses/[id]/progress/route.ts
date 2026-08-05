@@ -29,10 +29,17 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const { id } = await context.params;
     const service = getEnterpriseService();
     const access = toTenantAccessContext(current.identity);
-    const visible = current.identity.isAdmin
-      ? await service.getCourseContent(id, access)
-      : await service.getVisibleCourse(id, access);
-    if (!visible || (current.identity.isAdmin && visible.course.status === 'archived')) {
+    const adminLearningMode =
+      current.identity.isAdmin && new URL(request.url).searchParams.get('mode') === 'learn';
+    if (current.identity.isAdmin && !adminLearningMode) {
+      return apiError(
+        'INVALID_REQUEST',
+        403,
+        'Administrator previews do not record learning progress',
+      );
+    }
+    const visible = await service.getVisibleCourse(id, access);
+    if (!visible || visible.course.status !== 'published') {
       return apiError('INVALID_REQUEST', 404, 'Course not found');
     }
     const progress = await service.saveCourseProgress({

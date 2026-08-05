@@ -38,6 +38,8 @@ interface Category {
   sortOrder: number;
   scope?: 'platform' | 'tenant';
   managementMode?: 'editable' | 'read_only';
+  categoryKey?: string | null;
+  isSystem?: boolean;
 }
 
 export {

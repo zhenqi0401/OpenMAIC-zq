@@ -58,8 +58,20 @@ describe('CHANGE-01 home enterprise course list', () => {
         },
       ],
       categories: [
-        { id: 'cat-handbook', name: '员工手册', sortOrder: 10 },
-        { id: 'cat-empty', name: '新员工入职', sortOrder: 30 },
+        {
+          id: 'cat-handbook',
+          name: '员工手册',
+          sortOrder: 10,
+          categoryKey: null,
+          isSystem: false,
+        },
+        {
+          id: 'cat-empty',
+          name: '新员工入职',
+          sortOrder: 30,
+          categoryKey: null,
+          isSystem: false,
+        },
       ],
     });
   });

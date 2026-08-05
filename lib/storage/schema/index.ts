@@ -108,6 +108,7 @@ export const courseCategories = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     tenantId: uuid('tenant_id').references(() => tenants.id),
     scope: varchar('scope', { length: 16 }).notNull().default('tenant'),
+    categoryKey: varchar('category_key', { length: 32 }),
     name: varchar('name', { length: 128 }).notNull(),
     sortOrder: integer('sort_order').notNull().default(0),
     ...timestamps,
@@ -123,6 +124,41 @@ export const courseCategories = pgTable(
     uniqueIndex('course_categories_tenant_name_unique')
       .on(table.tenantId, table.name)
       .where(sql`${table.scope} = 'tenant'`),
+    uniqueIndex('course_categories_tenant_key_unique')
+      .on(table.tenantId, table.categoryKey)
+      .where(sql`${table.scope} = 'tenant' AND ${table.categoryKey} IS NOT NULL`),
+    check(
+      'course_categories_category_key_check',
+      sql`${table.categoryKey} IS NULL OR (${table.scope} = 'tenant' AND ${table.categoryKey} IN ('management', 'professional', 'tob-sales', 'toc-sales', 'company-policy'))`,
+    ),
+  ],
+);
+
+export const hostSsoLoginExchanges = pgTable(
+  'host_sso_login_exchanges',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    codeHash: text('code_hash').notNull(),
+    requestIdHash: text('request_id_hash').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    categoryKey: varchar('category_key', { length: 32 }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('host_sso_login_exchanges_code_hash_unique').on(table.codeHash),
+    uniqueIndex('host_sso_login_exchanges_request_id_hash_unique').on(table.requestIdHash),
+    index('host_sso_login_exchanges_expires_at_idx').on(table.expiresAt),
+    check(
+      'host_sso_login_exchanges_category_key_check',
+      sql`${table.categoryKey} IN ('management', 'professional', 'tob-sales', 'toc-sales', 'company-policy')`,
+    ),
   ],
 );
 

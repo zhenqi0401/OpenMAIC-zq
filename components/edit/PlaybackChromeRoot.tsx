@@ -68,6 +68,7 @@ interface PlaybackChromeRootProps {
   readonly enterpriseCourseId?: string | null;
   /** Learner-only gate; administrator previews and local courses must not be counted. */
   readonly trackCourseStart?: boolean;
+  readonly learningMode?: boolean;
   /** Whether the Pro Switch in Header should be enabled. */
   readonly canEnterProMode?: boolean;
   /** Whether the current session may configure model/provider settings. */
@@ -89,6 +90,7 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
       onRetryOutline,
       enterpriseCourseId,
       trackCourseStart = false,
+      learningMode = false,
       canEnterProMode,
       canConfigureModels,
       onEnterProMode,
@@ -245,7 +247,7 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
       if (courseStartRequestsRef.current.has(enterpriseCourseId)) return;
 
       courseStartRequestsRef.current.set(enterpriseCourseId, 'pending');
-      void fetch(`/api/courses/${encodeURIComponent(enterpriseCourseId)}/start`, {
+      void fetch(`/api/courses/${encodeURIComponent(enterpriseCourseId)}/start?mode=learn`, {
         method: 'POST',
       })
         .then((response) => {
@@ -1220,6 +1222,7 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
                 isPendingScene={isPendingScene}
                 isCourseComplete={isCourseComplete}
                 enterpriseCourseId={enterpriseCourseId}
+                learningMode={learningMode}
                 assessmentPassed={assessmentPassed}
                 learningProgress={learningProgress}
                 onAssessmentPassed={notifyCourseCompleted}

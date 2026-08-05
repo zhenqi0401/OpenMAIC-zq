@@ -24,6 +24,8 @@ export interface HomeCourseCategory {
   id: string;
   name: string;
   sortOrder: number;
+  categoryKey?: string | null;
+  isSystem?: boolean;
 }
 
 export interface EnterpriseHomeCatalog {
@@ -65,6 +67,8 @@ interface EnterpriseCourseListResponse {
     id?: unknown;
     name?: unknown;
     sortOrder?: unknown;
+    categoryKey?: unknown;
+    isSystem?: unknown;
   }>;
 }
 
@@ -142,6 +146,11 @@ export async function loadEnterpriseHomeCatalog(
         id: category.id as string,
         name: category.name as string,
         sortOrder: category.sortOrder as number,
+        categoryKey: typeof category.categoryKey === 'string' ? category.categoryKey : null,
+        isSystem:
+          typeof category.isSystem === 'boolean'
+            ? category.isSystem
+            : typeof category.categoryKey === 'string',
       })),
   };
 }

@@ -45,6 +45,7 @@ const adminAuth: AuthResult = {
   role: adminRole,
   identity: {
     userId: 'admin-1',
+    tenantId: 'tenant-1',
     roleId: adminRole.id,
     roleCode: 'admin',
     isAdmin: true,
@@ -65,6 +66,7 @@ const learnerAuth: AuthResult = {
   role: learnerRole,
   identity: {
     userId: 'learner-1',
+    tenantId: 'tenant-1',
     roleId: learnerRole.id,
     roleCode: 'learner',
     isAdmin: false,
@@ -77,6 +79,8 @@ function makeRepository(status: 'draft' | 'published' = 'published'): Enterprise
     id: 'course-1',
     name: 'Published Course',
     description: null,
+    tenantId: 'tenant-1',
+    scope: 'tenant' as const,
     categoryId: 'cat-1',
     categoryName: 'Default',
     status,
@@ -353,7 +357,7 @@ describe('Slice-04 assessment API routes', () => {
     });
   });
 
-  test('admin can complete a draft course assessment before the completion page', async () => {
+  test('administrator preview cannot write draft learning progress or submit an assessment', async () => {
     mocks.repository = makeRepository('draft');
     mocks.current = adminAuth;
 
@@ -362,25 +366,19 @@ describe('Slice-04 assessment API routes', () => {
       { sceneIndex: 1, actionIndex: 1, completed: true },
       { params: Promise.resolve({ id: 'course-1' }) },
     );
-    expect(progressResponse.status).toBe(200);
+    expect(progressResponse.status).toBe(403);
 
     const assessmentResponse = await getRoute('@/app/api/courses/[id]/assessment/route', {
       params: Promise.resolve({ id: 'course-1' }),
     });
     expect(assessmentResponse.status).toBe(200);
-    await expect(assessmentResponse.json()).resolves.toMatchObject({
-      assessment: { courseId: 'course-1', canAttempt: true },
-    });
 
     const attemptResponse = await postRoute(
       '@/app/api/courses/[id]/assessment/attempts/route',
       { answers: { q1: 'A' } },
       { params: Promise.resolve({ id: 'course-1' }) },
     );
-    expect(attemptResponse.status).toBe(201);
-    await expect(attemptResponse.json()).resolves.toMatchObject({
-      result: { attempt: { passed: true } },
-    });
+    expect(attemptResponse.status).toBe(403);
   });
 
   test('learner can submit an assessment attempt without quiz-grade API', async () => {
@@ -397,6 +395,35 @@ describe('Slice-04 assessment API routes', () => {
         requiresRelearning: false,
       },
     });
+  });
+
+  test('administrator mode=learn records published progress and submits own assessment', async () => {
+    mocks.current = adminAuth;
+    const progressRoute = (await import('@/app/api/courses/[id]/progress/route')) as {
+      PATCH: typeof import('@/app/api/courses/[id]/progress/route').PATCH;
+    };
+    const progressResponse = await progressRoute.PATCH(
+      new Request('http://localhost/api/courses/course-1/progress?mode=learn', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sceneIndex: 1, actionIndex: 1, completed: true }),
+      }),
+      { params: Promise.resolve({ id: 'course-1' }) },
+    );
+    expect(progressResponse.status).toBe(200);
+
+    const attemptRoute = (await import('@/app/api/courses/[id]/assessment/attempts/route')) as {
+      POST: typeof import('@/app/api/courses/[id]/assessment/attempts/route').POST;
+    };
+    const attemptResponse = await attemptRoute.POST(
+      new Request('http://localhost/api/courses/course-1/assessment/attempts?mode=learn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: { q1: 'A' } }),
+      }),
+      { params: Promise.resolve({ id: 'course-1' }) },
+    );
+    expect(attemptResponse.status).toBe(201);
   });
 
   test('admin can edit course assessment questions while short answers are filtered out', async () => {

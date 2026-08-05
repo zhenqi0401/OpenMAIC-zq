@@ -20,6 +20,13 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       toTenantAccessContext(current.identity),
     );
     if (!course) return apiError('INVALID_REQUEST', 404, 'Course not found');
+    if (
+      current.identity.isAdmin &&
+      new URL(request.url).searchParams.get('mode') === 'learn' &&
+      course.course.status !== 'published'
+    ) {
+      return apiError('INVALID_REQUEST', 404, 'Course not found');
+    }
     return apiSuccess({
       course: course.course,
       stage: course.stage,

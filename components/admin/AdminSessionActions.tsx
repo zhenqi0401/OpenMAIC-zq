@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { ChevronDown, CircleUserRound, Home, LoaderCircle, LogOut } from 'lucide-react';
+import { BookOpen, ChevronDown, CircleUserRound, Home, LoaderCircle, LogOut } from 'lucide-react';
 import { adminToast } from '@/lib/admin/toast';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,7 +19,8 @@ import { logoutCurrentSession } from '@/lib/auth/logout-client';
 
 export const adminAccountMenuLabels = {
   trigger: '账户',
-  home: '返回首页',
+  home: '生成工作台',
+  learn: '进入学员端',
   logout: '退出登录',
   loggingOut: '退出中',
 } as const;
@@ -72,6 +73,12 @@ export function AdminSessionActions({ leading }: { leading?: ReactNode }) {
             <Link href="/">
               <Home aria-hidden="true" />
               {adminAccountMenuLabels.home}
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/learn">
+              <BookOpen aria-hidden="true" />
+              {adminAccountMenuLabels.learn}
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator className="bg-[var(--admin-border-subtle)]" />

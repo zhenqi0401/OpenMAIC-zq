@@ -71,6 +71,8 @@ export interface EnterpriseCategory {
   tenantId?: string | null;
   scope?: CourseScope;
   managementMode?: CourseManagementMode;
+  categoryKey?: string | null;
+  isSystem?: boolean;
   name: string;
   sortOrder: number;
 }
@@ -151,6 +153,7 @@ export interface SubmitCourseAssessmentInput {
   roleSnapshot: string;
   answers: AssessmentAnswers;
   allowUnpublished?: boolean;
+  adminLearning?: boolean;
 }
 
 export interface SubmitCourseAssessmentResult {
@@ -878,6 +881,9 @@ export function createEnterpriseStorageService(
         }
         throw new EnterpriseStorageServiceError('NOT_FOUND', 'Category not found');
       }
+      if (existing?.categoryKey && patch.name !== undefined && patch.name !== existing.name) {
+        throw new EnterpriseStorageServiceError('CONFLICT', '系统固定分类禁止改名');
+      }
       const category = await repository.updateCategory(id, patch);
       if (!category) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Category not found');
       return category;
@@ -1072,6 +1078,7 @@ export function createEnterpriseStorageService(
       userId: string;
       roleId: string;
       tenantId?: string;
+      isAdminLearning?: boolean;
     }) {
       const content = await repository.getCourseContent(input.courseId);
       if (
@@ -1081,9 +1088,10 @@ export function createEnterpriseStorageService(
               userId: input.userId,
               tenantId: input.tenantId,
               roleId: input.roleId,
-              isAdmin: false,
+              isAdmin: input.isAdminLearning === true,
             })
-          : !isCourseVisibleToRole(content.course, input.roleId))
+          : !isCourseVisibleToRole(content.course, input.roleId)) ||
+        content.course.status !== 'published'
       ) {
         throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       }
@@ -1116,19 +1124,24 @@ export function createEnterpriseStorageService(
       roleId: string;
       tenantId?: string;
       allowUnpublished?: boolean;
+      adminLearning?: boolean;
     }): Promise<PublicCourseAssessment> {
       const access = input.tenantId
         ? {
             userId: input.userId,
             tenantId: input.tenantId,
             roleId: input.roleId,
-            isAdmin: !!input.allowUnpublished,
+            isAdmin: !!input.allowUnpublished || !!input.adminLearning,
           }
         : undefined;
       const content = input.allowUnpublished
         ? await this.getCourseContent(input.courseId, access)
         : await this.getVisibleCourse(input.courseId, access ?? input.roleId);
-      if (!content || (input.allowUnpublished && content.course.status === 'archived')) {
+      if (
+        !content ||
+        (input.allowUnpublished && content.course.status === 'archived') ||
+        (input.adminLearning && content.course.status !== 'published')
+      ) {
         throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       }
       const [progress, attempts] = await Promise.all([
@@ -1154,13 +1167,17 @@ export function createEnterpriseStorageService(
             userId: input.userId,
             tenantId: input.tenantId,
             roleId: input.roleId,
-            isAdmin: !!input.allowUnpublished,
+            isAdmin: !!input.allowUnpublished || !!input.adminLearning,
           }
         : undefined;
       const content = input.allowUnpublished
         ? await this.getCourseContent(input.courseId, access)
         : await this.getVisibleCourse(input.courseId, access ?? input.roleId);
-      if (!content || (input.allowUnpublished && content.course.status === 'archived')) {
+      if (
+        !content ||
+        (input.allowUnpublished && content.course.status === 'archived') ||
+        (input.adminLearning && content.course.status !== 'published')
+      ) {
         throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       }
       const progress = await repository.getCourseProgress(input.userId, input.courseId);

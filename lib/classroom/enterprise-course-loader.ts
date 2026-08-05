@@ -80,10 +80,12 @@ function normalizeStage(courseId: string, courseName: string, value: unknown): S
 export async function loadEnterpriseClassroom(
   courseId: string,
   fetcher: FetchLike = (url) => fetch(url),
+  learningMode = false,
 ): Promise<EnterpriseClassroomData | null> {
   const encodedId = encodeURIComponent(courseId);
-  let response = await fetcher(`/api/courses/${encodedId}`);
-  if (!response.ok) {
+  const query = learningMode ? '?mode=learn' : '';
+  let response = await fetcher(`/api/courses/${encodedId}${query}`);
+  if (!response.ok && !learningMode) {
     response = await fetcher(`/api/admin/courses/${encodedId}/content`);
   }
   if (!response.ok) return null;

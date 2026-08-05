@@ -282,6 +282,9 @@ export function createAdminManagementService(input: {
       if (outcome === 'in_use') {
         throw new AdminManagementError('CONFLICT', '请先调整相关课程分类');
       }
+      if (outcome === 'system') {
+        throw new AdminManagementError('CONFLICT', '系统固定分类禁止删除');
+      }
       return { id };
     },
 

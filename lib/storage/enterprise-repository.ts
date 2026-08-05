@@ -65,6 +65,8 @@ function toCategory(category: typeof courseCategories.$inferSelect): EnterpriseC
     tenantId: category.tenantId,
     scope: category.scope as EnterpriseCategory['scope'],
     managementMode: category.scope === 'platform' ? 'read_only' : 'editable',
+    categoryKey: category.categoryKey,
+    isSystem: category.categoryKey !== null,
     name: category.name,
     sortOrder: category.sortOrder,
   };
@@ -430,9 +432,6 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
         learnerCount: count(courseProgress.userId).as('learner_count'),
       })
       .from(courseProgress)
-      .innerJoin(users, eq(courseProgress.userId, users.id))
-      .innerJoin(roles, eq(users.roleId, roles.id))
-      .where(eq(roles.isAdmin, false))
       .groupBy(courseProgress.courseId)
       .as('course_learner_counts');
     const sceneCounts = getDb()

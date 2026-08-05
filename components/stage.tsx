@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useStageStore } from '@/lib/store';
 import { isCurrentSceneEditable } from '@/lib/edit/stage-mode';
-import { isCoursePopularityEnabled, isMaicEditorEnabled } from '@/lib/config/feature-flags';
+import { isMaicEditorEnabled } from '@/lib/config/feature-flags';
 import { EditChromeRoot } from '@/components/edit/EditChromeRoot';
 import {
   PlaybackChromeRoot,
@@ -45,6 +45,7 @@ export function Stage({
   courseSaveStatus,
   onSaveCourse,
   onFlushCourse,
+  learningMode = false,
 }: {
   onRetryOutline?: (outlineId: string) => Promise<void>;
   enterpriseCourseId?: string | null;
@@ -52,6 +53,7 @@ export function Stage({
   courseSaveStatus?: CourseSaveStatus;
   onSaveCourse?: () => Promise<boolean>;
   onFlushCourse?: () => Promise<boolean>;
+  learningMode?: boolean;
 }) {
   const { mode, setMode, scenes, currentSceneId, generatingOutlines, stage } = useStageStore();
   const currentScene = useStageStore((s) => s.getCurrentScene());
@@ -175,7 +177,8 @@ export function Stage({
               ref={playbackRef}
               onRetryOutline={onRetryOutline}
               enterpriseCourseId={enterpriseCourseId}
-              trackCourseStart={isCoursePopularityEnabled() && authoringIdentity?.isAdmin === false}
+              trackCourseStart={learningMode}
+              learningMode={learningMode}
               canEnterProMode={canEnterProMode}
               canConfigureModels={authoringIdentity?.isAdmin === true}
               onEnterProMode={toggleHandler}

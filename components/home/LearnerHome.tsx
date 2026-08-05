@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useDeferredValue, useMemo, useRef, useState, useEffect } from 'react';
 import {
   BookOpen,
@@ -14,6 +15,7 @@ import {
   Pencil,
   RefreshCw,
   Search,
+  Shield,
   Sun,
   Trash2,
   X,
@@ -49,6 +51,7 @@ import {
 } from '@/lib/home/enterprise-course-list';
 import type { SessionIdentity } from '@/lib/auth/types';
 import { isCoursePopularityEnabled, isForumEnabled } from '@/lib/config/feature-flags';
+import { isSystemCourseCategoryKey } from '@/lib/courses/system-categories';
 
 interface LearnerHomeProps {
   identity: SessionIdentity;
@@ -62,6 +65,7 @@ interface LearnerHomeProps {
   onRenameCourse: (id: string, name: string) => Promise<void>;
   onDeleteCourse: (id: string) => Promise<void>;
   onLogout: () => Promise<void>;
+  enableCategoryDeepLink?: boolean;
 }
 
 const FILTERS: Array<{ value: HomeCourseFilter; label: string }> = [
@@ -127,16 +131,43 @@ export function LearnerHome({
   onRenameCourse,
   onDeleteCourse,
   onLogout,
+  enableCategoryDeepLink = false,
 }: LearnerHomeProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { t } = useI18n();
   const avatar = useUserProfileStore((state) => state.avatar);
   const nickname = useUserProfileStore((state) => state.nickname);
+  const requestedCategoryKey = enableCategoryDeepLink ? searchParams.get('category') : null;
   const [selection, setSelection] = useState<HomeCourseSelection>({
-    source: 'all',
+    source: requestedCategoryKey ? 'enterprise' : 'all',
     categoryId: null,
   });
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<HomeCourseSort>('latest');
+  const requestedCategory = categories.find(
+    (category) => category.categoryKey === requestedCategoryKey,
+  );
+  const categoryDeepLinkError =
+    !!requestedCategoryKey &&
+    (!isSystemCourseCategoryKey(requestedCategoryKey) || (!loading && !requestedCategory));
+
+  useEffect(() => {
+    if (!enableCategoryDeepLink || !requestedCategoryKey || loading) return;
+    const update = window.setTimeout(() => {
+      setSelection({ source: 'enterprise', categoryId: requestedCategory?.id ?? null });
+    }, 0);
+    return () => window.clearTimeout(update);
+  }, [enableCategoryDeepLink, loading, requestedCategory?.id, requestedCategoryKey]);
+
+  const replaceCategoryParameter = (categoryKey: string | null) => {
+    if (!enableCategoryDeepLink) return;
+    const next = new URLSearchParams(searchParams.toString());
+    if (categoryKey) next.set('category', categoryKey);
+    else next.delete('category');
+    const queryString = next.toString();
+    router.replace(queryString ? `/learn?${queryString}` : '/learn');
+  };
   const popularityEnabled = isCoursePopularityEnabled();
   const deferredQuery = useDeferredValue(query);
   const displayName = nickname || t('profile.defaultNickname');
@@ -199,6 +230,14 @@ export function LearnerHome({
                 <Link href="/forum" aria-label="进入学习交流区" title="学习交流区">
                   <MessagesSquare className="size-4" />
                   <span className="hidden lg:inline">交流区</span>
+                </Link>
+              </Button>
+            )}
+            {identity.isAdmin && (
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/admin" aria-label="进入管理后台">
+                  <Shield className="size-4" />
+                  <span>管理后台</span>
                 </Link>
               </Button>
             )}
@@ -273,6 +312,9 @@ export function LearnerHome({
                     aria-pressed={selection.source === item.value}
                     onClick={() => {
                       setSelection((current) => changeHomeCourseSource(current, item.value));
+                      if (item.value === 'all' || item.value === 'local') {
+                        replaceCategoryParameter(null);
+                      }
                       if (item.value === 'local') setSort('latest');
                     }}
                     className={cn(
@@ -308,8 +350,12 @@ export function LearnerHome({
             >
               <span className="mr-1 text-xs text-slate-500 dark:text-slate-400">课程分类</span>
               {[
-                { id: null, name: '全部分类' },
-                ...categories.map((category) => ({ id: category.id, name: category.name })),
+                { id: null, name: '全部分类', categoryKey: null },
+                ...categories.map((category) => ({
+                  id: category.id,
+                  name: category.name,
+                  categoryKey: category.categoryKey ?? null,
+                })),
               ].map((category) => {
                 const selected = selection.categoryId === category.id;
                 return (
@@ -317,9 +363,10 @@ export function LearnerHome({
                     key={category.id ?? 'all-categories'}
                     type="button"
                     aria-pressed={selected}
-                    onClick={() =>
-                      setSelection((current) => changeHomeCourseCategory(current, category.id))
-                    }
+                    onClick={() => {
+                      setSelection((current) => changeHomeCourseCategory(current, category.id));
+                      replaceCategoryParameter(category.categoryKey);
+                    }}
                     className={cn(
                       'max-w-full rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition-colors hover:border-violet-400 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-slate-700 dark:bg-[#1a1d25] dark:text-slate-300 dark:hover:border-violet-500 dark:hover:text-violet-300 dark:focus-visible:ring-offset-[#12141a]',
                       selected &&
@@ -331,6 +378,23 @@ export function LearnerHome({
                 );
               })}
             </div>
+
+            {categoryDeepLinkError && (
+              <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                <p>指定的课程分类不存在或不可用</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => {
+                    setSelection({ source: 'enterprise', categoryId: null });
+                    replaceCategoryParameter(null);
+                  }}
+                >
+                  查看全部课程
+                </Button>
+              </div>
+            )}
 
             <div className="flex min-h-11 items-center justify-between gap-3 py-3 text-xs text-slate-500 dark:text-slate-400">
               <span role="status">
@@ -417,6 +481,7 @@ export function LearnerHome({
                     onClick={() => {
                       setQuery('');
                       setSelection({ source: 'all', categoryId: null });
+                      replaceCategoryParameter(null);
                     }}
                   >
                     清除筛选

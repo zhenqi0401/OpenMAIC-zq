@@ -2,6 +2,7 @@ import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import type { SessionIdentity } from './types';
 import { hashPassword, verifyPassword } from '@/lib/security/password';
 import { getInviteCodeValidationIssue, normalizeInviteCode } from './invite-code';
+import type { SystemCourseCategoryKey } from '@/lib/courses/system-categories';
 
 export interface AuthRole {
   id: string;
@@ -46,6 +47,11 @@ export interface HostSsoProfile {
   companyId: string;
   companyName: string;
   timestamp: number;
+}
+
+export interface HostSsoExchangeProfile extends HostSsoProfile {
+  categoryKey: SystemCourseCategoryKey;
+  requestId: string;
 }
 
 export interface AuthTenant {
@@ -235,6 +241,39 @@ export const verifyHostSsoSignature: {
     return /^[a-f0-9]+$/i.test(signature) && signaturesMatch(signature, expected);
   },
   { sign: signHostSso },
+);
+
+function hostSsoExchangeSigningText(payload: HostSsoExchangeProfile): string {
+  return JSON.stringify({
+    hostUserId: payload.hostUserId,
+    displayName: payload.displayName,
+    phone: payload.phone,
+    companyId: payload.companyId,
+    companyName: payload.companyName,
+    categoryKey: payload.categoryKey,
+    timestamp: payload.timestamp,
+    requestId: payload.requestId,
+  });
+}
+
+function signHostSsoExchange(payload: HostSsoExchangeProfile, secret: string): string {
+  return createHmac('sha256', secret).update(hostSsoExchangeSigningText(payload)).digest('hex');
+}
+
+export const verifyHostSsoExchangeSignature: {
+  (payload: HostSsoExchangeProfile, signature: string | null | undefined, secret: string): boolean;
+  sign: typeof signHostSsoExchange;
+} = Object.assign(
+  (
+    payload: HostSsoExchangeProfile,
+    signature: string | null | undefined,
+    secret: string,
+  ): boolean => {
+    if (!signature || !secret) return false;
+    const expected = signHostSsoExchange(payload, secret);
+    return /^[a-f0-9]{64}$/i.test(signature) && signaturesMatch(signature, expected);
+  },
+  { sign: signHostSsoExchange },
 );
 
 export function createAuthService(repository: AuthRepository) {

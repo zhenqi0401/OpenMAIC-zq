@@ -22,6 +22,7 @@ interface CanvasAreaProps extends CanvasToolbarProps {
   readonly isPendingScene?: boolean;
   readonly isCourseComplete?: boolean;
   readonly enterpriseCourseId?: string | null;
+  readonly learningMode?: boolean;
   readonly assessmentPassed?: boolean;
   readonly learningProgress?: { sceneIndex: number; actionIndex: number };
   readonly isGenerationFailed?: boolean;
@@ -54,6 +55,7 @@ export function CanvasArea({
   isPendingScene,
   isCourseComplete,
   enterpriseCourseId,
+  learningMode = false,
   assessmentPassed,
   learningProgress,
   isGenerationFailed,
@@ -146,12 +148,14 @@ export function CanvasArea({
                 className="absolute inset-0"
               >
                 {enterpriseCourseId &&
+                learningMode &&
                 !assessmentPassed &&
                 learningProgress &&
                 onAssessmentPassed &&
                 onRestartLearning ? (
                   <CourseAssessmentPanel
                     courseId={enterpriseCourseId}
+                    learningMode={learningMode}
                     learningProgress={learningProgress}
                     onPassed={onAssessmentPassed}
                     onRestartLearning={onRestartLearning}

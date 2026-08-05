@@ -64,6 +64,13 @@
       "when": 1785715200000,
       "tag": "0008_tenant_platform_courses",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785888000000,
+      "tag": "0009_host_sso_category_deep_links",
+      "breakpoints": true
     }
   ]
 }

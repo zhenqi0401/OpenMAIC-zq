@@ -23,6 +23,7 @@ interface CourseAssessmentPanelProps {
   learningProgress: { sceneIndex: number; actionIndex: number };
   onPassed: () => void;
   onRestartLearning: () => void;
+  learningMode?: boolean;
 }
 
 interface AttemptResult {
@@ -50,7 +51,9 @@ export function CourseAssessmentPanel({
   learningProgress,
   onPassed,
   onRestartLearning,
+  learningMode = false,
 }: CourseAssessmentPanelProps) {
+  const learningQuery = learningMode ? '?mode=learn' : '';
   const [assessment, setAssessment] = useState<PublicCourseAssessment | null>(null);
   const [answers, setAnswers] = useState<AssessmentAnswers>({});
   const [result, setResult] = useState<AttemptResult | null>(null);
@@ -70,7 +73,7 @@ export function CourseAssessmentPanel({
       try {
         if (saveCompletedProgress) {
           const progressResponse = await fetch(
-            `/api/courses/${encodeURIComponent(courseId)}/progress`,
+            `/api/courses/${encodeURIComponent(courseId)}/progress${learningQuery}`,
             {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
@@ -84,7 +87,9 @@ export function CourseAssessmentPanel({
             throw new Error(progressData.error ?? '课程学习进度保存失败');
           }
         }
-        const response = await fetch(`/api/courses/${encodeURIComponent(courseId)}/assessment`);
+        const response = await fetch(
+          `/api/courses/${encodeURIComponent(courseId)}/assessment${learningQuery}`,
+        );
         const data = (await response.json()) as {
           assessment?: PublicCourseAssessment;
           error?: string;
@@ -119,7 +124,7 @@ export function CourseAssessmentPanel({
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [courseId, learningProgress, onPassed]);
+  }, [courseId, learningProgress, learningQuery, onPassed]);
 
   const answered = useMemo(() => answerCount(answers), [answers]);
   const allAnswered =
@@ -140,7 +145,7 @@ export function CourseAssessmentPanel({
     setError(null);
     try {
       const response = await fetch(
-        `/api/courses/${encodeURIComponent(courseId)}/assessment/attempts`,
+        `/api/courses/${encodeURIComponent(courseId)}/assessment/attempts${learningQuery}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

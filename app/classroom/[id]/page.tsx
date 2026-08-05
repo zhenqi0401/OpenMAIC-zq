@@ -5,7 +5,7 @@ import { ThemeProvider } from '@/lib/hooks/use-theme';
 import { useStageStore } from '@/lib/store';
 import { loadImageMapping } from '@/lib/utils/image-storage';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useSceneGenerator, type GenerationParams } from '@/lib/hooks/use-scene-generator';
 import { useMediaGenerationStore } from '@/lib/store/media-generation';
 import { useWhiteboardHistoryStore } from '@/lib/store/whiteboard-history';
@@ -32,7 +32,9 @@ const log = createLogger('Classroom');
 
 export default function ClassroomDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const classroomId = params?.id as string;
+  const requestedLearningMode = searchParams.get('mode') === 'learn';
 
   const { loadFromStorage } = useStageStore();
 
@@ -142,12 +144,20 @@ export default function ClassroomDetailPage() {
       try {
         const sessionResponse = await fetch('/api/auth/session');
         const session = sessionResponse.ok ? await sessionResponse.json() : null;
-        setAuthoringIdentity(canManageCourses(session) ? { isAdmin: true } : { isAdmin: false });
+        setAuthoringIdentity(
+          canManageCourses(session) && !requestedLearningMode
+            ? { isAdmin: true }
+            : { isAdmin: false },
+        );
       } catch {
         setAuthoringIdentity({ isAdmin: false });
       }
 
-      const enterpriseClassroom = await loadEnterpriseClassroom(classroomId);
+      const enterpriseClassroom = await loadEnterpriseClassroom(
+        classroomId,
+        undefined,
+        requestedLearningMode,
+      );
       const loadedEnterpriseClassroom = enterpriseClassroom !== null;
       if (enterpriseClassroom) {
         const migrated = enterpriseClassroom.scenes.map(migrateScene);
@@ -278,7 +288,7 @@ export default function ClassroomDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [classroomId, loadFromStorage]);
+  }, [classroomId, loadFromStorage, requestedLearningMode]);
 
   useEffect(() => {
     // Reset loading state on course switch to unmount Stage during transition,
@@ -436,6 +446,7 @@ export default function ClassroomDetailPage() {
             <Stage
               authoringIdentity={authoringIdentity}
               enterpriseCourseId={enterpriseCourseId}
+              learningMode={requestedLearningMode || authoringIdentity?.isAdmin === false}
               onRetryOutline={retrySingleOutline}
               courseSaveStatus={courseEditPersistence.status}
               onSaveCourse={courseEditPersistence.saveNow}

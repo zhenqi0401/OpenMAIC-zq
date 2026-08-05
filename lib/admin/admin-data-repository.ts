@@ -275,10 +275,10 @@ export class AdminDataRepository {
     });
   }
 
-  async deleteCategory(id: string): Promise<'deleted' | 'not_found' | 'in_use'> {
+  async deleteCategory(id: string): Promise<'deleted' | 'not_found' | 'in_use' | 'system'> {
     return runDbTransaction(async (tx) => {
       const [category] = await tx
-        .select({ id: courseCategories.id })
+        .select({ id: courseCategories.id, categoryKey: courseCategories.categoryKey })
         .from(courseCategories)
         .where(
           and(
@@ -290,6 +290,7 @@ export class AdminDataRepository {
         .for('update')
         .limit(1);
       if (!category) return 'not_found' as const;
+      if (category.categoryKey !== null) return 'system' as const;
       const [usage] = await tx
         .select({ value: count() })
         .from(courses)

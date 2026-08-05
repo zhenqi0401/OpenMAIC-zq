@@ -44,7 +44,8 @@ describe('admin layout polish', () => {
     );
     expect(markup).not.toContain('返回首页');
     expect(markup).not.toContain('退出登录');
-    expect(adminAccountMenuLabels.home).toBe('返回首页');
+    expect(adminAccountMenuLabels.home).toBe('生成工作台');
+    expect(adminAccountMenuLabels.learn).toBe('进入学员端');
     expect(adminAccountMenuLabels.logout).toBe('退出登录');
   });
 

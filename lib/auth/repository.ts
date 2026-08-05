@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { and, asc, count, eq } from 'drizzle-orm';
+import { and, asc, count, eq, isNull } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import type {
@@ -13,12 +13,14 @@ import type {
 import { AuthServiceError } from './service';
 import {
   courses,
+  courseCategories,
   inviteCodes,
   roles,
   securityAuditLog,
   tenants,
   users,
 } from '@/lib/storage/schema';
+import { SYSTEM_COURSE_CATEGORIES } from '@/lib/courses/system-categories';
 import { runDbTransaction } from '@/lib/storage/db';
 
 let sqlClient: ReturnType<typeof postgres> | null = null;
@@ -190,6 +192,31 @@ export class DrizzleAuthRepository implements AuthRepository {
           { tenantId: tenant.id, code: 'admin', name: '企业管理员', isAdmin: true },
           { tenantId: tenant.id, code: 'learner', name: '企业学员', isAdmin: false },
         ])
+        .onConflictDoNothing();
+      for (const category of SYSTEM_COURSE_CATEGORIES) {
+        await tx
+          .update(courseCategories)
+          .set({ categoryKey: category.categoryKey, updatedAt: new Date() })
+          .where(
+            and(
+              eq(courseCategories.tenantId, tenant.id),
+              eq(courseCategories.scope, 'tenant'),
+              eq(courseCategories.name, category.name),
+              isNull(courseCategories.categoryKey),
+            ),
+          );
+      }
+      await tx
+        .insert(courseCategories)
+        .values(
+          SYSTEM_COURSE_CATEGORIES.map((category) => ({
+            tenantId: tenant.id,
+            scope: 'tenant',
+            categoryKey: category.categoryKey,
+            name: category.name,
+            sortOrder: category.sortOrder,
+          })),
+        )
         .onConflictDoNothing();
       if (tenant.status !== 'active') {
         const error = new Error('TENANT_SUSPENDED');

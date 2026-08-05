@@ -37,6 +37,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
   try {
     const { id } = await context.params;
+    const adminLearningMode =
+      current.identity.isAdmin && new URL(request.url).searchParams.get('mode') === 'learn';
+    if (current.identity.isAdmin && !adminLearningMode) {
+      return apiError(
+        'INVALID_REQUEST',
+        403,
+        'Administrator previews cannot submit learning assessments',
+      );
+    }
     const result = await getEnterpriseService().submitCourseAssessment({
       courseId: id,
       userId: current.user.id,
@@ -44,7 +53,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       roleId: current.identity.roleId,
       roleSnapshot: current.identity.roleCode,
       answers: body.answers,
-      allowUnpublished: current.identity.isAdmin,
+      allowUnpublished: false,
+      adminLearning: adminLearningMode,
     });
     return apiSuccess({ result }, 201);
   } catch (error) {

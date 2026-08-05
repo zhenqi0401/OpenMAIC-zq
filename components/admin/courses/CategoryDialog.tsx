@@ -27,6 +27,8 @@ interface CategoryOption {
   sortOrder?: number;
   scope?: 'platform' | 'tenant';
   managementMode?: 'editable' | 'read_only';
+  categoryKey?: string | null;
+  isSystem?: boolean;
 }
 
 export function CategoryDialog({
@@ -111,14 +113,18 @@ export function CategoryDialog({
                   <Input
                     aria-label={`${category.name}分类名称`}
                     className={`${adminInputClassName} min-w-0 flex-1`}
-                    disabled={category.managementMode === 'read_only'}
+                    disabled={category.managementMode === 'read_only' || category.isSystem}
                     onChange={(event) =>
                       setNames((current) => ({ ...current, [category.id]: event.target.value }))
                     }
                     value={names[category.id] ?? category.name}
                   />
                   <Button
-                    disabled={busyId === category.id || category.managementMode === 'read_only'}
+                    disabled={
+                      busyId === category.id ||
+                      category.managementMode === 'read_only' ||
+                      category.isSystem
+                    }
                     onClick={() =>
                       void onRename(category.id, (names[category.id] ?? category.name).trim())
                     }
@@ -166,7 +172,7 @@ export function CategoryDialog({
                     trigger={
                       <Button
                         aria-label={`删除分类${category.name}`}
-                        disabled={category.managementMode === 'read_only'}
+                        disabled={category.managementMode === 'read_only' || category.isSystem}
                         size="icon"
                         type="button"
                         variant="ghost"

@@ -25,4 +25,12 @@ describe('home course category selector UI', () => {
     expect(zhCN).toContain('"原大纲总结式"');
     expect(zhCN).not.toContain('"其他课程"');
   });
+
+  it('keeps system categories reorderable while disabling rename and delete controls', () => {
+    const source = readFileSync('components/admin/courses/CategoryDialog.tsx', 'utf8');
+    expect(source).toContain('category.isSystem');
+    expect(source).toContain("category.managementMode === 'read_only' || category.isSystem");
+    expect(source).toContain('onClick={() => reorder(category.id, -1)}');
+    expect(source).toContain('onClick={() => reorder(category.id, 1)}');
+  });
 });
