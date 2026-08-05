@@ -874,11 +874,19 @@ function validateFinalOutlines(
   }
   if (protectedCover) {
     const first = outlines[0];
-    if (first.id !== protectedCover.id || first.type !== 'slide' || first.sceneRole !== 'cover') {
+    if (
+      first.id !== protectedCover.id ||
+      first.type !== 'slide' ||
+      first.sceneRole !== 'cover' ||
+      !isKnowledgeCover(first)
+    ) {
       fail('audit patch cannot delete, move, or change the type of the first knowledge cover');
     }
     if (first.coverBrief?.attribution !== protectedCover.coverBrief?.attribution) {
       fail('audit patch cannot rewrite the protected cover attribution');
+    }
+    if (first.coverBrief?.subtitle !== protectedCover.coverBrief?.subtitle) {
+      fail('audit patch cannot rewrite or remove the protected cover subtitle');
     }
   }
   if (
@@ -931,6 +939,7 @@ export function applyAuditFindings(
           outline.teachingBrief = { mustCover: operation.value as string[] };
         } else if (operation.field === 'coverBrief.narrationPoints') {
           outline.coverBrief = {
+            subtitle: outline.coverBrief?.subtitle ?? '',
             ...(outline.coverBrief?.attribution
               ? { attribution: outline.coverBrief.attribution }
               : {}),

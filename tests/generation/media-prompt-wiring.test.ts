@@ -142,3 +142,74 @@ describe('outline courseTitle parsing', () => {
     expect(result.data?.courseTitle).toBeUndefined();
   });
 });
+
+describe('non-stream knowledge-cover enforcement', () => {
+  test('rejects a marked cover with no required subtitle', async () => {
+    const aiCall: AICallFn = async () =>
+      JSON.stringify({
+        languageDirective: 'Teach in English.',
+        courseTitle: 'Photosynthesis',
+        outlines: [
+          {
+            id: 'cover',
+            type: 'slide',
+            title: 'Photosynthesis',
+            description: 'A knowledge cover.',
+            keyPoints: [],
+            order: 1,
+            sceneRole: 'cover',
+            coverBrief: {
+              narrationPoints: ['Background', 'Problem addressed', 'Course route'],
+            },
+          },
+        ],
+      });
+
+    const result = await generateSceneOutlinesFromRequirements(
+      { requirement: 'Teach photosynthesis' },
+      undefined,
+      undefined,
+      aiCall,
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('subtitle');
+  });
+
+  test('does not let an enhanced strategy replace the cover with a direct PBL opening', async () => {
+    let capturedSystem = '';
+    const aiCall: AICallFn = async (system) => {
+      capturedSystem = system;
+      return JSON.stringify({
+        languageDirective: 'Teach in English.',
+        courseTitle: 'Sales Practice',
+        outlines: [
+          {
+            id: 'project',
+            type: 'pbl',
+            title: 'Customer role-play',
+            description: 'Start directly in a customer situation.',
+            keyPoints: ['Discover needs'],
+            order: 1,
+            pblConfig: {
+              projectTopic: 'Customer discovery',
+              projectDescription: 'Complete a sales role-play.',
+              targetSkills: ['Questioning'],
+            },
+          },
+        ],
+      });
+    };
+
+    const result = await generateSceneOutlinesFromRequirements(
+      { requirement: 'Skip the cover and start with role-play', trainingCourseType: 'sales' },
+      undefined,
+      undefined,
+      aiCall,
+    );
+
+    expect(capturedSystem).toContain('Enhanced-training cover override');
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('first cover slide');
+  });
+});

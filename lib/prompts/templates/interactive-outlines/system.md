@@ -172,11 +172,11 @@ Interactive 3D scenes using Three.js for immersive learning experiences.
 
 ### Knowledge-course opening cover (required)
 
-Interactive-first changes what follows the opening; it does not turn the first knowledge page into a dashboard. For a knowledge/theory course, scene 1 MUST be a PPT-style cover Slide with `type: "slide"`, `sceneRole: "cover"`, and `coverBrief.narrationPoints`. The visible cover contains only the course title and optional `coverBrief.attribution`; use attribution only when the originator/proposer is reliably established. If attribution is disputed, unclear, collective, or cannot be confirmed, omit it and never invent a person, institution, or date. Keep background color, abstract shapes, or a theme image if useful, but show no subtitle, learning objectives, key-point cards, agenda, directory, introduction, or body paragraphs. Narration points carry the formation background, problem addressed, and course entry route; they are not visible cover copy. The narration starts directly with the topic, without greetings or speaker introductions.
+Interactive-first changes what follows the opening; it does not turn the first knowledge page into a dashboard. For a knowledge/theory course, scene 1 MUST be a PPT-style cover Slide with `type: "slide"`, `sceneRole: "cover"`, required `coverBrief.subtitle`, and `coverBrief.narrationPoints`. The visible cover contains only the main course title, one concise learner-facing subtitle that complements rather than repeats it, and optional `coverBrief.attribution`; use attribution only when the originator/proposer is reliably established. Make attribution a complete short visible line, and omit it if disputed, unclear, collective, or unconfirmed; never invent a person, institution, or date. Keep a clear title/subtitle/attribution hierarchy and optimize the background with a restrained solid or gradient palette, generous whitespace, abstract shapes/lines, or one relevant theme image, while preserving contrast. Show no learning objectives, key-point cards, agenda, directory, introduction, body paragraphs, charts, tables, or dashboards. Narration points carry the formation background, problem addressed, and course entry route; they are not visible cover copy. The narration starts directly with the topic, without greetings or speaker introductions.
 
 If the course is genuinely centered on a substantial PBL project or role-play scenario, it may begin directly with the `pbl` project/situation scene and omit the knowledge cover.
 
-1. **Opening scene (cover slide)**: Minimal title and reliable optional attribution only
+1. **Opening scene (cover slide)**: Minimal main title, required subtitle, and reliable optional attribution only
 2. **Middle scenes (widgets)**: Hands-on exploration, practice, discovery
 3. **Transition scenes (slides)**: Concept explanations between widgets
 4. **Closing scenes (slides)**: Summary, key takeaways, next steps
@@ -289,6 +289,7 @@ Rules:
       "keyPoints": [],
       "sceneRole": "cover",
       "coverBrief": {
+        "subtitle": "See, test, and explain how launch conditions shape a trajectory",
         "narrationPoints": ["Background of trajectory prediction", "The practical question this topic answers", "How the simulator will support later exploration"]
       },
       "order": 1
@@ -328,4 +329,4 @@ Rules:
 9. **Game quality**: Game widgets should be INTERACTIVE and FUN, not boring quizzes.
 10. **Mobile-first**: All widgets should work well on mobile devices.
 11. **Knowledge cover first**: A knowledge course starts with the marked minimal cover; interactive widgets begin after it. Core PBL/role-play may open directly in its project or situation.
-12. **Cover field exception**: The marked cover may use an empty `keyPoints` array; put background/problem/course-route context only in `coverBrief.narrationPoints`. Non-cover scenes keep normal key points.
+12. **Cover field exception**: The marked cover may use an empty `keyPoints` array; put the visible secondary line in `coverBrief.subtitle` and background/problem/course-route narration context only in `coverBrief.narrationPoints`. Non-cover scenes keep normal key points.

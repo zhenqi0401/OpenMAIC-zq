@@ -292,6 +292,7 @@ describe('task-engine outline route', () => {
               order: 1,
               sceneRole: 'cover',
               coverBrief: {
+                subtitle: 'Predict motion by connecting variables to trajectories',
                 narrationPoints: ['Motion background', 'Problem addressed', 'Course route'],
               },
             },
@@ -356,7 +357,10 @@ describe('task-engine outline route', () => {
               keyPoints: [],
               order: 1,
               sceneRole: 'cover',
-              coverBrief: { narrationPoints: ['Background', 'Problem addressed', 'Course route'] },
+              coverBrief: {
+                subtitle: 'Predict motion by connecting variables to trajectories',
+                narrationPoints: ['Background', 'Problem addressed', 'Course route'],
+              },
             },
             {
               id: 'scene_1',
@@ -489,7 +493,10 @@ describe('task-engine outline route', () => {
               keyPoints: [],
               order: 1,
               sceneRole: 'cover',
-              coverBrief: { narrationPoints: ['Background', 'Problem addressed', 'Course route'] },
+              coverBrief: {
+                subtitle: 'Predict motion by connecting variables to trajectories',
+                narrationPoints: ['Background', 'Problem addressed', 'Course route'],
+              },
             },
             {
               id: 'scene_4',
@@ -520,7 +527,7 @@ describe('task-engine outline route', () => {
     expect(ids[1]).not.toBe('scene_4');
   });
 
-  test('retries a new knowledge outline that omits the marked first cover', async () => {
+  test('retries a marked knowledge cover that omits the required subtitle', async () => {
     vi.resetModules();
     streamLLMMock.mockReset();
     resolveModelFromRequestMock.mockReset();
@@ -539,12 +546,16 @@ describe('task-engine outline route', () => {
         textStream: (async function* () {
           yield responseFor([
             {
-              id: 'body',
+              id: 'cover_without_subtitle',
               type: 'slide',
-              title: '公平理论的核心概念',
-              description: '直接进入正文。',
-              keyPoints: ['投入', '产出', '参照对象'],
+              title: '公平理论',
+              description: '缺少副标题的封面。',
+              keyPoints: [],
               order: 1,
+              sceneRole: 'cover',
+              coverBrief: {
+                narrationPoints: ['形成背景', '公平感知问题', '课程切入方向'],
+              },
             },
           ]);
         })(),
@@ -561,6 +572,7 @@ describe('task-engine outline route', () => {
               order: 1,
               sceneRole: 'cover',
               coverBrief: {
+                subtitle: '从公平感知理解团队投入与回报',
                 attribution: '约翰·斯泰西·亚当斯',
                 narrationPoints: ['形成背景', '公平感知问题', '课程切入方向'],
               },
@@ -668,7 +680,10 @@ describe('task-engine outline route', () => {
               keyPoints: [],
               order: 1,
               sceneRole: 'cover',
-              coverBrief: { narrationPoints: ['形成背景', '现实问题', '课程切入方向'] },
+              coverBrief: {
+                subtitle: '把管理判断转化为可执行的团队行动',
+                narrationPoints: ['形成背景', '现实问题', '课程切入方向'],
+              },
               teachingBrief: { mustCover: ['管理实践课程'] },
               sourceRefIds: ['REQ-001'],
             },
@@ -696,7 +711,10 @@ describe('task-engine outline route', () => {
               keyPoints: [],
               order: 1,
               sceneRole: 'cover',
-              coverBrief: { narrationPoints: ['形成背景', '现实问题', '课程切入方向'] },
+              coverBrief: {
+                subtitle: '把管理判断转化为可执行的团队行动',
+                narrationPoints: ['形成背景', '现实问题', '课程切入方向'],
+              },
               teachingBrief: { mustCover: ['管理实践课程'] },
               sourceRefIds: ['REQ-001'],
             },
@@ -736,6 +754,11 @@ describe('task-engine outline route', () => {
         trainingCourseType: 'professional',
       }) as unknown as Parameters<typeof POST>[0],
     );
+
+    const promptParams = streamLLMMock.mock.calls[0][0] as { system: string; prompt: string };
+    expect(promptParams.system).toContain('Enhanced-training cover override');
+    expect(promptParams.system).toContain('There is no direct-PBL or role-play opening exception');
+    expect(promptParams.prompt).toContain('输入保真策略');
 
     const events = parseSseEvents(await readStreamBody(response));
     expect(events.some((event) => event.type === 'retry')).toBe(true);
@@ -800,7 +823,10 @@ describe('task-engine outline route', () => {
               keyPoints: [],
               order: 1,
               sceneRole: 'cover',
-              coverBrief: { narrationPoints: ['形成背景', '现实问题', '课程切入方向'] },
+              coverBrief: {
+                subtitle: '从识别特征到准确辨别常见水果',
+                narrationPoints: ['形成背景', '现实问题', '课程切入方向'],
+              },
               teachingBrief: { mustCover: ['讲解苹果'] },
               sourceRefIds: ['REQ-001'],
             },

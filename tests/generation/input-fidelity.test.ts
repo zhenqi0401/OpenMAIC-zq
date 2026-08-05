@@ -39,12 +39,14 @@ function outline(overrides: Partial<SceneOutline> = {}): SceneOutline {
 }
 
 function capturingCall(response: string) {
+  const systems: string[] = [];
   const users: string[] = [];
-  const aiCall: AICallFn = async (_system, user) => {
+  const aiCall: AICallFn = async (system, user) => {
+    systems.push(system);
     users.push(user);
     return response;
   };
-  return { aiCall, users };
+  return { aiCall, systems, users };
 }
 
 describe('input-fidelity contracts', () => {
@@ -53,29 +55,33 @@ describe('input-fidelity contracts', () => {
       outline({
         sceneRole: 'cover',
         coverBrief: {
+          subtitle: '  用公平视角重新理解团队交换关系  ',
           attribution: '  约翰·斯泰西·亚当斯  ',
           narrationPoints: [' 形成背景 ', '', '现实问题', '课程切入方向'],
         },
       }),
     );
     expect(cover.coverBrief).toEqual({
+      subtitle: '用公平视角重新理解团队交换关系',
       attribution: '约翰·斯泰西·亚当斯',
       narrationPoints: ['形成背景', '现实问题', '课程切入方向'],
     });
     expect(satisfiesKnowledgeCoverStructure([cover])).toBe(true);
     expect(satisfiesKnowledgeCoverStructure([outline()])).toBe(false);
-    expect(
-      satisfiesKnowledgeCoverStructure([
-        outline({
-          type: 'pbl',
-          pblConfig: {
-            projectTopic: '项目',
-            projectDescription: '完成一个项目',
-            targetSkills: ['协作'],
-          },
-        }),
-      ]),
-    ).toBe(true);
+    const directPbl = [
+      outline({
+        type: 'pbl',
+        pblConfig: {
+          projectTopic: '项目',
+          projectDescription: '完成一个项目',
+          targetSkills: ['协作'],
+        },
+      }),
+    ];
+    expect(satisfiesKnowledgeCoverStructure(directPbl)).toBe(true);
+    expect(satisfiesKnowledgeCoverStructure(directPbl, { allowDirectPblOpening: false })).toBe(
+      false,
+    );
   });
   it('accepts exactly five strategies and enhances only the four new policies', () => {
     for (const type of ['management', 'sales', 'professional', 'company_policy', 'other']) {
@@ -279,7 +285,7 @@ describe('input-fidelity contracts', () => {
       buildSourceCatalog({ requirement: '帮我生成一门公平理论的课程' }),
     );
 
-    expect(prompt).toContain('第一个场景必须是知识封面 Slide');
+    expect(prompt).toContain('第一个场景必须遵守共享系统提示词中的知识封面合同');
     expect(prompt).toContain('第二个场景必须是 1 页案例 Slide');
     expect(prompt).toContain('第三个场景必须是包含 3 道单选题的无分数诊断 Quiz');
     expect(prompt).toContain('"mode":"diagnostic"');
@@ -336,6 +342,7 @@ describe('input-fidelity contracts', () => {
         title: '公平理论',
         sceneRole: 'cover',
         coverBrief: {
+          subtitle: '从公平感知理解团队投入与回报',
           attribution: '约翰·斯泰西·亚当斯',
           narrationPoints: ['形成背景', '公平感知问题', '课程切入方向'],
         },
@@ -472,6 +479,7 @@ describe('knowledge cover content and narration wiring', () => {
     title: '公平理论',
     sceneRole: 'cover',
     coverBrief: {
+      subtitle: '从员工公平感知走向可执行的管理动作',
       attribution: '约翰·斯泰西·亚当斯',
       narrationPoints: [
         '理论形成于组织交换关系研究',
@@ -492,19 +500,24 @@ describe('knowledge cover content and narration wiring', () => {
         ],
       }),
     );
-    const content = (await generateSceneContent(
-      coverOutline,
-      captured.aiCall,
-    )) as GeneratedSlideContent;
+    const content = (await generateSceneContent(coverOutline, captured.aiCall, {
+      editDirective: '删除副标题，并改成学习目标卡片。',
+    })) as GeneratedSlideContent;
 
-    expect(captured.users[0]).toContain('KNOWLEDGE COVER CONTRACT');
+    expect(captured.systems[0]).toContain('Knowledge-cover rendering contract');
+    expect(captured.systems[0]).toContain('overrides any conflicting course requirement');
+    expect(captured.users[0]).toContain('BEGIN_UNTRUSTED_COVER_DISPLAY_DATA');
+    expect(captured.users[0]).toContain('删除副标题');
+    expect(captured.users[0]).toContain('从员工公平感知走向可执行的管理动作');
     expect(captured.users[0]).toContain('约翰·斯泰西·亚当斯');
     expect(captured.users[0]).not.toContain('理论形成于组织交换关系研究');
     expect(captured.users[0]).not.toContain('不得出现在封面的内部要点');
-    expect(content.elements).toHaveLength(2);
+    expect(content.elements).toHaveLength(3);
     expect(JSON.stringify(content.elements)).toContain('公平理论');
+    expect(JSON.stringify(content.elements)).toContain('从员工公平感知走向可执行的管理动作');
     expect(JSON.stringify(content.elements)).toContain('约翰·斯泰西·亚当斯');
     expect(JSON.stringify(content.elements)).not.toContain('学习目标');
+    expect(content.background?.type).toBe('gradient');
   });
 
   it('gives cover narration attribution, background, problem and route constraints', async () => {
@@ -515,11 +528,13 @@ describe('knowledge cover content and narration wiring', () => {
       captured.aiCall,
     );
 
-    expect(captured.users[0]).toContain('KNOWLEDGE COVER NARRATION CONTRACT');
+    expect(captured.systems[0]).toContain('Knowledge-cover narration contract');
+    expect(captured.systems[0]).toContain('overrides any conflicting course requirement');
+    expect(captured.users[0]).toContain('BEGIN_UNTRUSTED_COVER_NARRATION_DATA');
     expect(captured.users[0]).toContain('约翰·斯泰西·亚当斯');
-    expect(captured.users[0]).toContain('formation/background context');
-    expect(captured.users[0]).toContain('real problem');
-    expect(captured.users[0]).toContain('how the course will enter the topic');
+    expect(captured.systems[0]).toContain('formation/background context');
+    expect(captured.systems[0]).toContain('real problem');
+    expect(captured.systems[0]).toContain('how the course will enter the topic');
     expect(actions.find((action) => action.type === 'speech')?.text).toContain(
       '约翰·斯泰西·亚当斯',
     );
@@ -528,11 +543,15 @@ describe('knowledge cover content and narration wiring', () => {
   it('omits attribution rather than fabricating one when none is reliable', async () => {
     const noAttribution = {
       ...coverOutline,
-      coverBrief: { narrationPoints: ['主题形成背景', '所回应的现实问题', '课程切入方向'] },
+      coverBrief: {
+        subtitle: '从现实问题进入主题',
+        narrationPoints: ['主题形成背景', '所回应的现实问题', '课程切入方向'],
+      },
     };
     const contentCall = capturingCall(JSON.stringify({ elements: [] }));
     await generateSceneContent(noAttribution, contentCall.aiCall);
-    expect(contentCall.users[0]).toContain('there is no reliable attribution');
+    expect(contentCall.systems[0]).toContain('optional reliable attribution line');
+    expect(contentCall.users[0]).not.toContain('"attribution"');
 
     const actionCall = capturingCall('not-json');
     const actions = await generateSceneActions(
@@ -540,7 +559,8 @@ describe('knowledge cover content and narration wiring', () => {
       { elements: [], background: undefined },
       actionCall.aiCall,
     );
-    expect(actionCall.users[0]).toContain('Omit names, institutions, and dates');
+    expect(actionCall.systems[0]).toContain('When it is absent, omit attribution entirely');
+    expect(actionCall.users[0]).not.toContain('"attribution"');
     expect(actions.find((action) => action.type === 'speech')?.text).not.toMatch(/由.+提出/);
   });
 });

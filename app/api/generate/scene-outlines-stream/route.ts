@@ -48,6 +48,7 @@ import {
   stripFidelityForStreaming,
 } from '@/lib/generation/input-fidelity';
 import {
+  MANDATORY_ENHANCED_COVER_SYSTEM_CONTRACT,
   normalizeKnowledgeCoverFields,
   satisfiesKnowledgeCoverStructure,
 } from '@/lib/generation/knowledge-cover';
@@ -421,6 +422,7 @@ export async function POST(req: NextRequest) {
       return apiError('INTERNAL_ERROR', 500, 'Prompt template not found');
     }
     if (enhancedTrainingCourseType) {
+      prompts.system += `\n\n${MANDATORY_ENHANCED_COVER_SYSTEM_CONTRACT}`;
       prompts.user += buildOutlineFidelityPrompt(enhancedTrainingCourseType, sourceCatalog);
     }
 
@@ -628,7 +630,10 @@ export async function POST(req: NextRequest) {
                   continue;
                 }
                 const missingKnowledgeCover =
-                  !taskEngineMode && !satisfiesKnowledgeCoverStructure(parsedOutlines);
+                  !taskEngineMode &&
+                  !satisfiesKnowledgeCoverStructure(parsedOutlines, {
+                    allowDirectPblOpening: !enhancedTrainingCourseType,
+                  });
                 if (missingKnowledgeCover) {
                   lastError =
                     'The generated knowledge outline omitted the required first cover slide';

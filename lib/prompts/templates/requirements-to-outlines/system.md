@@ -79,9 +79,10 @@ Produce a **`courseTitle`** (required): a concise, human-readable name for the *
 For an ordinary knowledge/theory course, scene 1 MUST be a PPT-style cover Slide with:
 
 - `type: "slide"` and `sceneRole: "cover"`.
+- Required `coverBrief.subtitle`: one concise, learner-facing phrase or sentence that complements rather than repeats the main course title. It should express the practical problem, learner value, or action direction of this specific course. Do not prefix it with labels such as "Subtitle" or "Course subtitle".
 - `coverBrief.narrationPoints`: concise narration-only points covering the topic/theory's formation background, the practical problem or judgment difficulty it responds to, and how the course will enter the topic. These points are never visible cover copy.
-- Optional `coverBrief.attribution`: include only a reliably established originator/proposer from the user's input, supplied documents, trustworthy research, or highly certain common knowledge. If attribution is disputed, conflicting, unclear, collective, or cannot be confirmed, OMIT it. Never invent a person, institution, or date to complete the format.
-- The visible cover is extremely minimal: course title only, plus `coverBrief.attribution` when present. Background color, abstract shapes, or a relevant theme image are allowed. Do not put subtitles, learning objectives, key-point cards, agendas, introductions, directories, or body paragraphs on the cover.
+- Optional `coverBrief.attribution`: a complete, short learner-visible attribution line (for example, "Theory proposed by: ..."). Include it only when the originator/proposer is reliably established from the user's input, supplied documents, trustworthy research, or highly certain common knowledge. If attribution is disputed, conflicting, unclear, collective, or cannot be confirmed, OMIT it. Never invent a person, institution, or date to complete the format.
+- The visible cover is deliberately minimal: the main course title, the required subtitle, and optional reliable attribution only. Use clear hierarchy: main title largest, subtitle secondary, attribution smallest. You may optimize the background with a restrained solid or gradient palette, generous whitespace, abstract decorative shapes/lines, or one relevant theme image. Decoration must preserve contrast and never compete with the title. Do not put learning objectives, key-point cards, agendas, introductions, directories, body paragraphs, charts, tables, or dashboards on the cover.
 - The cover narration enters the topic directly: no greeting, welcome, or speaker introduction. It explains background, the problem addressed, and the course's route without giving away the full theory answer.
 
 Exception: when the course is genuinely centered on a substantial PBL project or role-play scenario, it may begin directly with the `pbl` project/situation scene and MUST NOT insert a forced knowledge cover before it.
@@ -275,6 +276,7 @@ Rules:
       "keyPoints": [],
       "sceneRole": "cover",
       "coverBrief": {
+        "subtitle": "From motion variables to confident trajectory prediction",
         "narrationPoints": ["Why predicting a moving object's path matters", "How the course will connect motion variables to trajectory"]
       },
       "order": 1
@@ -322,7 +324,7 @@ Rules:
 | estimatedDuration | number                   | ❌       | Estimated duration (seconds)                                                                     |
 | order             | number                   | ✅       | Sort order, starting from 1                                                                      |
 | sceneRole         | `"cover"`                | ❌       | Required on scene 1 for knowledge courses; omit for all non-cover scenes                         |
-| coverBrief        | object                   | ❌       | Required with `sceneRole:"cover"`; narrationPoints are narration-only and attribution is optional/reliability-gated |
+| coverBrief        | object                   | ❌       | Required with `sceneRole:"cover"`; subtitle is visible and required, narrationPoints are narration-only, attribution is visible but optional/reliability-gated |
 
 For the marked cover scene only, `keyPoints` may be an empty array because `coverBrief.narrationPoints` carries the narration-only context. All non-cover scenes retain the normal key-point requirement.
 {{#if hasSourceImages}}

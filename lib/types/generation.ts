@@ -122,8 +122,10 @@ export interface SceneOutline {
   order: number;
   /** Explicit marker for a newly generated knowledge-course cover slide. */
   sceneRole?: 'cover';
-  /** Cover attribution is visible; narrationPoints are narration-only context. */
+  /** Subtitle and attribution are visible; narrationPoints are narration-only context. */
   coverBrief?: {
+    /** Required learner-facing subtitle for newly generated knowledge covers. */
+    subtitle: string;
     attribution?: string;
     narrationPoints: string[];
   };

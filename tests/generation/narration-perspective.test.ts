@@ -53,7 +53,9 @@ describe('generated narration perspective', () => {
     for (const promptId of ['requirements-to-outlines', 'interactive-outlines'] as const) {
       const prompt = loadPrompt(promptId);
       expect(prompt?.systemPrompt).toContain('sceneRole: "cover"');
+      expect(prompt?.systemPrompt).toContain('coverBrief.subtitle');
       expect(prompt?.systemPrompt).toContain('coverBrief.narrationPoints');
+      expect(prompt?.systemPrompt).toContain('required subtitle');
       expect(prompt?.systemPrompt).toContain('reliably established');
       expect(prompt?.systemPrompt.toLowerCase()).toContain('never invent');
       expect(prompt?.systemPrompt).toContain('PBL');

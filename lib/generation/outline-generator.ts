@@ -15,6 +15,12 @@ import { buildPrompt, PROMPT_IDS } from '@/lib/prompts';
 import { formatImageDescription, formatImagePlaceholder } from './prompt-formatters';
 import { parseJsonResponse } from './json-repair';
 import { uniquifyMediaElementIds } from './scene-builder';
+import { isEnhancedTrainingCourseType } from './input-fidelity';
+import {
+  MANDATORY_ENHANCED_COVER_SYSTEM_CONTRACT,
+  normalizeKnowledgeCoverFields,
+  satisfiesKnowledgeCoverStructure,
+} from './knowledge-cover';
 import type { AICallFn, GenerationResult, GenerationCallbacks } from './pipeline-types';
 import { createLogger } from '@/lib/logger';
 const log = createLogger('Generation');
@@ -110,6 +116,10 @@ export async function generateSceneOutlinesFromRequirements(
   if (!prompts) {
     return { success: false, error: 'Prompt template not found' };
   }
+  const mandatoryEnhancedCover = isEnhancedTrainingCourseType(requirements.trainingCourseType);
+  if (mandatoryEnhancedCover) {
+    prompts.system += `\n\n${MANDATORY_ENHANCED_COVER_SYSTEM_CONTRACT}`;
+  }
 
   try {
     callbacks?.onProgress?.({
@@ -152,14 +162,27 @@ export async function generateSceneOutlinesFromRequirements(
     }
 
     // Ensure IDs and order
-    const enriched = rawOutlines.map((outline, index) => ({
-      ...outline,
-      id: outline.id || nanoid(),
-      order: index + 1,
-    }));
+    const enriched = rawOutlines.map((outline, index) =>
+      normalizeKnowledgeCoverFields({
+        ...outline,
+        id: outline.id || nanoid(),
+        order: index + 1,
+      }),
+    );
 
     // Replace sequential gen_img_N/gen_vid_N with globally unique IDs
     const result = uniquifyMediaElementIds(enriched);
+    if (
+      result.length > 0 &&
+      !satisfiesKnowledgeCoverStructure(result, {
+        allowDirectPblOpening: !mandatoryEnhancedCover,
+      })
+    ) {
+      return {
+        success: false,
+        error: 'The generated knowledge outline omitted the required first cover slide or subtitle',
+      };
+    }
 
     callbacks?.onProgress?.({
       currentStage: 1,

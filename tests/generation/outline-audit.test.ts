@@ -376,6 +376,7 @@ describe('outline audit atomic patch application', () => {
       sceneRole: 'cover',
       title: '公平理论',
       coverBrief: {
+        subtitle: '从公平感知理解团队投入与回报',
         attribution: '约翰·斯泰西·亚当斯',
         narrationPoints: ['形成背景', '公平感知问题', '课程切入方向'],
       },
@@ -428,6 +429,7 @@ describe('outline audit atomic patch application', () => {
         sceneRole: 'cover',
         title: '公平理论入门',
         coverBrief: {
+          subtitle: '从公平感知理解团队投入与回报',
           attribution: '约翰·斯泰西·亚当斯',
           narrationPoints: ['旧背景'],
         },
@@ -461,6 +463,7 @@ describe('outline audit atomic patch application', () => {
     );
     expect(patched[0].title).toBe('公平理论');
     expect(patched[0].coverBrief).toEqual({
+      subtitle: '从公平感知理解团队投入与回报',
       attribution: '约翰·斯泰西·亚当斯',
       narrationPoints: ['形成背景', '所回应的公平感知问题', '课程切入方向'],
     });

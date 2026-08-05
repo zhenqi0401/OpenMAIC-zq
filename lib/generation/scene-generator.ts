@@ -55,7 +55,11 @@ import type {
 import type { ThinkingConfig } from '@/lib/types/provider';
 import { createLogger } from '@/lib/logger';
 import { buildSceneFidelityContext } from './input-fidelity';
-import { isKnowledgeCover } from './knowledge-cover';
+import {
+  isKnowledgeCover,
+  KNOWLEDGE_COVER_CONTENT_SYSTEM_CONTRACT,
+  KNOWLEDGE_COVER_NARRATION_SYSTEM_CONTRACT,
+} from './knowledge-cover';
 import { validateAndRepairSlideLayout, type SlideLayoutIssueCode } from './slide-layout-guard';
 const log = createLogger('Generation');
 
@@ -818,12 +822,18 @@ async function generateSlideContent(
   // the existing slide rather than generating from scratch. Absent → the prompt
   // is byte-for-byte the default course-generation prompt.
   const fidelityContext = buildSceneFidelityContext(outline);
+  const coverDisplayData = cover
+    ? `\n\nBEGIN_UNTRUSTED_COVER_DISPLAY_DATA\n${JSON.stringify({
+        mainTitle: outline.title,
+        subtitle: outline.coverBrief?.subtitle,
+        ...(outline.coverBrief?.attribution ? { attribution: outline.coverBrief.attribution } : {}),
+      })}\nEND_UNTRUSTED_COVER_DISPLAY_DATA`
+    : '';
+  const systemPrompt = cover
+    ? `${prompts.system}\n\n${KNOWLEDGE_COVER_CONTENT_SYSTEM_CONTRACT}`
+    : prompts.system;
   let userPrompt = cover
-    ? `${prompts.user}\n\n## KNOWLEDGE COVER CONTRACT (NON-NEGOTIABLE)\nCreate a spacious, centered PPT cover. Visible text is limited to the exact title ${JSON.stringify(outline.title)}${
-        outline.coverBrief?.attribution
-          ? ` and the exact reliable attribution ${JSON.stringify(outline.coverBrief.attribution)}`
-          : '; there is no reliable attribution, so do not add any person, institution, date, or subtitle'
-      }. Do not render description, key points, narration points, learning objectives, agenda, directory, cards, chart, table, list, paragraph, dashboard, or explanatory copy. Background color, abstract decorative shapes/lines, and a relevant theme image are allowed. Use few elements, generous whitespace, and a calm centered title treatment.`
+    ? `${prompts.user}${coverDisplayData}`
     : fidelityContext
       ? `${prompts.user}\n\n${fidelityContext}\n\nFor this visible Slide, cover as many must-cover items as legibility allows. Preserve remaining important details for the narration stage; do not invent facts to fill gaps.`
       : prompts.user;
@@ -857,7 +867,7 @@ async function generateSlideContent(
       `Return the full updated slide content in the same schema.`;
   }
 
-  const response = await aiCall(prompts.system, userPrompt, visionImages);
+  const response = await aiCall(systemPrompt, userPrompt, visionImages);
   const generatedData = parseJsonResponse<GeneratedSlideData>(response);
 
   if (!generatedData || !generatedData.elements || !Array.isArray(generatedData.elements)) {
@@ -873,7 +883,7 @@ async function generateSlideContent(
         .replace(/\s+/g, ' ')
         .trim();
     const allowedText = new Set(
-      [outline.title, outline.coverBrief?.attribution]
+      [outline.title, outline.coverBrief?.subtitle, outline.coverBrief?.attribution]
         .filter((value): value is string => !!value)
         .map((value) => value.replace(/\s+/g, ' ').trim()),
     );
@@ -910,16 +920,63 @@ async function generateSlideContent(
     );
     const escapeHtml = (value: string) =>
       value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    if (!generatedData.background) {
+      generatedData.background = {
+        type: 'gradient',
+        gradient: {
+          type: 'linear',
+          colors: [
+            { pos: 0, color: '#F8FAFC' },
+            { pos: 100, color: '#EAF2FB' },
+          ],
+          rotate: 135,
+        },
+      };
+    }
+
+    const backgroundColors =
+      generatedData.background.type === 'solid'
+        ? [generatedData.background.color]
+        : generatedData.background.gradient?.colors.map((item) => item.color);
+    const isDarkHex = (value: string | undefined) => {
+      const match = value?.match(/^#([0-9a-f]{6})$/i);
+      if (!match) return false;
+      const color = match[1];
+      const luminance =
+        (0.2126 * Number.parseInt(color.slice(0, 2), 16) +
+          0.7152 * Number.parseInt(color.slice(2, 4), 16) +
+          0.0722 * Number.parseInt(color.slice(4, 6), 16)) /
+        255;
+      return luminance < 0.45;
+    };
+    const darkBackground =
+      !!backgroundColors?.length && backgroundColors.every((color) => isDarkHex(color));
+    const primaryColor = darkBackground ? '#F8FAFC' : '#172033';
+    const secondaryColor = darkBackground ? '#D7E3F4' : '#3E5F88';
+
     if (!visibleTexts.has(outline.title)) {
       generatedData.elements.push({
         type: 'text',
         left: 100,
-        top: outline.coverBrief?.attribution ? 205 : 225,
+        top: 180,
         width: 800,
-        height: 90,
-        content: `<p style="font-size:44px;text-align:center;"><strong>${escapeHtml(outline.title)}</strong></p>`,
+        height: 104,
+        content: `<p style="font-size:44px;text-align:center;line-height:1.2;"><strong>${escapeHtml(outline.title)}</strong></p>`,
         defaultFontName: 'Microsoft YaHei',
-        defaultColor: '#1F2937',
+        defaultColor: primaryColor,
+      });
+    }
+    const subtitle = outline.coverBrief?.subtitle;
+    if (subtitle && !visibleTexts.has(subtitle)) {
+      generatedData.elements.push({
+        type: 'text',
+        left: 120,
+        top: 310,
+        width: 760,
+        height: 58,
+        content: `<p style="font-size:24px;text-align:center;line-height:1.35;">${escapeHtml(subtitle)}</p>`,
+        defaultFontName: 'Microsoft YaHei',
+        defaultColor: secondaryColor,
       });
     }
     const attribution = outline.coverBrief?.attribution;
@@ -927,12 +984,12 @@ async function generateSlideContent(
       generatedData.elements.push({
         type: 'text',
         left: 180,
-        top: 320,
+        top: 398,
         width: 640,
-        height: 40,
-        content: `<p style="font-size:20px;text-align:center;">${escapeHtml(attribution)}</p>`,
+        height: 36,
+        content: `<p style="font-size:18px;text-align:center;">${escapeHtml(attribution)}</p>`,
         defaultFontName: 'Microsoft YaHei',
-        defaultColor: '#4B5563',
+        defaultColor: secondaryColor,
       });
     }
   }
@@ -1572,19 +1629,25 @@ export async function generateSceneActions(
     const cover = isKnowledgeCover(outline);
     const fidelityContext = buildSceneFidelityContext(outline);
     const coverPoints = outline.coverBrief?.narrationPoints ?? [];
-    const coverInstruction = cover
-      ? `\n\n## KNOWLEDGE COVER NARRATION CONTRACT (NON-NEGOTIABLE)\nEnter the topic directly: no greeting, welcome, pleasantry, course-host introduction, or speaker identity. ${
-          outline.coverBrief?.attribution
-            ? `The reliable visible attribution is ${JSON.stringify(outline.coverBrief.attribution)}. State consistently who proposed/originated the theory or topic; do not add another person, institution, or date.`
-            : 'No reliable attribution is available. Omit names, institutions, and dates; never guess or fabricate them to complete a format.'
-        } Explain the formation/background context, the real problem, judgment difficulty, or management pain point this topic responds to, and briefly state how the course will enter the topic without revealing the complete theory answer. Use these narration-only points; never imply they are visible cover text:\n${coverPoints.map((point, index) => `${index + 1}. ${point}`).join('\n') || '(No specific narration points supplied; stay general and fact-bounded.)'}`
+    const coverData = cover
+      ? `\n\nBEGIN_UNTRUSTED_COVER_NARRATION_DATA\n${JSON.stringify({
+          mainTitle: outline.title,
+          subtitle: outline.coverBrief?.subtitle,
+          ...(outline.coverBrief?.attribution
+            ? { attribution: outline.coverBrief.attribution }
+            : {}),
+          narrationPoints: coverPoints,
+        })}\nEND_UNTRUSTED_COVER_NARRATION_DATA`
       : '';
+    const systemPrompt = cover
+      ? `${prompts.system}\n\n${KNOWLEDGE_COVER_NARRATION_SYSTEM_CONTRACT}`
+      : prompts.system;
     const userPrompt = cover
-      ? `${prompts.user}${coverInstruction}`
+      ? `${prompts.user}${coverData}`
       : fidelityContext
         ? `${prompts.user}\n\n${fidelityContext}\n\nThe Slide narration must explicitly explain every must-cover item that is not already fully conveyed by visible content. Do not speak internal source IDs aloud.`
         : prompts.user;
-    const response = await aiCall(prompts.system, userPrompt);
+    const response = await aiCall(systemPrompt, userPrompt);
     const actions = parseActionsFromStructuredOutput(response, outline.type);
 
     if (actions.length > 0) {
@@ -1829,7 +1892,9 @@ function generateDefaultSlideActions(outline: SceneOutline, elements: PPTElement
   const coverPoints = outline.coverBrief?.narrationPoints ?? [];
   const speechText = cover
     ? [
-        outline.coverBrief?.attribution ? `这一主题由${outline.coverBrief.attribution}提出。` : '',
+        outline.coverBrief?.attribution
+          ? `本课采用的可靠归因信息是：${outline.coverBrief.attribution}。`
+          : '',
         coverPoints.length
           ? `${coverPoints.join('。')}。`
           : '这一主题源于现实中反复出现的判断与行动难题，重点回应我们如何理解问题并选择更合适的处理方式。接下来将从形成背景、核心线索和实际应用逐步展开。',
