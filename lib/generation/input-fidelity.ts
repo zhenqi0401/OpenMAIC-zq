@@ -248,12 +248,14 @@ export function satisfiesManagementBCStructure(outlines: SceneOutline[]): boolea
   const middleText = outlines.slice(3, -1).map(outlineSearchText).join(' ');
   const closingText = outlineSearchText(closing);
   const hasCallback =
-    /call\s*back|回访|回看|回到|重新判断|重新审视|再判断|三(?:个|项)痛点|痛点.{0,20}(?:理论|行动)|(?:理论|行动).{0,20}痛点/i.test(
-      middleText,
-    );
-  const hasClosingLoop = /总结|闭环|带走|行动|summary|takeaway|pain point.{0,20}action/i.test(
-    closingText,
-  );
+    /call\s*back|回访|回看|回到|重新判断|重新审视|再判断/i.test(middleText) &&
+    /三(?:个|项)?痛点|痛点/i.test(middleText) &&
+    /理论|行动/i.test(middleText);
+  const hasClosingLoop =
+    /总结|闭环|takeaway|summary/i.test(closingText) &&
+    /痛点|pain point/i.test(closingText) &&
+    /理论|theory/i.test(closingText) &&
+    /行动|管理动作|action/i.test(closingText);
 
   return hasCallback && hasClosingLoop;
 }

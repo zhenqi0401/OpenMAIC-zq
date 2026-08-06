@@ -52,9 +52,70 @@ import {
   normalizeKnowledgeCoverFields,
   satisfiesKnowledgeCoverStructure,
 } from '@/lib/generation/knowledge-cover';
+import {
+  createOutlineAttemptSignal,
+  OUTLINE_ATTEMPT_TIMEOUT_MS,
+} from '@/lib/generation/outline-stream-control';
 const log = createLogger('Outlines Stream');
 
 export const maxDuration = 300;
+
+type OutlineErrorCode =
+  | 'ATTEMPT_TIMEOUT'
+  | 'OUTLINE_OUTPUT_INCOMPLETE'
+  | 'STRUCTURE_REPAIR_FAILED'
+  | 'OUTLINE_GENERATION_FAILED';
+
+function minimumSceneCountFromRequirement(requirement: string): number | undefined {
+  const match = requirement.match(/(?:不少于|至少|不低于)\s*(\d+)\s*(?:页|个场景|场景)/i);
+  const count = match ? Number.parseInt(match[1], 10) : Number.NaN;
+  return Number.isInteger(count) && count > 0 ? count : undefined;
+}
+
+function buildManagementRepairPrompt(
+  requirement: string,
+  outlines: SceneOutline[],
+  internalConstraints: string,
+  minimumSceneCount?: number,
+): string {
+  const compactOutlines = outlines.map((outline) => {
+    const fidelityOutline = outline as SceneOutline & { sourceRefIds?: unknown };
+    return {
+      id: outline.id,
+      order: outline.order,
+      type: outline.type,
+      title: outline.title,
+      description: outline.description,
+      keyPoints: outline.keyPoints,
+      sceneRole: outline.sceneRole,
+      coverBrief: outline.coverBrief,
+      quizConfig: outline.quizConfig,
+      widgetType: outline.widgetType,
+      teachingBrief: outline.teachingBrief,
+      sourceRefIds: fidelityOutline.sourceRefIds,
+    };
+  });
+  return `
+你正在基于一份已经部分生成成功的管理知识培训大纲继续生成。不要重新生成整门课程，不要改写、删除、替换或重复下列已有场景；从已有最后一个 order 之后继续，只输出为了让合并后的整份大纲完整满足管理策略所必需的后续场景，放入一个 JSON wrapper：{"outlines":[...]}。
+
+原始用户要求：${requirement}
+
+已有场景（这是继续生成的权威上下文，人物、团队、冲突线、理论进度和来源引用必须延续）：
+${JSON.stringify(compactOutlines)}
+
+以下是系统内部的完整策略与来源约束。它们约束“已有场景 + 本次新增场景”合并后的整份大纲，而不是只约束最后两页：
+${internalConstraints}
+
+继续生成要求：
+1. 先判断已有场景已经完成到教学链路的哪一步，再补足仍然缺失的理论解释、案例贯穿、诊断回看、行动迁移和最终闭环；不得把修复简化成机械追加两个标题页。
+2. 延续开篇同一人物、同一团队背景、同一组三个痛点和三项诊断决策。call back 必须逐项重审三项决策，结尾必须逐项形成“痛点 → 理论线索 → 管理动作”，不得换案例或泛化总结。
+3. 所有必要的核心理论页必须位于 call back 之前；call back 之后可以有行动迁移或应用页，但最后一页必须是三组闭环总结 Slide。
+4. 每个新增场景必须继续遵守 teachingBrief.mustCover、sourceRefIds、来源保真、叙事视角、场景类型和 Quiz 防泄题合同。
+${minimumSceneCount ? `5. 用户要求不少于 ${minimumSceneCount} 页。这只是最低下限，不是停止条件；即使达到 ${minimumSceneCount} 页，只要完整策略链路尚未闭合，就必须继续生成到结构完整。` : '5. 场景数量由完整教学结构决定，不得为了缩短输出而省略策略要求。'}
+6. 所有新增场景的 order 必须严格大于 ${outlines.at(-1)?.order ?? outlines.length} 并连续递增。
+
+只返回继续生成所需的完整 SceneOutline 对象。不要输出解释、Markdown 代码围栏、已有场景或整门课程的重写版本。`;
+}
 
 /**
  * Extract the languageDirective from the streamed wrapper JSON.
@@ -300,6 +361,7 @@ function ensureUniqueOutlineId(outline: SceneOutline, usedIds: Set<string>): Sce
 export async function POST(req: NextRequest) {
   let requirementSnippet: string | undefined;
   let resolvedModelString: string | undefined;
+  let requestId = req.headers.get('x-request-id')?.trim() || nanoid();
   try {
     const body = await req.json();
 
@@ -322,16 +384,28 @@ export async function POST(req: NextRequest) {
     } = await resolveModelFromRequest(req, body, 'scene-outlines-stream');
     resolvedModelString = modelString;
 
-    const { requirements, pdfText, pdfFileName, pdfImages, imageMapping, researchContext, agents } =
-      body as {
-        requirements: UserRequirements;
-        pdfText?: string;
-        pdfFileName?: string;
-        pdfImages?: PdfImage[];
-        imageMapping?: ImageMapping;
-        researchContext?: string;
-        agents?: AgentInfo[];
-      };
+    const {
+      requirements,
+      pdfText,
+      pdfFileName,
+      pdfImages,
+      imageMapping,
+      researchContext,
+      agents,
+      generationRunId,
+    } = body as {
+      requirements: UserRequirements;
+      pdfText?: string;
+      pdfFileName?: string;
+      pdfImages?: PdfImage[];
+      imageMapping?: ImageMapping;
+      researchContext?: string;
+      agents?: AgentInfo[];
+      generationRunId?: string;
+    };
+    if (typeof generationRunId === 'string' && generationRunId.trim()) {
+      requestId = generationRunId.trim();
+    }
     requirementSnippet = requirements?.requirement?.substring(0, 60);
 
     // Build user profile string for language inference context
@@ -426,9 +500,12 @@ export async function POST(req: NextRequest) {
       prompts.user += buildOutlineFidelityPrompt(enhancedTrainingCourseType, sourceCatalog);
     }
 
-    log.info(
-      `Generating outlines: "${requirements.requirement.substring(0, 50)}" [model=${modelString}]`,
-    );
+    log.info('Generating outlines', {
+      requestId,
+      phase: 'outline',
+      requirement: requirements.requirement.substring(0, 50),
+      model: modelString,
+    });
 
     // Create SSE stream with heartbeat to prevent connection timeout
     const encoder = new TextEncoder();
@@ -463,35 +540,38 @@ export async function POST(req: NextRequest) {
         try {
           startHeartbeat();
 
-          const streamParams = visionImages?.length
-            ? {
-                model: languageModel,
-                system: prompts.system,
-                messages: [
-                  {
-                    role: 'user' as const,
-                    content: buildVisionUserContent(prompts.user, visionImages),
-                  },
-                ],
-                maxOutputTokens: modelInfo?.outputWindow,
-                // Tear down the upstream LLM request when the client disconnects,
-                // instead of letting it run to completion for a dead connection.
-                abortSignal: req.signal,
-              }
-            : {
-                model: languageModel,
-                system: prompts.system,
-                prompt: prompts.user,
-                maxOutputTokens: modelInfo?.outputWindow,
-                abortSignal: req.signal,
-              };
+          const minimumSceneCount = minimumSceneCountFromRequirement(requirements.requirement);
+          const makeStreamParams = (prompt: string, signal: AbortSignal) =>
+            visionImages?.length
+              ? {
+                  model: languageModel,
+                  system: prompts.system,
+                  messages: [
+                    {
+                      role: 'user' as const,
+                      content: buildVisionUserContent(prompt, visionImages),
+                    },
+                  ],
+                  maxOutputTokens: modelInfo?.outputWindow,
+                  abortSignal: signal,
+                }
+              : {
+                  model: languageModel,
+                  system: prompts.system,
+                  prompt,
+                  maxOutputTokens: modelInfo?.outputWindow,
+                  abortSignal: signal,
+                };
 
           let parsedOutlines: SceneOutline[] = [];
           let languageDirective: string | null = null;
           let courseTitle: string | null = null;
           let lastError: string | undefined;
+          let fatalError: { code: OutlineErrorCode; message: string } | undefined;
 
           for (let attempt = 1; attempt <= MAX_STREAM_RETRIES + 1; attempt++) {
+            const attemptControl = createOutlineAttemptSignal(req.signal);
+            const attemptStartedAt = Date.now();
             try {
               let fullText = '';
               let scanFrom = 0;
@@ -499,11 +579,12 @@ export async function POST(req: NextRequest) {
               languageDirective = null;
               courseTitle = null;
               const usedOutlineIds = new Set<string>();
-              const textStream = streamLLM(
-                streamParams,
+              const streamResult = streamLLM(
+                makeStreamParams(prompts.user, attemptControl.signal),
                 'scene-outlines-stream',
                 thinkingConfig,
-              ).textStream;
+              );
+              const textStream = streamResult.textStream;
 
               for await (const chunk of textStream) {
                 // Stop doing work the moment the client goes away — otherwise
@@ -583,6 +664,50 @@ export async function POST(req: NextRequest) {
                 }
               }
 
+              const finishReason = await streamResult.finishReason;
+              const durationMs = Date.now() - attemptStartedAt;
+              attemptControl.cleanup();
+              log.info('Outline attempt completed', {
+                requestId,
+                phase: 'outline',
+                attempt,
+                maxAttempts: MAX_STREAM_RETRIES + 1,
+                durationMs,
+                outlineCount: parsedOutlines.length,
+                textLength: fullText.length,
+                finishReason: finishReason ?? 'unknown',
+              });
+
+              if (attemptControl.didTimeout()) {
+                fatalError = {
+                  code: 'ATTEMPT_TIMEOUT',
+                  message: `Outline model attempt exceeded ${OUTLINE_ATTEMPT_TIMEOUT_MS / 1000}s`,
+                };
+                log.error('Outline model attempt timed out', {
+                  requestId,
+                  code: fatalError.code,
+                  phase: 'outline',
+                  attempt,
+                  durationMs,
+                  outlineCount: parsedOutlines.length,
+                  model: modelString,
+                });
+                break;
+              }
+
+              if (finishReason === 'length') {
+                lastError = 'The outline model output ended before the JSON structure completed';
+                log.warn('Outline model output ended at its limit', {
+                  requestId,
+                  code: 'OUTLINE_OUTPUT_INCOMPLETE',
+                  phase: 'outline',
+                  attempt,
+                  durationMs,
+                  outlineCount: parsedOutlines.length,
+                  textLength: fullText.length,
+                });
+              }
+
               // Validate: got outlines?
               if (parsedOutlines.length > 0) {
                 const missingRequiredEvidence =
@@ -653,23 +778,159 @@ export async function POST(req: NextRequest) {
                 }
                 const missingManagementBCStructure =
                   enhancedTrainingCourseType === 'management' &&
-                  !satisfiesManagementBCStructure(parsedOutlines);
+                  (!satisfiesManagementBCStructure(parsedOutlines) ||
+                    (minimumSceneCount !== undefined && parsedOutlines.length < minimumSceneCount));
                 if (missingManagementBCStructure) {
-                  lastError =
-                    'The generated management outline omitted the required B+C diagnostic callback structure';
-                  log.warn(
-                    `Outlines attempt ${attempt} omitted the management B+C structure; rejecting the attempt`,
-                  );
-                  parsedOutlines = [];
-                  if (attempt <= MAX_STREAM_RETRIES) {
-                    const retryEvent = JSON.stringify({
-                      type: 'retry',
+                  const repairEvent = JSON.stringify({
+                    type: 'retry',
+                    requestId,
+                    strategy: 'targeted-structure-repair',
+                    attempt,
+                    missing: ['management_strategy_contract'],
+                  });
+                  controller.enqueue(encoder.encode(`data: ${repairEvent}\n\n`));
+                  log.warn('Management B+C structure incomplete; starting targeted repair', {
+                    requestId,
+                    code: 'STRUCTURE_REPAIR_REQUIRED',
+                    phase: 'outline-structure-repair',
+                    attempt,
+                    outlineCount: parsedOutlines.length,
+                    minimumSceneCount,
+                    model: modelString,
+                  });
+
+                  const repairControl = createOutlineAttemptSignal(req.signal);
+                  const repairStartedAt = Date.now();
+                  let repairText = '';
+                  try {
+                    const repairResult = streamLLM(
+                      makeStreamParams(
+                        buildManagementRepairPrompt(
+                          requirements.requirement,
+                          parsedOutlines,
+                          buildOutlineFidelityPrompt('management', sourceCatalog),
+                          minimumSceneCount,
+                        ),
+                        repairControl.signal,
+                      ),
+                      'scene-outlines-structure-repair',
+                      thinkingConfig,
+                    );
+                    for await (const chunk of repairResult.textStream) {
+                      if (req.signal?.aborted) {
+                        stopHeartbeat();
+                        return;
+                      }
+                      repairText += chunk;
+                      if (repairText.length > MAX_OUTLINE_STREAM_BYTES) break;
+                    }
+                    const repairFinishReason = await repairResult.finishReason;
+                    const repairDurationMs = Date.now() - repairStartedAt;
+                    if (repairControl.didTimeout()) {
+                      fatalError = {
+                        code: 'ATTEMPT_TIMEOUT',
+                        message: `Outline structure repair exceeded ${OUTLINE_ATTEMPT_TIMEOUT_MS / 1000}s`,
+                      };
+                      log.error('Outline structure repair timed out', {
+                        requestId,
+                        code: fatalError.code,
+                        phase: 'outline-structure-repair',
+                        attempt,
+                        durationMs: repairDurationMs,
+                        outlineCount: parsedOutlines.length,
+                        model: modelString,
+                      });
+                      break;
+                    }
+
+                    const repairOutlines = extractNewOutlines(repairText, 0).outlines;
+                    if (repairFinishReason === 'length' || repairOutlines.length === 0) {
+                      fatalError = {
+                        code: 'STRUCTURE_REPAIR_FAILED',
+                        message:
+                          'Targeted management B+C structure repair returned incomplete output',
+                      };
+                    } else {
+                      const repaired = repairOutlines.map((outline, index) => {
+                        const enrichedBase = {
+                          ...outline,
+                          // Repair is continuation-only: ignore model attempts to
+                          // insert/reorder existing scenes and append after the
+                          // last accepted outline in generation order.
+                          order: parsedOutlines.length + index + 1,
+                        };
+                        const modeNormalized = sanitizeNonTaskEngineOutline(enrichedBase);
+                        const normalized = normalizeFidelityOutline(
+                          modeNormalized as SceneOutline & { sourceRefIds?: unknown },
+                          'management',
+                          sourceCatalog,
+                        );
+                        return ensureUniqueOutlineId(normalized, usedOutlineIds);
+                      });
+                      const repairedIds = new Set(repaired.map((outline) => outline.id));
+                      parsedOutlines = [...parsedOutlines, ...repaired]
+                        .sort((a, b) => a.order - b.order)
+                        .map((outline, index) => ({ ...outline, order: index + 1 }));
+
+                      for (const [index, outline] of parsedOutlines.entries()) {
+                        if (!repairedIds.has(outline.id)) continue;
+                        const event = JSON.stringify({
+                          type: 'outline',
+                          data: stripFidelityForStreaming(outline),
+                          index,
+                          repaired: true,
+                        });
+                        controller.enqueue(encoder.encode(`data: ${event}\n\n`));
+                      }
+
+                      log.info('Management B+C targeted repair completed', {
+                        requestId,
+                        phase: 'outline-structure-repair',
+                        attempt,
+                        durationMs: repairDurationMs,
+                        addedOutlineCount: repaired.length,
+                        outlineCount: parsedOutlines.length,
+                        finishReason: repairFinishReason ?? 'unknown',
+                        model: modelString,
+                      });
+                      if (
+                        !satisfiesManagementBCStructure(parsedOutlines) ||
+                        (minimumSceneCount !== undefined &&
+                          parsedOutlines.length < minimumSceneCount)
+                      ) {
+                        fatalError = {
+                          code: 'STRUCTURE_REPAIR_FAILED',
+                          message:
+                            'Targeted repair did not produce the required management B+C structure',
+                        };
+                      }
+                    }
+                  } catch (error) {
+                    if (repairControl.didTimeout()) {
+                      fatalError = {
+                        code: 'ATTEMPT_TIMEOUT',
+                        message: `Outline structure repair exceeded ${OUTLINE_ATTEMPT_TIMEOUT_MS / 1000}s`,
+                      };
+                    } else {
+                      fatalError = {
+                        code: 'STRUCTURE_REPAIR_FAILED',
+                        message: error instanceof Error ? error.message : String(error),
+                      };
+                    }
+                    log.error('Management B+C targeted repair failed', {
+                      requestId,
+                      code: fatalError.code,
+                      phase: 'outline-structure-repair',
                       attempt,
-                      maxAttempts: MAX_STREAM_RETRIES + 1,
+                      durationMs: Date.now() - repairStartedAt,
+                      outlineCount: parsedOutlines.length,
+                      model: modelString,
+                      error,
                     });
-                    controller.enqueue(encoder.encode(`data: ${retryEvent}\n\n`));
+                  } finally {
+                    repairControl.cleanup();
                   }
-                  continue;
+                  break;
                 }
                 if (!courseTitle) {
                   // The head-bound streaming scan can miss a title the model
@@ -701,15 +962,44 @@ export async function POST(req: NextRequest) {
                 controller.enqueue(encoder.encode(`data: ${retryEvent}\n\n`));
               }
             } catch (error) {
+              const durationMs = Date.now() - attemptStartedAt;
+              attemptControl.cleanup();
               // Client disconnected (AbortError from the now-propagated signal):
               // stop immediately, don't burn retries re-running generation.
               if (req.signal?.aborted) {
                 stopHeartbeat();
                 return;
               }
+              if (attemptControl.didTimeout()) {
+                fatalError = {
+                  code: 'ATTEMPT_TIMEOUT',
+                  message: `Outline model attempt exceeded ${OUTLINE_ATTEMPT_TIMEOUT_MS / 1000}s`,
+                };
+                log.error('Outline model attempt timed out', {
+                  requestId,
+                  code: fatalError.code,
+                  phase: 'outline',
+                  attempt,
+                  durationMs,
+                  outlineCount: parsedOutlines.length,
+                  model: modelString,
+                  error,
+                });
+                break;
+              }
               lastError = error instanceof Error ? error.message : String(error);
               log.warn(
                 `Outlines stream error detail (attempt ${attempt}/${MAX_STREAM_RETRIES + 1}): ${lastError}`,
+                {
+                  requestId,
+                  code: 'OUTLINE_GENERATION_FAILED',
+                  phase: 'outline',
+                  attempt,
+                  durationMs,
+                  outlineCount: parsedOutlines.length,
+                  model: modelString,
+                  error,
+                },
               );
 
               if (attempt <= MAX_STREAM_RETRIES) {
@@ -728,12 +1018,29 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          if (parsedOutlines.length > 0) {
+          if (fatalError) {
+            log.error('Outline generation failed', {
+              requestId,
+              code: fatalError.code,
+              phase: 'outline',
+              model: modelString,
+              outlineCount: parsedOutlines.length,
+              error: fatalError.message,
+            });
+            const errorEvent = JSON.stringify({
+              type: 'error',
+              code: fatalError.code,
+              requestId,
+              error: fatalError.message,
+            });
+            controller.enqueue(encoder.encode(`data: ${errorEvent}\n\n`));
+          } else if (parsedOutlines.length > 0) {
             // Replace sequential gen_img_N/gen_vid_N with globally unique IDs
             const uniquifiedOutlines = uniquifyMediaElementIds(parsedOutlines);
             // Send done event with all outlines
             const doneEvent = JSON.stringify({
               type: 'done',
+              requestId,
               outlines: uniquifiedOutlines,
               languageDirective: languageDirective || DEFAULT_LANGUAGE_DIRECTIVE,
               courseTitle: courseTitle || undefined,
@@ -742,18 +1049,35 @@ export async function POST(req: NextRequest) {
             controller.enqueue(encoder.encode(`data: ${doneEvent}\n\n`));
           } else {
             // All retries exhausted, no outlines produced
-            log.error(
-              `Outline generation failed after ${MAX_STREAM_RETRIES + 1} attempts: ${lastError}`,
-            );
+            log.error('Outline generation failed after retries', {
+              requestId,
+              code: 'OUTLINE_GENERATION_FAILED',
+              phase: 'outline',
+              model: modelString,
+              attempts: MAX_STREAM_RETRIES + 1,
+              outlineCount: parsedOutlines.length,
+              error: lastError || 'Failed to generate outlines',
+            });
             const errorEvent = JSON.stringify({
               type: 'error',
+              code: 'OUTLINE_GENERATION_FAILED' satisfies OutlineErrorCode,
+              requestId,
               error: lastError || 'Failed to generate outlines',
             });
             controller.enqueue(encoder.encode(`data: ${errorEvent}\n\n`));
           }
         } catch (error) {
+          log.error('Outline SSE stream failed', {
+            requestId,
+            code: 'OUTLINE_GENERATION_FAILED',
+            phase: 'outline',
+            model: modelString,
+            error,
+          });
           const errorEvent = JSON.stringify({
             type: 'error',
+            code: 'OUTLINE_GENERATION_FAILED' satisfies OutlineErrorCode,
+            requestId,
             error: error instanceof Error ? error.message : String(error),
           });
           controller.enqueue(encoder.encode(`data: ${errorEvent}\n\n`));
@@ -779,6 +1103,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     log.error(
       `Outline streaming failed [requirement="${requirementSnippet ?? 'unknown'}...", model=${resolvedModelString ?? 'unknown'}]:`,
+      { requestId },
       error,
     );
     return apiError('INTERNAL_ERROR', 500, error instanceof Error ? error.message : String(error));

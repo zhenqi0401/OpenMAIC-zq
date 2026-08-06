@@ -721,6 +721,7 @@ function GenerationPreviewContent() {
             headers: getApiHeaders(),
             body: JSON.stringify(
               withThinkingConfig({
+                generationRunId: currentSession.sessionId,
                 requirements: currentSession.requirements,
                 pdfText: currentSession.pdfText,
                 ...(!currentSession.requirements.interactiveMode &&
@@ -770,6 +771,10 @@ function GenerationPreviewContent() {
                           collected.push(evt.data);
                           setStreamingOutlines([...collected]);
                         } else if (evt.type === 'retry') {
+                          if (evt.strategy === 'targeted-structure-repair') {
+                            setStatusMessage(t('generation.outlineRepairing'));
+                            continue;
+                          }
                           collected.length = 0;
                           // Drop any directive/title latched from the failed
                           // attempt — the server resets these per attempt, so a
@@ -791,7 +796,11 @@ function GenerationPreviewContent() {
                           });
                           return;
                         } else if (evt.type === 'error') {
-                          reject(new Error(evt.error));
+                          const message =
+                            evt.code === 'ATTEMPT_TIMEOUT'
+                              ? t('generation.outlineAttemptTimeout')
+                              : evt.error;
+                          reject(new Error(evt.code ? `[${evt.code}] ${message}` : message));
                           return;
                         }
                       } catch (e) {

@@ -870,6 +870,8 @@
     "viewAgents": "檢視角色",
     "continue": "繼續",
     "outlineRetrying": "大綱生成異常，正在重試...",
+    "outlineRepairing": "正在保留既有大綱並修復缺少的結構...",
+    "outlineAttemptTimeout": "大綱模型單次呼叫超過 300 秒，已停止本次嘗試。請降低思考強度或稍後重試。",
     "outlineEmptyResponse": "模型未傳回有效的大綱內容，請檢查模型設定後重試",
     "outlineGenerateFailed": "大綱生成失敗，請稍後重試",
     "sceneGenerateFailed": "場景生成失敗，請稍後重試",

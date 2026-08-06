@@ -900,6 +900,8 @@
     "viewAgents": "View Roles",
     "continue": "Continue",
     "outlineRetrying": "Outline generation issue, retrying...",
+    "outlineRepairing": "Keeping the existing outline and repairing its missing structure...",
+    "outlineAttemptTimeout": "The outline model call exceeded 300 seconds and was stopped. Lower thinking effort or try again later.",
     "outlineEmptyResponse": "Model returned no valid outlines. Please check model configuration and try again",
     "outlineGenerateFailed": "Outline generation failed, please try again later",
     "sceneGenerateFailed": "Scene generation failed, please try again later",

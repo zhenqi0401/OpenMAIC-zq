@@ -10,17 +10,53 @@ function isJsonFormat(): boolean {
   return process.env.LOG_FORMAT === 'json';
 }
 
+/**
+ * Preserve useful failure context when an Error is nested in a structured log.
+ * Native JSON.stringify(Error) returns "{}", which hides the exact cause from
+ * both operators and log-processing agents. Circular objects are represented
+ * safely so diagnostics never fail while trying to serialize an error.
+ */
+function stringifyForLog(value: unknown): string {
+  const seen = new WeakSet<object>();
+  return JSON.stringify(value, (_key, current: unknown) => {
+    if (current instanceof Error) {
+      return {
+        name: current.name,
+        message: current.message,
+        ...(current.stack ? { stack: current.stack } : {}),
+        ...(current.cause !== undefined ? { cause: current.cause } : {}),
+      };
+    }
+    if (typeof current === 'object' && current !== null) {
+      if (seen.has(current)) return '[Circular]';
+      seen.add(current);
+    }
+    return current;
+  });
+}
+
 function formatLine(level: LogLevel, tag: string, args: unknown[]): string {
   const timestamp = new Date().toISOString();
   const upperLevel = level.toUpperCase();
   const msg = args
     .map((a) =>
-      a instanceof Error ? (a.stack ?? a.message) : typeof a === 'string' ? a : JSON.stringify(a),
+      a instanceof Error ? (a.stack ?? a.message) : typeof a === 'string' ? a : stringifyForLog(a),
     )
     .join(' ');
 
   if (isJsonFormat()) {
-    return JSON.stringify({ timestamp, level: upperLevel, tag, message: msg });
+    const structuredArgs = args
+      .filter((arg) => typeof arg === 'object' && arg !== null)
+      .map((arg) => JSON.parse(stringifyForLog(arg)) as unknown);
+    return JSON.stringify({
+      timestamp,
+      level: upperLevel,
+      tag,
+      message: msg,
+      ...(structuredArgs.length > 0
+        ? { context: structuredArgs.length === 1 ? structuredArgs[0] : structuredArgs }
+        : {}),
+    });
   }
   return `[${timestamp}] [${upperLevel}] [${tag}] ${msg}`;
 }
