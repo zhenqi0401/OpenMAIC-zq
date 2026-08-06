@@ -8,6 +8,7 @@ import {
   AdminPage,
   AdminSectionHeader,
   adminSecondaryButtonClassName,
+  adminPrimaryButtonClassName,
 } from '@/components/admin/AdminSurface';
 import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
 import { AdminRefreshButton } from '@/components/admin/AdminRefreshButton';
@@ -29,6 +30,7 @@ import {
 import { CategoryDialog } from './CategoryDialog';
 import { CourseFilters } from './CourseFilters';
 import { CourseTable } from './CourseTable';
+import { CourseEditDialog } from './CourseEditDialog';
 import { CourseVisibilityDialog, type CourseVisibilityDraft } from './CourseVisibilityDialog';
 import { EnterpriseCourseImportDialog } from './EnterpriseCourseImportDialog';
 
@@ -92,10 +94,7 @@ export function CourseListEmptyState({
       <div className="p-4">
         <AdminEmptyState
           action={
-            <Button
-              asChild
-              className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
-            >
+            <Button asChild className={adminPrimaryButtonClassName}>
               <Link href="/">返回首页生成或导入课程</Link>
             </Button>
           }
@@ -134,6 +133,8 @@ export function CourseAdminPanel() {
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [categoryBusyId, setCategoryBusyId] = useState<string | null>(null);
   const [visibilityCourse, setVisibilityCourse] = useState<EnterpriseCourse | null>(null);
+  const [editingCourse, setEditingCourse] = useState<EnterpriseCourse | null>(null);
+  const [savingCourse, setSavingCourse] = useState(false);
   const [savingVisibility, setSavingVisibility] = useState(false);
   const [statusChangingCourseId, setStatusChangingCourseId] = useState<string | null>(null);
   const [courseToDelete, setCourseToDelete] = useState<EnterpriseCourse | null>(null);
@@ -307,6 +308,27 @@ export function CourseAdminPanel() {
     }
   }
 
+  async function saveCourse(draft: { name: string; categoryId: string }) {
+    if (!editingCourse) return;
+    setSavingCourse(true);
+    try {
+      const response = await fetch(`/api/admin/courses/${encodeURIComponent(editingCourse.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(draft),
+      });
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(data.error || '课程信息保存失败');
+      adminToast.success('课程信息已保存');
+      setEditingCourse(null);
+      await loadAll();
+    } catch (error) {
+      adminToast.error(error instanceof Error ? error.message : '课程信息保存失败');
+    } finally {
+      setSavingCourse(false);
+    }
+  }
+
   async function changeStatus(course: EnterpriseCourse, action: 'publish' | 'archive') {
     setStatusChangingCourseId(course.id);
     try {
@@ -443,6 +465,7 @@ export function CourseAdminPanel() {
             courses={courses}
             onChangeStatus={changeStatus}
             onDelete={setCourseToDelete}
+            onEditCourse={setEditingCourse}
             onEditVisibility={setVisibilityCourse}
             roleNames={roleNames}
             statusChangingCourseId={statusChangingCourseId}
@@ -478,6 +501,17 @@ export function CourseAdminPanel() {
         open={visibilityCourse !== null}
         roles={learnerRoles}
         saving={savingVisibility}
+      />
+
+      <CourseEditDialog
+        categories={categories}
+        course={editingCourse}
+        onOpenChange={(open) => {
+          if (!open && !savingCourse) setEditingCourse(null);
+        }}
+        onSave={saveCourse}
+        open={editingCourse !== null}
+        saving={savingCourse}
       />
 
       <EnterpriseCourseImportDialog

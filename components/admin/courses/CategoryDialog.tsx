@@ -15,6 +15,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import {
+  adminPrimaryButtonClassName,
   adminInputClassName,
   adminSecondaryButtonClassName,
 } from '@/components/admin/AdminSurface';
@@ -72,10 +73,7 @@ export function CategoryDialog({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button
-          className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
-          type="button"
-        >
+        <Button className={adminPrimaryButtonClassName} type="button">
           分类管理
         </Button>
       </DialogTrigger>
@@ -98,7 +96,7 @@ export function CategoryDialog({
             />
             <Button
               aria-busy={creating}
-              className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
+              className={adminPrimaryButtonClassName}
               disabled={creating || !categoryName.trim()}
               onClick={submit}
               type="button"

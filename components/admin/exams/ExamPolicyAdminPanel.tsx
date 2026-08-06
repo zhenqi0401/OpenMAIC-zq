@@ -276,11 +276,7 @@ export function ExamPolicyAdminPanel() {
               编辑配置后，再按状态发布、下架、重新发布或删除草稿。
             </p>
           </div>
-          <Button
-            className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
-            onClick={openCreateDialog}
-            type="button"
-          >
+          <Button className={adminPrimaryButtonClassName} onClick={openCreateDialog} type="button">
             <Plus aria-hidden="true" className="size-4" />
             新建考核
           </Button>

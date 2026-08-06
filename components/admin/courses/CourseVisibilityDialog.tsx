@@ -11,7 +11,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { adminSecondaryButtonClassName } from '@/components/admin/AdminSurface';
+import {
+  adminPrimaryButtonClassName,
+  adminSecondaryButtonClassName,
+} from '@/components/admin/AdminSurface';
 import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import type { CourseVisibilityMode, EnterpriseCourse } from '@/lib/storage/enterprise-service';
 import type { AuthRole } from '@/lib/auth/service';
@@ -154,7 +157,7 @@ function CourseVisibilityDialogContent({
           </DialogClose>
           <Button
             aria-busy={saving}
-            className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
+            className={adminPrimaryButtonClassName}
             disabled={
               saving || (draft.visibilityMode === 'roles' && draft.visibleRoleIds.length === 0)
             }

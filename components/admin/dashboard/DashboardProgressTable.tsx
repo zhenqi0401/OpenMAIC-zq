@@ -4,6 +4,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import {
   AdminCard,
   adminInputClassName,
+  adminPrimaryButtonClassName,
   adminSelectClassName,
 } from '@/components/admin/AdminSurface';
 import { Button } from '@/components/ui/button';
@@ -104,10 +105,7 @@ export function DashboardProgressTable({
           />
         </label>
         <div className="flex gap-2">
-          <Button
-            className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
-            onClick={onSubmit}
-          >
+          <Button className={adminPrimaryButtonClassName} onClick={onSubmit}>
             应用筛选
           </Button>
           {hasFilters ? (

@@ -18,6 +18,7 @@ import {
   AdminCard,
   AdminStatusBadge,
   adminInputClassName,
+  adminPrimaryButtonClassName,
   adminSecondaryButtonClassName,
   adminSelectClassName,
 } from '@/components/admin/AdminSurface';
@@ -297,10 +298,7 @@ export function AccessInvitesTab({
         </div>
         <Dialog onOpenChange={setCreateOpen} open={createOpen}>
           <DialogTrigger asChild>
-            <Button
-              className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
-              type="button"
-            >
+            <Button className={adminPrimaryButtonClassName} type="button">
               创建邀请码
             </Button>
           </DialogTrigger>
@@ -334,7 +332,7 @@ export function AccessInvitesTab({
               </DialogClose>
               <Button
                 aria-busy={creatingInvite}
-                className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
+                className={adminPrimaryButtonClassName}
                 disabled={creatingInvite}
                 onClick={() => void submitCreate()}
                 type="button"
@@ -520,7 +518,7 @@ export function AccessInvitesTab({
             </DialogClose>
             <Button
               aria-busy={Boolean(editingInvite && savingInviteCodeId === editingInvite.id)}
-              className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
+              className={adminPrimaryButtonClassName}
               disabled={Boolean(editingInvite && savingInviteCodeId === editingInvite.id)}
               onClick={() => void submitEdit()}
               type="button"

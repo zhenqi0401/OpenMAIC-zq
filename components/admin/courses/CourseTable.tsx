@@ -6,7 +6,11 @@ import type { Slide } from '@openmaic/dsl';
 import { SlideThumbnail } from '@/components/slide-renderer/SlideThumbnail';
 import { BrandLockup } from '@/components/brand/BrandLockup';
 import { AdminRowActions } from '@/components/admin/AdminRowActions';
-import { AdminStatusBadge, adminSecondaryButtonClassName } from '@/components/admin/AdminSurface';
+import {
+  AdminStatusBadge,
+  adminPrimaryButtonClassName,
+  adminSecondaryButtonClassName,
+} from '@/components/admin/AdminSurface';
 import type { EnterpriseCourse, CourseStatus } from '@/lib/storage/enterprise-service';
 import {
   formatCourseUpdatedAt,
@@ -34,6 +38,7 @@ export function CourseTable({
   onChangeStatus,
   onDelete,
   onEditVisibility,
+  onEditCourse,
   previews,
 }: {
   courses: readonly EnterpriseCourse[];
@@ -42,6 +47,7 @@ export function CourseTable({
   onChangeStatus: (course: EnterpriseCourse, action: 'publish' | 'archive') => void;
   onDelete: (course: EnterpriseCourse) => void;
   onEditVisibility: (course: EnterpriseCourse) => void;
+  onEditCourse?: (course: EnterpriseCourse) => void;
   previews?: Record<string, { canvas: unknown } | null>;
 }) {
   return (
@@ -119,6 +125,12 @@ export function CourseTable({
                 <AdminRowActions
                   actions={[
                     {
+                      id: 'edit-course',
+                      label: '修改课程信息',
+                      disabled: course.managementMode === 'read_only',
+                      onSelect: () => onEditCourse?.(course),
+                    },
+                    {
                       id: statusAction.action,
                       label: changing ? '处理中…' : statusAction.label,
                       disabled: changing || course.managementMode === 'read_only',
@@ -136,10 +148,7 @@ export function CourseTable({
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       {course.generationComplete === false &&
                       course.managementMode !== 'read_only' ? (
-                        <Button
-                          asChild
-                          className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
-                        >
+                        <Button asChild className={adminPrimaryButtonClassName}>
                           <Link href={`/classroom/${encodeURIComponent(course.id)}`}>继续生成</Link>
                         </Button>
                       ) : null}

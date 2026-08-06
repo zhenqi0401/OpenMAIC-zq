@@ -18,6 +18,7 @@ import {
   AdminCard,
   AdminStatusBadge,
   adminInputClassName,
+  adminPrimaryButtonClassName,
   adminSecondaryButtonClassName,
 } from '@/components/admin/AdminSurface';
 import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
@@ -165,7 +166,7 @@ function RoleDialog({
           </DialogClose>
           <Button
             aria-busy={busy}
-            className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
+            className={adminPrimaryButtonClassName}
             disabled={busy}
             onClick={onSave}
             type="button"
@@ -268,10 +269,7 @@ export function AccessRolesTab({
         </div>
         <Dialog onOpenChange={setCreateOpen} open={createOpen}>
           <DialogTrigger asChild>
-            <Button
-              className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
-              type="button"
-            >
+            <Button className={adminPrimaryButtonClassName} type="button">
               创建角色
             </Button>
           </DialogTrigger>
@@ -299,7 +297,7 @@ export function AccessRolesTab({
               </DialogClose>
               <Button
                 aria-busy={creatingRole}
-                className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
+                className={adminPrimaryButtonClassName}
                 disabled={creatingRole}
                 onClick={() => void submitCreate()}
                 type="button"

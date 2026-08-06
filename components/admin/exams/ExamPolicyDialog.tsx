@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import {
   adminInputClassName,
+  adminPrimaryButtonClassName,
   adminSecondaryButtonClassName,
   adminSelectClassName,
 } from '@/components/admin/AdminSurface';
@@ -156,7 +157,7 @@ export function ExamPolicyDialog({
           </DialogClose>
           <Button
             aria-busy={saving}
-            className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
+            className={adminPrimaryButtonClassName}
             disabled={saving || !valid}
             onClick={onSave}
             type="button"

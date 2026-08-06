@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   adminInputClassName,
+  adminPrimaryButtonClassName,
   adminSecondaryButtonClassName,
   adminSelectClassName,
 } from '@/components/admin/AdminSurface';
@@ -104,11 +105,7 @@ export function CourseFilters({
           <option value="roles">按角色可见</option>
         </select>
         <div className="flex gap-2">
-          <Button
-            className="rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
-            onClick={onApply}
-            type="button"
-          >
+          <Button className={adminPrimaryButtonClassName} onClick={onApply} type="button">
             筛选
           </Button>
           <Button

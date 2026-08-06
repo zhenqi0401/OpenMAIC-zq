@@ -2,7 +2,11 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { LogIn, ShieldAlert } from 'lucide-react';
-import { AdminCard, AdminNotice } from '@/components/admin/AdminSurface';
+import {
+  AdminCard,
+  AdminNotice,
+  adminPrimaryButtonClassName,
+} from '@/components/admin/AdminSurface';
 import { BrandLockup } from '@/components/brand/BrandLockup';
 import { Button } from '@/components/ui/button';
 
@@ -97,7 +101,7 @@ export function AdminAccessGate({ children }: { children: ReactNode }) {
       </div>
       {loginRequired ? (
         <Button
-          className="w-fit rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-[var(--admin-surface)]"
+          className={`w-fit ${adminPrimaryButtonClassName}`}
           onClick={() => {
             window.location.href = '/login';
           }}

@@ -44,6 +44,7 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+--> statement-breakpoint
 
 DO $$
 BEGIN

@@ -11,6 +11,10 @@ const platformOnlyMigration = readFileSync(
   'drizzle/0011_platform_fixed_categories_shared.sql',
   'utf8',
 );
+const tenantCourseMigration = readFileSync(
+  'drizzle/0012_shared_category_tenant_courses.sql',
+  'utf8',
+);
 const authRepository = readFileSync('lib/auth/repository.ts', 'utf8');
 
 describe('system course category migration', () => {
@@ -64,5 +68,14 @@ describe('system course category migration', () => {
     );
     expect(platformOnlyMigration).toContain('"scope" = \'tenant\' AND "category_key" IS NULL');
     expect(platformOnlyMigration).toContain('DROP INDEX IF EXISTS');
+  });
+
+  test('splits the trigger function from data statements for postgres migration execution', () => {
+    expect(tenantCourseMigration).toContain('$$ LANGUAGE plpgsql;\n--> statement-breakpoint\n');
+    expect(tenantCourseMigration).toContain('SET category_id = platform_category.id');
+    expect(tenantCourseMigration).toContain('SET category_ids = mapped.category_ids');
+    expect(tenantCourseMigration).toContain(
+      "DELETE FROM course_categories\nWHERE scope = 'tenant'\n  AND category_key IS NOT NULL;",
+    );
   });
 });
