@@ -758,8 +758,8 @@ const migrateFromOldStorage = () => {
   if (!oldLlmModel && !oldProvidersConfig) return null; // No old data
 
   // Parse model selection
-  let providerId: ProviderId = 'openai';
-  let modelId = 'gpt-5.4-mini';
+  let providerId: ProviderId = 'deepseek';
+  let modelId = 'deepseek-v4-flash';
   if (oldLlmModel) {
     const [pid, mid] = oldLlmModel.split(':');
     if (pid && mid) {
@@ -820,8 +820,8 @@ export const useSettingsStore = create<SettingsState>()(
 
       return {
         // Initial state (use migrated data if available)
-        providerId: migratedData?.providerId || 'openai',
-        modelId: migratedData?.modelId || '',
+        providerId: migratedData?.providerId || 'deepseek',
+        modelId: migratedData?.modelId || 'deepseek-v4-flash',
         thinkingConfigs: pruneThinkingConfigs(
           migratedData?.thinkingConfigs || {},
           initialProvidersConfig,

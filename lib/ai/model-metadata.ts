@@ -152,6 +152,14 @@ const deepseekEffort: ThinkingCapability = {
   defaultEnabled: true,
 };
 
+// DeepSeek V4 Flash is the default course-generation model. Keep Pro's
+// existing default (`high`) while making Flash's out-of-the-box thinking
+// intensity explicit and consistent with the course-generation default.
+const deepseekV4FlashEffort: ThinkingCapability = {
+  ...deepseekEffort,
+  defaultEffort: 'max',
+};
+
 const glm52Effort: ThinkingCapability = {
   control: 'effort',
   requestAdapter: 'glm',
@@ -338,7 +346,7 @@ const THINKING_CAPABILITIES: Record<string, ThinkingCapability> = {
   [getModelMetadataKey('qwen', 'qwen3-vl-plus')]: qwenBudgetDisabled,
 
   [getModelMetadataKey('deepseek', 'deepseek-v4-pro')]: deepseekEffort,
-  [getModelMetadataKey('deepseek', 'deepseek-v4-flash')]: deepseekEffort,
+  [getModelMetadataKey('deepseek', 'deepseek-v4-flash')]: deepseekV4FlashEffort,
 
   [getModelMetadataKey('kimi', 'kimi-k3')]: kimiK3Effort,
   [getModelMetadataKey('kimi', 'kimi-k2.7-code')]: fixedThinkingCapability,

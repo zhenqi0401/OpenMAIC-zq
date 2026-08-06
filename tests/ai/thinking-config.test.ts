@@ -91,6 +91,16 @@ describe('thinking config metadata', () => {
     expect(minimaxModels).toEqual(['MiniMax-M3', 'MiniMax-M2.7']);
     expect(siliconflowModels).not.toContain('MiniMaxAI/MiniMax-M2');
   });
+
+  it('defaults DeepSeek V4 Flash to maximum thinking effort', () => {
+    const thinking = getThinking('deepseek', 'deepseek-v4-flash');
+
+    expect(getDefaultThinkingConfig(thinking)).toEqual({ mode: 'enabled', effort: 'max' });
+    expect(normalizeThinkingConfig(thinking, undefined)).toEqual({
+      mode: 'enabled',
+      effort: 'max',
+    });
+  });
 });
 
 describe('thinking config normalization', () => {

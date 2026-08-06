@@ -225,6 +225,13 @@ describe('settings rehydrate — built-in provider models', () => {
     return useSettingsStore;
   }
 
+  it('uses DeepSeek V4 Flash as the fresh-install course model default', async () => {
+    const store = await getStore();
+
+    expect(store.getState().providerId).toBe('deepseek');
+    expect(store.getState().modelId).toBe('deepseek-v4-flash');
+  });
+
   it('reorders persisted built-in models to registry order while preserving custom models', async () => {
     storage.set(
       'settings-storage',
@@ -571,6 +578,9 @@ describe('fetchServerProviders — provider availability sync', () => {
   it('selects the server LLM model when provider fallback replaces the default provider', async () => {
     const store = await getStore();
 
+    // Simulate the legacy/default provider being selected before the server
+    // advertises a different usable provider.
+    store.getState().setModel('openai', '');
     expect(store.getState().providerId).toBe('openai');
     expect(store.getState().modelId).toBe('');
 

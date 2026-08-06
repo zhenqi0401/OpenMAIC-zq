@@ -21,7 +21,7 @@ import { resolveModel } from '@/lib/server/resolve-model';
 
 const log = createLogger('OutlineAudit');
 const AUDIT_STAGE = 'outline-adversarial-review' as const;
-const REQUIRED_MODEL = 'deepseek:deepseek-v4-flash';
+const REQUIRED_MODEL = 'doubao:doubao-seed-evolving';
 const AUDIT_TIMEOUT_MS = 90_000;
 
 export const maxDuration = 120;
@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
       return auditError(
         'configuration_missing',
         503,
-        'DeepSeek outline audit is not configured on the server.',
+        'Doubao Seed Evolving outline audit is not configured on the server.',
         false,
       );
     }
@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
     }
 
     resolvedModel = await resolveModel({ stage: AUDIT_STAGE });
-    if (resolvedModel.providerId !== 'deepseek' || resolvedModel.modelId !== 'deepseek-v4-flash') {
+    if (resolvedModel.providerId !== 'doubao' || resolvedModel.modelId !== 'doubao-seed-evolving') {
       return auditError(
         'provider_mismatch',
         503,
@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
       return auditError(
         'missing_api_key',
         503,
-        'The server DeepSeek API key is not configured.',
+        'The server Doubao API key is not configured.',
         false,
       );
     }
@@ -224,7 +224,9 @@ export async function POST(req: NextRequest) {
       parsed = parseJsonResponse<unknown>(raw, { suppressLogs: true });
     }
     if (!looksLikeAuditEnvelope(parsed)) {
-      throw new OutlineAuditValidationError('DeepSeek returned invalid structured JSON twice');
+      throw new OutlineAuditValidationError(
+        'Doubao Seed Evolving returned invalid structured JSON twice',
+      );
     }
 
     const normalized = normalizeOutlineAuditModelOutput(parsed, body.outlines, {
@@ -238,8 +240,8 @@ export async function POST(req: NextRequest) {
       verdict: normalized.verdict,
       summary: normalized.summary,
       findings: normalized.findings,
-      providerId: 'deepseek',
-      modelId: 'deepseek-v4-flash',
+      providerId: 'doubao',
+      modelId: 'doubao-seed-evolving',
       completedAt,
     };
     log.info('Outline audit completed', {
@@ -255,12 +257,12 @@ export async function POST(req: NextRequest) {
     const status = upstreamStatus(error);
     let code: OutlineAuditErrorCode = 'upstream_failed';
     let httpStatus = 502;
-    let message = 'DeepSeek outline audit failed. Please retry.';
+    let message = 'Doubao Seed Evolving outline audit failed. Please retry.';
     const retryable = true;
     if (signalHandle?.didTimeOut()) {
       code = 'timeout';
       httpStatus = 504;
-      message = 'DeepSeek outline audit timed out. Please retry.';
+      message = 'Doubao Seed Evolving outline audit timed out. Please retry.';
     } else if (req.signal.aborted) {
       code = 'cancelled';
       httpStatus = 499;
@@ -268,11 +270,11 @@ export async function POST(req: NextRequest) {
     } else if (error instanceof OutlineAuditValidationError) {
       code = 'invalid_response';
       httpStatus = 502;
-      message = 'DeepSeek returned an unsafe or invalid audit result. Please retry.';
+      message = 'Doubao Seed Evolving returned an unsafe or invalid audit result. Please retry.';
     } else if (status === 429) {
       code = 'rate_limited';
       httpStatus = 429;
-      message = 'DeepSeek is rate limited. Please retry shortly.';
+      message = 'Doubao is rate limited. Please retry shortly.';
     } else if (status && status >= 400) {
       code = 'upstream_failed';
       httpStatus = status >= 500 ? 502 : status;

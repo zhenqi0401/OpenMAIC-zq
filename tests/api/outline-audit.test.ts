@@ -57,18 +57,18 @@ describe('POST /api/generate/outline-audit', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getStageRoute.mockReturnValue({
-      model: 'deepseek:deepseek-v4-flash',
-      thinking: { mode: 'enabled', effort: 'high', excludeReasoningOutput: true },
+      model: 'doubao:doubao-seed-evolving',
+      thinking: { mode: 'enabled', effort: 'low', excludeReasoningOutput: true },
     });
     mocks.resolveVocationalActive.mockReturnValue(false);
     mocks.resolveModel.mockResolvedValue({
-      model: { id: 'server-deepseek-model' },
+      model: { id: 'server-doubao-model' },
       modelInfo: {},
-      modelString: 'deepseek:deepseek-v4-flash',
-      providerId: 'deepseek',
-      modelId: 'deepseek-v4-flash',
+      modelString: 'doubao:doubao-seed-evolving',
+      providerId: 'doubao',
+      modelId: 'doubao-seed-evolving',
       apiKey: 'server-only-key',
-      thinkingConfig: { mode: 'enabled', effort: 'high', excludeReasoningOutput: true },
+      thinkingConfig: { mode: 'enabled', effort: 'low', excludeReasoningOutput: true },
     });
     mocks.callLLM.mockResolvedValue({ text: PASS });
   });
@@ -98,21 +98,26 @@ describe('POST /api/generate/outline-audit', () => {
     expect(response.status).toBe(200);
     expect(mocks.resolveModel).toHaveBeenCalledWith({ stage: 'outline-adversarial-review' });
     expect(mocks.callLLM).toHaveBeenCalledTimes(1);
+    expect(mocks.callLLM.mock.calls[0]?.[3]).toEqual({
+      mode: 'enabled',
+      effort: 'low',
+      excludeReasoningOutput: true,
+    });
     const data = await response.json();
     expect(data.result).toMatchObject({
       baseRevision: 1,
       verdict: 'pass',
-      providerId: 'deepseek',
-      modelId: 'deepseek-v4-flash',
+      providerId: 'doubao',
+      modelId: 'doubao-seed-evolving',
     });
   });
 
-  it('reports a missing server DeepSeek key without calling the model', async () => {
+  it('reports a missing server Doubao key without calling the model', async () => {
     mocks.resolveModel.mockResolvedValue({
       model: {},
-      modelString: 'deepseek:deepseek-v4-flash',
-      providerId: 'deepseek',
-      modelId: 'deepseek-v4-flash',
+      modelString: 'doubao:doubao-seed-evolving',
+      providerId: 'doubao',
+      modelId: 'doubao-seed-evolving',
       apiKey: '',
     });
     const response = await POST(request());
@@ -213,7 +218,7 @@ describe('POST /api/generate/outline-audit', () => {
     expect(mocks.resolveModel).toHaveBeenCalledTimes(2);
   });
 
-  it('terminates a slow DeepSeek call with a distinguishable timeout', async () => {
+  it('terminates a slow Doubao call with a distinguishable timeout', async () => {
     vi.useFakeTimers();
     try {
       mocks.callLLM.mockImplementationOnce(
