@@ -66,7 +66,7 @@ export function LearnerHome({
   const searchParams = useSearchParams();
   const requestedCategoryKey = enableCategoryDeepLink ? searchParams.get('category') : null;
   const [selection, setSelection] = useState<HomeCourseSelection>({
-    scope: requestedCategoryKey ? 'tenant' : 'all',
+    scope: 'all',
     categoryKey:
       requestedCategoryKey && isSystemCourseCategoryKey(requestedCategoryKey)
         ? requestedCategoryKey
@@ -85,11 +85,14 @@ export function LearnerHome({
   useEffect(() => {
     if (!enableCategoryDeepLink || !requestedCategoryKey || loading) return;
     const update = window.setTimeout(() => {
-      setSelection({
-        scope: 'tenant',
-        categoryKey: isSystemCourseCategoryKey(requestedCategoryKey) ? requestedCategoryKey : null,
-        categoryId: null,
-      });
+      setSelection((current) =>
+        changeHomeCourseCategory(
+          current,
+          isSystemCourseCategoryKey(requestedCategoryKey)
+            ? { id: `fixed:${requestedCategoryKey}`, categoryKey: requestedCategoryKey }
+            : null,
+        ),
+      );
     }, 0);
     return () => window.clearTimeout(update);
   }, [enableCategoryDeepLink, loading, requestedCategoryKey]);

@@ -33,4 +33,28 @@ describe('home course category selector UI', () => {
     expect(source).toContain('onClick={() => reorder(category.id, -1)}');
     expect(source).toContain('onClick={() => reorder(category.id, 1)}');
   });
+
+  it('keeps fixed learner categories independent from the course source tabs', () => {
+    const source = readFileSync('components/home/LearnerHome.tsx', 'utf8');
+
+    expect(source).toContain("scope: 'all'");
+    expect(source).toContain('changeHomeCourseCategory(\n          current,');
+    expect(source).not.toContain("scope: requestedCategoryKey ? 'tenant' : 'all'");
+  });
+
+  it('places the learner entry second in the management home toolbar', () => {
+    const source = readFileSync('app/page.tsx', 'utf8');
+    const toolbar = source.slice(
+      source.indexOf('{/* ═══ Top-right pill'),
+      source.indexOf('<SettingsDialog'),
+    );
+
+    expect(toolbar.indexOf('aria-label="Admin"')).toBeLessThan(
+      toolbar.indexOf('aria-label="进入学员端"'),
+    );
+    expect(toolbar.indexOf('aria-label="进入学员端"')).toBeLessThan(
+      toolbar.indexOf('<LanguageSwitcher'),
+    );
+    expect(toolbar).toContain("router.push('/learn')");
+  });
 });
