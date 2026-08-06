@@ -209,7 +209,7 @@ export function changeHomeCourseCategory(
   category: Pick<HomeCourseCategory, 'id' | 'categoryKey'> | null,
 ): HomeCourseSelection {
   return {
-    scope: category?.categoryKey ? selection.scope : category ? 'tenant' : selection.scope,
+    scope: category?.categoryKey ? 'platform' : category ? 'tenant' : selection.scope,
     categoryKey: category?.categoryKey ?? null,
     categoryId: category && !category.categoryKey ? category.id : null,
   };

@@ -18,7 +18,7 @@ SET "category_key" = fixed.category_key,
     "updated_at" = now()
 FROM fixed
 WHERE category."scope" = 'platform'
-  AND category."name" = fixed.name
+  AND lower(btrim(category."name")) = lower(btrim(fixed.name))
   AND category."category_key" IS NULL;
 --> statement-breakpoint
 WITH fixed(category_key, name, sort_order) AS (
@@ -36,7 +36,10 @@ WHERE NOT EXISTS (
   SELECT 1
   FROM "course_categories" AS category
   WHERE category."scope" = 'platform'
-    AND category."category_key" = fixed.category_key
+    AND (
+      category."category_key" = fixed.category_key
+      OR lower(btrim(category."name")) = lower(btrim(fixed.name))
+    )
 );
 --> statement-breakpoint
 WITH promoted AS (

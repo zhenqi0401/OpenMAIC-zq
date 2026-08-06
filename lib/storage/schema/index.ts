@@ -124,15 +124,12 @@ export const courseCategories = pgTable(
     uniqueIndex('course_categories_tenant_name_unique')
       .on(table.tenantId, table.name)
       .where(sql`${table.scope} = 'tenant'`),
-    uniqueIndex('course_categories_tenant_key_unique')
-      .on(table.tenantId, table.categoryKey)
-      .where(sql`${table.scope} = 'tenant' AND ${table.categoryKey} IS NOT NULL`),
     uniqueIndex('course_categories_platform_key_unique')
       .on(table.categoryKey)
       .where(sql`${table.scope} = 'platform' AND ${table.categoryKey} IS NOT NULL`),
     check(
       'course_categories_category_key_check',
-      sql`(${table.scope} = 'platform' AND ${table.categoryKey} IN ('management', 'professional', 'tob-sales', 'toc-sales', 'company-policy')) OR (${table.scope} = 'tenant' AND ((${table.categoryKey} IS NULL AND lower(btrim(${table.name})) NOT IN ('管理知识培训', '专业知识培训', 'tob销售培训', 'toc销售培训', '公司制度培训')) OR ${table.categoryKey} IN ('management', 'professional', 'tob-sales', 'toc-sales', 'company-policy')))`,
+      sql`(${table.scope} = 'platform' AND ${table.categoryKey} IN ('management', 'professional', 'tob-sales', 'toc-sales', 'company-policy')) OR (${table.scope} = 'tenant' AND ${table.categoryKey} IS NULL AND lower(btrim(${table.name})) NOT IN ('管理知识培训', '专业知识培训', 'tob销售培训', 'toc销售培训', '公司制度培训'))`,
     ),
   ],
 );

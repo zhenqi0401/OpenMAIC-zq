@@ -7,9 +7,14 @@ const sharedScopeMigration = readFileSync(
   'drizzle/0010_learner_forum_catalog_refinement.sql',
   'utf8',
 );
+const platformOnlyMigration = readFileSync(
+  'drizzle/0011_platform_fixed_categories_shared.sql',
+  'utf8',
+);
+const authRepository = readFileSync('lib/auth/repository.ts', 'utf8');
 
 describe('system course category migration', () => {
-  test('defines the stable five-key contract and tenant-scoped uniqueness', () => {
+  test('defines the stable five-key contract without seeding tenant copies', () => {
     expect(SYSTEM_COURSE_CATEGORIES).toEqual([
       { categoryKey: 'management', name: '管理知识培训', sortOrder: 10 },
       { categoryKey: 'professional', name: '专业知识培训', sortOrder: 20 },
@@ -17,18 +22,10 @@ describe('system course category migration', () => {
       { categoryKey: 'toc-sales', name: 'ToC销售培训', sortOrder: 40 },
       { categoryKey: 'company-policy', name: '公司制度培训', sortOrder: 50 },
     ]);
-    expect(migration).toContain('course_categories_tenant_key_unique');
-    expect(migration).toMatch(/WHERE "scope" = 'tenant' AND "category_key" IS NOT NULL/);
-  });
-
-  test('upgrades exact-name tenant categories before filling missing keys', () => {
-    const upgradeAt = migration.indexOf('UPDATE "course_categories" AS category');
-    const fillAt = migration.indexOf('INSERT INTO "course_categories"');
-    expect(upgradeAt).toBeGreaterThan(0);
-    expect(fillAt).toBeGreaterThan(upgradeAt);
-    expect(migration).toContain('category."name" = fixed.name');
-    expect(migration).toContain('WHERE NOT EXISTS');
-    expect(migration).not.toMatch(/DELETE FROM "course_categories"/);
+    expect(migration).not.toContain('course_categories_tenant_key_unique');
+    expect(migration).not.toContain('INSERT INTO "course_categories"');
+    expect(authRepository).not.toContain('SYSTEM_COURSE_CATEGORIES');
+    expect(authRepository).not.toContain('.insert(courseCategories)');
   });
 
   test('stores only hashes for replay and one-time login records', () => {
@@ -37,9 +34,15 @@ describe('system course category migration', () => {
     expect(migration).not.toMatch(/"code" text/);
   });
 
-  test('shares the five fixed keys across platform and tenant scopes', () => {
+  test('creates one platform-owned set of five fixed categories', () => {
     expect(sharedScopeMigration).toContain('course_categories_platform_key_unique');
     expect(sharedScopeMigration).toContain('category."scope" = \'platform\'');
+    expect(sharedScopeMigration).toContain(
+      'lower(btrim(category."name")) = lower(btrim(fixed.name))',
+    );
+    expect(sharedScopeMigration).toMatch(
+      /category\."category_key" = fixed\.category_key\s+OR lower\(btrim\(category\."name"\)\) = lower\(btrim\(fixed\.name\)\)/,
+    );
     expect(sharedScopeMigration).toContain('source_category."category_key" IS NOT NULL');
     expect(sharedScopeMigration).toContain(
       'platform courses must be mapped to one of the five fixed categories before migration',
@@ -47,5 +50,19 @@ describe('system course category migration', () => {
     expect(sharedScopeMigration).toContain(
       '("category_key" IS NULL AND lower(btrim("name")) NOT IN',
     );
+  });
+
+  test('rejects in-use tenant copies before deleting unused fixed-category rows', () => {
+    const courseGuardAt = platformOnlyMigration.indexOf('FROM "courses" AS course');
+    const policyGuardAt = platformOnlyMigration.indexOf('FROM "exam_policies" AS policy');
+    const deleteAt = platformOnlyMigration.indexOf('DELETE FROM "course_categories"');
+    expect(courseGuardAt).toBeGreaterThan(0);
+    expect(policyGuardAt).toBeGreaterThan(courseGuardAt);
+    expect(deleteAt).toBeGreaterThan(policyGuardAt);
+    expect(platformOnlyMigration).toContain(
+      'tenant courses still reference tenant copies of fixed platform categories',
+    );
+    expect(platformOnlyMigration).toContain('"scope" = \'tenant\' AND "category_key" IS NULL');
+    expect(platformOnlyMigration).toContain('DROP INDEX IF EXISTS');
   });
 });

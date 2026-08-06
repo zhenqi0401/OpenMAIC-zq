@@ -634,6 +634,57 @@ describe('Slice-01 enterprise storage service', () => {
     expect(updateCategory).not.toHaveBeenCalled();
   });
 
+  test('exposes shared platform categories but keeps tenant courses on custom categories', async () => {
+    const repository = makeRepository();
+    repository.listCategories = async () => [
+      {
+        id: 'platform-management',
+        tenantId: null,
+        scope: 'platform',
+        categoryKey: 'management',
+        isSystem: true,
+        name: '管理知识培训',
+        sortOrder: 10,
+      },
+      {
+        id: 'tenant-custom',
+        tenantId: 'tenant-a',
+        scope: 'tenant',
+        categoryKey: null,
+        isSystem: false,
+        name: '运营规范',
+        sortOrder: 60,
+      },
+      {
+        id: 'other-tenant-custom',
+        tenantId: 'tenant-b',
+        scope: 'tenant',
+        categoryKey: null,
+        isSystem: false,
+        name: '其他租户分类',
+        sortOrder: 60,
+      },
+    ];
+    const service = createEnterpriseStorageService(repository);
+    const access = {
+      userId: 'admin-1',
+      tenantId: 'tenant-a',
+      roleId: adminRole.id,
+      isAdmin: true,
+    };
+
+    await expect(service.listCategories(access)).resolves.toEqual([
+      expect.objectContaining({ id: 'platform-management', managementMode: 'read_only' }),
+      expect.objectContaining({ id: 'tenant-custom', managementMode: 'editable' }),
+    ]);
+    await expect(
+      service.createCourse(
+        { name: '平台分类下的企业课程', categoryId: 'platform-management' },
+        access,
+      ),
+    ).rejects.toMatchObject({ code: 'INVALID_REQUEST', message: 'Course category not found' });
+  });
+
   test('deletes invite codes and protects referenced or final admin roles', async () => {
     const service = createEnterpriseStorageService(makeRepository());
 

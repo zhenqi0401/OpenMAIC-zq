@@ -78,6 +78,13 @@
       "when": 1785891600000,
       "tag": "0010_learner_forum_catalog_refinement",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1785978000000,
+      "tag": "0011_platform_fixed_categories_shared",
+      "breakpoints": true
     }
   ]
 }

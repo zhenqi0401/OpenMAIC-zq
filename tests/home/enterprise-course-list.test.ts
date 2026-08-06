@@ -291,7 +291,7 @@ describe('learner home server course catalogue', () => {
         { scope: 'all', categoryKey: null, categoryId: null },
         { id: 'fixed:management', categoryKey: 'management' },
       ),
-    ).toEqual({ scope: 'all', categoryKey: 'management', categoryId: null });
+    ).toEqual({ scope: 'platform', categoryKey: 'management', categoryId: null });
     expect(
       changeHomeCourseScope(
         { scope: 'tenant', categoryKey: 'management', categoryId: null },

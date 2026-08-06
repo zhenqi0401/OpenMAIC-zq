@@ -36,8 +36,8 @@ const courses = [
     id: 'tenant-sales',
     name: 'ToB 销售实战',
     description: '客户沟通与商机推进',
-    categoryId: 'category-tenant-tob-sales',
-    categoryName: 'ToB销售培训',
+    categoryId: 'category-custom-sales',
+    categoryName: '销售实战专区',
     scope: 'tenant',
     learnerCount: 90,
     createdAt: '2026-08-01T00:00:00.000Z',
@@ -48,8 +48,8 @@ const courses = [
     id: 'tenant-management',
     name: '企业管理知识基础',
     description: '管理制度与团队协作',
-    categoryId: 'category-tenant-management',
-    categoryName: '管理知识培训',
+    categoryId: 'category-custom-management',
+    categoryName: '企业管理专区',
     scope: 'tenant',
     learnerCount: 90,
     createdAt: '2026-08-01T00:00:00.000Z',
@@ -88,49 +88,25 @@ const categories = [
     isSystem: true,
   },
   {
-    id: 'category-tenant-management',
-    name: '管理知识培训',
-    sortOrder: 10,
+    id: 'category-custom-sales',
+    name: '销售实战专区',
+    sortOrder: 60,
     scope: 'tenant',
-    categoryKey: 'management',
-    isSystem: true,
+    categoryKey: null,
+    isSystem: false,
   },
   {
-    id: 'category-professional',
-    name: '专业知识培训',
-    sortOrder: 20,
+    id: 'category-custom-management',
+    name: '企业管理专区',
+    sortOrder: 70,
     scope: 'tenant',
-    categoryKey: 'professional',
-    isSystem: true,
-  },
-  {
-    id: 'category-tenant-tob-sales',
-    name: 'ToB销售培训',
-    sortOrder: 30,
-    scope: 'tenant',
-    categoryKey: 'tob-sales',
-    isSystem: true,
-  },
-  {
-    id: 'category-toc-sales',
-    name: 'ToC销售培训',
-    sortOrder: 40,
-    scope: 'tenant',
-    categoryKey: 'toc-sales',
-    isSystem: true,
-  },
-  {
-    id: 'category-policy',
-    name: '公司制度培训',
-    sortOrder: 50,
-    scope: 'tenant',
-    categoryKey: 'company-policy',
-    isSystem: true,
+    categoryKey: null,
+    isSystem: false,
   },
   {
     id: 'category-custom-onboarding',
     name: '新人训练专区',
-    sortOrder: 60,
+    sortOrder: 80,
     scope: 'tenant',
     categoryKey: null,
     isSystem: false,
@@ -141,7 +117,7 @@ const examPolicy = {
   id: 'exam-sales',
   title: '门店安全与服务规范',
   targetRoleId: 'role-sales',
-  categoryIds: ['category-tenant-tob-sales'],
+  categoryIds: ['category-custom-sales'],
   courseIds: ['tenant-sales'],
   questionCount: 2,
   passThreshold: 80,
@@ -406,7 +382,7 @@ test('filters, searches, sorts, and isolates enterprise categories', async ({ pa
   await mockLearnerApis(page, { exams: [] });
   await page.goto('/learn?category=management');
 
-  await expect(page.getByRole('button', { name: /企业课程\s*2/ })).toHaveAttribute(
+  await expect(page.getByRole('button', { name: /精品课程\s*2/ })).toHaveAttribute(
     'aria-pressed',
     'true',
   );
@@ -414,20 +390,9 @@ test('filters, searches, sorts, and isolates enterprise categories', async ({ pa
     'aria-pressed',
     'true',
   );
-  await expect(page.getByText('企业管理知识基础')).toBeVisible();
-  await expect(page.getByText('精品管理领导力')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '新人训练专区' })).toBeVisible();
-
-  await page.getByRole('button', { name: /精品课程\s*2/ }).click();
-  await expect(page).toHaveURL(/\/learn\?category=management$/);
-  await expect(page.getByRole('button', { name: '管理知识培训' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await expect(page.getByRole('button', { name: '新人训练专区' })).toHaveCount(0);
   await expect(page.getByText('精品管理领导力')).toBeVisible();
-  await expect(page.getByText('精品服务沟通课')).toHaveCount(0);
   await expect(page.getByText('企业管理知识基础')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '新人训练专区' })).toBeVisible();
 
   await page.getByRole('button', { name: /全部课程\s*4/ }).click();
   await page.getByRole('button', { name: '全部分类' }).click();
@@ -451,8 +416,8 @@ test('filters, searches, sorts, and isolates enterprise categories', async ({ pa
   await page.getByRole('searchbox', { name: '搜索课程' }).fill('');
 
   await page.getByRole('button', { name: /企业课程\s*2/ }).click();
-  await page.getByRole('button', { name: 'ToB销售培训' }).click();
-  await expect(page).toHaveURL(/\/learn\?category=tob-sales$/);
+  await page.getByRole('button', { name: '销售实战专区' }).click();
+  await expect(page).toHaveURL(/\/learn$/);
   await expect(page.locator('[data-course-id]')).toHaveCount(1);
   await expect(page.getByText('ToB 销售实战')).toBeVisible();
 });
