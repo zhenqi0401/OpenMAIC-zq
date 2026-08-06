@@ -110,8 +110,8 @@ export interface OutlineAuditResult {
   verdict: 'pass' | 'changes_proposed';
   summary: string;
   findings: OutlineAuditFinding[];
-  providerId: 'deepseek';
-  modelId: 'deepseek-v4-flash';
+  providerId: 'doubao';
+  modelId: 'doubao-seed-evolving';
   completedAt: string;
 }
 

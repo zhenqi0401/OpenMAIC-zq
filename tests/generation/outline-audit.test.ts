@@ -477,8 +477,8 @@ describe('outline audit session state', () => {
     verdict: 'changes_proposed',
     summary: '两条建议',
     findings: [{ id: 'f1' } as OutlineAuditFinding, { id: 'f2' } as OutlineAuditFinding],
-    providerId: 'deepseek',
-    modelId: 'deepseek-v4-flash',
+    providerId: 'doubao',
+    modelId: 'doubao-seed-evolving',
     completedAt: '2026-07-31T00:00:00.000Z',
   };
 
