@@ -1,5 +1,9 @@
 -- Tenant-owned courses may use a platform fixed category.  The category remains
 -- platform-owned, while the course scope/tenant_id controls visibility.
+ALTER TABLE "course_categories" DROP CONSTRAINT IF EXISTS "course_categories_category_key_check";
+--> statement-breakpoint
+DROP INDEX IF EXISTS "course_categories_tenant_key_unique";
+--> statement-breakpoint
 CREATE OR REPLACE FUNCTION enforce_tenant_relationships() RETURNS trigger AS $$
 DECLARE expected_tenant uuid;
 DECLARE expected_scope varchar(16);
@@ -102,3 +106,7 @@ WHERE policy.category_ids IS NOT NULL;
 DELETE FROM course_categories
 WHERE scope = 'tenant'
   AND category_key IS NOT NULL;
+--> statement-breakpoint
+ALTER TABLE "course_categories"
+  ADD CONSTRAINT "course_categories_category_key_check"
+  CHECK (("scope" = 'platform' AND "category_key" IN ('management', 'professional', 'tob-sales', 'toc-sales', 'company-policy')) OR ("scope" = 'tenant' AND "category_key" IS NULL AND lower(btrim("name")) NOT IN ('管理知识培训', '专业知识培训', 'tob销售培训', 'toc销售培训', '公司制度培训')));

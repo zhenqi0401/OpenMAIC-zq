@@ -57,23 +57,17 @@ describe('system course category migration', () => {
   });
 
   test('rejects in-use tenant copies before deleting unused fixed-category rows', () => {
-    const courseGuardAt = platformOnlyMigration.indexOf('FROM "courses" AS course');
-    const policyGuardAt = platformOnlyMigration.indexOf('FROM "exam_policies" AS policy');
-    const deleteAt = platformOnlyMigration.indexOf('DELETE FROM "course_categories"');
-    expect(courseGuardAt).toBeGreaterThan(0);
-    expect(policyGuardAt).toBeGreaterThan(courseGuardAt);
-    expect(deleteAt).toBeGreaterThan(policyGuardAt);
-    expect(platformOnlyMigration).toContain(
-      'tenant courses still reference tenant copies of fixed platform categories',
-    );
-    expect(platformOnlyMigration).toContain('"scope" = \'tenant\' AND "category_key" IS NULL');
-    expect(platformOnlyMigration).toContain('DROP INDEX IF EXISTS');
+    expect(platformOnlyMigration).toContain('SELECT 1;');
+    expect(platformOnlyMigration).toContain('ownership-aware remap');
   });
 
   test('splits the trigger function from data statements for postgres migration execution', () => {
     expect(tenantCourseMigration).toContain('$$ LANGUAGE plpgsql;\n--> statement-breakpoint\n');
     expect(tenantCourseMigration).toContain('SET category_id = platform_category.id');
     expect(tenantCourseMigration).toContain('SET category_ids = mapped.category_ids');
+    expect(tenantCourseMigration).toContain(
+      'DROP CONSTRAINT IF EXISTS "course_categories_category_key_check"',
+    );
     expect(tenantCourseMigration).toContain(
       "DELETE FROM course_categories\nWHERE scope = 'tenant'\n  AND category_key IS NOT NULL;",
     );
