@@ -80,8 +80,7 @@ WHERE course.category_id = tenant_category.id
   AND tenant_category.category_key IS NOT NULL;
 --> statement-breakpoint
 UPDATE exam_policies AS policy
-SET category_ids = mapped.category_ids
-FROM LATERAL (
+SET category_ids = (
   SELECT COALESCE(
     jsonb_agg(
       CASE
@@ -100,7 +99,7 @@ FROM LATERAL (
   LEFT JOIN course_categories AS platform_category
     ON platform_category.scope = 'platform'
    AND platform_category.category_key = tenant_category.category_key
-) AS mapped
+)
 WHERE policy.category_ids IS NOT NULL;
 --> statement-breakpoint
 DELETE FROM course_categories

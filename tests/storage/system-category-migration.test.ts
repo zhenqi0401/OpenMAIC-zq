@@ -64,7 +64,8 @@ describe('system course category migration', () => {
   test('splits the trigger function from data statements for postgres migration execution', () => {
     expect(tenantCourseMigration).toContain('$$ LANGUAGE plpgsql;\n--> statement-breakpoint\n');
     expect(tenantCourseMigration).toContain('SET category_id = platform_category.id');
-    expect(tenantCourseMigration).toContain('SET category_ids = mapped.category_ids');
+    expect(tenantCourseMigration).toContain('SET category_ids = (');
+    expect(tenantCourseMigration).not.toContain('FROM LATERAL');
     expect(tenantCourseMigration).toContain(
       'DROP CONSTRAINT IF EXISTS "course_categories_category_key_check"',
     );
