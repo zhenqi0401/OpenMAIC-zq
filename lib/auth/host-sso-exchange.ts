@@ -1,10 +1,37 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { isIP } from 'node:net';
 import { eq, lte } from 'drizzle-orm';
 import { hostSsoLoginExchanges } from '@/lib/storage/schema';
 import { runDbTransaction } from '@/lib/storage/db';
 import type { SystemCourseCategoryKey } from '@/lib/courses/system-categories';
 
 const EXCHANGE_TTL_MS = 120_000;
+
+function isPrivateHttpHostname(hostname: string): boolean {
+  const normalized = hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  if (normalized === 'localhost' || normalized === 'localhost.') return true;
+
+  const ipVersion = isIP(normalized);
+  if (ipVersion === 4) {
+    const octets = normalized.split('.').map(Number);
+    return (
+      octets[0] === 10 ||
+      octets[0] === 127 ||
+      (octets[0] === 169 && octets[1] === 254) ||
+      (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
+      (octets[0] === 192 && octets[1] === 168)
+    );
+  }
+  if (ipVersion === 6) {
+    if (normalized === '::1') return true;
+    const firstHextet = Number.parseInt(normalized.split(':', 1)[0], 16);
+    return (
+      (firstHextet >= 0xfc00 && firstHextet <= 0xfdff) ||
+      (firstHextet >= 0xfe80 && firstHextet <= 0xfebf)
+    );
+  }
+  return false;
+}
 
 export class HostSsoExchangeReplayError extends Error {
   constructor() {
@@ -91,12 +118,14 @@ export async function redeemHostSsoLoginCode(
 }
 
 export function getConfiguredOpenMaicPublicUrl(): URL {
-  const configured = process.env.OPENMAIC_PUBLIC_URL;
-  if (!configured) throw new Error('OPENMAIC_PUBLIC_URL is required');
+  const configured = process.env.YUANWO_PUBLIC_URL;
+  if (!configured) throw new Error('YUANWO_PUBLIC_URL is required');
   const url = new URL(configured);
-  const validProtocol =
-    url.protocol === 'https:' ||
-    (process.env.NODE_ENV !== 'production' && url.protocol === 'http:');
+  const explicitlyAllowsPrivateHttp = process.env.YUANWO_ALLOW_INSECURE_HTTP === 'true';
+  const allowsHttp =
+    process.env.NODE_ENV !== 'production' ||
+    (explicitlyAllowsPrivateHttp && isPrivateHttpHostname(url.hostname));
+  const validProtocol = url.protocol === 'https:' || (url.protocol === 'http:' && allowsHttp);
   if (
     !validProtocol ||
     url.username ||
@@ -105,7 +134,9 @@ export function getConfiguredOpenMaicPublicUrl(): URL {
     url.hash ||
     url.pathname !== '/'
   ) {
-    throw new Error('OPENMAIC_PUBLIC_URL must be an HTTPS origin without a path');
+    throw new Error(
+      'YUANWO_PUBLIC_URL must be an HTTPS origin, or an explicitly allowed private HTTP origin, without a path',
+    );
   }
   return url;
 }

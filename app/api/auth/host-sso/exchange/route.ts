@@ -62,7 +62,7 @@ export async function POST(request: Request) {
   try {
     publicUrl = getConfiguredOpenMaicPublicUrl();
   } catch {
-    return apiError('INTERNAL_ERROR', 500, 'OPENMAIC_PUBLIC_URL is invalid');
+    return apiError('INTERNAL_ERROR', 500, 'YUANWO_PUBLIC_URL is invalid');
   }
 
   try {
