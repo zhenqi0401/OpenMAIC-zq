@@ -953,7 +953,11 @@ export function createEnterpriseStorageService(
       const category = (await repository.listCategories()).find(
         (candidate) => candidate.id === input.categoryId,
       );
-      if (!category || category.scope !== 'tenant' || category.tenantId !== access.tenantId) {
+      if (
+        !category ||
+        (category.scope !== 'platform' &&
+          (category.scope !== 'tenant' || category.tenantId !== access.tenantId))
+      ) {
         throw new EnterpriseStorageServiceError('INVALID_REQUEST', 'Course category not found');
       }
       return repository.createCourse({ ...input, tenantId: access.tenantId });
@@ -971,7 +975,9 @@ export function createEnterpriseStorageService(
       const categoryExists = (await repository.listCategories()).some(
         (category) =>
           category.id === input.categoryId &&
-          (!access || (category.scope === 'tenant' && category.tenantId === access.tenantId)),
+          (!access ||
+            category.scope === 'platform' ||
+            (category.scope === 'tenant' && category.tenantId === access.tenantId)),
       );
       if (!categoryExists) {
         throw new EnterpriseStorageServiceError('INVALID_REQUEST', 'Course category not found');
@@ -999,7 +1005,11 @@ export function createEnterpriseStorageService(
         const category = (await repository.listCategories()).find(
           (candidate) => candidate.id === patch.categoryId,
         );
-        if (!category || category.scope !== 'tenant' || category.tenantId !== access.tenantId) {
+        if (
+          !category ||
+          (category.scope !== 'platform' &&
+            (category.scope !== 'tenant' || category.tenantId !== access.tenantId))
+        ) {
           throw new EnterpriseStorageServiceError('INVALID_REQUEST', 'Course category not found');
         }
       }

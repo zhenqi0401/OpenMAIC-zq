@@ -678,11 +678,8 @@ describe('Slice-01 enterprise storage service', () => {
       expect.objectContaining({ id: 'tenant-custom', managementMode: 'editable' }),
     ]);
     await expect(
-      service.createCourse(
-        { name: '平台分类下的企业课程', categoryId: 'platform-management' },
-        access,
-      ),
-    ).rejects.toMatchObject({ code: 'INVALID_REQUEST', message: 'Course category not found' });
+      service.createCourse({ name: '租户管理课程', categoryId: 'platform-management' }, access),
+    ).resolves.toMatchObject({ name: '租户管理课程', categoryId: 'platform-management' });
   });
 
   test('deletes invite codes and protects referenced or final admin roles', async () => {

@@ -209,7 +209,9 @@ export function changeHomeCourseCategory(
   category: Pick<HomeCourseCategory, 'id' | 'categoryKey'> | null,
 ): HomeCourseSelection {
   return {
-    scope: category?.categoryKey ? 'platform' : category ? 'tenant' : selection.scope,
+    // A fixed platform category can contain both shared精品课程 and tenant-owned
+    // courses. The catalog API already limits tenant courses to the active tenant.
+    scope: category?.categoryKey ? 'all' : category ? 'tenant' : selection.scope,
     categoryKey: category?.categoryKey ?? null,
     categoryId: category && !category.categoryKey ? category.id : null,
   };

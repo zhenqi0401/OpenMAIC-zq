@@ -202,7 +202,7 @@ function UserFacts({ user }: { user: AdminUser }) {
         <dd className="mt-1 text-[var(--admin-muted-foreground)]">{user.phone ?? '-'}</dd>
       </div>
       <div>
-        <dt className="text-xs text-[var(--admin-muted-foreground)]">外部用户 ID</dt>
+        <dt className="text-xs text-[var(--admin-muted-foreground)]">元我智脑 ID</dt>
         <dd className="mt-1 break-all text-[var(--admin-muted-foreground)]">
           {user.hostUserId ?? '-'}
         </dd>
@@ -359,7 +359,7 @@ export function AccessUsersTab({
               <tr>
                 <th className="pb-2 pr-3">用户</th>
                 <th className="pb-2 pr-3">手机号</th>
-                <th className="pb-2 pr-3">外部用户 ID</th>
+                <th className="pb-2 pr-3">元我智脑 ID</th>
                 <th className="pb-2 pr-3">当前角色</th>
                 <th className="pb-2 pr-3">账号状态</th>
                 <th className="pb-2 text-right">操作</th>
