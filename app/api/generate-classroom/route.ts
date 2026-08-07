@@ -5,13 +5,12 @@ import { type GenerateClassroomInput } from '@/lib/server/classroom-generation';
 import { runClassroomGenerationJob } from '@/lib/server/classroom-job-runner';
 import { createClassroomGenerationJob } from '@/lib/server/classroom-job-store';
 import { buildRequestOrigin } from '@/lib/server/classroom-storage';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('GenerateClassroom API');
+import { withApiErrorLogging } from '@/lib/server/api-wrapper';
+import { getRequestLogger } from '@/lib/server/logger';
 
 export const maxDuration = 30;
 
-export async function POST(req: NextRequest) {
+async function generateClassroom(req: NextRequest) {
   let requirementSnippet: string | undefined;
   try {
     const rawBody = (await req.json()) as Partial<GenerateClassroomInput>;
@@ -58,10 +57,14 @@ export async function POST(req: NextRequest) {
       202,
     );
   } catch (error) {
-    log.error(
-      `Classroom generation job creation failed [requirement="${requirementSnippet ?? 'unknown'}..."]:`,
-      error,
-    );
+    getRequestLogger().error({
+      event: 'job_failed',
+      tag: 'generation',
+      operation: 'create_classroom_generation_job',
+      stage: 'persist_job',
+      requirementLength: requirementSnippet?.length,
+      err: error,
+    }, 'Classroom generation job creation failed');
     return apiError(
       'INTERNAL_ERROR',
       500,
@@ -70,3 +73,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withApiErrorLogging(generateClassroom);

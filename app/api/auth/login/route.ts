@@ -3,6 +3,9 @@ import { getAuthRepository } from '@/lib/auth/repository';
 import { createAuthService } from '@/lib/auth/service';
 import { readJsonBody, authErrorResponse } from '@/lib/auth/route-utils';
 import { setSessionCookie } from '@/lib/auth/session-cookie';
+import { withApiErrorLogging } from '@/lib/server/api-wrapper';
+import { getRequestLogger } from '@/lib/server/logger';
+import type { NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +14,7 @@ interface LoginBody {
   password?: string;
 }
 
-export async function POST(request: Request) {
+async function login(request: NextRequest) {
   const body = await readJsonBody<LoginBody>(request);
   if (!body) return apiError('INVALID_REQUEST', 400, 'Invalid JSON body');
   if (!body.phone || !body.password) {
@@ -32,6 +35,9 @@ export async function POST(request: Request) {
       identity: result.identity,
     });
   } catch (error) {
+    getRequestLogger().warn({ event: 'auth_failed', tag: 'auth', operation: 'password_login', err: error, phone: body.phone }, 'Password login failed');
     return authErrorResponse(error);
   }
 }
+
+export const POST = withApiErrorLogging(login);

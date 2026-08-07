@@ -25,6 +25,7 @@ export interface ApiErrorBody {
   errorCode: ApiErrorCode;
   error: string;
   details?: string;
+  requestId?: string;
 }
 
 export function apiError(
@@ -32,6 +33,7 @@ export function apiError(
   status: number,
   error: string,
   details?: string,
+  requestId?: string,
 ): NextResponse<ApiErrorBody> {
   return NextResponse.json(
     {
@@ -39,6 +41,7 @@ export function apiError(
       errorCode: code,
       error,
       ...(details ? { details } : {}),
+      ...(requestId ? { requestId } : {}),
     },
     { status },
   );

@@ -215,6 +215,9 @@ importers:
       partial-json:
         specifier: ^0.1.7
         version: 0.1.7
+      pino:
+        specifier: ^9.14.0
+        version: 9.14.0
       postgres:
         specifier: ^3.4.9
         version: 3.4.9
