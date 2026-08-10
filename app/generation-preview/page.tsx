@@ -45,6 +45,8 @@ import {
 import type {
   OutlineAuditErrorCode,
   OutlineAuditResult,
+  OutlineAuditFailurePhase,
+  OutlineAuditFailureReason,
 } from '@/lib/generation/outline-audit-types';
 import { FOREGROUND_SCENE_RETRY_OPTIONS } from './foreground-retry';
 import {
@@ -260,7 +262,11 @@ function GenerationPreviewContent() {
     return thinkingConfig ? { ...body, thinkingConfig } : body;
   };
 
-  const outlineAuditErrorMessage = (code: OutlineAuditErrorCode, fallback?: string) => {
+  const outlineAuditErrorMessage = (
+    code: OutlineAuditErrorCode,
+    fallback?: string,
+    reasonCode?: OutlineAuditFailureReason,
+  ) => {
     switch (code) {
       case 'configuration_missing':
       case 'provider_mismatch':
@@ -271,6 +277,14 @@ function GenerationPreviewContent() {
       case 'timeout':
         return t('generation.outlineAuditErrorTimeout');
       case 'invalid_response':
+        if (reasonCode === 'json_unparseable' || reasonCode === 'response_schema_invalid') {
+          return t('generation.outlineAuditErrorStructure');
+        }
+        if (reasonCode === 'source_reference_invalid' || reasonCode === 'operation_not_allowed' || reasonCode === 'operation_conflict' || reasonCode === 'outline_invariant_failed') {
+          return t('generation.outlineAuditErrorSafety');
+        }
+        if (reasonCode === 'revision_mismatch') return t('generation.outlineAuditErrorRevision');
+        if (reasonCode === 'patch_validation_failed') return t('generation.outlineAuditPatchFailed');
         return t('generation.outlineAuditErrorInvalidResponse');
       case 'cancelled':
         return t('generation.outlineAuditErrorCancelled');
@@ -347,6 +361,9 @@ function GenerationPreviewContent() {
               code: OutlineAuditErrorCode;
               message: string;
               retryable: boolean;
+              auditId?: string;
+              phase?: OutlineAuditFailurePhase;
+              reasonCode?: OutlineAuditFailureReason;
             };
           }
         | null;
@@ -358,15 +375,18 @@ function GenerationPreviewContent() {
           ...runningSession,
           outlineAudit: failOutlineAudit(outlineRevision, {
             code,
-            message: outlineAuditErrorMessage(code, serverError?.message),
+            message: outlineAuditErrorMessage(code, serverError?.message, serverError?.reasonCode),
             retryable: serverError?.retryable ?? true,
+            auditId: serverError?.auditId,
+            phase: serverError?.phase,
+            reasonCode: serverError?.reasonCode,
           }),
         };
         persistSession(failedSession);
         return failedSession;
       }
       if (data.result.baseRevision !== outlineRevision) {
-        throw new OutlineAuditValidationError('Audit response revision mismatch');
+        throw new OutlineAuditValidationError('Audit response revision mismatch', 'client_revision', 'revision_mismatch');
       }
       const completedSession: GenerationSessionState = {
         ...runningSession,
@@ -388,8 +408,14 @@ function GenerationPreviewContent() {
         ...runningSession,
         outlineAudit: failOutlineAudit(outlineRevision, {
           code,
-          message: outlineAuditErrorMessage(code),
+          message: outlineAuditErrorMessage(
+            code,
+            undefined,
+            auditError instanceof OutlineAuditValidationError ? auditError.reasonCode : undefined,
+          ),
           retryable: true,
+          phase: auditError instanceof OutlineAuditValidationError ? auditError.phase : undefined,
+          reasonCode: auditError instanceof OutlineAuditValidationError ? auditError.reasonCode : undefined,
         }),
       };
       persistSession(failedSession);
@@ -423,7 +449,7 @@ function GenerationPreviewContent() {
 
   // Resume only audits that never reached a durable browser-session result.
   // Failed/stale audits wait for an explicit user retry; completed matching
-  // audits restore without another DeepSeek call.
+  // audits restore without another Doubao Seed Evolving call.
   useEffect(() => {
     if (!sessionLoaded || !session?.sceneOutlines?.length) return;
     if (
@@ -1393,6 +1419,8 @@ function GenerationPreviewContent() {
           code: 'invalid_response',
           message: t('generation.outlineAuditPatchFailed'),
           retryable: true,
+          phase: 'client_apply',
+          reasonCode: 'patch_validation_failed',
         }),
       });
     }

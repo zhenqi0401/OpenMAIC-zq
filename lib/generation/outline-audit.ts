@@ -15,6 +15,8 @@ import type {
   OutlineAuditRequest,
   OutlineAuditSceneDraft,
   OutlineAuditTypeConfig,
+  OutlineAuditFailurePhase,
+  OutlineAuditFailureReason,
 } from '@/lib/generation/outline-audit-types';
 import type { SceneOutline, SourceEvidence } from '@/lib/types/generation';
 import type { WidgetType } from '@/lib/types/widgets';
@@ -59,14 +61,40 @@ export interface OutlineAuditValidationContext {
 }
 
 export class OutlineAuditValidationError extends Error {
-  constructor(message: string) {
+  readonly phase: OutlineAuditFailurePhase;
+  readonly reasonCode: OutlineAuditFailureReason;
+
+  constructor(
+    message: string,
+    phase: OutlineAuditFailurePhase = 'semantic',
+    reasonCode: OutlineAuditFailureReason = 'response_schema_invalid',
+  ) {
     super(message);
     this.name = 'OutlineAuditValidationError';
+    this.phase = phase;
+    this.reasonCode = reasonCode;
   }
 }
 
 function fail(message: string): never {
-  throw new OutlineAuditValidationError(message);
+  const lower = message.toLowerCase();
+  const phase: OutlineAuditFailurePhase = lower.includes('patch') || lower.includes('audit cannot')
+    ? 'preflight'
+    : lower.includes('source') || lower.includes('evidence')
+      ? 'semantic'
+      : lower.includes('operation') || lower.includes('finding')
+        ? 'schema'
+        : 'semantic';
+  const reasonCode: OutlineAuditFailureReason = lower.includes('source') || lower.includes('evidence')
+    ? 'source_reference_invalid'
+    : lower.includes('conflict') || lower.includes('same scene')
+      ? 'operation_conflict'
+      : lower.includes('cannot') || lower.includes('protected') || lower.includes('not allowed') || lower.includes('not editable')
+        ? 'operation_not_allowed'
+        : lower.includes('patch') || lower.includes('invariant') || lower.includes('last')
+          ? 'outline_invariant_failed'
+          : 'response_schema_invalid';
+  throw new OutlineAuditValidationError(message, phase, reasonCode);
 }
 
 function asRecord(value: unknown, label: string): Record<string, unknown> {

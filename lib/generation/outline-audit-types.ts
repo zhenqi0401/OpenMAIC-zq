@@ -140,6 +140,24 @@ export type OutlineAuditErrorCode =
   | 'cancelled'
   | 'invalid_request';
 
+export type OutlineAuditFailurePhase =
+  | 'parse'
+  | 'schema'
+  | 'semantic'
+  | 'preflight'
+  | 'client_revision'
+  | 'client_apply';
+
+export type OutlineAuditFailureReason =
+  | 'json_unparseable'
+  | 'response_schema_invalid'
+  | 'source_reference_invalid'
+  | 'operation_not_allowed'
+  | 'operation_conflict'
+  | 'outline_invariant_failed'
+  | 'revision_mismatch'
+  | 'patch_validation_failed';
+
 export interface OutlineAuditSessionState {
   status: OutlineAuditStatus;
   baseRevision: number;
@@ -150,6 +168,9 @@ export interface OutlineAuditSessionState {
     code: OutlineAuditErrorCode;
     message: string;
     retryable: boolean;
+    auditId?: string;
+    phase?: OutlineAuditFailurePhase;
+    reasonCode?: OutlineAuditFailureReason;
   };
   startedAt?: string;
   completedAt?: string;

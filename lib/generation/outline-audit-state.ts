@@ -1,5 +1,4 @@
 import type {
-  OutlineAuditErrorCode,
   OutlineAuditResult,
   OutlineAuditSessionState,
 } from '@/lib/generation/outline-audit-types';
@@ -39,7 +38,7 @@ export function completeOutlineAudit(result: OutlineAuditResult): OutlineAuditSe
 
 export function failOutlineAudit(
   revision: number,
-  error: { code: OutlineAuditErrorCode; message: string; retryable: boolean },
+  error: NonNullable<OutlineAuditSessionState['error']>,
 ): OutlineAuditSessionState {
   return {
     status: 'failed',

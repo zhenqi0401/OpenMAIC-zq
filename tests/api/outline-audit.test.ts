@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   resolveModel: vi.fn(),
   getStageRoute: vi.fn(),
   resolveVocationalActive: vi.fn(),
+  logInfo: vi.fn(),
+  logWarn: vi.fn(),
 }));
 
 vi.mock('@/lib/ai/llm', () => ({ callLLM: mocks.callLLM }));
@@ -13,6 +15,9 @@ vi.mock('@/lib/server/resolve-model', () => ({ resolveModel: mocks.resolveModel 
 vi.mock('@/lib/server/model-routes', () => ({ getStageRoute: mocks.getStageRoute }));
 vi.mock('@/lib/config/feature-flags', () => ({
   resolveVocationalActive: mocks.resolveVocationalActive,
+}));
+vi.mock('@/lib/logger', () => ({
+  createLogger: () => ({ info: mocks.logInfo, warn: mocks.logWarn }),
 }));
 
 import { POST } from '@/app/api/generate/outline-audit/route';
@@ -126,17 +131,37 @@ describe('POST /api/generate/outline-audit', () => {
     expect(mocks.callLLM).not.toHaveBeenCalled();
   });
 
-  it('performs at most one internal format retry and then fails closed', async () => {
+  it('performs at most one internal contract repair and then fails closed with diagnostics', async () => {
     mocks.callLLM
       .mockResolvedValueOnce({ text: 'not json' })
       .mockResolvedValueOnce({ text: 'still no' });
     const response = await POST(request());
     expect(response.status).toBe(502);
-    expect(await response.json()).toMatchObject({ auditError: { code: 'invalid_response' } });
+    expect(await response.json()).toMatchObject({
+      auditError: {
+        code: 'invalid_response',
+        auditId: expect.stringMatching(/^oa_/),
+        phase: 'parse',
+        reasonCode: 'json_unparseable',
+      },
+    });
+    expect(mocks.callLLM).toHaveBeenCalledTimes(2);
+    expect(mocks.callLLM.mock.calls[1][0].prompt).toContain(
+      'CONTRACT REPAIR: The previous attempt failed the parse contract (json_unparseable)',
+    );
+  });
+
+  it('repairs a parseable schema violation once and accepts a valid regenerated result', async () => {
+    mocks.callLLM
+      .mockResolvedValueOnce({ text: JSON.stringify({ verdict: 'pass', summary: '', findings: [] }) })
+      .mockResolvedValueOnce({ text: PASS });
+    const response = await POST(request());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ result: { verdict: 'pass' } });
     expect(mocks.callLLM).toHaveBeenCalledTimes(2);
   });
 
-  it('rejects a parseable unsafe patch without retrying through another model', async () => {
+  it('retries a parseable unsafe patch once and still fails closed', async () => {
     mocks.callLLM.mockResolvedValue({
       text: JSON.stringify({
         verdict: 'changes_proposed',
@@ -158,8 +183,19 @@ describe('POST /api/generate/outline-audit', () => {
     });
     const response = await POST(request());
     expect(response.status).toBe(502);
-    expect(await response.json()).toMatchObject({ auditError: { code: 'invalid_response' } });
-    expect(mocks.callLLM).toHaveBeenCalledTimes(1);
+    expect(await response.json()).toMatchObject({
+      auditError: {
+        code: 'invalid_response',
+        auditId: expect.stringMatching(/^oa_/),
+        phase: 'schema',
+        reasonCode: 'operation_not_allowed',
+      },
+    });
+    expect(mocks.callLLM).toHaveBeenCalledTimes(2);
+    const warning = mocks.logWarn.mock.calls.at(-1)?.[1];
+    expect(warning).toMatchObject({ phase: 'schema', reasonCode: 'operation_not_allowed' });
+    expect(JSON.stringify(warning)).not.toContain('Attempt to edit a protected field');
+    expect(JSON.stringify(warning)).not.toContain('Core concept');
   });
 
   it('maps rate limits and skips excluded generation modes', async () => {

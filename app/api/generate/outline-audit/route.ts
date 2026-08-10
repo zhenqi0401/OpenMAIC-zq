@@ -12,6 +12,8 @@ import type {
   OutlineAuditErrorCode,
   OutlineAuditRequest,
   OutlineAuditResult,
+  OutlineAuditFailurePhase,
+  OutlineAuditFailureReason,
 } from '@/lib/generation/outline-audit-types';
 import { parseJsonResponse } from '@/lib/generation/json-repair';
 import { isTrainingCourseType } from '@/lib/generation/input-fidelity';
@@ -31,9 +33,10 @@ function auditError(
   status: number,
   message: string,
   retryable: boolean,
+  meta?: { auditId?: string; phase?: OutlineAuditFailurePhase; reasonCode?: OutlineAuditFailureReason },
 ) {
   return NextResponse.json(
-    { success: false as const, auditError: { code, message, retryable } },
+    { success: false as const, auditError: { code, message, retryable, ...meta } },
     { status },
   );
 }
@@ -97,10 +100,10 @@ async function runReviewerCall(input: {
   model: Awaited<ReturnType<typeof resolveModel>>;
   prompts: { system: string; prompt: string };
   signal: AbortSignal;
-  formatRetry: boolean;
+  repair?: { phase: OutlineAuditFailurePhase; reasonCode: OutlineAuditFailureReason };
 }) {
-  const prompt = input.formatRetry
-    ? `${input.prompts.prompt}\n\nYour prior answer was not parseable as JSON. Return only one valid JSON object matching the exact schema. Do not add commentary or Markdown.`
+  const prompt = input.repair
+    ? `${input.prompts.prompt}\n\nCONTRACT REPAIR: The previous attempt failed the ${input.repair.phase} contract (${input.repair.reasonCode}). Regenerate the complete audit response from the input and exact schema. Return only one valid JSON object; do not mention this repair or add Markdown.`
     : input.prompts.prompt;
   return (
     await callLLM(
@@ -133,6 +136,9 @@ export async function POST(req: NextRequest) {
   const startedAt = Date.now();
   const auditId = `oa_${nanoid(16)}`;
   let inputLength = 0;
+  let responseLength = 0;
+  let attemptCount = 0;
+  let sceneCount = 0;
   let resolvedModel: Awaited<ReturnType<typeof resolveModel>> | undefined;
   let signalHandle: ReturnType<typeof createAuditSignal> | undefined;
   try {
@@ -204,35 +210,40 @@ export async function POST(req: NextRequest) {
         : {}),
     });
     const prompts = buildOutlineAuditPrompts(body, trustedSources);
+    sceneCount = body.outlines.length;
     inputLength = prompts.system.length + prompts.prompt.length;
     signalHandle = createAuditSignal(req.signal);
 
+    attemptCount = 1;
     let raw = await runReviewerCall({
       model: resolvedModel,
       prompts,
       signal: signalHandle.signal,
-      formatRetry: false,
     });
+    responseLength += raw.length;
     let parsed = parseJsonResponse<unknown>(raw, { suppressLogs: true });
-    if (!looksLikeAuditEnvelope(parsed)) {
-      raw = await runReviewerCall({
-        model: resolvedModel,
-        prompts,
-        signal: signalHandle.signal,
-        formatRetry: true,
-      });
-      parsed = parseJsonResponse<unknown>(raw, { suppressLogs: true });
+    let normalized;
+    let repair: { phase: OutlineAuditFailurePhase; reasonCode: OutlineAuditFailureReason } | undefined;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        if (!looksLikeAuditEnvelope(parsed)) {
+          throw new OutlineAuditValidationError('invalid audit envelope', 'parse', 'json_unparseable');
+        }
+        normalized = normalizeOutlineAuditModelOutput(parsed, body.outlines, {
+          requirements: body.requirements,
+          trustedSources,
+        });
+        break;
+      } catch (error) {
+        if (!(error instanceof OutlineAuditValidationError) || attempt === 2) throw error;
+        repair = { phase: error.phase, reasonCode: error.reasonCode };
+        attemptCount = 2;
+        raw = await runReviewerCall({ model: resolvedModel, prompts, signal: signalHandle.signal, repair });
+        responseLength += raw.length;
+        parsed = parseJsonResponse<unknown>(raw, { suppressLogs: true });
+      }
     }
-    if (!looksLikeAuditEnvelope(parsed)) {
-      throw new OutlineAuditValidationError(
-        'Doubao Seed Evolving returned invalid structured JSON twice',
-      );
-    }
-
-    const normalized = normalizeOutlineAuditModelOutput(parsed, body.outlines, {
-      requirements: body.requirements,
-      trustedSources,
-    });
+    if (!normalized) throw new OutlineAuditValidationError('audit normalization failed');
     const completedAt = new Date().toISOString();
     const result: OutlineAuditResult = {
       auditId,
@@ -248,6 +259,9 @@ export async function POST(req: NextRequest) {
       auditId,
       model: resolvedModel.modelString,
       inputLength,
+      responseLength,
+      attempt: attemptCount,
+      sceneCount,
       findingCount: result.findings.length,
       durationMs: Date.now() - startedAt,
       status: result.verdict,
@@ -270,7 +284,7 @@ export async function POST(req: NextRequest) {
     } else if (error instanceof OutlineAuditValidationError) {
       code = 'invalid_response';
       httpStatus = 502;
-      message = 'Doubao Seed Evolving returned an unsafe or invalid audit result. Please retry.';
+      message = 'Audit result failed the safety contract. No changes were applied; please retry or skip manually.';
     } else if (status === 429) {
       code = 'rate_limited';
       httpStatus = 429;
@@ -283,11 +297,21 @@ export async function POST(req: NextRequest) {
       auditId,
       model: resolvedModel?.modelString,
       inputLength,
+      responseLength,
+      attempt: attemptCount,
+      sceneCount,
       findingCount: 0,
       durationMs: Date.now() - startedAt,
       status: code,
+      phase: error instanceof OutlineAuditValidationError ? error.phase : undefined,
+      reasonCode: error instanceof OutlineAuditValidationError ? error.reasonCode : undefined,
     });
-    return auditError(code, httpStatus, message, retryable);
+    return auditError(code, httpStatus, message, retryable, {
+      auditId,
+      ...(error instanceof OutlineAuditValidationError
+        ? { phase: error.phase, reasonCode: error.reasonCode }
+        : {}),
+    });
   } finally {
     signalHandle?.dispose();
   }

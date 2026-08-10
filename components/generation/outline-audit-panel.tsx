@@ -213,7 +213,7 @@ export function OutlineAuditPanel({
         <div className="min-w-0 flex-1">
           <h3 className="font-semibold tracking-tight">{t('generation.outlineAuditTitle')}</h3>
           <p className="text-xs text-muted-foreground">
-            DeepSeek · {t('generation.outlineAuditRevision', { revision: outlineRevision })}
+            Doubao Seed Evolving · {t('generation.outlineAuditRevision', { revision: outlineRevision })}
           </p>
         </div>
       </div>
@@ -322,6 +322,9 @@ export function OutlineAuditPanel({
                 ? (audit?.error?.message ?? t('generation.outlineAuditFailedDesc'))
                 : t('generation.outlineAuditStaleDesc')}
             </p>
+            {audit?.error?.auditId && (
+              <p className="mt-1 text-[11px] font-mono text-muted-foreground">ID: {audit.error.auditId}</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <Button type="button" variant="outline" onClick={onRetry}>
