@@ -33,7 +33,7 @@ function UserIdentity({ displayName }: { displayName: string }) {
   return (
     <div className="mr-1 flex min-w-0 items-center gap-2.5">
       <span
-        className="grid size-9 shrink-0 place-items-center rounded-full border border-violet-200 bg-violet-100 text-base font-semibold text-violet-700 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-200"
+        className="grid size-9 shrink-0 place-items-center rounded-full border border-primary/20 bg-primary/10 text-base font-semibold text-primary dark:border-primary/30 dark:bg-primary/20 dark:text-primary"
         aria-hidden="true"
       >
         {getDisplayNameInitial(displayName)}
@@ -67,7 +67,7 @@ function ThemeMenu() {
             onSelect={() => setTheme(value)}
             className={cn(
               'min-h-11 gap-2',
-              theme === value && 'text-violet-600 dark:text-violet-300',
+              theme === value && 'text-primary dark:text-primary/80',
             )}
           >
             <OptionIcon className="size-4" />
@@ -100,7 +100,7 @@ function MobileAccountMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={8} className="w-56">
         <div className="flex items-center gap-2.5 px-2 py-2">
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-violet-100 font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-200">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 font-semibold text-primary dark:bg-primary/20 dark:text-primary">
             {getDisplayNameInitial(displayName)}
           </span>
           <div className="min-w-0">
@@ -172,16 +172,16 @@ export function LearnerHeader({
   const homeHref = identity.isAdmin ? '/learn' : '/';
   const forumEnabled = isForumEnabled();
   const linkClass =
-    'relative inline-flex min-h-11 items-center px-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500 sm:px-4 sm:text-base';
+    'relative inline-flex min-h-11 items-center px-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:px-4 sm:text-base';
   const currentClass =
-    'text-slate-950 after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-gradient-to-r after:from-blue-600 after:to-violet-600 dark:text-white sm:after:inset-x-4';
+    'text-slate-950 after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-gradient-to-r after:from-primary after:to-primary/60 dark:text-white sm:after:inset-x-4';
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-[#171a22]/95">
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-card-solid/95">
       <div className="mx-auto flex min-h-16 w-[min(1600px,calc(100%-1rem))] items-center gap-0.5 sm:w-[min(1600px,calc(100%-2rem))] sm:gap-3">
         <Link
           href={homeHref}
-          className="shrink-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#171a22]"
+          className="shrink-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-card-solid"
           aria-label="元我智脑学习首页"
         >
           <BrandLockup variant="compact" priority />
@@ -195,7 +195,7 @@ export function LearnerHeader({
               linkClass,
               current === 'home'
                 ? currentClass
-                : 'text-slate-600 hover:text-violet-700 dark:text-slate-300 dark:hover:text-violet-300',
+                : 'text-slate-600 hover:text-primary dark:text-slate-300 dark:hover:text-primary/80',
             )}
           >
             首页
@@ -208,7 +208,7 @@ export function LearnerHeader({
                 linkClass,
                 current === 'forum'
                   ? currentClass
-                  : 'text-slate-600 hover:text-violet-700 dark:text-slate-300 dark:hover:text-violet-300',
+                  : 'text-slate-600 hover:text-primary dark:text-slate-300 dark:hover:text-primary/80',
               )}
             >
               <span className="sm:hidden">交流</span>

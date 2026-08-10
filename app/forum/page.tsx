@@ -6,7 +6,7 @@ import { isForumEnabled } from '@/lib/config/feature-flags';
 export default function ForumPage() {
   if (!isForumEnabled()) notFound();
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#f4f5f7] dark:bg-[#12141a]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-page dark:bg-page" />}>
       <ForumListPage />
     </Suspense>
   );

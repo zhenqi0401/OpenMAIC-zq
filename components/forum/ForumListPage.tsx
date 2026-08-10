@@ -79,7 +79,7 @@ function ForumTopic({ post, mobile = false }: { post: ForumClientPost; mobile?: 
       </div>
       <h3
         className={cn(
-          'font-semibold group-hover:text-violet-700 dark:group-hover:text-violet-300',
+          'font-semibold group-hover:text-primary dark:group-hover:text-primary/80',
           mobile ? 'line-clamp-2 text-lg' : 'truncate text-lg',
         )}
       >
@@ -100,7 +100,7 @@ function ForumTopic({ post, mobile = false }: { post: ForumClientPost; mobile?: 
 function ForumAuthorCell({ post }: { post: ForumClientPost }) {
   return (
     <span className="flex min-w-0 items-center gap-2.5">
-      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-violet-100 font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-200">
+      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 font-semibold text-primary dark:bg-primary/20 dark:text-primary">
         {getDisplayNameInitial(post.author.displayName)}
       </span>
       <span className="min-w-0">
@@ -217,9 +217,9 @@ export function ForumListPage() {
   return (
     <ForumFrame>
       <main className="mx-auto w-[min(1600px,calc(100%-1.25rem))] py-7 sm:w-[min(1600px,calc(100%-2rem))] md:py-10">
-        <section className="flex flex-col gap-5 border-b border-[#d9dce3] pb-8 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
+        <section className="flex flex-col gap-5 border-b border-slate-200 pb-8 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="mb-2 font-mono text-[11px] font-semibold text-violet-600 dark:text-violet-300">
+            <p className="mb-2 font-mono text-[11px] font-semibold text-primary dark:text-primary/80">
               COMMUNITY
             </p>
             <h1 className="text-3xl font-semibold sm:text-4xl">学习交流区</h1>
@@ -229,7 +229,7 @@ export function ForumListPage() {
           </div>
           <Button
             onClick={() => setComposing((value) => !value)}
-            className="bg-violet-600 text-white hover:bg-violet-700"
+            className="bg-primary text-white hover:bg-primary"
           >
             <PenLine className="size-4" />
             {composing ? '收起发帖' : '发布讨论'}
@@ -239,7 +239,7 @@ export function ForumListPage() {
         {composing && (
           <form
             onSubmit={submitPost}
-            className="mt-7 rounded-xl border border-violet-200 bg-white p-5 shadow-sm dark:border-violet-900 dark:bg-[#1a1d25] sm:p-6"
+            className="mt-7 rounded-xl border border-primary/20 bg-white p-5 shadow-sm dark:border-primary/30 dark:bg-card-solid sm:p-6"
           >
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap gap-2" role="group" aria-label="帖子类型">
@@ -252,7 +252,7 @@ export function ForumListPage() {
                     className={cn(
                       'rounded-full border px-3 py-1.5 text-xs transition-colors',
                       scope === value
-                        ? 'border-violet-500 bg-violet-50 text-violet-700 dark:bg-violet-950/50 dark:text-violet-200'
+                        ? 'border-primary bg-primary/5 text-primary dark:bg-primary/30 dark:text-primary'
                         : 'border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300',
                     )}
                   >
@@ -267,7 +267,7 @@ export function ForumListPage() {
                     value={draftCourseId}
                     required
                     onChange={(event) => setDraftCourseId(event.target.value)}
-                    className="h-10 rounded-md border border-[#d9dce3] bg-white px-3 text-sm dark:border-slate-700 dark:bg-[#12141a]"
+                    className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-page"
                   >
                     <option value="">请选择当前可见课程</option>
                     {courses.map((course) => (
@@ -320,7 +320,7 @@ export function ForumListPage() {
         )}
 
         <div className="mt-7">
-          <aside className="flex flex-col gap-3 border-b border-[#d9dce3] pb-5 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
+          <aside className="flex flex-col gap-3 border-b border-slate-200 pb-5 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
             <nav className="flex flex-wrap gap-2" aria-label="讨论分类">
               {VIEWS.map((item) => (
                 <button
@@ -336,7 +336,7 @@ export function ForumListPage() {
                   className={cn(
                     'min-h-11 rounded-lg px-4 py-2.5 text-left text-base transition-colors',
                     view === item.value
-                      ? 'bg-violet-100 font-semibold text-violet-800 dark:bg-violet-950/60 dark:text-violet-200'
+                      ? 'bg-primary/10 font-semibold text-primary dark:bg-primary/30 dark:text-primary'
                       : 'text-slate-600 hover:bg-white dark:text-slate-300 dark:hover:bg-slate-800',
                   )}
                 >
@@ -352,7 +352,7 @@ export function ForumListPage() {
                   onChange={(event) =>
                     setQuery({ courseId: event.target.value || null, page: null })
                   }
-                  className="h-11 min-w-0 rounded-md border border-[#d9dce3] bg-white px-3 text-base text-slate-800 dark:border-slate-700 dark:bg-[#1a1d25] dark:text-slate-100"
+                  className="h-11 min-w-0 rounded-md border border-slate-200 bg-white px-3 text-base text-slate-800 dark:border-slate-700 dark:bg-card-solid dark:text-slate-100"
                 >
                   <option value="">全部课程</option>
                   {courses.map((course) => (
@@ -378,7 +378,7 @@ export function ForumListPage() {
                 )}
               </div>
               <div
-                className="inline-flex rounded-md border border-[#d9dce3] bg-white p-0.5 dark:border-slate-700 dark:bg-[#1a1d25]"
+                className="inline-flex rounded-md border border-slate-200 bg-white p-0.5 dark:border-slate-700 dark:bg-card-solid"
                 role="group"
                 aria-label="帖子排序"
               >
@@ -398,7 +398,7 @@ export function ForumListPage() {
                     className={cn(
                       'min-h-9 rounded px-4 py-1.5 text-sm',
                       sort === value
-                        ? 'bg-violet-100 font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-200'
+                        ? 'bg-primary/10 font-semibold text-primary dark:bg-primary/20 dark:text-primary'
                         : 'text-slate-500',
                     )}
                   >
@@ -429,20 +429,20 @@ export function ForumListPage() {
                 ))}
               </div>
             ) : posts.length ? (
-              <div className="overflow-hidden rounded-xl border border-[#d9dce3] bg-white dark:border-slate-800 dark:bg-[#1a1d25]">
-                <div className="hidden grid-cols-[minmax(260px,1fr)_180px_88px_88px_160px] items-center gap-4 border-b border-[#d9dce3] bg-slate-50 px-5 py-3 text-sm font-medium text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 lg:grid">
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-card-solid">
+                <div className="hidden grid-cols-[minmax(260px,1fr)_180px_88px_88px_160px] items-center gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-sm font-medium text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 lg:grid">
                   <span>话题</span>
                   <span>用户</span>
                   <span className="text-center">回复</span>
                   <span className="text-center">浏览量</span>
                   <span>发布时间</span>
                 </div>
-                <div className="divide-y divide-[#e1e3e8] dark:divide-slate-800">
+                <div className="divide-y divide-slate-200 dark:divide-slate-800">
                   {posts.map((post) => (
                     <article key={post.id}>
                       <Link
                         href={`/forum/posts/${post.id}`}
-                        className="group block px-4 py-5 outline-none transition-colors hover:bg-violet-50/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500 dark:hover:bg-violet-950/20 sm:px-5"
+                        className="group block px-4 py-5 outline-none transition-colors hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary dark:hover:bg-primary/20 sm:px-5"
                       >
                         <div className="hidden grid-cols-[minmax(260px,1fr)_180px_88px_88px_160px] items-center gap-4 lg:grid">
                           <ForumTopic post={post} />
@@ -502,7 +502,7 @@ export function ForumListPage() {
 
             {!loading && totalPages > 1 && (
               <nav
-                className="mt-6 flex items-center justify-between border-t border-[#d9dce3] pt-5 text-sm dark:border-slate-800"
+                className="mt-6 flex items-center justify-between border-t border-slate-200 pt-5 text-sm dark:border-slate-800"
                 aria-label="帖子分页"
               >
                 <Button

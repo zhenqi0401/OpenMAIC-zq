@@ -116,19 +116,19 @@ function QuizCover({
     <div className="w-full h-full flex flex-col items-center justify-center gap-4 relative overflow-hidden">
       {/* Background decoration */}
       <div className="absolute top-0 right-0 p-6 opacity-[0.03]">
-        <PieChart className="w-52 h-52 text-violet-500" />
+        <PieChart className="w-52 h-52 text-primary" />
       </div>
       <div className="absolute bottom-0 left-0 p-6 opacity-[0.02]">
-        <BookOpenText className="w-40 h-40 text-violet-500 rotate-12" />
+        <BookOpenText className="w-40 h-40 text-primary rotate-12" />
       </div>
 
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-        className="w-16 h-16 bg-gradient-to-br from-violet-100 to-purple-50 dark:from-violet-900/50 dark:to-purple-900/30 rounded-2xl flex items-center justify-center shadow-lg shadow-violet-100 dark:shadow-violet-900/30 ring-1 ring-violet-200/50 dark:ring-violet-700/50"
+        className="w-16 h-16 bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/50 dark:to-primary/30 rounded-2xl flex items-center justify-center shadow-lg shadow-primary/10 dark:shadow-primary/30 ring-1 ring-primary/20 dark:ring-primary/50"
       >
-        <PieChart className="w-8 h-8 text-violet-500" />
+        <PieChart className="w-8 h-8 text-primary" />
       </motion.div>
 
       <motion.div
@@ -152,8 +152,8 @@ function QuizCover({
         className="flex gap-5 text-sm z-10"
       >
         <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-          <div className="w-7 h-7 rounded-lg bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center">
-            <BookOpenText className="w-3.5 h-3.5 text-violet-500" />
+          <div className="w-7 h-7 rounded-lg bg-primary/5 dark:bg-primary/30 flex items-center justify-center">
+            <BookOpenText className="w-3.5 h-3.5 text-primary" />
           </div>
           <span>
             {questionCount} {t('quiz.questionsCount')}
@@ -161,8 +161,8 @@ function QuizCover({
         </div>
         {!diagnostic && (
           <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <div className="w-7 h-7 rounded-lg bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center">
-              <PieChart className="w-3.5 h-3.5 text-violet-500" />
+            <div className="w-7 h-7 rounded-lg bg-primary/5 dark:bg-primary/30 flex items-center justify-center">
+              <PieChart className="w-3.5 h-3.5 text-primary" />
             </div>
             <span>
               {t('quiz.totalPrefix')} {totalPoints} {t('quiz.pointsSuffix')}
@@ -178,7 +178,7 @@ function QuizCover({
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={onStart}
-        className="mt-1 px-8 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-full font-medium shadow-lg shadow-violet-200/50 dark:shadow-violet-900/50 hover:shadow-violet-300/50 transition-shadow z-10 flex items-center gap-2"
+        className="mt-1 px-8 py-2.5 bg-gradient-to-r from-primary to-primary text-white rounded-full font-medium shadow-lg shadow-primary/20 dark:shadow-primary/50 hover:shadow-primary/30 transition-shadow z-10 flex items-center gap-2"
       >
         {t(diagnostic ? 'quiz.startDiagnostic' : 'quiz.startQuiz')}
         <ChevronRight className="w-4 h-4" />
@@ -219,7 +219,7 @@ function ShortAnswerQuestion({
             onChange={(e) => onChange(e.target.value)}
             disabled={disabled}
             placeholder={t('quiz.inputPlaceholder')}
-            className="w-full min-h-[100px] p-3 pb-10 rounded-xl border border-gray-200 dark:border-gray-600 text-sm resize-none focus:outline-none focus:border-violet-300 dark:focus:border-violet-600 focus:ring-2 focus:ring-violet-100 dark:focus:ring-violet-900/50 transition-all disabled:bg-gray-50 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:bg-gray-800/50 dark:text-gray-200 dark:placeholder:text-gray-500"
+            className="w-full min-h-[100px] p-3 pb-10 rounded-xl border border-gray-200 dark:border-gray-600 text-sm resize-none focus:outline-none focus:border-primary/30 dark:focus:border-primary focus:ring-2 focus:ring-primary/10 dark:focus:ring-primary/50 transition-all disabled:bg-gray-50 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:bg-gray-800/50 dark:text-gray-200 dark:placeholder:text-gray-500"
           />
           <SpeechButton
             size="sm"
@@ -245,17 +245,17 @@ function ShortAnswerQuestion({
             )}
           </div>
           {result.aiComment && (
-            <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-violet-50 dark:bg-violet-900/30 border border-violet-100 dark:border-violet-800">
-              <Sparkles className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-primary/5 dark:bg-primary/30 border border-primary/10 dark:border-primary/30">
+              <Sparkles className="w-4 h-4 text-primary shrink-0 mt-0.5" />
               <div>
-                <p className="text-xs font-medium text-violet-600 dark:text-violet-400 mb-0.5">
+                <p className="text-xs font-medium text-primary dark:text-primary/80 mb-0.5">
                   {t('quiz.aiComment')}
                 </p>
-                <p className="text-xs text-violet-600/80 dark:text-violet-400/80">
+                <p className="text-xs text-primary/80 dark:text-primary/80">
                   {result.aiComment}
                 </p>
               </div>
-              <span className="ml-auto text-xs font-bold text-violet-600 dark:text-violet-400 shrink-0">
+              <span className="ml-auto text-xs font-bold text-primary dark:text-primary/80 shrink-0">
                 {result.earned}/{question.points ?? 1}
                 {t('quiz.pointsSuffix')}
               </span>
@@ -302,7 +302,7 @@ function QuestionCard({
       <div
         className={cn(
           'absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl',
-          !isReview && 'bg-violet-400',
+          !isReview && 'bg-primary/50',
           isReview && result.status === 'correct' && 'bg-emerald-400',
           isReview && result.status === 'incorrect' && 'bg-red-400',
         )}
@@ -315,7 +315,7 @@ function QuestionCard({
             className={cn(
               'w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0',
               !isReview &&
-                'bg-violet-100 dark:bg-violet-900/50 text-violet-600 dark:text-violet-400',
+                'bg-primary/10 dark:bg-primary/50 text-primary dark:text-primary/80',
               isReview &&
                 result.status === 'correct' &&
                 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400',
@@ -625,7 +625,7 @@ export function QuizView({ questions, sceneId, mode = 'graded' }: QuizViewProps)
             {/* Header bar */}
             <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur shrink-0">
               <div className="flex items-center gap-2">
-                <PieChart className="w-4 h-4 text-violet-500" />
+                <PieChart className="w-4 h-4 text-primary" />
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                   {t(diagnostic ? 'quiz.diagnosticAnswering' : 'quiz.answering')}
                 </span>
@@ -646,7 +646,7 @@ export function QuizView({ questions, sceneId, mode = 'graded' }: QuizViewProps)
                 className={cn(
                   'px-4 py-1.5 rounded-lg text-xs font-medium transition-all',
                   allAnswered
-                    ? 'bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-sm hover:shadow-md hover:shadow-violet-200/50 dark:hover:shadow-violet-900/50 active:scale-[0.97]'
+                    ? 'bg-gradient-to-r from-primary to-primary text-white shadow-sm hover:shadow-md hover:shadow-primary/20 dark:hover:shadow-primary/50 active:scale-[0.97]'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed',
                 )}
               >
@@ -704,14 +704,14 @@ export function QuizView({ questions, sceneId, mode = 'graded' }: QuizViewProps)
           >
             <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur shrink-0">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-violet-500" />
+                <CheckCircle2 className="w-4 h-4 text-primary" />
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                   {t('quiz.diagnosticRecordedTitle')}
                 </span>
               </div>
               <button
                 onClick={handleRevise}
-                className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary/80 transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 {t('quiz.reviseDecision')}
@@ -719,7 +719,7 @@ export function QuizView({ questions, sceneId, mode = 'graded' }: QuizViewProps)
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-              <div className="rounded-2xl border border-violet-100 bg-violet-50/70 px-5 py-4 text-sm leading-relaxed text-violet-700 dark:border-violet-800 dark:bg-violet-950/30 dark:text-violet-300">
+              <div className="rounded-2xl border border-primary/10 bg-primary/5 px-5 py-4 text-sm leading-relaxed text-primary dark:border-primary/30 dark:bg-primary/30 dark:text-primary">
                 {t('quiz.diagnosticRecordedDescription')}
               </div>
               {questions.map((q, i) => (
@@ -749,7 +749,7 @@ export function QuizView({ questions, sceneId, mode = 'graded' }: QuizViewProps)
               animate={{ rotate: 360 }}
               transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
             >
-              <Loader2 className="w-10 h-10 text-violet-500" />
+              <Loader2 className="w-10 h-10 text-primary" />
             </motion.div>
             <div className="text-center">
               <p className="text-base font-semibold text-gray-700 dark:text-gray-200">
@@ -761,7 +761,7 @@ export function QuizView({ questions, sceneId, mode = 'graded' }: QuizViewProps)
               {[0, 1, 2].map((i) => (
                 <motion.div
                   key={i}
-                  className="w-2 h-2 rounded-full bg-violet-400"
+                  className="w-2 h-2 rounded-full bg-primary/50"
                   animate={{ opacity: [0.3, 1, 0.3] }}
                   transition={{
                     repeat: Infinity,
@@ -791,7 +791,7 @@ export function QuizView({ questions, sceneId, mode = 'graded' }: QuizViewProps)
               </div>
               <button
                 onClick={handleRetry}
-                className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary/80 transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 {t('quiz.retry')}

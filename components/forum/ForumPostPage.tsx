@@ -340,11 +340,11 @@ export function ForumPostPage({ postId }: { postId: string }) {
         className={
           reply.depth === 1
             ? 'py-5'
-            : 'mt-4 border-l border-violet-200 pl-3 dark:border-violet-900 md:pl-5'
+            : 'mt-4 border-l border-primary/20 pl-3 dark:border-primary/30 md:pl-5'
         }
       >
         <div className="flex gap-3 sm:gap-4">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-200 sm:size-9">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary dark:bg-primary/20 dark:text-primary sm:size-9">
             {reply.author.displayName.slice(0, 1) || '用'}
           </span>
           <div className="min-w-0 flex-1">
@@ -466,7 +466,7 @@ export function ForumPostPage({ postId }: { postId: string }) {
             {replyingToId === reply.id && canReply && (
               <form
                 onSubmit={(event) => void submitNestedReply(event, reply)}
-                className="mt-3 rounded-lg border border-violet-200 bg-violet-50/50 p-3 dark:border-violet-900 dark:bg-violet-950/20"
+                className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3 dark:border-primary/30 dark:bg-primary/20"
               >
                 <p className="mb-2 text-xs text-slate-500">
                   回复 @{reply.author.displayName}，将作为第 {reply.depth + 1} 层回复发布
@@ -478,7 +478,7 @@ export function ForumPostPage({ postId }: { postId: string }) {
                   maxLength={FORUM_REPLY_MAX_LENGTH}
                   onChange={(event) => setNestedReplyBody(event.target.value)}
                   placeholder={`回复 @${reply.author.displayName}`}
-                  className="min-h-20 resize-y bg-white dark:bg-[#1a1d25]"
+                  className="min-h-20 resize-y bg-white dark:bg-card-solid"
                   aria-label={`回复 ${reply.author.displayName}`}
                 />
                 <div className="mt-2 flex items-center justify-between gap-2">
@@ -565,7 +565,7 @@ export function ForumPostPage({ postId }: { postId: string }) {
           </div>
         ) : (
           <>
-            <article className="rounded-xl border border-[#d9dce3] bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#1a1d25] sm:p-7">
+            <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-card-solid sm:p-7">
               <div className="flex flex-wrap items-center gap-2">
                 {post.pinned && (
                   <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-1 text-[10px] font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200">
@@ -725,16 +725,16 @@ export function ForumPostPage({ postId }: { postId: string }) {
             </article>
 
             <section className="mt-8" aria-labelledby="replies-title">
-              <div className="flex items-center justify-between border-b border-[#d9dce3] pb-3 dark:border-slate-800">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3 dark:border-slate-800">
                 <h2 id="replies-title" className="text-lg font-semibold">
                   全部回复 <span className="font-mono text-sm text-slate-400">{replyTotal}</span>
                 </h2>
               </div>
-              <div className="divide-y divide-[#e1e3e8] dark:divide-slate-800">
+              <div className="divide-y divide-slate-200 dark:divide-slate-800">
                 {replyTree.map((reply) => renderReply(reply))}
               </div>
               {loadedRootCount < replyRootTotal && (
-                <div className="border-t border-[#d9dce3] pt-4 text-center dark:border-slate-800">
+                <div className="border-t border-slate-200 pt-4 text-center dark:border-slate-800">
                   <Button
                     variant="outline"
                     disabled={pendingAction === 'load-more'}
@@ -753,7 +753,7 @@ export function ForumPostPage({ postId }: { postId: string }) {
             </section>
 
             <section
-              className="mt-8 rounded-xl border border-[#d9dce3] bg-white p-5 dark:border-slate-800 dark:bg-[#1a1d25]"
+              className="mt-8 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-card-solid"
               aria-labelledby="reply-form-title"
             >
               <h2 id="reply-form-title" className="font-semibold">

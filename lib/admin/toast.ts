@@ -1,29 +1,36 @@
 import type { CSSProperties } from 'react';
 import { toast, type ExternalToast } from 'sonner';
+import { adminBrandTokens } from '@/components/admin/admin-theme';
 
-export const adminSuccessToastStyle: CSSProperties = {
-  background: '#eef5ec',
-  borderColor: '#9db297',
-  color: '#35523a',
-};
+/**
+ * Toast styles are derived from the admin brand tokens (the single source of
+ * truth) so they can never drift from the console's semantic palette. We emit
+ * `color-mix()` strings rather than `var(--admin-*)` because toasts may render
+ * outside the scoped admin theme subtree where those variables don't resolve.
+ */
+function tinted(
+  color: string,
+  textColor: string = color,
+  { bgAlpha = 0.08, borderAlpha = 0.3 }: { bgAlpha?: number; borderAlpha?: number } = {},
+): CSSProperties {
+  return {
+    background: `color-mix(in srgb, ${color} ${bgAlpha * 100}%, #fff)`,
+    borderColor: `color-mix(in srgb, ${color} ${borderAlpha * 100}%, #fff)`,
+    color: textColor,
+  };
+}
 
-export const adminErrorToastStyle: CSSProperties = {
-  background: '#f9ece8',
-  borderColor: '#d7a397',
-  color: '#7b3e32',
-};
-
-export const adminInfoToastStyle: CSSProperties = {
-  background: '#edf3f8',
-  borderColor: '#9eb2c2',
-  color: '#35546a',
-};
-
-export const adminWarningToastStyle: CSSProperties = {
-  background: '#fbf3df',
-  borderColor: '#d8bb72',
-  color: '#72551f',
-};
+export const adminSuccessToastStyle: CSSProperties = tinted(adminBrandTokens['--saas-success']);
+export const adminErrorToastStyle: CSSProperties = tinted(
+  adminBrandTokens['--saas-danger'],
+  adminBrandTokens['--saas-danger-strong'],
+);
+export const adminInfoToastStyle: CSSProperties = tinted(
+  adminBrandTokens['--saas-primary'],
+  adminBrandTokens['--saas-primary'],
+  { bgAlpha: 0.06 },
+);
+export const adminWarningToastStyle: CSSProperties = tinted(adminBrandTokens['--saas-warning']);
 
 function withAdminStyle(options: ExternalToast | undefined, style: CSSProperties): ExternalToast {
   return {

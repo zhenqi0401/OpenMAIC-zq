@@ -151,7 +151,7 @@ export function HeaderControls({
               className={cn(
                 'cursor-pointer gap-2',
                 theme === 'light' &&
-                  'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
+                  'bg-primary/5 dark:bg-primary/20 text-primary dark:text-primary/80',
               )}
             >
               <Sun className="w-4 h-4" />
@@ -162,7 +162,7 @@ export function HeaderControls({
               className={cn(
                 'cursor-pointer gap-2',
                 theme === 'dark' &&
-                  'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
+                  'bg-primary/5 dark:bg-primary/20 text-primary dark:text-primary/80',
               )}
             >
               <Moon className="w-4 h-4" />
@@ -173,7 +173,7 @@ export function HeaderControls({
               className={cn(
                 'cursor-pointer gap-2',
                 theme === 'system' &&
-                  'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
+                  'bg-primary/5 dark:bg-primary/20 text-primary dark:text-primary/80',
               )}
             >
               <Monitor className="w-4 h-4" />
@@ -209,11 +209,11 @@ export function HeaderControls({
             'bg-white/60 dark:bg-gray-800/60 backdrop-blur-md',
             compact ? 'h-8 px-2.5' : 'h-9 px-3',
             mode === 'edit'
-              ? 'border-violet-500/60 dark:border-violet-400/60'
+              ? 'border-primary/60 dark:border-primary/60'
               : 'border-gray-100/50 dark:border-gray-700/50',
             !canEdit && mode !== 'edit'
               ? 'opacity-60 cursor-not-allowed'
-              : 'cursor-pointer hover:border-violet-400/60 dark:hover:border-violet-500/50',
+              : 'cursor-pointer hover:border-primary/60 dark:hover:border-primary/50',
           )}
         >
           {onSave && (
@@ -227,7 +227,7 @@ export function HeaderControls({
                 className={cn(
                   'inline-flex h-7 items-center gap-1.5 rounded-full px-1.5 text-[11px] font-semibold transition-colors',
                   saveStatus === 'dirty' || saveStatus === 'error'
-                    ? 'text-violet-600 hover:bg-violet-100/80 dark:text-violet-300 dark:hover:bg-violet-900/40'
+                    ? 'text-primary hover:bg-primary/10 dark:text-primary/80 dark:hover:bg-primary/40'
                     : 'cursor-default text-gray-400 dark:text-gray-500',
                 )}
               >
@@ -261,7 +261,7 @@ export function HeaderControls({
               className={cn(
                 'text-[11px] font-bold uppercase tracking-[0.14em] tabular-nums select-none transition-colors duration-200',
                 mode === 'edit'
-                  ? 'text-violet-600 dark:text-violet-300'
+                  ? 'text-primary dark:text-primary/80'
                   : 'text-gray-500 dark:text-gray-400',
               )}
             >
@@ -272,7 +272,7 @@ export function HeaderControls({
               onCheckedChange={onToggleEditMode}
               disabled={!canEdit && mode !== 'edit'}
               aria-label={mode === 'edit' ? t('stage.doneEditing') : t('stage.editCourse')}
-              className="data-[state=checked]:bg-violet-600 dark:data-[state=checked]:bg-violet-500"
+              className="data-[state=checked]:bg-primary dark:data-[state=checked]:bg-primary"
             />
           </label>
         </div>

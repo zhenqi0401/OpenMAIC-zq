@@ -168,7 +168,7 @@ export function CourseAssessmentPanel({
   if (loading) {
     return (
       <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-800">
-        <Loader2 className="size-8 animate-spin text-violet-500" />
+        <Loader2 className="size-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -187,7 +187,7 @@ export function CourseAssessmentPanel({
   if (assessment.questions.length === 0) {
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white dark:bg-gray-800">
-        <Loader2 className="size-8 animate-spin text-violet-500" />
+        <Loader2 className="size-8 animate-spin text-primary" />
         <div className="text-center">
           <p className="text-sm font-medium text-gray-700 dark:text-gray-200">课后测评生成中</p>
           <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
@@ -223,7 +223,7 @@ export function CourseAssessmentPanel({
     <div className="absolute inset-0 flex flex-col bg-white dark:bg-gray-800">
       <div className="flex shrink-0 items-center justify-between border-b border-gray-100 bg-white/80 px-6 py-3 backdrop-blur dark:border-gray-700 dark:bg-gray-900/80">
         <div className="flex items-center gap-2">
-          <PieChart className="h-4 w-4 text-violet-500" />
+          <PieChart className="h-4 w-4 text-primary" />
           <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
             {result ? '测评报告' : '答题中'}
           </span>
@@ -238,7 +238,7 @@ export function CourseAssessmentPanel({
             className={cn(
               'inline-flex items-center gap-2 rounded-lg px-4 py-1.5 text-xs font-medium transition-all',
               allAnswered && !submitting
-                ? 'bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-sm hover:shadow-md hover:shadow-violet-200/50 active:scale-[0.97] dark:hover:shadow-violet-900/50'
+                ? 'bg-gradient-to-r from-primary to-primary text-white shadow-sm hover:shadow-md hover:shadow-primary/20 active:scale-[0.97] dark:hover:shadow-primary/50'
                 : 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500',
             )}
           >

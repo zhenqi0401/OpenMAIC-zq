@@ -4,7 +4,6 @@ import type { ComponentProps, ReactNode } from 'react';
 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import styles from './auth-page.module.css';
 
 interface AuthFieldProps extends Omit<ComponentProps<typeof Input>, 'id' | 'name'> {
   name: string;
@@ -20,24 +19,28 @@ export function AuthField({ name, label, error, action, className, ...props }: A
       {...props}
       id={name}
       name={name}
-      className={`${styles.input} ${className ?? ''}`}
+      className={`h-12 rounded-xl border-slate-300 bg-background px-3.5 text-base placeholder:text-slate-400 ${
+        action ? 'pr-16' : ''
+      } ${className ?? ''}`}
       aria-describedby={errorId}
       aria-invalid={Boolean(error)}
     />
   );
 
   return (
-    <div className={styles.field} data-field={name}>
-      <Label htmlFor={name}>{label}</Label>
+    <div className="grid gap-2" data-field={name}>
+      <Label htmlFor={name} className="text-[13px] font-semibold text-foreground">
+        {label}
+      </Label>
       {action ? (
-        <div className={styles.inputWrap}>
+        <div className="relative">
           {input}
           {action}
         </div>
       ) : (
         input
       )}
-      <p id={errorId} className={styles.fieldError} aria-live="polite">
+      <p id={errorId} className="text-xs leading-snug text-destructive empty:hidden" aria-live="polite">
         {error}
       </p>
     </div>

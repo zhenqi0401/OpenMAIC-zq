@@ -33,7 +33,7 @@ export function Header({
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <button
             onClick={() => router.push('/')}
-            className="shrink-0 p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+            className="shrink-0 p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
             title={t('generation.backToHome')}
           >
             <ArrowLeft className="w-5 h-5" />
@@ -49,11 +49,11 @@ export function Header({
               CommandBar title during the cross-fade. */}
           {mode !== 'edit' && (
             <div className="flex flex-col min-w-0">
-              <span className="text-[10px] uppercase tracking-widest font-bold text-gray-400 dark:text-gray-500 mb-0.5">
+              <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400 dark:text-slate-500 mb-0.5">
                 {t('stage.currentScene')}
               </span>
               <h1
-                className="text-xl font-bold text-gray-800 dark:text-gray-200 tracking-tight truncate"
+                className="text-xl font-bold text-slate-800 dark:text-slate-200 tracking-tight truncate"
                 suppressHydrationWarning
               >
                 {currentSceneTitle || t('common.loading')}
@@ -71,7 +71,7 @@ export function Header({
                   `/forum?view=course&courseId=${encodeURIComponent(discussionCourseId)}&compose=true`,
                 )
               }
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-100 dark:border-violet-900 dark:bg-violet-950/50 dark:text-violet-200 dark:hover:bg-violet-950"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-3 text-xs font-medium text-primary transition-colors hover:bg-primary/10 dark:border-primary/30 dark:bg-primary/30 dark:text-primary dark:hover:bg-primary/40"
               title="讨论本课程"
             >
               <MessagesSquare className="size-4" />

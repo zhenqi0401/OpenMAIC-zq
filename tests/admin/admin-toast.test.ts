@@ -17,6 +17,7 @@ import {
   adminToast,
   adminWarningToastStyle,
 } from '@/lib/admin/toast';
+import { adminBrandTokens } from '@/components/admin/admin-theme';
 
 describe('adminToast', () => {
   beforeEach(() => {
@@ -30,9 +31,9 @@ describe('adminToast', () => {
       style: adminSuccessToastStyle,
     });
     expect(adminSuccessToastStyle).toMatchObject({
-      background: '#eef5ec',
-      borderColor: '#9db297',
-      color: '#35523a',
+      background: `color-mix(in srgb, ${adminBrandTokens['--saas-success']} 8%, #fff)`,
+      borderColor: `color-mix(in srgb, ${adminBrandTokens['--saas-success']} 30%, #fff)`,
+      color: adminBrandTokens['--saas-success'],
     });
   });
 
@@ -43,7 +44,9 @@ describe('adminToast', () => {
       duration: 6000,
       style: { ...adminErrorToastStyle, color: '#600' },
     });
-    expect(adminErrorToastStyle.background).toBe('#f9ece8');
+    expect(adminErrorToastStyle.background).toBe(
+      `color-mix(in srgb, ${adminBrandTokens['--saas-danger']} 8%, #fff)`,
+    );
   });
 
   it('defines distinct information and warning state colors', () => {

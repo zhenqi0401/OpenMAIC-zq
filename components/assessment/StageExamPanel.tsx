@@ -196,7 +196,7 @@ export function StageExamPanel({ identity }: StageExamPanelProps) {
   if (listState === 'loading') {
     return (
       <section
-        className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-[#171a22]"
+        className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-card-solid"
         aria-label="正在加载待办事项"
         aria-busy="true"
       >
@@ -212,7 +212,7 @@ export function StageExamPanel({ identity }: StageExamPanelProps) {
   if (listState === 'error') {
     return (
       <section
-        className="flex flex-col gap-3 rounded-xl border border-red-200 bg-white px-4 py-3 shadow-sm dark:border-red-950 dark:bg-[#171a22] sm:flex-row sm:items-center"
+        className="flex flex-col gap-3 rounded-xl border border-red-200 bg-white px-4 py-3 shadow-sm dark:border-red-950 dark:bg-card-solid sm:flex-row sm:items-center"
         aria-label="待办事项加载失败"
       >
         <div className="min-w-0">
@@ -234,17 +234,17 @@ export function StageExamPanel({ identity }: StageExamPanelProps) {
 
   return (
     <section aria-label="阶段考核任务">
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-[#171a22]">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-card-solid">
         <button
           type="button"
-          className="flex min-h-14 w-full items-center gap-3 px-4 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500 dark:hover:bg-slate-900/60 sm:px-5"
+          className="flex min-h-14 w-full items-center gap-3 px-4 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary dark:hover:bg-slate-900/60 sm:px-5"
           aria-expanded={expanded}
           aria-controls="learner-exam-tasks"
           onClick={() => setExpanded((current) => !current)}
         >
-          <ClipboardCheck className="size-5 shrink-0 text-violet-600 dark:text-violet-300" />
+          <ClipboardCheck className="size-5 shrink-0 text-primary dark:text-primary/80" />
           <span className="font-semibold">待办事项</span>
-          <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-violet-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-200">
+          <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-primary/10 px-1.5 py-0.5 font-mono text-xs font-semibold text-primary dark:bg-primary/20 dark:text-primary">
             {exams.length}
           </span>
           <span className="hidden truncate text-sm text-slate-500 dark:text-slate-400 sm:block">
@@ -266,7 +266,7 @@ export function StageExamPanel({ identity }: StageExamPanelProps) {
                 key={exam.id}
                 type="button"
                 onClick={() => openExam(exam)}
-                className="group flex min-h-40 w-full flex-col items-start rounded-lg border border-slate-200 bg-white p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-slate-700 dark:bg-[#171a22] dark:hover:border-violet-700 dark:focus-visible:ring-offset-[#171a22]"
+                className="group flex min-h-40 w-full flex-col items-start rounded-lg border border-slate-200 bg-white p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:border-slate-700 dark:bg-card-solid dark:hover:border-primary dark:focus-visible:ring-offset-card-solid"
               >
                 <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/60 dark:text-amber-200">
                   阶段考核任务
@@ -278,7 +278,7 @@ export function StageExamPanel({ identity }: StageExamPanelProps) {
                 <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   {exam.timeLimitMinutes ? `${exam.timeLimitMinutes} 分钟` : '不限时'}
                 </span>
-                <span className="mt-auto flex w-full items-center justify-between pt-4 text-xs font-semibold text-violet-700 dark:text-violet-300">
+                <span className="mt-auto flex w-full items-center justify-between pt-4 text-xs font-semibold text-primary dark:text-primary/80">
                   进入考核
                   <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
                 </span>
@@ -300,7 +300,7 @@ export function StageExamPanel({ identity }: StageExamPanelProps) {
         >
           <DialogHeader className="flex min-h-20 flex-row items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 text-left dark:border-slate-800">
             <div className="min-w-0">
-              <p className="font-mono text-[10px] font-semibold text-violet-600 dark:text-violet-300">
+              <p className="font-mono text-[10px] font-semibold text-primary dark:text-primary/80">
                 阶段考核
               </p>
               <DialogTitle className="mt-1 truncate text-lg font-semibold">
@@ -327,7 +327,7 @@ export function StageExamPanel({ identity }: StageExamPanelProps) {
             {phase === 'intro' && selectedPolicy && (
               <div className="grid min-h-[430px] md:grid-cols-[minmax(0,1.35fr)_minmax(250px,0.75fr)]">
                 <div className="px-6 py-9 md:px-11 md:py-11">
-                  <span className="inline-flex rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 dark:bg-violet-950/60 dark:text-violet-300">
+                  <span className="inline-flex rounded-full bg-primary/5 px-2.5 py-1 text-[11px] font-semibold text-primary dark:bg-primary/30 dark:text-primary">
                     待完成
                   </span>
                   <h3 className="mt-4 text-2xl font-semibold leading-8">准备好后开始本次考核</h3>
@@ -352,7 +352,7 @@ export function StageExamPanel({ identity }: StageExamPanelProps) {
                   {dialogError && <ExamError message={dialogError} />}
                 </div>
                 <div className="flex flex-col items-center justify-center border-t border-slate-200 bg-slate-50 px-7 py-8 text-center dark:border-slate-800 dark:bg-slate-900/60 md:border-l md:border-t-0">
-                  <span className="grid size-20 place-items-center rounded-full border border-violet-200 bg-violet-50 text-3xl font-bold text-violet-700 dark:border-violet-800 dark:bg-violet-950/60 dark:text-violet-300">
+                  <span className="grid size-20 place-items-center rounded-full border border-primary/20 bg-primary/5 text-3xl font-bold text-primary dark:border-primary/30 dark:bg-primary/30 dark:text-primary">
                     考
                   </span>
                   <p className="my-6 text-xs leading-5 text-slate-500 dark:text-slate-400">
@@ -385,7 +385,7 @@ export function StageExamPanel({ identity }: StageExamPanelProps) {
                   </p>
                   <div className="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                     <span
-                      className="block h-full rounded-full bg-violet-600 transition-[width] duration-200"
+                      className="block h-full rounded-full bg-primary transition-[width] duration-200"
                       style={{ width: `${(answered / activeExam.questions.length) * 100}%` }}
                     />
                   </div>
@@ -443,13 +443,13 @@ export function StageExamPanel({ identity }: StageExamPanelProps) {
                     <XCircle className="size-9" />
                   )}
                 </span>
-                <p className="mt-5 font-mono text-[10px] font-semibold text-violet-600 dark:text-violet-300">
+                <p className="mt-5 font-mono text-[10px] font-semibold text-primary dark:text-primary/80">
                   考核结果
                 </p>
                 <h3 className="mt-2 text-2xl font-semibold">
                   {result.attempt.passed ? '考核通过' : '未达到通过线'}
                 </h3>
-                <div className="mt-4 flex items-baseline text-violet-700 dark:text-violet-300">
+                <div className="mt-4 flex items-baseline text-primary dark:text-primary/80">
                   <strong className="font-mono text-6xl leading-none">
                     {result.attempt.score}
                   </strong>
@@ -545,7 +545,7 @@ function ExamQuestion({
       className="border-b border-slate-200 py-7 dark:border-slate-800"
       aria-labelledby={`exam-question-${question.id}`}
     >
-      <p className="font-mono text-[10px] font-semibold text-violet-600 dark:text-violet-300">
+      <p className="font-mono text-[10px] font-semibold text-primary dark:text-primary/80">
         QUESTION {String(index + 1).padStart(2, '0')}
       </p>
       <h3 id={`exam-question-${question.id}`} className="mt-2 text-base font-semibold leading-6">
@@ -563,7 +563,7 @@ function ExamQuestion({
               className={cn(
                 'grid cursor-pointer grid-cols-[18px_minmax(0,1fr)] items-center gap-2.5 rounded-md border px-3 py-3 text-sm transition-colors',
                 selected
-                  ? 'border-violet-500 bg-violet-50 text-violet-950 dark:bg-violet-950/45 dark:text-violet-100'
+                  ? 'border-primary bg-primary/5 text-primary dark:bg-primary/30 dark:text-primary'
                   : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-900/60',
               )}
             >
@@ -576,7 +576,7 @@ function ExamQuestion({
                     ? onMultiple(question.id, option.value)
                     : onSingle(question.id, option.value)
                 }
-                className="size-4 accent-violet-600"
+                className="size-4 accent-primary"
               />
               <span>
                 {String.fromCharCode(65 + optionIndex)}. {option.label}

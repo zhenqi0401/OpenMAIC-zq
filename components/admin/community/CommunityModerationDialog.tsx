@@ -101,7 +101,7 @@ export function CommunityModerationDialog({
 
           <fieldset className="grid gap-2">
             <legend className="text-sm font-medium">
-              管理原因{reasonRequired ? <span className="text-red-700">（必填）</span> : '（可选）'}
+              管理原因{reasonRequired ? <span className="text-[var(--admin-danger)]">（必填）</span> : '（可选）'}
             </legend>
             <div className="grid gap-2 sm:grid-cols-2">
               {COMMUNITY_REASON_PRESETS.map((reason) => (

@@ -42,7 +42,7 @@ export function ForumFrame({ children }: { children: React.ReactNode }) {
   const homeHref = identity?.isAdmin ? '/learn' : '/';
 
   return (
-    <div className="min-h-[100dvh] bg-[#f4f5f7] text-[#181a22] dark:bg-[#12141a] dark:text-slate-100">
+    <div className="min-h-[100dvh] bg-page text-foreground dark:bg-page dark:text-slate-100">
       {identity ? (
         <LearnerHeader
           current="forum"
@@ -54,10 +54,10 @@ export function ForumFrame({ children }: { children: React.ReactNode }) {
           }}
         />
       ) : (
-        <div className="h-16 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-[#171a22]" />
+        <div className="h-16 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-card-solid" />
       )}
       {children}
-      <footer className="mx-auto mt-14 flex w-[min(1600px,calc(100%-1.25rem))] justify-between border-t border-[#d9dce3] py-5 text-sm text-slate-400 dark:border-slate-800 sm:w-[min(1600px,calc(100%-2rem))]">
+      <footer className="mx-auto mt-14 flex w-[min(1600px,calc(100%-1.25rem))] justify-between border-t border-slate-200 py-5 text-sm text-slate-400 dark:border-slate-800 sm:w-[min(1600px,calc(100%-2rem))]">
         <span>元我智脑</span>
         <Link
           href={homeHref}

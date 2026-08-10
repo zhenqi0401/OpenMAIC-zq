@@ -416,18 +416,18 @@ export default function ClassroomDetailPage() {
       <MediaStageProvider value={classroomId}>
         <div className="h-screen flex flex-col overflow-hidden">
           {enterpriseCourseScope === 'platform' ? (
-            <div className="pointer-events-none fixed right-4 top-4 z-50 rounded-full bg-violet-600 px-3 py-1 text-xs font-semibold text-white shadow-lg">
+            <div className="pointer-events-none fixed right-4 top-4 z-50 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground shadow-lg">
               精品课程
             </div>
           ) : null}
           {loading ? (
-            <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+            <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-slate-900">
               <div className="text-center text-muted-foreground">
                 <p>Loading classroom...</p>
               </div>
             </div>
           ) : error ? (
-            <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+            <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-slate-900">
               <div className="text-center">
                 <p className="text-destructive mb-4">Error: {error}</p>
                 <button

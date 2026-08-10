@@ -198,7 +198,7 @@ export function EnterpriseCourseImportDialog({
             </Select>
           </label>
           {categories.length === 0 ? (
-            <p className="text-sm text-amber-700">当前没有课程分类，请先到课程管理创建分类。</p>
+            <p className="text-sm text-[var(--admin-warning)]">当前没有课程分类，请先到课程管理创建分类。</p>
           ) : null}
           {busy || phase === 'done' ? (
             <ol className="grid grid-cols-3 gap-2 text-xs" aria-label="导入进度">
@@ -212,7 +212,7 @@ export function EnterpriseCourseImportDialog({
                 return (
                   <li className="flex items-center gap-1 rounded border p-2" key={label}>
                     {complete ? (
-                      <CheckCircle2 className="size-3.5 text-emerald-600" />
+                      <CheckCircle2 className="size-3.5 text-[var(--admin-success)]" />
                     ) : active ? (
                       <LoaderCircle className="size-3.5 animate-spin" />
                     ) : null}
@@ -228,7 +228,7 @@ export function EnterpriseCourseImportDialog({
             </p>
           ) : null}
           {warnings.length > 0 ? (
-            <div className="max-h-40 overflow-auto rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+            <div className="max-h-40 overflow-auto rounded-lg border border-[var(--admin-warning)] bg-[var(--admin-warning-background)] p-3 text-sm text-[var(--admin-warning-strong)]">
               <div className="font-medium">缺失资源（{warnings.length}）</div>
               <ul className="mt-2 list-disc space-y-1 pl-5">
                 {warnings.map((warning, index) => (

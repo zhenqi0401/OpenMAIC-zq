@@ -14,6 +14,7 @@
     "start": "next start",
     "db:migrate": "drizzle-kit migrate",
     "db:seed:roles": "node scripts/seed-roles.mjs",
+    "db:seed:learning-mock": "node scripts/seed-learning-mock.mjs",
     "db:deploy": "pnpm run db:migrate && pnpm run db:seed:roles",
     "platform:course": "tsx scripts/platform-content.ts course",
     "platform:category": "tsx scripts/platform-content.ts category",

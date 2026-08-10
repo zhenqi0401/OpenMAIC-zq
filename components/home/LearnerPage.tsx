@@ -76,7 +76,7 @@ export function LearnerPage() {
   }, [loadCourses]);
 
   if (!identity) {
-    return <main className="min-h-[100dvh] bg-[#f4f5f7]" aria-busy="true" />;
+    return <main className="min-h-[100dvh] bg-page" aria-busy="true" />;
   }
 
   return (

@@ -78,7 +78,7 @@ export function ChoiceQuestionCard({
       <div
         className={cn(
           'absolute inset-y-0 left-0 w-1 rounded-l-2xl',
-          !isReview && 'bg-violet-400',
+          !isReview && 'bg-primary/50',
           isReview && result.status === 'correct' && 'bg-emerald-400',
           isReview && result.status === 'incorrect' && 'bg-red-400',
         )}
@@ -90,7 +90,7 @@ export function ChoiceQuestionCard({
             className={cn(
               'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold',
               !isReview &&
-                'bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-400',
+                'bg-primary/10 text-primary dark:bg-primary/50 dark:text-primary/80',
               isReview &&
                 result.status === 'correct' &&
                 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400',
@@ -147,10 +147,10 @@ export function ChoiceQuestionCard({
                 'flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-all',
                 !isReview &&
                   !isSelected &&
-                  'border-gray-200 hover:border-violet-200 hover:bg-violet-50/50 dark:border-gray-600 dark:hover:border-violet-700 dark:hover:bg-violet-900/30',
+                  'border-gray-200 hover:border-primary/20 hover:bg-primary/5 dark:border-gray-600 dark:hover:border-primary dark:hover:bg-primary/30',
                 !isReview &&
                   isSelected &&
-                  'border-violet-400 bg-violet-50 ring-1 ring-violet-200 dark:bg-violet-900/30 dark:ring-violet-700',
+                  'border-primary/50 bg-primary/5 ring-1 ring-primary/20 dark:bg-primary/30 dark:ring-primary',
                 isReview &&
                   isCorrectOption &&
                   'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/30',
@@ -169,7 +169,7 @@ export function ChoiceQuestionCard({
                   !isReview &&
                     !isSelected &&
                     'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400',
-                  !isReview && isSelected && 'bg-violet-500 text-white',
+                  !isReview && isSelected && 'bg-primary text-white',
                   isCorrectOption && 'bg-emerald-500 text-white',
                   isWrong && 'bg-red-400 text-white',
                   isReview &&

@@ -112,7 +112,7 @@ function CourseEditDialogContent({
             </select>
           </label>
           {course.scope === 'platform' ? (
-            <p className="text-sm text-amber-700">平台精品课程只读，不能修改。</p>
+            <p className="text-sm text-[var(--admin-warning)]">平台精品课程只读，不能修改。</p>
           ) : null}
         </div>
         <DialogFooter>

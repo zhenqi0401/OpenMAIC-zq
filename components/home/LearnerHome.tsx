@@ -163,7 +163,7 @@ export function LearnerHome({
   );
 
   return (
-    <div className="min-h-[100dvh] bg-[#f5f7fb] text-[#171a24] dark:bg-[#11131a] dark:text-slate-100">
+    <div className="min-h-[100dvh] bg-page text-foreground dark:bg-page dark:text-slate-100">
       <LearnerHeader
         current="home"
         displayName={displayName}
@@ -197,9 +197,9 @@ export function LearnerHome({
                     setSelection((current) => changeHomeCourseScope(current, item.value));
                   }}
                   className={cn(
-                    'min-h-10 min-w-0 whitespace-nowrap rounded-md px-2 text-sm font-medium text-slate-600 transition-colors hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:text-slate-300 dark:hover:text-violet-300 sm:px-5 sm:text-base',
+                    'min-h-10 min-w-0 whitespace-nowrap rounded-md px-2 text-sm font-medium text-slate-600 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-slate-300 dark:hover:text-primary/80 sm:px-5 sm:text-base',
                     selection.scope === item.value &&
-                      'bg-white text-violet-700 shadow-sm dark:bg-[#171a22] dark:text-violet-300',
+                      'bg-white text-primary shadow-sm dark:bg-card-solid dark:text-primary/80',
                   )}
                 >
                   {item.label}
@@ -219,12 +219,12 @@ export function LearnerHome({
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="搜索课程"
                   aria-label="搜索课程"
-                  className="h-11 rounded-lg border-slate-200 bg-white pl-9 dark:border-slate-700 dark:bg-[#171a22]"
+                  className="h-11 rounded-lg border-slate-200 bg-white pl-9 dark:border-slate-700 dark:bg-card-solid"
                 />
               </label>
               {popularityEnabled && (
                 <div
-                  className="ml-auto inline-flex min-h-11 shrink-0 rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-[#171a22]"
+                  className="ml-auto inline-flex min-h-11 shrink-0 rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-card-solid"
                   role="group"
                   aria-label="课程排序"
                 >
@@ -240,9 +240,9 @@ export function LearnerHome({
                       aria-pressed={sort === value}
                       onClick={() => setSort(value)}
                       className={cn(
-                        'min-h-9 rounded-md px-4 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500',
+                        'min-h-9 rounded-md px-4 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                         sort === value
-                          ? 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-200'
+                          ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary'
                           : 'text-slate-500 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white',
                       )}
                     >
@@ -286,9 +286,9 @@ export function LearnerHome({
                     replaceCategoryParameter(category.categoryKey);
                   }}
                   className={cn(
-                    'min-h-11 max-w-full rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-violet-400 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-slate-700 dark:bg-[#171a22] dark:text-slate-300 dark:hover:border-violet-500 dark:hover:text-violet-300 dark:focus-visible:ring-offset-[#11131a] sm:px-5 sm:text-base',
+                    'min-h-11 max-w-full rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-primary/50 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:border-slate-700 dark:bg-card-solid dark:text-slate-300 dark:hover:border-primary dark:hover:text-primary/80 dark:focus-visible:ring-offset-page sm:px-5 sm:text-base',
                     selected &&
-                      'border-violet-500 bg-violet-50 text-violet-700 dark:border-violet-500 dark:bg-violet-950/50 dark:text-violet-200',
+                      'border-primary bg-primary/5 text-primary dark:border-primary dark:bg-primary/30 dark:text-primary',
                   )}
                 >
                   {category.name}
@@ -318,7 +318,7 @@ export function LearnerHome({
             {loading ? (
               <CourseGridSkeleton />
             ) : error ? (
-              <div className="rounded-lg border border-red-200 bg-white py-12 text-center dark:border-red-950 dark:bg-[#171a22]">
+              <div className="rounded-lg border border-red-200 bg-white py-12 text-center dark:border-red-950 dark:bg-card-solid">
                 <p className="font-medium text-red-700 dark:text-red-300">课程加载失败</p>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{error}</p>
                 <Button variant="outline" onClick={onRetry} className="mt-5 min-h-11 rounded-lg">
@@ -377,7 +377,7 @@ export function LearnerHome({
                 </div>
               </>
             ) : (
-              <div className="rounded-lg border border-slate-200 bg-white py-14 text-center dark:border-slate-800 dark:bg-[#171a22]">
+              <div className="rounded-lg border border-slate-200 bg-white py-14 text-center dark:border-slate-800 dark:bg-card-solid">
                 <BookOpen className="mx-auto size-7 text-slate-400" />
                 <p className="mt-3 font-medium">
                   {(selection.categoryKey || selection.categoryId) && !selectedCategoryHasCourses
@@ -422,7 +422,7 @@ function CourseGridSkeleton() {
       {Array.from({ length: 6 }, (_, index) => (
         <div
           key={index}
-          className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-[#171a22]"
+          className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-card-solid"
         >
           <div className="aspect-video w-full animate-pulse bg-slate-200 dark:bg-slate-800" />
           <div className="space-y-3 p-5">
@@ -464,11 +464,11 @@ function LearnerCourseCard({
         aria-label={`学习课程：${course.name}`}
         data-course-id={course.id}
         data-course-scope={course.scope}
-        className="group block min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-violet-300 hover:shadow-[0_16px_34px_rgba(48,41,92,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-slate-800 dark:bg-[#171a22] dark:hover:border-violet-700 dark:focus-visible:ring-offset-[#11131a]"
+        className="group block min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-primary/30 hover:shadow-[0_16px_34px_rgba(48,41,92,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:border-slate-800 dark:bg-card-solid dark:hover:border-primary dark:focus-visible:ring-offset-page"
       >
         <div
           ref={thumbnailRef}
-          className="relative aspect-video overflow-hidden bg-gradient-to-br from-indigo-100 via-blue-50 to-violet-100 dark:from-indigo-950 dark:via-slate-900 dark:to-violet-950"
+          className="relative aspect-video overflow-hidden bg-gradient-to-br from-indigo-100 via-blue-50 to-primary/10 dark:from-indigo-950 dark:via-slate-900 dark:to-primary/20"
         >
           {slide && thumbnailWidth > 0 ? (
             <SlideThumbnail
@@ -483,7 +483,7 @@ function LearnerCourseCard({
               aria-hidden="true"
             >
               <span className="absolute -right-10 -top-12 size-36 rounded-full border-[22px] border-white/35 dark:border-white/5" />
-              <span className="absolute -bottom-14 -left-12 size-40 rounded-full border-[24px] border-violet-300/30 dark:border-violet-400/10" />
+              <span className="absolute -bottom-14 -left-12 size-40 rounded-full border-[24px] border-primary/30 dark:border-primary/10" />
               <div className="relative flex items-center gap-3 text-[#155fa8] dark:text-blue-300">
                 <span className="grid size-11 place-items-center rounded-xl bg-white/75 shadow-sm dark:bg-white/10">
                   <BookOpen className="size-6" />
@@ -494,7 +494,7 @@ function LearnerCourseCard({
           )}
 
           {course.scope === 'platform' && (
-            <span className="absolute left-3 top-3 rounded-md bg-gradient-to-r from-blue-600 to-violet-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
+            <span className="absolute left-3 top-3 rounded-md bg-gradient-to-r from-blue-600 to-primary px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
               精品课程
             </span>
           )}
@@ -507,7 +507,7 @@ function LearnerCourseCard({
 
         <div className="flex min-h-28 flex-col p-5">
           <h2
-            className="line-clamp-2 text-lg font-semibold leading-7 transition-colors group-hover:text-violet-700 dark:group-hover:text-violet-300 sm:text-xl"
+            className="line-clamp-2 text-lg font-semibold leading-7 transition-colors group-hover:text-primary dark:group-hover:text-primary/80 sm:text-xl"
             title={course.name}
           >
             {course.name}

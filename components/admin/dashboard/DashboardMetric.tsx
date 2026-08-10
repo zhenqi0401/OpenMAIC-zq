@@ -38,7 +38,7 @@ export function DashboardMetric({ label, value, progress, note, tooltip }: Dashb
         </span>
         <CheckCircle2 aria-hidden="true" className="size-4 text-[var(--admin-success)]" />
       </div>
-      <div className="text-[32px] font-semibold leading-none tabular-nums tracking-[-0.02em] text-[var(--admin-foreground)]">
+      <div className="text-[28px] font-semibold leading-8 tabular-nums tracking-[-0.02em] text-[var(--admin-foreground)]">
         {value}
       </div>
       {width === null ? null : (
