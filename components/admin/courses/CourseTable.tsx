@@ -39,6 +39,7 @@ export function CourseTable({
   onDelete,
   onEditVisibility,
   onEditCourse,
+  onAnalytics,
   previews,
 }: {
   courses: readonly EnterpriseCourse[];
@@ -48,6 +49,7 @@ export function CourseTable({
   onDelete: (course: EnterpriseCourse) => void;
   onEditVisibility: (course: EnterpriseCourse) => void;
   onEditCourse?: (course: EnterpriseCourse) => void;
+  onAnalytics?: (course: EnterpriseCourse) => void;
   previews?: Record<string, { canvas: unknown } | null>;
 }) {
   return (
@@ -124,6 +126,11 @@ export function CourseTable({
               <div className="mt-auto">
                 <AdminRowActions
                   actions={[
+                    {
+                      id: 'analytics',
+                      label: '学习数据',
+                      onSelect: () => onAnalytics?.(course),
+                    },
                     {
                       id: 'edit-course',
                       label: '修改课程信息',

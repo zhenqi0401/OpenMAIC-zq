@@ -13,6 +13,9 @@ export type EnterpriseHomeCourse = StageListItem & {
   categoryKey: string | null;
   learnerCount: number;
   generationComplete?: boolean;
+  learningRequirement?: 'required' | 'elective';
+  pathPosition?: number | null;
+  learningStatus?: 'not_started' | 'learning' | 'assessment_pending' | 'completed';
 };
 
 export interface HomeCourseCategory {
@@ -56,6 +59,9 @@ interface EnterpriseCourseListResponse {
     scope?: unknown;
     learnerCount?: unknown;
     sceneCount?: unknown;
+    learningRequirement?: unknown;
+    pathPosition?: unknown;
+    learningStatus?: unknown;
   }>;
   categories?: Array<{
     id?: unknown;
@@ -148,6 +154,18 @@ export async function loadEnterpriseHomeCatalog(
             : 0,
         generationComplete:
           typeof course.generationComplete === 'boolean' ? course.generationComplete : undefined,
+        learningRequirement:
+          course.learningRequirement === 'required' || course.learningRequirement === 'elective'
+            ? course.learningRequirement
+            : undefined,
+        pathPosition: typeof course.pathPosition === 'number' ? course.pathPosition : null,
+        learningStatus:
+          course.learningStatus === 'not_started' ||
+          course.learningStatus === 'learning' ||
+          course.learningStatus === 'assessment_pending' ||
+          course.learningStatus === 'completed'
+            ? course.learningStatus
+            : undefined,
       })),
     categories,
   };

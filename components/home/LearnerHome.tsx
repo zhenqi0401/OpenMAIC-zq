@@ -146,6 +146,13 @@ export function LearnerHome({
         .length > 0,
     [courses, selection],
   );
+  const requiredCourses = useMemo(
+    () =>
+      courses
+        .filter((course) => course.learningRequirement === 'required')
+        .sort((a, b) => (a.pathPosition ?? 0) - (b.pathPosition ?? 0)),
+    [courses],
+  );
   const scopeCounts = useMemo(
     () => ({
       all: courses.length,
@@ -320,20 +327,55 @@ export function LearnerHome({
                 </Button>
               </div>
             ) : filteredCourses.length > 0 ? (
-              <div
-                className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
-                data-testid="learner-course-grid"
-              >
-                {filteredCourses.map((course) => (
-                  <LearnerCourseCard
-                    key={course.id}
-                    course={course}
-                    slide={thumbnails[course.id]}
-                    href={getCourseHref(course.id)}
-                    popularityEnabled={popularityEnabled}
-                  />
-                ))}
-              </div>
+              <>
+                {requiredCourses.length > 0 && selection.scope === 'all' && !query ? (
+                  <section className="mb-8" aria-labelledby="my-required-courses">
+                    <div className="mb-3 flex items-baseline justify-between">
+                      <h2 id="my-required-courses" className="text-lg font-semibold">
+                        我的必修
+                      </h2>
+                      <span className="text-sm text-slate-500">
+                        已完成{' '}
+                        {
+                          requiredCourses.filter((course) => course.learningStatus === 'completed')
+                            .length
+                        }{' '}
+                        / 共 {requiredCourses.length} 门
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                      {requiredCourses.map((course) => (
+                        <LearnerCourseCard
+                          key={`required-${course.id}`}
+                          course={course}
+                          slide={thumbnails[course.id]}
+                          href={getCourseHref(course.id)}
+                          popularityEnabled={popularityEnabled}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+                <div
+                  className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+                  data-testid="learner-course-grid"
+                >
+                  {filteredCourses
+                    .filter(
+                      (course) =>
+                        !(requiredCourses.includes(course) && selection.scope === 'all' && !query),
+                    )
+                    .map((course) => (
+                      <LearnerCourseCard
+                        key={course.id}
+                        course={course}
+                        slide={thumbnails[course.id]}
+                        href={getCourseHref(course.id)}
+                        popularityEnabled={popularityEnabled}
+                      />
+                    ))}
+                </div>
+              </>
             ) : (
               <div className="rounded-lg border border-slate-200 bg-white py-14 text-center dark:border-slate-800 dark:bg-[#171a22]">
                 <BookOpen className="mx-auto size-7 text-slate-400" />
@@ -456,6 +498,11 @@ function LearnerCourseCard({
               精品课程
             </span>
           )}
+          {course.learningRequirement === 'required' && (
+            <span className="absolute right-3 top-3 rounded-md bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
+              必修{typeof course.pathPosition === 'number' ? ` · ${course.pathPosition + 1}` : ''}
+            </span>
+          )}
         </div>
 
         <div className="flex min-h-28 flex-col p-5">
@@ -465,13 +512,13 @@ function LearnerCourseCard({
           >
             {course.name}
           </h2>
-          {popularityEnabled && (
+          {popularityEnabled && course.learnerCount > 0 && (
             <span
               className="mt-auto inline-flex items-center justify-end gap-1.5 pt-3 text-sm text-slate-500 dark:text-slate-400"
-              aria-label={`${course.learnerCount} 人已开始学习`}
+              aria-label={`已有 ${course.learnerCount} 人开始学习`}
             >
               <UserRound className="size-4" aria-hidden="true" />
-              <span aria-hidden="true">{course.learnerCount}</span>
+              <span aria-hidden="true">已有 {course.learnerCount} 人开始学习</span>
             </span>
           )}
         </div>

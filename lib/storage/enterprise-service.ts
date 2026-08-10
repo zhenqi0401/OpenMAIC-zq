@@ -65,6 +65,9 @@ export interface EnterpriseCourse {
   publishedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  learningRequirement?: LearningRequirement;
+  pathPosition?: number | null;
+  learningStatus?: LearningStatus;
 }
 
 export interface EnterpriseCategory {
@@ -124,6 +127,28 @@ export interface EnterpriseCourseProgress {
   startedAt?: Date;
   lastViewedAt?: Date;
   updatedAt?: Date;
+}
+
+export type LearningRequirement = 'required' | 'elective';
+export type LearningStatus = 'not_started' | 'learning' | 'assessment_pending' | 'completed';
+
+export interface RoleLearningPathCourse {
+  courseId: string;
+  position: number;
+  course: EnterpriseCourse;
+}
+
+export interface LearnerCourseLearningMeta {
+  learningRequirement: LearningRequirement;
+  pathPosition: number | null;
+  learningStatus: LearningStatus;
+}
+
+export interface EnterpriseLearner {
+  id: string;
+  displayName: string;
+  roleId: string;
+  roleCode: string;
 }
 
 export interface EnterpriseAssessmentAttempt {
@@ -348,10 +373,20 @@ export interface EnterpriseRepository {
     id: string,
     patch: { code?: string; name?: string; isAdmin?: boolean },
   ): Promise<AuthRole | null>;
-  getRoleUsage(
-    roleId: string,
-  ): Promise<{ users: number; inviteCodes: number; examPolicies: number }>;
+  getRoleUsage(roleId: string): Promise<{
+    users: number;
+    inviteCodes: number;
+    examPolicies: number;
+    learningPathCourses?: number;
+  }>;
   deleteRole(id: string): Promise<AuthRole | null>;
+  listRoleLearningPath(roleId: string): Promise<RoleLearningPathCourse[]>;
+  replaceRoleLearningPath(
+    roleId: string,
+    tenantId: string,
+    courseIds: string[],
+  ): Promise<RoleLearningPathCourse[]>;
+  listTenantLearners?(tenantId: string): Promise<EnterpriseLearner[]>;
 
   listInviteCodes(): Promise<EnterpriseInviteCode[]>;
   createInviteCode(input: {
@@ -635,6 +670,10 @@ export function createEnterpriseStorageService(
   repository: EnterpriseRepository,
   defaultAccess?: TenantAccessContext,
 ) {
+  const listRoleLearningPath = (roleId: string) =>
+    typeof repository.listRoleLearningPath === 'function'
+      ? repository.listRoleLearningPath(roleId)
+      : Promise.resolve([] as RoleLearningPathCourse[]);
   async function getExamPolicyCandidates(policy: EnterpriseExamPolicy) {
     const courses = await repository.listAdminCourses();
     const eligibleCourses = courses.filter((course) => {
@@ -723,6 +762,67 @@ export function createEnterpriseStorageService(
   return {
     listRoles: async (access?: TenantAccessContext) =>
       (await repository.listRoles()).filter((role) => !access || role.tenantId === access.tenantId),
+    getRoleLearningPath: async (roleId: string, access?: TenantAccessContext) => {
+      const role = (await repository.listRoles()).find((candidate) => candidate.id === roleId);
+      if (!role || (access && role.tenantId !== access.tenantId)) {
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Role not found');
+      }
+      return listRoleLearningPath(roleId);
+    },
+    replaceRoleLearningPath: async (
+      roleId: string,
+      courseIds: string[],
+      access?: TenantAccessContext,
+    ) => {
+      if (!access)
+        throw new EnterpriseStorageServiceError('INVALID_REQUEST', 'Tenant context required');
+      const role = (await repository.listRoles()).find((candidate) => candidate.id === roleId);
+      if (!role || role.tenantId !== access.tenantId) {
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Role not found');
+      }
+      if (role.isAdmin) {
+        throw new EnterpriseStorageServiceError('FORBIDDEN', '管理员角色不能配置学习路径');
+      }
+      const uniqueCourseIds = [...new Set(courseIds)];
+      if (uniqueCourseIds.length !== courseIds.length) {
+        throw new EnterpriseStorageServiceError('INVALID_REQUEST', '课程不能重复');
+      }
+      const available = (await repository.listAdminCourses()).filter(
+        (course) =>
+          (course.scope === 'platform' || course.tenantId === access.tenantId) &&
+          course.status === 'published' &&
+          course.generationComplete === true &&
+          Array.isArray(course.assessmentQuestions) &&
+          course.assessmentQuestions.length > 0,
+      );
+      const selected = uniqueCourseIds.map((id) => available.find((course) => course.id === id));
+      if (selected.some((course) => !course)) {
+        throw new EnterpriseStorageServiceError(
+          'INVALID_REQUEST',
+          '必修课程必须是已发布、生成完成且已有课后测评的课程',
+        );
+      }
+      const tenantCourseIds = selected
+        .filter((course): course is EnterpriseCourse => course?.scope === 'tenant')
+        .map((course) => course.id);
+      if (tenantCourseIds.length > 0) {
+        const rolesForVisibility = (await repository.listRoles()).filter(
+          (candidate) => candidate.tenantId === access.tenantId,
+        );
+        for (const courseId of tenantCourseIds) {
+          const course = selected.find((candidate) => candidate?.id === courseId);
+          if (course?.visibilityMode === 'roles' && !course.visibleRoleIds.includes(roleId)) {
+            await repository.updateCourseVisibility(courseId, {
+              visibilityMode: 'roles',
+              visibleRoleIds: [...course.visibleRoleIds, roleId].filter((id) =>
+                rolesForVisibility.some((candidate) => candidate.id === id),
+              ),
+            });
+          }
+        }
+      }
+      return repository.replaceRoleLearningPath(roleId, access.tenantId, uniqueCourseIds);
+    },
     createRole: (
       input: { code: string; name: string; isAdmin?: boolean },
       access?: TenantAccessContext,
@@ -773,10 +873,17 @@ export function createEnterpriseStorageService(
         );
       }
       const usage = await repository.getRoleUsage(id);
-      if (usage.users > 0 || usage.inviteCodes > 0 || usage.examPolicies > 0) {
+      if (
+        usage.users > 0 ||
+        usage.inviteCodes > 0 ||
+        usage.examPolicies > 0 ||
+        (usage.learningPathCourses ?? 0) > 0
+      ) {
         throw new EnterpriseStorageServiceError(
           'CONFLICT',
-          'Role is still assigned to users, invite codes, or exam policies',
+          usage.learningPathCourses
+            ? 'Role is still assigned to users, invite codes, exam policies, or a mandatory learning path'
+            : 'Role is still assigned to users, invite codes, or exam policies',
         );
       }
       const deletedRole = await repository.deleteRole(id);
@@ -1026,6 +1133,27 @@ export function createEnterpriseStorageService(
         throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       }
       assertValidVisibility(visibility);
+      if (visibility.visibilityMode === 'roles') {
+        const tenantRoles = (await repository.listRoles()).filter(
+          (role) => !access || role.tenantId === access.tenantId,
+        );
+        const requiredBy = (
+          await Promise.all(
+            tenantRoles.map(async (role) => ({
+              roleId: role.id,
+              path: await listRoleLearningPath(role.id),
+            })),
+          )
+        )
+          .filter(({ path }) => path.some((item) => item.courseId === id))
+          .map(({ roleId }) => roleId);
+        if (requiredBy.some((roleId) => !visibility.visibleRoleIds.includes(roleId))) {
+          throw new EnterpriseStorageServiceError(
+            'CONFLICT',
+            '请先从角色必修学习路径中移除该课程，再移除角色可见权限',
+          );
+        }
+      }
       if (access && visibility.visibleRoleIds.length > 0) {
         const roles = await repository.listRoles();
         if (
@@ -1056,6 +1184,12 @@ export function createEnterpriseStorageService(
       if (!(await assertWritableCourse(repository, id, access))) {
         throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       }
+      const referenced = await Promise.all(
+        (await repository.listRoles()).map((role) => listRoleLearningPath(role.id)),
+      );
+      if (referenced.some((path) => path.some((item) => item.courseId === id))) {
+        throw new EnterpriseStorageServiceError('CONFLICT', '请先从角色必修学习路径中移除该课程');
+      }
       const course = await repository.archiveCourse(id);
       if (!course) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       return course;
@@ -1063,6 +1197,12 @@ export function createEnterpriseStorageService(
     deleteCourse: async (id: string, access?: TenantAccessContext) => {
       if (!(await assertWritableCourse(repository, id, access))) {
         throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      }
+      const referenced = await Promise.all(
+        (await repository.listRoles()).map((role) => listRoleLearningPath(role.id)),
+      );
+      if (referenced.some((path) => path.some((item) => item.courseId === id))) {
+        throw new EnterpriseStorageServiceError('CONFLICT', '请先从角色必修学习路径中移除该课程');
       }
       const course = await repository.deleteCourse(id);
       if (!course) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
@@ -1074,18 +1214,40 @@ export function createEnterpriseStorageService(
       sort: CourseListSort = 'latest',
     ) {
       const courses = await repository.listAdminCourses();
-      return sortVisibleCourses(
-        courses
-          .filter((course) =>
-            typeof access === 'string'
-              ? isCourseVisibleToRole(course, access)
-              : isCourseReadable(course, access) && course.status === 'published',
-          )
-          .map((course) =>
-            withManagementMode(course, typeof access === 'string' ? undefined : access),
-          ),
-        sort,
+      const visible = courses
+        .filter((course) =>
+          typeof access === 'string'
+            ? isCourseVisibleToRole(course, access)
+            : isCourseReadable(course, access) && course.status === 'published',
+        )
+        .map((course) =>
+          withManagementMode(course, typeof access === 'string' ? undefined : access),
+        );
+      if (typeof access === 'string' || access.isAdmin) return sortVisibleCourses(visible, sort);
+      const path = await listRoleLearningPath(access.roleId);
+      const pathMap = new Map(path.map((item) => [item.courseId, item.position]));
+      const enriched = await Promise.all(
+        visible.map(async (course) => {
+          const progress = await repository.getCourseProgress(access.userId, course.id);
+          const attempts = await repository.listCourseAssessmentAttempts(access.userId, course.id);
+          const learningStatus: LearningStatus = !progress
+            ? 'not_started'
+            : attempts.some((attempt) => attempt.passed)
+              ? 'completed'
+              : progress.completed
+                ? 'assessment_pending'
+                : 'learning';
+          return {
+            ...course,
+            learningRequirement: pathMap.has(course.id)
+              ? ('required' as const)
+              : ('elective' as const),
+            pathPosition: pathMap.get(course.id) ?? null,
+            learningStatus,
+          };
+        }),
       );
+      return sortVisibleCourses(enriched, sort);
     },
 
     async getVisibleCourse(id: string, access: TenantAccessContext | string) {
@@ -1297,6 +1459,169 @@ export function createEnterpriseStorageService(
       const course = await repository.updateCourseAssessmentQuestions(courseId, choiceQuestions);
       if (!course) throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
       return course;
+    },
+
+    async getCourseAnalytics(
+      courseId: string,
+      access: TenantAccessContext,
+      query: { page: number; pageSize: number; roleId?: string; learningStatus?: LearningStatus },
+    ) {
+      const course = await repository.getCourseContent(courseId);
+      if (
+        !course ||
+        (course.course.scope !== 'platform' && course.course.tenantId !== access.tenantId)
+      ) {
+        throw new EnterpriseStorageServiceError('NOT_FOUND', 'Course not found');
+      }
+      const [progress, attempts, roles] = await Promise.all([
+        repository.listCourseProgress({ courseId, tenantId: access.tenantId }),
+        repository.listAssessmentAttempts({ courseId, tenantId: access.tenantId }),
+        repository.listRoles(),
+      ]);
+      const byUser = new Map<
+        string,
+        {
+          learner?: EnterpriseLearner;
+          progress?: EnterpriseProgressDetail;
+          attempts: EnterpriseAttemptDetail[];
+        }
+      >();
+      const tenantLearners = (await repository.listTenantLearners?.(access.tenantId)) ?? [];
+      for (const learner of tenantLearners) byUser.set(learner.id, { learner, attempts: [] });
+      for (const row of progress) {
+        const entry = byUser.get(row.userId) ?? { attempts: [] };
+        byUser.set(row.userId, { ...entry, progress: row });
+      }
+      for (const row of attempts) {
+        const entry = byUser.get(row.userId) ?? { attempts: [] };
+        entry.attempts.push(row);
+        byUser.set(row.userId, entry);
+      }
+      const learners = [...byUser.values()]
+        .filter(
+          (entry) =>
+            !query.roleId ||
+            entry.learner?.roleId === query.roleId ||
+            entry.progress?.roleId === query.roleId ||
+            entry.attempts[0]?.roleId === query.roleId,
+        )
+        .map((entry) => {
+          const ordered = [...entry.attempts].sort(
+            (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+          );
+          const passed = ordered.some((attempt) => attempt.passed);
+          const status: LearningStatus = !entry.progress
+            ? 'not_started'
+            : passed
+              ? 'completed'
+              : entry.progress.completed
+                ? 'assessment_pending'
+                : 'learning';
+          return { ...entry, status, attempts: ordered };
+        })
+        .filter((entry) => !query.learningStatus || entry.status === query.learningStatus);
+      const started = [...byUser.values()].filter((entry) => entry.progress).length;
+      const reachedEnd = [...byUser.values()].filter((entry) => entry.progress?.completed).length;
+      const participating = [...byUser.values()].filter(
+        (entry) => entry.attempts.length > 0,
+      ).length;
+      const passed = [...byUser.values()].filter((entry) =>
+        entry.attempts.some((attempt) => attempt.passed),
+      ).length;
+      const firstScores = [...byUser.values()].flatMap((entry) =>
+        entry.attempts.length ? [entry.attempts[0].score] : [],
+      );
+      const retryLearners = [...byUser.values()].filter(
+        (entry) => entry.attempts.length > 1,
+      ).length;
+      const recentLearningAt =
+        [...byUser.values()]
+          .flatMap((entry) => [
+            entry.progress?.lastViewedAt,
+            ...entry.attempts.map((attempt) => attempt.createdAt),
+          ])
+          .filter((date): date is Date => date instanceof Date)
+          .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+      const pageStart = Math.max(0, (query.page - 1) * query.pageSize);
+      const paged = learners.slice(pageStart, pageStart + query.pageSize);
+      const pct = (value: number, total: number) =>
+        total ? Math.round((value / total) * 1000) / 10 : null;
+      const pathRows = await Promise.all(
+        roles
+          .filter((role) => !role.isAdmin && role.tenantId === access.tenantId)
+          .map(async (role) => ({ role, path: await listRoleLearningPath(role.id) })),
+      );
+      const mandatoryRoles = pathRows.filter(({ path }) =>
+        path.some((item) => item.courseId === courseId),
+      );
+      const mandatoryRoleIds = new Set(mandatoryRoles.map(({ role }) => role.id));
+      const mandatoryLearners = tenantLearners.filter((learner) =>
+        mandatoryRoleIds.has(learner.roleId),
+      );
+      const mandatoryCompleted = mandatoryLearners.filter((learner) =>
+        byUser.get(learner.id)?.attempts.some((attempt) => attempt.passed),
+      ).length;
+      const mandatoryStarted = mandatoryLearners.filter(
+        (learner) => byUser.get(learner.id)?.progress,
+      ).length;
+      return {
+        summary: {
+          independentStarted: started,
+          reachedEnd,
+          endRate: pct(reachedEnd, started),
+          assessmentParticipants: participating,
+          assessmentPassed: passed,
+          assessmentPassRate: pct(passed, participating),
+          completionRate: pct(passed, started),
+          firstAssessmentAverage: firstScores.length
+            ? Math.round((firstScores.reduce((a, b) => a + b, 0) / firstScores.length) * 10) / 10
+            : null,
+          retryLearnerRate: pct(retryLearners, participating),
+          assessmentQuestionCount: filterChoiceQuestions(course.course.assessmentQuestions).length,
+          participatedNotPassed: Math.max(0, participating - passed),
+          recentLearningAt: recentLearningAt?.toISOString() ?? null,
+        },
+        mandatory: mandatoryRoles.length
+          ? {
+              roleCount: mandatoryRoles.length,
+              courseId,
+              expected: mandatoryLearners.length,
+              notStarted: mandatoryLearners.length - mandatoryStarted,
+              learning: mandatoryStarted - mandatoryCompleted,
+              completed: mandatoryCompleted,
+              completionRate: pct(mandatoryCompleted, mandatoryLearners.length),
+            }
+          : null,
+        roles: mandatoryRoles.map(({ role }) => {
+          const expected = mandatoryLearners.filter((learner) => learner.roleId === role.id);
+          const completed = expected.filter((learner) =>
+            byUser.get(learner.id)?.attempts.some((attempt) => attempt.passed),
+          ).length;
+          const started = expected.filter((learner) => byUser.get(learner.id)?.progress).length;
+          return {
+            role: { id: role.id, name: role.name },
+            expected: expected.length,
+            notStarted: expected.length - started,
+            learning: started - completed,
+            completed,
+            completionRate: pct(completed, expected.length),
+          };
+        }),
+        learners: paged.map((entry) => ({
+          learner: entry.learner ?? entry.progress ?? entry.attempts[0],
+          status: entry.status,
+          firstScore: entry.attempts[0]?.score ?? null,
+          latestScore: entry.attempts.at(-1)?.score ?? null,
+          attemptCount: entry.attempts.length,
+          passed: entry.attempts.some((attempt) => attempt.passed),
+        })),
+        pagination: {
+          page: query.page,
+          pageSize: query.pageSize,
+          total: learners.length,
+          totalPages: Math.max(1, Math.ceil(learners.length / query.pageSize)),
+        },
+      };
     },
 
     async regenerateCourseAssessment(courseId: string, input: GenerateCourseAssessmentInput) {

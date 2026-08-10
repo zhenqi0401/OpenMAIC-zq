@@ -24,6 +24,7 @@ import {
 import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
 import type { AdminInviteCode, AdminRole, AdminUser } from '@/lib/admin/client';
 import { AccessDangerDialog } from './AccessUsersTab';
+import { RoleLearningPathDialog } from './RoleLearningPathDialog';
 
 export interface RoleDraft {
   code: string;
@@ -227,6 +228,7 @@ export function AccessRolesTab({
   const [createOpen, setCreateOpen] = useState(false);
   const [newRole, setNewRole] = useState<RoleDraft>({ code: '', name: '', isAdmin: false });
   const [editingRole, setEditingRole] = useState<AdminRole | null>(null);
+  const [learningPathRole, setLearningPathRole] = useState<AdminRole | null>(null);
   const [editDraft, setEditDraft] = useState<RoleDraft>({ code: '', name: '', isAdmin: false });
   const usageCounts = useMemo(
     () => getRoleUsageCounts(roles, users, inviteCodes),
@@ -341,6 +343,16 @@ export function AccessRolesTab({
                         >
                           编辑
                         </Button>
+                        {!role.isAdmin ? (
+                          <Button
+                            className={adminSecondaryButtonClassName}
+                            onClick={() => setLearningPathRole(role)}
+                            type="button"
+                            variant="outline"
+                          >
+                            配置学习路径
+                          </Button>
+                        ) : null}
                         <AccessDangerDialog
                           busy={deletingRoleId === role.id}
                           confirmLabel="确认删除"
@@ -395,6 +407,16 @@ export function AccessRolesTab({
                   >
                     编辑
                   </Button>
+                  {!role.isAdmin ? (
+                    <Button
+                      className={adminSecondaryButtonClassName}
+                      onClick={() => setLearningPathRole(role)}
+                      type="button"
+                      variant="outline"
+                    >
+                      配置学习路径
+                    </Button>
+                  ) : null}
                   <AccessDangerDialog
                     busy={deletingRoleId === role.id}
                     confirmLabel="确认删除"
@@ -422,6 +444,12 @@ export function AccessRolesTab({
         open={editingRole !== null}
         protectCode={editingRole?.code === 'admin'}
         title="编辑角色"
+      />
+      <RoleLearningPathDialog
+        role={learningPathRole}
+        onOpenChange={(open) => {
+          if (!open) setLearningPathRole(null);
+        }}
       />
     </AdminCard>
   );

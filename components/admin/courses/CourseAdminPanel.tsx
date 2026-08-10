@@ -33,6 +33,7 @@ import { CourseTable } from './CourseTable';
 import { CourseEditDialog } from './CourseEditDialog';
 import { CourseVisibilityDialog, type CourseVisibilityDraft } from './CourseVisibilityDialog';
 import { EnterpriseCourseImportDialog } from './EnterpriseCourseImportDialog';
+import { CourseAnalyticsDrawer } from './CourseAnalyticsDrawer';
 
 interface Category {
   id: string;
@@ -133,6 +134,7 @@ export function CourseAdminPanel() {
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [categoryBusyId, setCategoryBusyId] = useState<string | null>(null);
   const [visibilityCourse, setVisibilityCourse] = useState<EnterpriseCourse | null>(null);
+  const [analyticsCourse, setAnalyticsCourse] = useState<EnterpriseCourse | null>(null);
   const [editingCourse, setEditingCourse] = useState<EnterpriseCourse | null>(null);
   const [savingCourse, setSavingCourse] = useState(false);
   const [savingVisibility, setSavingVisibility] = useState(false);
@@ -467,6 +469,7 @@ export function CourseAdminPanel() {
             onDelete={setCourseToDelete}
             onEditCourse={setEditingCourse}
             onEditVisibility={setVisibilityCourse}
+            onAnalytics={setAnalyticsCourse}
             roleNames={roleNames}
             statusChangingCourseId={statusChangingCourseId}
             previews={previews}
@@ -512,6 +515,13 @@ export function CourseAdminPanel() {
         onSave={saveCourse}
         open={editingCourse !== null}
         saving={savingCourse}
+      />
+
+      <CourseAnalyticsDrawer
+        course={analyticsCourse}
+        onOpenChange={(open) => {
+          if (!open) setAnalyticsCourse(null);
+        }}
       />
 
       <EnterpriseCourseImportDialog

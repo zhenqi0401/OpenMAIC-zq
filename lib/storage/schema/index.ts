@@ -217,6 +217,31 @@ export const courseVisibilityRoles = pgTable(
   (table) => [primaryKey({ columns: [table.courseId, table.roleId] })],
 );
 
+/** Ordered mandatory courses for a learner role. Requirement belongs to the
+ * role/course relationship rather than the course itself. */
+export const roleLearningPathCourses = pgTable(
+  'role_learning_path_courses',
+  {
+    roleId: uuid('role_id')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'cascade' }),
+    courseId: uuid('course_id')
+      .notNull()
+      .references(() => courses.id, { onDelete: 'restrict' }),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    primaryKey({ columns: [table.roleId, table.courseId] }),
+    uniqueIndex('role_learning_path_courses_role_position_unique').on(table.roleId, table.position),
+    index('role_learning_path_courses_course_id_idx').on(table.courseId),
+    index('role_learning_path_courses_tenant_id_idx').on(table.tenantId),
+  ],
+);
+
 export const courseDanmaku = pgTable(
   'course_danmaku',
   {
@@ -682,6 +707,7 @@ export const enterpriseTableNames = [
   'course_categories',
   'courses',
   'course_visibility_roles',
+  'role_learning_path_courses',
   'course_scenes',
   'course_outlines',
   'media_files',

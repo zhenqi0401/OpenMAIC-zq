@@ -21,6 +21,7 @@ import {
   mediaFiles,
   outlines,
   roles,
+  roleLearningPathCourses,
   scenes,
   users,
 } from './schema';
@@ -47,6 +48,8 @@ import {
   type EnterpriseProgressDetail,
   type EnterpriseRepository,
   type ReplaceCourseContentInput,
+  type RoleLearningPathCourse,
+  type EnterpriseLearner,
 } from './enterprise-service';
 import type { PreparedEnterpriseCourseImport } from '@/lib/import/enterprise-course-import';
 
@@ -317,20 +320,86 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
     users: number;
     inviteCodes: number;
     examPolicies: number;
+    learningPathCourses?: number;
   }> {
-    const [[userUsage], [inviteCodeUsage], [examPolicyUsage]] = await Promise.all([
+    const [[userUsage], [inviteCodeUsage], [examPolicyUsage], [pathUsage]] = await Promise.all([
       getDb().select({ value: count() }).from(users).where(eq(users.roleId, roleId)),
       getDb().select({ value: count() }).from(inviteCodes).where(eq(inviteCodes.roleId, roleId)),
       getDb()
         .select({ value: count() })
         .from(examPolicies)
         .where(eq(examPolicies.targetRoleId, roleId)),
+      getDb()
+        .select({ value: count() })
+        .from(roleLearningPathCourses)
+        .where(eq(roleLearningPathCourses.roleId, roleId)),
     ]);
     return {
       users: userUsage?.value ?? 0,
       inviteCodes: inviteCodeUsage?.value ?? 0,
       examPolicies: examPolicyUsage?.value ?? 0,
+      learningPathCourses: pathUsage?.value ?? 0,
     };
+  }
+
+  async listRoleLearningPath(roleId: string): Promise<RoleLearningPathCourse[]> {
+    const rows = await getDb()
+      .select({ path: roleLearningPathCourses, course: courses })
+      .from(roleLearningPathCourses)
+      .innerJoin(courses, eq(roleLearningPathCourses.courseId, courses.id))
+      .where(eq(roleLearningPathCourses.roleId, roleId))
+      .orderBy(asc(roleLearningPathCourses.position));
+    const roleIds = await loadVisibleRoleIds(rows.map((row) => row.course.id));
+    return rows.map(({ path, course }) => ({
+      courseId: path.courseId,
+      position: path.position,
+      course: toCourse(course, roleIds.get(course.id) ?? []),
+    }));
+  }
+
+  async listTenantLearners(tenantId: string): Promise<EnterpriseLearner[]> {
+    const rows = await getDb()
+      .select({ user: users, role: roles })
+      .from(users)
+      .innerJoin(roles, eq(users.roleId, roles.id))
+      .where(
+        and(eq(users.tenantId, tenantId), eq(roles.isAdmin, false), eq(users.status, 'active')),
+      );
+    return rows.map(({ user, role }) => ({
+      id: user.id,
+      displayName: user.displayName,
+      roleId: role.id,
+      roleCode: role.code,
+    }));
+  }
+
+  async replaceRoleLearningPath(
+    roleId: string,
+    tenantId: string,
+    courseIds: string[],
+  ): Promise<RoleLearningPathCourse[]> {
+    return runDbTransaction(async (tx) => {
+      await tx.delete(roleLearningPathCourses).where(eq(roleLearningPathCourses.roleId, roleId));
+      if (courseIds.length > 0) {
+        await tx
+          .insert(roleLearningPathCourses)
+          .values(
+            courseIds.map((courseId, position) => ({ roleId, tenantId, courseId, position })),
+          );
+      }
+      const rows = await tx
+        .select({ path: roleLearningPathCourses, course: courses })
+        .from(roleLearningPathCourses)
+        .innerJoin(courses, eq(roleLearningPathCourses.courseId, courses.id))
+        .where(eq(roleLearningPathCourses.roleId, roleId))
+        .orderBy(asc(roleLearningPathCourses.position));
+      const roleIds = await loadVisibleRoleIds(rows.map((row) => row.course.id));
+      return rows.map(({ path, course }) => ({
+        courseId: path.courseId,
+        position: path.position,
+        course: toCourse(course, roleIds.get(course.id) ?? []),
+      }));
+    });
   }
 
   async deleteRole(id: string): Promise<AuthRole | null> {
@@ -433,6 +502,9 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
         learnerCount: count(courseProgress.userId).as('learner_count'),
       })
       .from(courseProgress)
+      .innerJoin(users, eq(courseProgress.userId, users.id))
+      .innerJoin(roles, eq(users.roleId, roles.id))
+      .where(eq(roles.isAdmin, false))
       .groupBy(courseProgress.courseId)
       .as('course_learner_counts');
     const sceneCounts = getDb()

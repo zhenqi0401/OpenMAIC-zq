@@ -1,3 +1,4 @@
+-- CREATE TABLE "role_learning_path_courses" is introduced by 0013_role_learning_paths.sql.
 CREATE TABLE "tenants" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"company_id" varchar(128) NOT NULL,
