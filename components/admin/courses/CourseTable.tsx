@@ -9,7 +9,7 @@ import { AdminRowActions } from '@/components/admin/AdminRowActions';
 import {
   AdminStatusBadge,
   adminPrimaryButtonClassName,
-  adminSecondaryButtonClassName,
+  adminLinkButtonClassName,
 } from '@/components/admin/AdminSurface';
 import type { EnterpriseCourse, CourseStatus } from '@/lib/storage/enterprise-service';
 import {
@@ -160,11 +160,11 @@ export function CourseTable({
                         </Button>
                       ) : null}
                       <Button
-                        className={adminSecondaryButtonClassName}
+                        className={adminLinkButtonClassName}
                         onClick={() => onEditVisibility(course)}
                         disabled={course.managementMode === 'read_only'}
                         type="button"
-                        variant="outline"
+                        variant="link"
                       >
                         修改可见范围
                       </Button>

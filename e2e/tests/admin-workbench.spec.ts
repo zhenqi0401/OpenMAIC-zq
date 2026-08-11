@@ -296,7 +296,8 @@ test.describe('P0 overall acceptance', () => {
       for (const adminModule of modules) {
         await page.goto(`/admin?module=${adminModule.id}`);
         await expect(page.getByRole('heading', { name: adminModule.heading })).toBeVisible();
-        await expect(page.locator('[data-admin-refresh-button]')).toHaveCount(1);
+        // 常驻刷新已移除：页面级操作只保留业务按钮
+        await expect(page.locator('[data-admin-refresh-button]')).toHaveCount(0);
         expect(
           await page.evaluate(
             () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
@@ -314,43 +315,52 @@ test.describe('P0 overall acceptance', () => {
 
     for (const module of ['dashboard', 'courses', 'exams', 'community', 'access'] as const) {
       await page.goto(`/admin?module=${module}`);
-      await expect(page.locator('[data-admin-sidebar]')).toBeVisible();
-      await expect(page.locator('[data-admin-refresh-button]')).toBeEnabled();
+      await expect(page.locator('[data-admin-sider]')).toBeVisible();
+      await expect(page.locator('[data-admin-sider]')).toBeInViewport();
       await page.evaluate(() => {
         const spacer = document.createElement('div');
         spacer.setAttribute('data-admin-scroll-fixture', 'true');
         spacer.style.height = '1200px';
         document.querySelector('main')?.append(spacer);
-        window.scrollTo(0, document.body.scrollHeight);
+        // 应用滚动容器是 [data-admin-layout]（body 不再滚动）
+        const shell = document.querySelector('[data-admin-layout]') as HTMLElement;
+        shell.scrollTop = 500;
       });
 
-      const before = await page.evaluate(() => ({
-        scrollY: window.scrollY,
-        sidebarTop:
-          document.querySelector('[data-admin-sidebar]')?.getBoundingClientRect().top ?? null,
-        sidebarPosition: getComputedStyle(
-          document.querySelector('[data-admin-sidebar]') as HTMLElement,
-        ).position,
-      }));
-      expect(before.scrollY).toBeGreaterThan(0);
+      const before = await page.evaluate(() => {
+        const shell = document.querySelector('[data-admin-layout]') as HTMLElement;
+        return {
+          scrollTop: shell.scrollTop,
+          sidebarTop:
+            document.querySelector('[data-admin-sider]')?.getBoundingClientRect().top ?? null,
+          sidebarPosition: getComputedStyle(
+            document.querySelector('[data-admin-sider]') as HTMLElement,
+          ).position,
+        };
+      });
+      expect(before.scrollTop).toBeGreaterThan(0);
       expect(before.sidebarTop).toBe(0);
-      expect(before.sidebarPosition).toBe('fixed');
+      expect(before.sidebarPosition).toBe('sticky');
 
+      // 模拟 antd Modal/Drawer 打开时的 body 滚动锁：侧栏必须保持不动
       await page.evaluate(() => {
         document.body.style.overflow = 'hidden';
       });
 
-      const after = await page.evaluate(() => ({
-        scrollY: window.scrollY,
-        sidebarTop:
-          document.querySelector('[data-admin-sidebar]')?.getBoundingClientRect().top ?? null,
-        sidebarPosition: getComputedStyle(
-          document.querySelector('[data-admin-sidebar]') as HTMLElement,
-        ).position,
-      }));
-      expect(after.scrollY).toBeGreaterThan(0);
+      const after = await page.evaluate(() => {
+        const shell = document.querySelector('[data-admin-layout]') as HTMLElement;
+        return {
+          scrollTop: shell.scrollTop,
+          sidebarTop:
+            document.querySelector('[data-admin-sider]')?.getBoundingClientRect().top ?? null,
+          sidebarPosition: getComputedStyle(
+            document.querySelector('[data-admin-sider]') as HTMLElement,
+          ).position,
+        };
+      });
+      expect(after.scrollTop).toBeGreaterThan(0);
       expect(after.sidebarTop).toBe(0);
-      expect(after.sidebarPosition).toBe('fixed');
+      expect(after.sidebarPosition).toBe('sticky');
     }
   });
 });
@@ -492,22 +502,22 @@ test.describe('course administration interactions', () => {
     await trigger.scrollIntoViewIfNeeded();
 
     const before = await page.evaluate(() => ({
-      scrollY: window.scrollY,
+      scrollTop: (document.querySelector('[data-admin-layout]') as HTMLElement).scrollTop,
       sidebarTop:
-        document.querySelector('[data-admin-sidebar]')?.getBoundingClientRect().top ?? null,
+        document.querySelector('[data-admin-sider]')?.getBoundingClientRect().top ?? null,
     }));
-    expect(before.scrollY).toBeGreaterThan(0);
+    expect(before.scrollTop).toBeGreaterThan(0);
 
     await trigger.click();
     await expect(page.getByRole('menu')).toBeVisible();
 
     const after = await page.evaluate(() => ({
-      scrollY: window.scrollY,
+      scrollTop: (document.querySelector('[data-admin-layout]') as HTMLElement).scrollTop,
       sidebarTop:
-        document.querySelector('[data-admin-sidebar]')?.getBoundingClientRect().top ?? null,
+        document.querySelector('[data-admin-sider]')?.getBoundingClientRect().top ?? null,
       scrollLocked: document.body.hasAttribute('data-scroll-locked'),
     }));
-    expect(after.scrollY).toBe(before.scrollY);
+    expect(after.scrollTop).toBe(before.scrollTop);
     expect(after.sidebarTop).toBe(before.sidebarTop);
     expect(after.scrollLocked).toBe(false);
 
@@ -516,12 +526,12 @@ test.describe('course administration interactions', () => {
     await expect(page.getByRole('dialog')).toBeVisible();
 
     const dialogOpen = await page.evaluate(() => ({
-      scrollY: window.scrollY,
+      scrollTop: (document.querySelector('[data-admin-layout]') as HTMLElement).scrollTop,
       sidebarTop:
-        document.querySelector('[data-admin-sidebar]')?.getBoundingClientRect().top ?? null,
+        document.querySelector('[data-admin-sider]')?.getBoundingClientRect().top ?? null,
       scrollLocked: document.body.hasAttribute('data-scroll-locked'),
     }));
-    expect(dialogOpen.scrollY).toBe(before.scrollY);
+    expect(dialogOpen.scrollTop).toBe(before.scrollTop);
     expect(dialogOpen.sidebarTop).toBe(0);
     expect(dialogOpen.scrollLocked).toBe(true);
   });
@@ -679,22 +689,22 @@ test.describe('P0-03 access workbench', () => {
     const trigger = page.getByRole('button', { name: '用户 12的账号操作' });
     await trigger.scrollIntoViewIfNeeded();
     const before = await page.evaluate(() => ({
-      scrollY: window.scrollY,
+      scrollTop: (document.querySelector('[data-admin-layout]') as HTMLElement).scrollTop,
       sidebarTop:
-        document.querySelector('[data-admin-sidebar]')?.getBoundingClientRect().top ?? null,
+        document.querySelector('[data-admin-sider]')?.getBoundingClientRect().top ?? null,
     }));
-    expect(before.scrollY).toBeGreaterThan(0);
+    expect(before.scrollTop).toBeGreaterThan(0);
     expect(before.sidebarTop).toBe(0);
 
     await trigger.click();
     await expect(page.getByRole('menu')).toBeVisible();
     const after = await page.evaluate(() => ({
-      scrollY: window.scrollY,
+      scrollTop: (document.querySelector('[data-admin-layout]') as HTMLElement).scrollTop,
       sidebarTop:
-        document.querySelector('[data-admin-sidebar]')?.getBoundingClientRect().top ?? null,
+        document.querySelector('[data-admin-sider]')?.getBoundingClientRect().top ?? null,
       scrollLocked: document.body.hasAttribute('data-scroll-locked'),
     }));
-    expect(after.scrollY).toBe(before.scrollY);
+    expect(after.scrollTop).toBe(before.scrollTop);
     expect(after.sidebarTop).toBe(0);
     expect(after.scrollLocked).toBe(false);
   });
@@ -853,35 +863,74 @@ test.describe('P0-03 access workbench', () => {
 });
 
 test.describe('P0-07 community moderation', () => {
-  test('keeps five filter groups as drafts until the administrator clicks 筛选', async ({
-    page,
-  }) => {
+  test('applies keyword, status, date and advanced filters immediately', async ({ page }) => {
     const listUrls: string[] = [];
     const getListRequests = await mockCommunityApis(page, { listUrls });
+    // 高级筛选的远程搜索接口
+    await page.route('**/api/admin/users?**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          users: [{ id: 'learner-1', displayName: '李四', phone: null }],
+          pagination: { page: 1, pageSize: 50, total: 1, totalPages: 1 },
+        }),
+      }),
+    );
+    await page.route('**/api/admin/courses?**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          courses: [{ id: 'course-1', name: '入职课程' }],
+          pagination: { page: 1, pageSize: 50, total: 1, totalPages: 1 },
+        }),
+      }),
+    );
     await openCommunity(page);
     const initialRequests = getListRequests();
 
+    // 关键词 debounce 后自动触发请求（不再有“筛选”按钮）
     await page.getByLabel('关键词').fill('课程重点');
-    await page.getByLabel('作者用户 ID').fill('learner-1');
-    await page.getByLabel('课程 ID').fill('course-1');
-    await page.getByLabel('内容状态').selectOption('hidden');
+    await expect.poll(getListRequests).toBeGreaterThan(initialRequests);
+    const keywordUrl = new URL(listUrls.at(-1)!);
+    expect(keywordUrl.searchParams.get('keyword')).toBe('课程重点');
+
+    // 状态与日期即时生效
+    await page.getByLabel('内容状态').click();
+    await page.getByTitle('已隐藏').click();
+    await expect.poll(getListRequests).toBeGreaterThan(initialRequests + 1);
+    const statusUrl = new URL(listUrls.at(-1)!);
+    expect(statusUrl.searchParams.get('status')).toBe('hidden');
+
     await page.getByRole('button', { name: '选择日期范围' }).click();
     await page.getByLabel('开始时间').fill('2026-07-01T00:00');
     await page.getByLabel('结束时间').fill('2026-07-23T23:59');
+    await page.keyboard.press('Enter');
+    await expect.poll(getListRequests).toBeGreaterThan(initialRequests + 2);
+    const dateUrl = new URL(listUrls.at(-1)!);
+    expect(dateUrl.searchParams.get('from')).toBe(new Date('2026-07-01T00:00').toISOString());
+    expect(dateUrl.searchParams.get('to')).toBe(new Date('2026-07-23T23:59').toISOString());
 
-    expect(getListRequests()).toBe(initialRequests);
-    await page.getByRole('button', { name: '筛选', exact: true }).click();
-    await expect.poll(getListRequests).toBeGreaterThan(initialRequests);
-    const appliedUrl = new URL(listUrls.at(-1)!);
-    expect(appliedUrl.searchParams.get('keyword')).toBe('课程重点');
-    expect(appliedUrl.searchParams.get('authorId')).toBe('learner-1');
-    expect(appliedUrl.searchParams.get('courseId')).toBe('course-1');
-    expect(appliedUrl.searchParams.get('status')).toBe('hidden');
-    expect(appliedUrl.searchParams.get('from')).toBe(new Date('2026-07-01T00:00').toISOString());
-    expect(appliedUrl.searchParams.get('to')).toBe(new Date('2026-07-23T23:59').toISOString());
+    // 高级筛选：作者名称与课程名称远程搜索后选择，仍以 id 过滤
+    await page.getByText('高级筛选').click();
+    await page.getByLabel('按作者名称筛选').click();
+    await page.getByLabel('按作者名称筛选').fill('李四');
+    await page.getByRole('option', { name: '李四' }).click();
+    await expect.poll(getListRequests).toBeGreaterThan(initialRequests + 3);
+    const authorUrl = new URL(listUrls.at(-1)!);
+    expect(authorUrl.searchParams.get('authorId')).toBe('learner-1');
 
+    await page.getByLabel('按课程名称筛选').click();
+    await page.getByLabel('按课程名称筛选').fill('入职课程');
+    await page.getByRole('option', { name: '入职课程' }).click();
+    await expect.poll(getListRequests).toBeGreaterThan(initialRequests + 4);
+    const courseUrl = new URL(listUrls.at(-1)!);
+    expect(courseUrl.searchParams.get('courseId')).toBe('course-1');
+
+    // 清空恢复默认
     await page.getByRole('button', { name: '清空', exact: true }).click();
-    await expect.poll(getListRequests).toBeGreaterThan(initialRequests + 1);
+    await expect.poll(getListRequests).toBeGreaterThan(initialRequests + 5);
     const clearedUrl = new URL(listUrls.at(-1)!);
     expect(clearedUrl.searchParams.has('keyword')).toBe(false);
     expect(clearedUrl.searchParams.has('authorId')).toBe(false);
@@ -1017,22 +1066,25 @@ test.describe('P0-07 community moderation', () => {
       })),
     });
     await openCommunity(page);
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.evaluate(() => {
+      const shell = document.querySelector('[data-admin-layout]') as HTMLElement;
+      shell.scrollTop = shell.scrollHeight;
+    });
 
     const before = await page.evaluate(() => ({
-      scrollY: window.scrollY,
+      scrollTop: (document.querySelector('[data-admin-layout]') as HTMLElement).scrollTop,
       sidebarTop: document.querySelector('aside')?.getBoundingClientRect().top ?? null,
     }));
-    expect(before.scrollY).toBeGreaterThan(0);
+    expect(before.scrollTop).toBeGreaterThan(0);
 
     await page.getByRole('button', { name: '下架' }).last().click();
     await expect(page.getByRole('dialog')).toBeVisible();
 
     const after = await page.evaluate(() => ({
-      scrollY: window.scrollY,
+      scrollTop: (document.querySelector('[data-admin-layout]') as HTMLElement).scrollTop,
       sidebarTop: document.querySelector('aside')?.getBoundingClientRect().top ?? null,
     }));
-    expect(after.scrollY).toBe(before.scrollY);
+    expect(after.scrollTop).toBe(before.scrollTop);
     expect(after.sidebarTop).toBe(before.sidebarTop);
   });
 

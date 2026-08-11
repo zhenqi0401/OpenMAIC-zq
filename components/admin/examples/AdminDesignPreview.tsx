@@ -3,7 +3,6 @@ import {
   CheckCircle2,
   ClipboardCheck,
   MessageSquareText,
-  RefreshCw,
   Search,
   Users,
 } from 'lucide-react';
@@ -17,7 +16,6 @@ import {
   AdminStatusBadge,
   adminInputClassName,
   adminPrimaryButtonClassName,
-  adminSecondaryButtonClassName,
 } from '@/components/admin/AdminSurface';
 import {
   AdminDataTable,
@@ -25,7 +23,6 @@ import {
   AdminFilterBar,
   AdminMetricCard,
 } from '@/components/admin/AdminPatterns';
-import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
 
 const moduleCopy: Record<AdminModuleId, { title: string; description: string }> = {
   dashboard: { title: '数据看板', description: '集中查看平台学员、课程、考核和社区运行情况' },
@@ -37,22 +34,7 @@ const moduleCopy: Record<AdminModuleId, { title: string; description: string }> 
 
 function PreviewHeader({ module }: { module: AdminModuleId }) {
   const copy = moduleCopy[module];
-  return (
-    <AdminPageHeader
-      action={
-        <AdminSessionActions
-          leading={
-            <Button className={adminSecondaryButtonClassName} type="button" variant="outline">
-              <RefreshCw aria-hidden="true" />
-              刷新
-            </Button>
-          }
-        />
-      }
-      description={copy.description}
-      title={copy.title}
-    />
-  );
+  return <AdminPageHeader title={copy.title} />;
 }
 
 function PreviewNote() {

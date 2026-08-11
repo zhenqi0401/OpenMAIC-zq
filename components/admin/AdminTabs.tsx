@@ -16,13 +16,13 @@ export interface AdminTabsProps<T extends string> {
   onValueChange: (value: T) => void;
   ariaLabel: string;
   className?: string;
-  showDivider?: boolean;
 }
 
 /**
- * Admin-only wrapper around Ant Design Tabs. Keeping this small adapter means
- * existing modules retain their stable value/count contract while keyboard
- * navigation, focus management and responsive overflow come from the library.
+ * Admin-only wrapper around Ant Design Tabs. Only the Ant ink bar is drawn —
+ * no extra full-width divider or inset shadow, so the double-blue-line
+ * artifact cannot occur. Keyboard navigation, focus management and responsive
+ * overflow come from the library.
  */
 export function AdminTabs<T extends string>({
   items,
@@ -30,19 +30,9 @@ export function AdminTabs<T extends string>({
   onValueChange,
   ariaLabel,
   className,
-  showDivider = true,
 }: AdminTabsProps<T>) {
   return (
-    <div
-      className={cn(
-        'min-w-0',
-        showDivider && 'border-b border-[var(--admin-border-subtle)]',
-        !showDivider && 'shadow-[inset_0_-2px_0_var(--admin-selection-indicator)]',
-        className,
-      )}
-      data-admin-tabs
-      aria-label={ariaLabel}
-    >
+    <div className={cn('min-w-0', className)} data-admin-tabs aria-label={ariaLabel}>
       <AntTabs
         activeKey={value}
         items={items.map((item) => ({
@@ -63,7 +53,6 @@ export function AdminTabs<T extends string>({
           children: null,
         }))}
         onChange={(nextValue) => onValueChange(nextValue as T)}
-        tabBarStyle={showDivider ? { borderBottomColor: 'var(--admin-border-subtle)' } : undefined}
       />
     </div>
   );

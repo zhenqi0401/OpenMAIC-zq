@@ -5,7 +5,7 @@ import { Dropdown, type MenuProps } from 'antd';
 import { MoreOutlined } from '@ant-design/icons';
 
 import { Button } from '@/components/antd/AntdButton';
-import { adminSecondaryButtonClassName } from '@/components/admin/AdminSurface';
+import { adminLinkButtonClassName } from '@/components/admin/AdminSurface';
 
 export interface AdminRowAction {
   id: string;
@@ -92,11 +92,11 @@ export function AdminRowActions({
           <Button
             aria-haspopup="menu"
             aria-label={triggerAriaLabel}
-            className={adminSecondaryButtonClassName}
+            className={adminLinkButtonClassName}
             type="button"
-            variant="outline"
+            variant="link"
           >
-            <MoreOutlined aria-hidden="true" />
+            <MoreOutlined aria-hidden="true" className="!text-[var(--admin-link)]" />
             {triggerLabel}
           </Button>
         </Dropdown>

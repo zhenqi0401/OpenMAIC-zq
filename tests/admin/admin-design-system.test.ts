@@ -44,7 +44,8 @@ describe('Yuanwo SaaS admin design system', () => {
     const layoutSource = readFileSync(join(process.cwd(), 'app/layout.tsx'), 'utf8');
 
     expect(providerSource).toContain('<ConfigProvider');
-    expect(providerSource).toContain('<AntApp>{children}</AntApp>');
+    expect(providerSource).toContain('<AntApp>');
+    expect(providerSource).toContain('<AdminMessageBridge />');
     expect(providerSource).toContain("colorPrimary: adminBrandTokens['--saas-primary']");
     expect(providerSource).not.toMatch(/import\s+['"]antd\/dist\/reset\.css/);
     expect(layoutSource.match(/<AntdProvider>/g)).toHaveLength(1);

@@ -1,7 +1,6 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { BarChart3 } from 'lucide-react';
 import {
   AdminCard,
   AdminNotice,
@@ -15,34 +14,26 @@ import { AdminRowActions, partitionAdminRowActions } from '@/components/admin/Ad
 import { AdminTabs } from '@/components/admin/AdminTabs';
 
 describe('AdminSurface', () => {
-  it('renders a responsive section header with optional breadcrumb and actions', () => {
+  it('renders a responsive section header with page actions', () => {
     const markup = renderToStaticMarkup(
       React.createElement(
         'section',
         null,
         React.createElement(AdminSectionHeader, {
-          icon: React.createElement(BarChart3),
-          breadcrumb: [
-            { label: '管理后台', href: '/admin?module=dashboard' },
-            { label: '运营看板' },
-          ],
           title: '运营状态一眼看清',
-          description: '课程完成、测评通过和阶段考核概览',
           action: React.createElement('button', null, '刷新看板'),
         }),
         React.createElement(AdminCard, null, 'card content'),
       ),
     );
 
-    expect(markup).toContain('aria-label="面包屑"');
-    expect(markup).toContain('href="/admin?module=dashboard"');
-    expect(markup).toContain('aria-current="page"');
     expect(markup).toContain('运营状态一眼看清');
     expect(markup).toContain('刷新看板');
     expect(markup).toContain('data-admin-header-actions');
     expect(markup).toContain('role="group"');
     expect(markup).toContain('sm:text-2xl');
     expect(markup).not.toContain('46px');
+    expect(markup).not.toContain('aria-label="面包屑"');
   });
 
   it('standardizes notices, status badges, and select controls', () => {
@@ -84,51 +75,33 @@ describe('AdminSurface', () => {
     expect(markup).toContain('aria-label="社区内容类型"');
     expect(markup).toContain('aria-label="弹幕，12 条"');
     expect(markup).toContain('操作审计');
-    expect(markup).toContain('border-b border-[var(--admin-border-subtle)]');
     expect(markup).not.toMatch(/purple|violet/i);
-
-    const noDividerMarkup = renderToStaticMarkup(
-      React.createElement(AdminTabs, {
-        ariaLabel: '用户管理工作区',
-        value: 'users',
-        onValueChange: () => undefined,
-        showDivider: false,
-        items: [{ value: 'users', label: '用户' }],
-      }),
-    );
-    expect(noDividerMarkup).not.toContain('border-b border-[var(--admin-border-subtle)]');
-    expect(noDividerMarkup).toContain('shadow-[inset_0_-2px_0_var(--admin-selection-indicator)]');
+    expect(markup).not.toContain('shadow-[inset_0_-2px_0_var(--admin-selection-indicator)]');
   });
 
-  it('formats empty and populated pagination ranges and disables unavailable moves', () => {
+  it('formats empty and populated pagination ranges', () => {
     const emptyMarkup = renderToStaticMarkup(
       React.createElement(AdminPagination, {
         page: 1,
-        totalPages: 1,
+        pageSize: 20,
         total: 0,
-        start: 0,
-        end: 0,
         onPageChange: () => undefined,
       }),
     );
     const populatedMarkup = renderToStaticMarkup(
       React.createElement(AdminPagination, {
         page: 3,
-        totalPages: 3,
+        pageSize: 10,
         total: 26,
-        start: 21,
-        end: 26,
         loading: true,
         onPageChange: () => undefined,
       }),
     );
 
     expect(emptyMarkup).toContain('共 0 条');
-    expect(emptyMarkup).not.toContain('显示 0–0 条');
-    expect(populatedMarkup).toContain('显示 21–26 条，共 26 条');
-    expect(populatedMarkup).toContain('第 3 / 3 页');
-    expect(populatedMarkup).toContain('上一页');
-    expect(populatedMarkup).toContain('下一页');
+    expect(emptyMarkup).not.toContain('上一页');
+    expect(emptyMarkup).not.toContain('下一页');
+    expect(populatedMarkup).toContain('26 条');
   });
 
   it('distinguishes first-empty, filtered-empty, and load-failure states', () => {

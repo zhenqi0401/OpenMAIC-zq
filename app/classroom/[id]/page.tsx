@@ -6,6 +6,8 @@ import { useStageStore } from '@/lib/store';
 import { loadImageMapping } from '@/lib/utils/image-storage';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { Button, Result, Spin } from 'antd';
 import { useSceneGenerator, type GenerationParams } from '@/lib/hooks/use-scene-generator';
 import { useMediaGenerationStore } from '@/lib/store/media-generation';
 import { useWhiteboardHistoryStore } from '@/lib/store/whiteboard-history';
@@ -41,6 +43,7 @@ export default function ClassroomDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authoringIdentity, setAuthoringIdentity] = useState<CourseAuthoringIdentity | null>(null);
+  const learningMode = requestedLearningMode || authoringIdentity?.isAdmin === false;
   const [enterpriseCourseId, setEnterpriseCourseId] = useState<string | null>(null);
   const [enterpriseCourseScope, setEnterpriseCourseScope] = useState<'platform' | 'tenant' | null>(
     null,
@@ -421,32 +424,39 @@ export default function ClassroomDetailPage() {
             </div>
           ) : null}
           {loading ? (
-            <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-slate-900">
-              <div className="text-center text-muted-foreground">
-                <p>Loading classroom...</p>
-              </div>
+            <div className="flex flex-1 items-center justify-center bg-slate-50 dark:bg-slate-900">
+              <Spin size="large" description="正在加载课堂…" />
             </div>
           ) : error ? (
-            <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-slate-900">
-              <div className="text-center">
-                <p className="text-destructive mb-4">Error: {error}</p>
-                <button
-                  onClick={() => {
-                    setError(null);
-                    setLoading(true);
-                    loadClassroom();
-                  }}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-                >
-                  Retry
-                </button>
-              </div>
+            <div className="flex flex-1 items-center justify-center bg-slate-50 dark:bg-slate-900">
+              <Result
+                extra={
+                  <>
+                    <Button
+                      type="primary"
+                      onClick={() => {
+                        setError(null);
+                        setLoading(true);
+                        loadClassroom();
+                      }}
+                    >
+                      重新加载
+                    </Button>
+                    <Link href={learningMode ? '/learn' : '/'}>
+                      <Button type="default">返回{learningMode ? '学习中心' : '生成工作台'}</Button>
+                    </Link>
+                  </>
+                }
+                status="error"
+                subTitle={error}
+                title="课堂加载失败"
+              />
             </div>
           ) : (
             <Stage
               authoringIdentity={authoringIdentity}
               enterpriseCourseId={enterpriseCourseId}
-              learningMode={requestedLearningMode || authoringIdentity?.isAdmin === false}
+              learningMode={learningMode}
               onRetryOutline={retrySingleOutline}
               courseSaveStatus={courseEditPersistence.status}
               onSaveCourse={courseEditPersistence.saveNow}

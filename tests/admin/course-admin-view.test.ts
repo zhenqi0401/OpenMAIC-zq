@@ -227,9 +227,10 @@ describe('filterAdminCourses', () => {
   it('renders category management and a distinct no-course empty state without the old sidebar', () => {
     const markup = renderToStaticMarkup(createElement(CourseAdminPanel));
 
-    expect(markup).toContain('课程列表');
-    expect(markup).toContain('课程可由首页生成或在此导入');
+    // 页面标题下不再出现第二个“课程列表”标题（审计 P0）
+    expect(markup).not.toContain('>课程列表<');
     expect(markup).not.toContain('新建课程草稿');
+    expect(markup).toContain('课程管理');
     expect(markup).toContain('分类管理');
     expect(markup).not.toContain('新建分类');
     expect(markup).not.toContain('发布结构');
@@ -238,16 +239,14 @@ describe('filterAdminCourses', () => {
     expect(markup).toContain('课程可从首页生成或在课程管理中导入');
     expect(markup).toContain('返回首页生成或导入课程');
     expect(markup).toContain('清除筛选');
-    expect(markup).toContain('上一页');
-    expect(markup).toContain('下一页');
+    // 单页时只保留“共 N 条”，不渲染翻页按钮
+    expect(markup).toContain('共 0 条');
     expect(markup).not.toContain('data-size="icon"');
     expect(markup).not.toContain('课程完成率');
     expect(markup).not.toContain('<aside');
-    const listHeaderPosition = markup.indexOf('data-course-list-header');
     const categoryActionPosition = markup.indexOf('data-course-category-action');
     const filtersPosition = markup.indexOf('data-course-filters');
-    expect(listHeaderPosition).toBeGreaterThan(-1);
-    expect(categoryActionPosition).toBeGreaterThan(listHeaderPosition);
+    expect(categoryActionPosition).toBeGreaterThan(-1);
     expect(filtersPosition).toBeGreaterThan(categoryActionPosition);
   });
 

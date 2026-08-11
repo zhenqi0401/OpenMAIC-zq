@@ -20,6 +20,7 @@ import {
   adminDangerButtonClassName,
   adminDangerOutlineButtonClassName,
   adminInputClassName,
+  adminLinkDangerButtonClassName,
   adminSecondaryButtonClassName,
 } from '@/components/admin/AdminSurface';
 import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
@@ -36,6 +37,7 @@ export function AccessDangerDialog({
   onConfirm,
   title,
   triggerLabel,
+  link = false,
 }: {
   busy: boolean;
   confirmLabel: string;
@@ -44,16 +46,22 @@ export function AccessDangerDialog({
   onConfirm: () => void;
   title: string;
   triggerLabel: string;
+  /** 表格行内使用文字链接样式（红色），替代描边按钮 */
+  link?: boolean;
 }) {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
         <Button
           aria-busy={busy}
-          className={adminDangerOutlineButtonClassName}
+          className={
+            link
+              ? adminLinkDangerButtonClassName
+              : adminDangerOutlineButtonClassName
+          }
           disabled={busy || disabled}
           type="button"
-          variant="outline"
+          variant={link ? 'link' : 'outline'}
         >
           {busy ? '处理中…' : triggerLabel}
         </Button>
@@ -355,7 +363,7 @@ export function AccessUsersTab({
                 <th className="pb-2 pr-3">元我智脑 ID</th>
                 <th className="pb-2 pr-3">当前角色</th>
                 <th className="pb-2 pr-3">账号状态</th>
-                <th className="pb-2 text-right">操作</th>
+                <th className="pb-2 pr-3 text-left">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--admin-border-subtle)]">
@@ -388,7 +396,7 @@ export function AccessUsersTab({
                         {user.status === 'disabled' ? '已冻结' : '正常'}
                       </AdminStatusChip>
                     </td>
-                    <td className="py-3 text-right">
+                    <td className="py-3 text-left">
                       <UserActions
                         busy={changingStatusUserId === user.id}
                         currentUserId={currentUserId}
@@ -453,20 +461,13 @@ export function AccessUsersTab({
       data-admin-access-workspace="users"
       role="tabpanel"
     >
-      <div>
-        <h3 className="text-xl font-normal leading-tight tracking-[-0.016em] text-[var(--admin-foreground)]">
-          用户与角色
-        </h3>
-        <p className="mt-1 text-sm leading-6 text-[var(--admin-muted-foreground)]">
-          查看用户基本信息并调整所属角色；删除用户会同时移除其关联学习记录。
-        </p>
-      </div>
-      <AdminFilterBar className="rounded-[var(--admin-radius-control)] border border-[var(--admin-border-subtle)]">
+      <AdminFilterBar>
         <Input
+          allowClear
           aria-label="搜索用户"
           className={`${adminInputClassName} min-w-[220px] flex-1`}
           onChange={(event) => onFiltersChange({ ...filters, q: event.target.value })}
-          placeholder="搜索名称、手机号或 Host User ID"
+          placeholder="搜索姓名或手机号"
           value={filters.q}
         />
         <Select
@@ -496,13 +497,11 @@ export function AccessUsersTab({
       {content}
       <div className="border-t border-[var(--admin-border-subtle)] pt-3">
         <AdminPagination
-          end={Math.min(pagination.page * pagination.pageSize, pagination.total)}
           loading={loading}
           onPageChange={onPageChange}
           page={pagination.page}
-          start={pagination.total ? (pagination.page - 1) * pagination.pageSize + 1 : 0}
+          pageSize={pagination.pageSize}
           total={pagination.total}
-          totalPages={pagination.totalPages}
         />
       </div>
     </AdminCard>

@@ -1,24 +1,31 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import { ConfigProvider, App as AntApp } from 'antd';
+import { useEffect, type ReactNode } from 'react';
+import { App as AntApp, ConfigProvider, theme as antdTheme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
-import { theme as antdTheme } from 'antd';
 
 import { adminBrandTokens, adminSemanticTokens } from '@/components/admin/admin-theme';
+import { bindAdminMessageApi } from '@/lib/admin/toast';
+import { useTheme } from '@/lib/hooks/use-theme';
 
 /**
  * The single Ant Design boundary for the application.  It deliberately does
  * not import `antd/dist/reset.css`: the editor and generation workbench rely
  * on their existing native styles.  Components opt into Ant Design styles when
  * they render, while this provider keeps their tokens and locale consistent.
+ *
+ * The algorithm follows the resolved theme (dark class on <html>), so portal
+ * components (Dropdown/Menu/Pagination/… ) render with matching tokens.
  */
 export function AntdProvider({ children }: { children: ReactNode }) {
+  const { resolvedTheme } = useTheme();
+  const dark = resolvedTheme === 'dark';
+
   return (
     <ConfigProvider
       locale={zhCN}
       theme={{
-        algorithm: antdTheme.defaultAlgorithm,
+        algorithm: dark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
         token: {
           colorPrimary: adminBrandTokens['--saas-primary'],
           colorInfo: adminBrandTokens['--saas-primary'],
@@ -47,7 +54,19 @@ export function AntdProvider({ children }: { children: ReactNode }) {
         },
       }}
     >
-      <AntApp>{children}</AntApp>
+      <AntApp>
+        <AdminMessageBridge />
+        {children}
+      </AntApp>
     </ConfigProvider>
   );
+}
+
+function AdminMessageBridge() {
+  const { message } = AntApp.useApp();
+  useEffect(() => {
+    bindAdminMessageApi(message);
+    return () => bindAdminMessageApi(null);
+  }, [message]);
+  return null;
 }

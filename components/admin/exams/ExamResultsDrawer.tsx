@@ -104,15 +104,11 @@ export function ExamResultsDrawer({
             <AdminEmptyState title={loading ? '正在加载结果' : '暂无考核记录'} />
           )}
           <AdminPagination
-            end={Math.min(data.pagination.page * data.pagination.pageSize, data.pagination.total)}
             loading={loading}
             onPageChange={setPage}
             page={data.pagination.page}
-            start={
-              data.pagination.total ? (data.pagination.page - 1) * data.pagination.pageSize + 1 : 0
-            }
+            pageSize={data.pagination.pageSize}
             total={data.pagination.total}
-            totalPages={data.pagination.totalPages}
           />
         </>
       ) : (

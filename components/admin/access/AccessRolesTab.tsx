@@ -18,6 +18,7 @@ import {
   AdminCard,
   AdminStatusBadge,
   adminInputClassName,
+  adminLinkButtonClassName,
   adminPrimaryButtonClassName,
   adminSecondaryButtonClassName,
 } from '@/components/admin/AdminSurface';
@@ -324,30 +325,30 @@ export function AccessRolesTab({
                   <th className="pb-2 pr-3">类型</th>
                   <th className="pb-2 pr-3">用户数</th>
                   <th className="pb-2 pr-3">邀请码数</th>
-                  <th className="pb-2 text-right">操作</th>
+                  <th className="pb-2 pr-3 text-left">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--admin-border-subtle)]">
                 {roles.map((role) => (
                   <tr key={role.id}>
                     <RoleSummary count={usageCounts[role.id]} role={role} />
-                    <td className="py-3 text-right">
-                      <div className="flex flex-wrap justify-end gap-2">
+                    <td className="py-3 text-left">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                         <Button
-                          className={adminSecondaryButtonClassName}
+                          className={adminLinkButtonClassName}
                           disabled={savingRoleId === role.id}
                           onClick={() => openEdit(role)}
                           type="button"
-                          variant="outline"
+                          variant="link"
                         >
                           编辑
                         </Button>
                         {!role.isAdmin ? (
                           <Button
-                            className={adminSecondaryButtonClassName}
+                            className={adminLinkButtonClassName}
                             onClick={() => setLearningPathRole(role)}
                             type="button"
-                            variant="outline"
+                            variant="link"
                           >
                             配置学习路径
                           </Button>
@@ -357,6 +358,7 @@ export function AccessRolesTab({
                           confirmLabel="确认删除"
                           description={`确认删除角色「${role.name}（${role.code}）」？若已有用户、邀请码或阶段考试策略引用该角色，服务端会拒绝删除。`}
                           disabled={role.code === 'admin'}
+                          link
                           onConfirm={() => onDeleteRole(role)}
                           title="删除角色"
                           triggerLabel={role.code === 'admin' ? '默认角色不可删除' : '删除'}

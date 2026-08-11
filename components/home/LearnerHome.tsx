@@ -3,11 +3,9 @@
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { Card as AntCard, Statistic } from 'antd';
+import { Segmented } from 'antd';
 import {
   BookOpen,
-  CheckCircle2,
-  GraduationCap,
   PlayCircle,
   RefreshCw,
   Search,
@@ -137,13 +135,14 @@ export function LearnerHome({
   const filteredCourses = useMemo(
     () =>
       sortHomeCourses(
+        // 必修课已在「我的必修」独立展示，课程中心不再重复出现
         filterHomeCourses(
           courses,
           selection.scope,
           deferredQuery,
           selection.categoryKey,
           selection.categoryId,
-        ),
+        ).filter((course) => course.learningRequirement !== 'required'),
         sort,
       ),
     [courses, deferredQuery, selection, sort],
@@ -196,58 +195,15 @@ export function LearnerHome({
         {!loading && !error ? (
           <section
             aria-label="学习概览"
-            className="relative mb-8 overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-primary/5 px-6 py-7 sm:px-8 sm:py-8 dark:border-slate-800 dark:from-card-solid dark:via-card-solid dark:to-primary/10"
+            className="mb-8 border-b border-slate-200 pb-6 dark:border-slate-800"
           >
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -right-16 -top-20 size-56 rounded-full border-[28px] border-primary/10 dark:border-primary/15"
-            />
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -bottom-24 right-24 size-40 rounded-full border-[20px] border-slate-200/70 dark:border-slate-700/40"
-            />
-            <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div className="max-w-xl">
-                <div className="flex items-center gap-2 text-sm font-medium text-primary dark:text-primary/80">
-                  <GraduationCap
-                    className="size-4 text-primary dark:text-primary/80"
-                    aria-hidden="true"
-                  />
-                  学习概览
-                </div>
-                <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl dark:text-white">
-                  欢迎回来，{displayName}
-                </h1>
-                <p className="mt-2 text-sm leading-6 text-slate-600 sm:text-base dark:text-slate-300">
-                  保持节奏，积少成多。从最近的学习继续，或浏览新的课程。
-                </p>
-              </div>
-              <div className="grid shrink-0 grid-cols-3 gap-3 sm:gap-4">
-                {[
-                  { label: '全部课程', value: courses.length, icon: BookOpen },
-                  { label: '学习中', value: continueCourses.length, icon: PlayCircle },
-                  { label: '已完成', value: completedCount, icon: CheckCircle2 },
-                ].map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <AntCard
-                      size="small"
-                      className="min-w-24 !rounded-xl !border-slate-200 !bg-white/80 !text-center !shadow-sm dark:!border-slate-700 dark:!bg-card-solid/80"
-                      key={item.label}
-                    >
-                      <Statistic
-                        title={item.label}
-                        value={item.value}
-                        prefix={
-                          <Icon aria-hidden="true" className="text-primary dark:text-primary/80" />
-                        }
-                        valueStyle={{ fontSize: 24, fontWeight: 600 }}
-                      />
-                    </AntCard>
-                  );
-                })}
-              </div>
-            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl dark:text-white">
+              欢迎回来，{displayName}
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+              共 {courses.length} 门课程 · 学习中 {continueCourses.length} 门 · 已完成{' '}
+              {completedCount} 门
+            </p>
           </section>
         ) : null}
 
@@ -283,6 +239,34 @@ export function LearnerHome({
 
         <StageExamPanel identity={identity} />
 
+        {!loading && !error && requiredCourses.length > 0 ? (
+          <section className="mt-8" aria-labelledby="my-required-courses">
+            <div className="mb-3 flex items-baseline justify-between">
+              <h2 id="my-required-courses" className="text-lg font-semibold">
+                我的必修
+              </h2>
+              <span className="text-sm text-slate-500 dark:text-slate-400">
+                已完成{' '}
+                {
+                  requiredCourses.filter((course) => course.learningStatus === 'completed').length
+                }{' '}
+                / 共 {requiredCourses.length} 门
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {requiredCourses.map((course) => (
+                <LearnerCourseCard
+                  key={`required-${course.id}`}
+                  course={course}
+                  slide={thumbnails[course.id]}
+                  href={getCourseHref(course.id)}
+                  popularityEnabled={popularityEnabled}
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <section className="mt-7 min-w-0" aria-labelledby="learner-courses-title">
           <h1
             id="learner-courses-title"
@@ -292,32 +276,17 @@ export function LearnerHome({
           </h1>
 
           <div className="mt-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div
-              className="grid min-h-11 w-full grid-cols-3 rounded-lg border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-800/70 sm:w-fit"
-              role="group"
+            <Segmented
               aria-label="课程来源"
-            >
-              {COURSE_FILTERS.map((item) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  aria-pressed={selection.scope === item.value}
-                  onClick={() => {
-                    setSelection((current) => changeHomeCourseScope(current, item.value));
-                  }}
-                  className={cn(
-                    'min-h-10 min-w-0 whitespace-nowrap rounded-md px-2 text-sm font-medium text-slate-600 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-slate-300 dark:hover:text-primary/80 sm:px-5 sm:text-base',
-                    selection.scope === item.value &&
-                      'bg-white text-primary shadow-sm dark:bg-card-solid dark:text-primary/80',
-                  )}
-                >
-                  {item.label}
-                  <span className="ml-1 font-mono text-xs opacity-65">
-                    {scopeCounts[item.value]}
-                  </span>
-                </button>
-              ))}
-            </div>
+              onChange={(value) => {
+                setSelection((current) => changeHomeCourseScope(current, value as HomeCourseFilter));
+              }}
+              options={COURSE_FILTERS.map((item) => ({
+                value: item.value,
+                label: `${item.label} ${scopeCounts[item.value]}`,
+              }))}
+              value={selection.scope}
+            />
 
             <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-end lg:max-w-xl">
               <label className="relative block w-full sm:min-w-64 sm:flex-1">
@@ -332,33 +301,15 @@ export function LearnerHome({
                 />
               </label>
               {popularityEnabled && (
-                <div
-                  className="ml-auto inline-flex min-h-11 shrink-0 rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-card-solid"
-                  role="group"
+                <Segmented
                   aria-label="课程排序"
-                >
-                  {(
-                    [
-                      ['latest', '最新'],
-                      ['popular', '最热'],
-                    ] as const
-                  ).map(([value, label]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      aria-pressed={sort === value}
-                      onClick={() => setSort(value)}
-                      className={cn(
-                        'min-h-9 rounded-md px-4 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-                        sort === value
-                          ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary'
-                          : 'text-slate-500 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white',
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
+                  onChange={(value) => setSort(value as HomeCourseSort)}
+                  options={[
+                    { value: 'latest', label: '最新' },
+                    { value: 'popular', label: '最热' },
+                  ]}
+                  value={sort}
+                />
               )}
             </div>
           </div>
@@ -436,55 +387,20 @@ export function LearnerHome({
                 </Button>
               </div>
             ) : filteredCourses.length > 0 ? (
-              <>
-                {requiredCourses.length > 0 && selection.scope === 'all' && !query ? (
-                  <section className="mb-8" aria-labelledby="my-required-courses">
-                    <div className="mb-3 flex items-baseline justify-between">
-                      <h2 id="my-required-courses" className="text-lg font-semibold">
-                        我的必修
-                      </h2>
-                      <span className="text-sm text-slate-500">
-                        已完成{' '}
-                        {
-                          requiredCourses.filter((course) => course.learningStatus === 'completed')
-                            .length
-                        }{' '}
-                        / 共 {requiredCourses.length} 门
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                      {requiredCourses.map((course) => (
-                        <LearnerCourseCard
-                          key={`required-${course.id}`}
-                          course={course}
-                          slide={thumbnails[course.id]}
-                          href={getCourseHref(course.id)}
-                          popularityEnabled={popularityEnabled}
-                        />
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
-                <div
-                  className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
-                  data-testid="learner-course-grid"
-                >
-                  {filteredCourses
-                    .filter(
-                      (course) =>
-                        !(requiredCourses.includes(course) && selection.scope === 'all' && !query),
-                    )
-                    .map((course) => (
-                      <LearnerCourseCard
-                        key={course.id}
-                        course={course}
-                        slide={thumbnails[course.id]}
-                        href={getCourseHref(course.id)}
-                        popularityEnabled={popularityEnabled}
-                      />
-                    ))}
-                </div>
-              </>
+              <div
+                className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                data-testid="learner-course-grid"
+              >
+                {filteredCourses.map((course) => (
+                  <LearnerCourseCard
+                    key={course.id}
+                    course={course}
+                    slide={thumbnails[course.id]}
+                    href={getCourseHref(course.id)}
+                    popularityEnabled={popularityEnabled}
+                  />
+                ))}
+              </div>
             ) : (
               <div className="rounded-lg border border-slate-200 bg-white py-14 text-center dark:border-slate-800 dark:bg-card-solid">
                 <BookOpen className="mx-auto size-7 text-slate-400" />
@@ -698,6 +614,16 @@ function LearnerCourseCard({
           >
             {course.name}
           </h2>
+          {course.categoryName ? (
+            <p className="mt-1 line-clamp-1 text-sm text-slate-500 dark:text-slate-400">
+              {course.categoryName}
+            </p>
+          ) : null}
+          {course.description ? (
+            <p className="mt-1 line-clamp-2 text-sm leading-5 text-slate-500 dark:text-slate-400">
+              {course.description}
+            </p>
+          ) : null}
           {popularityEnabled && course.learnerCount > 0 && (
             <span
               className="mt-auto inline-flex items-center justify-end gap-1.5 pt-3 text-sm text-slate-500 dark:text-slate-400"

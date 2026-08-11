@@ -1,21 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { BarChart3 } from 'lucide-react';
 import {
   AdminCard,
   AdminPage,
   AdminSectionHeader,
   AdminStatusBadge,
 } from '@/components/admin/AdminSurface';
-import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
-import { AdminRefreshButton } from '@/components/admin/AdminRefreshButton';
 import {
   AdminActivityChart,
   type AdminActivityRange,
 } from '@/components/admin/dashboard/AdminActivityChart';
-import { AdminMetricCard, AdminLoadingState } from '@/components/admin/AdminPatterns';
+import { AdminLoadingState } from '@/components/admin/AdminPatterns';
 import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
 import { Button } from '@/components/antd/AntdButton';
 import { adminErrorMessage, adminToast } from '@/lib/admin/toast';
@@ -41,6 +38,33 @@ export async function loadDashboardAdminData(client: DashboardAdminClient) {
 
 function percent(value: number | null) {
   return value === null ? '—' : `${value}%`;
+}
+
+/** 数据条中的单个指标：标题 + 数值 + 可选说明，无独立卡片边框。 */
+export function DashboardStripMetric({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: ReactNode;
+  detail?: ReactNode;
+}) {
+  return (
+    <div className="min-w-0 px-5 py-4 sm:px-6" data-dashboard-metric-item>
+      <dt className="text-sm font-medium leading-5 text-[var(--admin-muted-foreground)]">
+        {label}
+      </dt>
+      <dd className="mt-1 text-2xl font-semibold tabular-nums leading-8 text-[var(--admin-heading)]">
+        {value}
+      </dd>
+      {detail ? (
+        <dd className="mt-0.5 text-xs leading-4 text-[var(--admin-muted-foreground)]">
+          {detail}
+        </dd>
+      ) : null}
+    </div>
+  );
 }
 
 export function DashboardPendingItems({ pending }: { pending: AdminDashboard['pending'] }) {
@@ -108,48 +132,41 @@ export function DashboardAdminPanel() {
 
   return (
     <AdminPage id="admin-dashboard">
-      <AdminSectionHeader
-        action={
-          <AdminSessionActions
-            leading={<AdminRefreshButton loading={loading} onRefresh={() => void load(true)} />}
-          />
-        }
-        description="学习运营、社区互动和明确异常集中在首屏。"
-        eyebrow="Dashboard"
-        icon={<BarChart3 className="size-4" />}
-        title="数据看板"
-      />
+      <AdminSectionHeader title="数据看板" />
       {dashboard ? (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <AdminMetricCard
-              label="总学员数"
-              value={dashboard.summary.learnerCount}
-              detail="非管理员学习账号"
-            />
-            <AdminMetricCard
-              label="活跃课程数"
-              value={dashboard.summary.activeCourseCount}
-              detail="当前已发布课程"
-            />
-            <AdminMetricCard
-              label="课程完成率"
-              value={percent(dashboard.summary.courseCompletionRate)}
-              detail={
-                dashboard.summary.courseCompletionRate === null ? '暂无学习记录' : '已完成 / 已开始'
-              }
-            />
-            <AdminMetricCard
-              label="考核通过率"
-              value={percent(dashboard.summary.examPassRate)}
-              detail={
-                dashboard.summary.examPassRate === null
-                  ? '暂无考核记录'
-                  : `共 ${dashboard.summary.examAttemptCount} 次考核`
-              }
-            />
-          </div>
-          <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(300px,0.7fr)]">
+          {/* 四个指标合成一条数据条：一个表面，内部 2/4 列分隔，不做四个独立大卡片 */}
+          <AdminCard className="overflow-hidden" data-dashboard-metric-strip>
+            <dl className="grid grid-cols-2 divide-x divide-[var(--admin-border-subtle)] xl:grid-cols-4">
+              <DashboardStripMetric
+                detail={dashboard.summary.learnerCount === 0 ? undefined : '非管理员学习账号'}
+                label="总学员数"
+                value={dashboard.summary.learnerCount}
+              />
+              <DashboardStripMetric
+                detail={dashboard.summary.activeCourseCount === 0 ? undefined : '当前已发布课程'}
+                label="活跃课程数"
+                value={dashboard.summary.activeCourseCount}
+              />
+              <DashboardStripMetric
+                detail={
+                  dashboard.summary.courseCompletionRate === null ? undefined : '已完成 / 已开始'
+                }
+                label="课程完成率"
+                value={percent(dashboard.summary.courseCompletionRate)}
+              />
+              <DashboardStripMetric
+                detail={
+                  dashboard.summary.examPassRate === null
+                    ? undefined
+                    : `共 ${dashboard.summary.examAttemptCount} 次考核`
+                }
+                label="考核通过率"
+                value={percent(dashboard.summary.examPassRate)}
+              />
+            </dl>
+          </AdminCard>
+          <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(300px,0.7fr)]">
             <AdminActivityChart
               activity={dashboard.communityActivity}
               loading={loading}

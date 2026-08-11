@@ -7,7 +7,6 @@ import {
 } from '@/components/admin/dashboard/DashboardAdminPanel';
 import {
   AdminActivityChart,
-  buildAdminActivityChartOption,
   formatActivityTooltip,
 } from '@/components/admin/dashboard/AdminActivityChart';
 import { DashboardMetric } from '@/components/admin/dashboard/DashboardMetric';
@@ -202,73 +201,16 @@ describe('dashboard community activity chart', () => {
     ],
   };
 
-  it('builds four real SVG line series, coordinates, grid and interaction tooltip', () => {
-    const option = buildAdminActivityChartOption(activity);
-    const series = option.series as Array<{
-      name: string;
-      data: number[];
-      areaStyle?: {
-        opacity?: number;
-        color?: {
-          type?: string;
-          y?: number;
-          y2?: number;
-          colorStops?: Array<{ offset: number; color: string }>;
-        };
-      };
-      symbol?: string;
-      showSymbol?: boolean;
-      smooth?: number;
-      emphasis?: {
-        focus?: string;
-        blurScope?: string;
-        lineStyle?: { opacity?: number };
-      };
-      blur?: {
-        lineStyle?: { opacity?: number };
-      };
-    }>;
-    const xAxis = option.xAxis as { data: string[] };
+  it('formats a rich axis tooltip for the focused point', () => {
     const tooltip = formatActivityTooltip(activity.points[1]);
 
-    expect(series.map((item) => item.name)).toEqual(['总互动', '帖子', '回复', '弹幕']);
-    expect(series[0].data).toEqual([8, 12]);
-    expect(series[0].areaStyle).toBeDefined();
-    expect(series[0].areaStyle?.color).toEqual({
-      type: 'linear',
-      x: 0,
-      y: 0,
-      x2: 0,
-      y2: 1,
-      colorStops: [
-        { offset: 0, color: 'var(--admin-chart-interactions-fill)' },
-        { offset: 0.68, color: 'var(--admin-chart-interactions-fill-soft)' },
-        { offset: 1, color: 'var(--admin-chart-interactions-fill-transparent)' },
-      ],
-    });
-    expect(series.slice(1).every((item) => item.areaStyle === undefined)).toBe(true);
-    expect(series.every((item) => item.symbol === 'circle')).toBe(true);
-    expect(series.every((item) => item.showSymbol === false)).toBe(true);
-    expect(series.every((item) => item.smooth === 0.25)).toBe(true);
-    expect(series.every((item) => item.emphasis?.focus === 'series')).toBe(true);
-    expect(series.every((item) => item.emphasis?.blurScope === 'coordinateSystem')).toBe(true);
-    expect(series.every((item) => item.emphasis?.lineStyle?.opacity === 1)).toBe(true);
-    expect(series.every((item) => item.blur?.lineStyle?.opacity === 0.16)).toBe(true);
-    expect(xAxis.data).toEqual(['2026-07-22', '2026-07-23']);
-    expect(option.grid).toBeDefined();
     expect(tooltip).toContain('2026-07-23');
     expect(tooltip).toContain('总互动');
     expect(tooltip).toContain('<strong>12</strong>');
     expect(tooltip).toContain('<strong>5</strong>');
   });
 
-  it('keeps complete zero axes for empty data and exposes week, month and year controls', () => {
-    const option = buildAdminActivityChartOption({
-      totals: { interactions: 0, posts: 0, replies: 0, danmaku: 0 },
-      points: [],
-    });
-    const series = option.series as Array<{ data: number[] }>;
-    const xAxis = option.xAxis as { data: string[] };
+  it('keeps the chart accessible and exposes week, month and year controls', () => {
     const markup = renderToStaticMarkup(
       React.createElement(AdminActivityChart, {
         activity,
@@ -278,8 +220,6 @@ describe('dashboard community activity chart', () => {
       }),
     );
 
-    expect(xAxis.data).toEqual(['暂无数据']);
-    expect(series.every((item) => item.data[0] === 0)).toBe(true);
     expect(markup).toContain('aria-label="趋势周期"');
     expect(markup).toContain('>周</div>');
     expect(markup).toContain('>月</div>');
@@ -292,6 +232,24 @@ describe('dashboard community activity chart', () => {
     expect(markup).toContain('data-admin-activity-legend="posts"');
     expect(markup).toContain('data-admin-activity-legend="replies"');
     expect(markup).toContain('data-admin-activity-legend="danmaku"');
+  });
+
+  it('renders a zero series placeholder for empty data', () => {
+    const markup = renderToStaticMarkup(
+      React.createElement(AdminActivityChart, {
+        activity: {
+          totals: { interactions: 0, posts: 0, replies: 0, danmaku: 0 },
+          points: [],
+        },
+        loading: false,
+        onRangeChange: vi.fn(),
+        range: 'week',
+      }),
+    );
+
+    expect(markup).toContain('data-admin-activity-chart-canvas');
+    expect(markup).toContain('tabindex="0"');
+    expect(markup).toContain('data-admin-community-chart');
   });
 });
 

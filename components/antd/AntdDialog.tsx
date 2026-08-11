@@ -122,8 +122,7 @@ export const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps
         destroyOnHidden
         footer={null}
         keyboard={!onEscapeKeyDown}
-        mask={modal}
-        maskClosable={!onPointerDownOutside}
+        mask={modal ? { closable: !onPointerDownOutside } : false}
         open={open}
         width="min(92vw, 720px)"
         className={cn('yuanwo-antd-dialog', className)}

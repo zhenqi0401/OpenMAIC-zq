@@ -4,9 +4,8 @@ import { describe, expect, it } from 'vitest';
 const productionBrandTargets = [
   'app/page.tsx',
   'components/auth/auth-layout.tsx',
-  'components/admin/AdminSidebar.tsx',
-  'components/admin/AdminTopBar.tsx',
   'components/admin/AdminAccessGate.tsx',
+  'components/admin/AdminShell.tsx',
   'components/home/LearnerHeader.tsx',
   'components/stage/scene-sidebar.tsx',
   'components/edit/SlideNavRail/SlideNavRail.tsx',
@@ -30,10 +29,10 @@ describe('元我智脑 production branding', () => {
   it('keeps desktop, tablet, and mobile branding inside the admin shell', () => {
     const shell = readFileSync('components/admin/AdminShell.tsx', 'utf8');
 
-    expect(shell).toContain('ProLayout');
-    expect(shell).toContain('layout="mix"');
-    expect(shell).toContain('menuHeaderRender');
-    expect(shell).toContain('headerContentRender');
+    // 纯侧栏布局：antd Layout/Sider，不再使用 ProLayout mix 顶栏
+    expect(shell).not.toContain('ProLayout');
+    expect(shell).toContain('<Layout.Sider');
+    expect(shell).toContain('data-admin-layout="side"');
     expect(shell).toContain('BrandLockup');
   });
 

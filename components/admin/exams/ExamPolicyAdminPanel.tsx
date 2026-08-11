@@ -1,13 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ClipboardList, Plus } from 'lucide-react';
-import { Input, Select } from 'antd';
-import { toast } from 'sonner';
-import {
-  adminErrorToastStyle as errorToastStyle,
-  adminSuccessToastStyle as successToastStyle,
-} from '@/lib/admin/toast';
+import { Plus } from 'lucide-react';
+import { Input, Segmented, Select } from 'antd';
+import { adminToast } from '@/lib/admin/toast';
 import {
   AdminCard,
   AdminPage,
@@ -16,13 +12,12 @@ import {
   adminPrimaryButtonClassName,
   adminSecondaryButtonClassName,
 } from '@/components/admin/AdminSurface';
-import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
-import { AdminRefreshButton } from '@/components/admin/AdminRefreshButton';
 import { ExamPolicyDialog } from '@/components/admin/exams/ExamPolicyDialog';
 import { ExamPolicyTable } from '@/components/admin/exams/ExamPolicyTable';
 import { ExamReadinessSummary } from '@/components/admin/exams/ExamReadinessSummary';
 import { ExamResultsDrawer } from '@/components/admin/exams/ExamResultsDrawer';
 import { AdminPagination } from '@/components/admin/AdminPagination';
+import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
 import { Button } from '@/components/antd/AntdButton';
 import {
   createAdminClient,
@@ -59,12 +54,11 @@ export function ExamPolicyAdminPanel() {
   const [query, setQuery] = useState('');
   const [queryDraft, setQueryDraft] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | AdminExamPolicy['status']>('all');
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true); // 加载态仅用于触发重渲染，当前无读取处
   const [saving, setSaving] = useState(false);
   const [deletingPolicyId, setDeletingPolicyId] = useState<string | null>(null);
   const [resultPolicy, setResultPolicy] = useState<AdminExamPolicy | null>(null);
   const [targetRoleId, setTargetRoleId] = useState('');
-  const [targetRoleIdDraft, setTargetRoleIdDraft] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
@@ -156,6 +150,15 @@ export function ExamPolicyAdminPanel() {
     void loadAll();
   }, [loadAll]);
 
+  // 搜索输入 debounce 400ms 后提交，避免每次击键触发服务端请求。
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setQuery(queryDraft.trim());
+      setPage(1);
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [queryDraft]);
+
   function openCreateDialog() {
     setDialogMode('create');
     setDialogPolicyId(null);
@@ -234,46 +237,24 @@ export function ExamPolicyAdminPanel() {
     }
   }
 
-  function applyFilters() {
-    setQuery(queryDraft.trim());
-    setTargetRoleId(targetRoleIdDraft);
-    setPage(1);
-  }
-
   function clearFilters() {
     setQueryDraft('');
-    setTargetRoleIdDraft('');
     setQuery('');
-    setTargetRoleId('');
     setStatusFilter('all');
+    setTargetRoleId('');
     setPage(1);
   }
 
   return (
     <AdminPage id="admin-exams">
-      <AdminSectionHeader
-        action={
-          <AdminSessionActions
-            leading={<AdminRefreshButton loading={loading} onRefresh={() => void loadAll(true)} />}
-          />
-        }
-        description="日常先浏览和筛选考核策略，需要调整时再进入创建或编辑窗口。"
-        eyebrow="Exams"
-        icon={<ClipboardList className="size-4" />}
-        title="阶段考核"
-      />
+      <AdminSectionHeader title="阶段考核" />
 
       <ExamReadinessSummary readiness={readiness} summary={summary} />
 
       <AdminCard className="overflow-hidden" data-exam-policy-list>
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--admin-border)] px-4 py-4">
-          <div>
-            <div className="text-xl font-normal leading-tight text-[var(--admin-foreground)]">
-              考核策略列表
-            </div>
-            <p className="mt-1 text-sm text-[var(--admin-muted-foreground)]">
-              编辑配置后，再按状态发布、下架、重新发布或删除草稿。
-            </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--admin-border)] px-4 py-4">
+          <div className="text-xl font-normal leading-tight text-[var(--admin-foreground)]">
+            考核策略列表
           </div>
           <Button className={adminPrimaryButtonClassName} onClick={openCreateDialog} type="button">
             <Plus aria-hidden="true" className="size-4" />
@@ -281,63 +262,48 @@ export function ExamPolicyAdminPanel() {
           </Button>
         </div>
         <div
-          aria-label="考核策略状态"
-          className="flex flex-wrap gap-2 border-b border-[var(--admin-border-subtle)] px-4 py-3"
+          className="px-4 pt-3"
           data-exam-policy-status-bar
-          role="group"
         >
-          {(
-            [
-              ['all', '全部'],
-              ['published', '已发布'],
-              ['draft', '草稿'],
-              ['archived', '已归档'],
-            ] as const
-          ).map(([value, label]) => (
-            <Button
-              aria-pressed={statusFilter === value}
-              className={
-                statusFilter === value
-                  ? 'rounded-[var(--admin-radius-control)] bg-[var(--admin-selection-background)] text-[var(--admin-selection-foreground)] shadow-none'
-                  : 'rounded-[var(--admin-radius-control)] text-[var(--admin-muted-foreground)]'
-              }
-              key={value}
-              onClick={() => {
-                setStatusFilter(value);
-                setPage(1);
-              }}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              {label}
-            </Button>
-          ))}
+          <Segmented
+            aria-label="考核策略状态"
+            onChange={(value) => {
+              setStatusFilter(value as typeof statusFilter);
+              setPage(1);
+            }}
+            options={[
+              { value: 'all', label: '全部' },
+              { value: 'published', label: '已发布' },
+              { value: 'draft', label: '草稿' },
+              { value: 'archived', label: '已归档' },
+            ]}
+            value={statusFilter}
+          />
         </div>
         <div className="border-b border-[var(--admin-border-subtle)] p-4" data-exam-policy-filters>
           <div className="grid gap-3 lg:grid-cols-[minmax(240px,1fr)_220px_auto] lg:items-center">
             <Input
+              allowClear
               aria-label="搜索考核"
               className={adminInputClassName}
               onChange={(event) => setQueryDraft(event.target.value)}
-              onKeyDown={(event) => event.key === 'Enter' && applyFilters()}
               placeholder="搜索考核名称或目标角色"
               value={queryDraft}
             />
             <Select
               aria-label="筛选目标角色"
               className="w-full"
-              onChange={(value) => setTargetRoleIdDraft(value)}
-              value={targetRoleIdDraft}
+              onChange={(value) => {
+                setTargetRoleId(value);
+                setPage(1);
+              }}
+              value={targetRoleId}
               options={[
                 { value: '', label: '全部目标角色' },
                 ...learnerRoles.map((role) => ({ value: role.id, label: role.name })),
               ]}
             />
             <div className="flex flex-wrap gap-2 lg:justify-end">
-              <Button className={adminPrimaryButtonClassName} onClick={applyFilters} type="button">
-                筛选
-              </Button>
               <Button
                 className={adminSecondaryButtonClassName}
                 onClick={clearFilters}
@@ -350,9 +316,15 @@ export function ExamPolicyAdminPanel() {
           </div>
         </div>
         {policies.length === 0 ? (
-          <div className="px-4 py-10 text-center text-sm text-[var(--admin-muted-foreground)]">
-            暂无阶段考核
-          </div>
+          <AdminEmptyState
+            action={
+              <Button className={adminPrimaryButtonClassName} onClick={openCreateDialog} type="button">
+                <Plus aria-hidden="true" className="size-4" />
+                新建考核
+              </Button>
+            }
+            title="暂无阶段考核"
+          />
         ) : (
           <ExamPolicyTable
             categoryNames={categoryNames}
@@ -368,12 +340,10 @@ export function ExamPolicyAdminPanel() {
         )}
         <div className="border-t border-[var(--admin-border-subtle)] p-4">
           <AdminPagination
-            end={Math.min(pagination.page * pagination.pageSize, pagination.total)}
             onPageChange={setPage}
             page={pagination.page}
-            start={pagination.total ? (pagination.page - 1) * pagination.pageSize + 1 : 0}
+            pageSize={pagination.pageSize}
             total={pagination.total}
-            totalPages={pagination.totalPages}
           />
         </div>
       </AdminCard>
@@ -416,9 +386,9 @@ export function ExamPolicyAdminPanel() {
 export { ExamPolicyActions } from '@/components/admin/exams/ExamPolicyTable';
 
 function notifySuccess(message: string) {
-  toast.success(message, { style: successToastStyle });
+  adminToast.success(message);
 }
 
 function notifyError(error: unknown, fallback: string) {
-  toast.error(error instanceof Error ? error.message : fallback, { style: errorToastStyle });
+  adminToast.error(error instanceof Error ? error.message : fallback);
 }

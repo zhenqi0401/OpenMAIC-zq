@@ -42,7 +42,7 @@ function StateContent({
           <Icon className="size-5" />
         </span>
       }
-      imageStyle={{ height: 40 }}
+      styles={{ image: { height: 40 } }}
       description={
         <span className="grid max-w-[52ch] gap-1">
           <strong className="text-sm font-semibold text-[var(--admin-foreground)]">{title}</strong>

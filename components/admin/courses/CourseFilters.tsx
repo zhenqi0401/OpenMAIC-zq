@@ -1,10 +1,9 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { Button, Input, Segmented, Select } from 'antd';
-import { ProForm } from '@ant-design/pro-components';
 import {
   adminInputClassName,
-  adminPrimaryButtonClassName,
   adminSecondaryButtonClassName,
 } from '@/components/admin/AdminSurface';
 import type { CourseVisibilityMode } from '@/lib/storage/enterprise-service';
@@ -23,33 +22,46 @@ const statusOptions: Array<{ value: CourseAdminStatusFilter; label: string }> = 
   { value: 'review', label: '待复核' },
 ];
 
+const SEARCH_DEBOUNCE_MS = 400;
+
 export function CourseFilters({
   categories,
-  draft,
   filters,
-  onApply,
   onChange,
   onClear,
   onStatusChange,
 }: {
   categories: readonly CategoryOption[];
-  draft: CourseAdminFilters;
   filters: CourseAdminFilters;
-  onApply: () => void;
   onChange: (filters: CourseAdminFilters) => void;
   onClear: () => void;
   onStatusChange: (status: CourseAdminStatusFilter) => void;
 }) {
+  const [queryDraft, setQueryDraft] = useState(filters.query);
+  const isFirstRender = useRef(true);
+
+  // 输入立即反映在搜索框，查询提交做 debounce，避免每次击键触发服务端请求。
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      onChange({ ...filters, query: queryDraft });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅响应 query 草稿变化
+  }, [queryDraft]);
+
+  useEffect(() => {
+    setQueryDraft(filters.query);
+  }, [filters.query]);
+
   return (
-    <ProForm
-      component="div"
-      submitter={false}
-      className="border-b border-[var(--admin-border-subtle)]"
-      data-course-filters
-    >
+    <div className="border-b border-[var(--admin-border-subtle)]" data-course-filters>
       <div
         aria-label="课程状态快捷筛选"
-        className="flex flex-wrap gap-1 border-b border-[var(--admin-border-subtle)] px-3 pt-3"
+        className="flex flex-wrap gap-1 px-3 pt-3"
         role="group"
       >
         <Segmented
@@ -61,17 +73,18 @@ export function CourseFilters({
       </div>
       <div className="grid gap-2 p-3 lg:grid-cols-[minmax(200px,1fr)_150px_150px_auto]">
         <Input
+          allowClear
           aria-label="搜索课程"
           className={adminInputClassName}
-          onChange={(event) => onChange({ ...draft, query: event.target.value })}
+          onChange={(event) => setQueryDraft(event.target.value)}
           placeholder="搜索课程、描述或分类"
-          value={draft.query}
+          value={queryDraft}
         />
         <Select
           aria-label="课程分类"
           className="w-full"
-          onChange={(value) => onChange({ ...draft, categoryId: value })}
-          value={draft.categoryId}
+          onChange={(value) => onChange({ ...filters, categoryId: value })}
+          value={filters.categoryId}
           options={[
             { value: '', label: '全部分类' },
             ...categories.map((category) => ({ value: category.id, label: category.name })),
@@ -82,11 +95,11 @@ export function CourseFilters({
           className="w-full"
           onChange={(value) =>
             onChange({
-              ...draft,
+              ...filters,
               visibilityMode: value as CourseVisibilityMode | 'any',
             })
           }
-          value={draft.visibilityMode}
+          value={filters.visibilityMode}
           options={[
             { value: 'any', label: '全部可见范围' },
             { value: 'all', label: '全体可见' },
@@ -95,18 +108,14 @@ export function CourseFilters({
         />
         <div className="flex gap-2">
           <Button
-            type="primary"
-            className={adminPrimaryButtonClassName}
-            onClick={onApply}
+            className={adminSecondaryButtonClassName}
+            onClick={onClear}
             htmlType="button"
           >
-            筛选
-          </Button>
-          <Button className={adminSecondaryButtonClassName} onClick={onClear} htmlType="button">
             清除筛选
           </Button>
         </div>
       </div>
-    </ProForm>
+    </div>
   );
 }

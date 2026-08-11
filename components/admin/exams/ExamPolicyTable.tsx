@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { ProTable, type ProColumns } from '@ant-design/pro-components';
+import { Table, type TableColumnsType } from 'antd';
 
 import { AdminRowActions } from '@/components/admin/AdminRowActions';
 import {
   AdminStatusBadge,
   adminDangerButtonClassName,
+  adminLinkButtonClassName,
   adminSecondaryButtonClassName,
 } from '@/components/admin/AdminSurface';
 import { Button } from '@/components/antd/AntdButton';
@@ -50,39 +51,37 @@ export function ExamPolicyTable({
   onView: (policy: AdminExamPolicy) => void;
 }) {
   const [deleteTarget, setDeleteTarget] = useState<AdminExamPolicy | null>(null);
-  const columns: ProColumns<AdminExamPolicy>[] = [
+  const columns: TableColumnsType<AdminExamPolicy> = [
     { title: '考核名称', dataIndex: 'title', ellipsis: true, width: 180 },
     {
       title: '目标角色',
       dataIndex: 'targetRoleId',
       width: 130,
-      renderText: (roleId) => roleNames.get(roleId) ?? roleId,
+      render: (_, policy) => roleNames.get(policy.targetRoleId) ?? policy.targetRoleId,
     },
     {
       title: '覆盖范围',
       width: 210,
       render: (_, policy) => getPolicyScopeSummary(policy, categoryNames),
     },
-    { title: '题量', dataIndex: 'questionCount', width: 80, align: 'right' },
+    { title: '题量', dataIndex: 'questionCount', width: 80 },
     {
       title: '候选题数',
       dataIndex: 'candidateQuestionCount',
       width: 100,
-      renderText: (value) => `${value ?? 0} 题`,
+      render: (_, policy) => `${policy.candidateQuestionCount ?? 0} 题`,
     },
     {
       title: '通过线',
       dataIndex: 'passThreshold',
       width: 90,
-      align: 'right',
-      renderText: (value) => `${value}%`,
+      render: (_, policy) => `${policy.passThreshold}%`,
     },
     {
       title: '限时',
       dataIndex: 'timeLimitMinutes',
       width: 100,
-      align: 'right',
-      renderText: (value) => (value ? `${value} 分钟` : '不限时'),
+      render: (_, policy) => (policy.timeLimitMinutes ? `${policy.timeLimitMinutes} 分钟` : '不限时'),
     },
     {
       title: '状态',
@@ -95,7 +94,7 @@ export function ExamPolicyTable({
     },
     {
       title: '操作',
-      valueType: 'option',
+      key: 'actions',
       fixed: 'right',
       width: 220,
       render: (_, policy) => (
@@ -112,10 +111,10 @@ export function ExamPolicyTable({
           }))}
           primaryAction={
             <Button
-              className={adminSecondaryButtonClassName}
+              className={adminLinkButtonClassName}
               onClick={() => (policy.status === 'published' ? onView(policy) : onEdit(policy))}
               type="button"
-              variant="outline"
+              variant="link"
             >
               {policy.status === 'published' ? '查看' : '编辑'}
             </Button>
@@ -129,15 +128,13 @@ export function ExamPolicyTable({
   return (
     <>
       <div className="w-full overflow-hidden" data-exam-policy-table>
-        <ProTable<AdminExamPolicy>
+        <Table<AdminExamPolicy>
           columns={columns}
           dataSource={[...policies]}
-          options={false}
           pagination={false}
           rowKey="id"
-          search={false}
           scroll={{ x: 1210 }}
-          tableAlertRender={false}
+          size="medium"
         />
       </div>
 
@@ -210,10 +207,10 @@ export function ExamPolicyActions({
       }))}
       primaryAction={
         <Button
-          className={adminSecondaryButtonClassName}
+          className={adminLinkButtonClassName}
           onClick={() => onEdit(policy)}
           type="button"
-          variant="outline"
+          variant="link"
         >
           编辑
         </Button>

@@ -176,7 +176,9 @@ describe('community admin panel presentation', () => {
     expect(markup).toContain('data-community-danmaku-cards');
     expect(markup).toContain('01:05');
     expect(markup).toContain('正常');
+    // 行内操作为文字链接按钮（下架 → 无空格）
     expect(markup).toContain('下架');
+    expect(markup).toContain('ant-btn-variant-link');
   });
 
   it('renders replies and audit records as semantic desktop tables with mobile cards', () => {
@@ -298,9 +300,9 @@ describe('community admin panel presentation', () => {
     );
     expect(panelSource).toContain('aria-label="关键词"');
     expect(panelSource).toContain(
-      "aria-label={type === 'audit' ? '管理员用户 ID' : '作者用户 ID'}",
+      "aria-label={type === 'audit' ? '按管理员名称筛选' : '按作者名称筛选'}",
     );
-    expect(panelSource).toContain('aria-label="课程 ID"');
+    expect(panelSource).toContain('aria-label="按课程名称筛选"');
     expect(panelSource).toContain("aria-label={type === 'audit' ? '审计目标类型' : '内容状态'}");
     expect(panelSource).toContain('aria-label="日期范围"');
     expect(panelSource).toContain("placeholder={['开始时间', '结束时间']}");
@@ -308,7 +310,8 @@ describe('community admin panel presentation', () => {
     expect(panelSource).not.toContain('社区正文按纯文本安全输出');
     expect(contentSource).not.toContain("onModerate('pin')");
     expect(contentSource).not.toContain("onModerate('unpin')");
-    expect(contentSource).toContain('min-h-[var(--admin-control-height)]');
+    expect(contentSource).toContain('variant="link"');
+    expect(contentSource).toContain('data-community-moderation-buttons');
     expect(dialogSource).toContain('modal={false}');
     expect(dialogSource).toContain('focus({ preventScroll: true })');
     expect(dialogSource).toContain('value={detail}');

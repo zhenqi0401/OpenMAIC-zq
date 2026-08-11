@@ -2,22 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
-import { DatePicker, Input, Select } from 'antd';
-import { CalendarRange, MessageSquareText, Search } from 'lucide-react';
+import { Collapse, DatePicker, Input, Select } from 'antd';
+import { CalendarRange, Search } from 'lucide-react';
 import {
   AdminCard,
   AdminNotice,
   AdminPage,
   AdminSectionHeader,
   adminInputClassName,
-  adminPrimaryButtonClassName,
   adminSecondaryButtonClassName,
 } from '@/components/admin/AdminSurface';
 import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
 import { AdminPagination } from '@/components/admin/AdminPagination';
-import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
 import { AdminTabs } from '@/components/admin/AdminTabs';
-import { AdminRefreshButton } from '@/components/admin/AdminRefreshButton';
 import { CommunityContentList } from '@/components/admin/community/CommunityContentList';
 import { CommunityModerationDialog } from '@/components/admin/community/CommunityModerationDialog';
 import { Button } from '@/components/antd/AntdButton';
@@ -88,18 +85,17 @@ export function CommunityAdminPanel() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [keywordDraft, setKeywordDraft] = useState('');
-  const [authorIdDraft, setAuthorIdDraft] = useState('');
-  const [courseIdDraft, setCourseIdDraft] = useState('');
-  const [statusDraft, setStatusDraft] = useState('');
-  const [fromDraft, setFromDraft] = useState('');
-  const [toDraft, setToDraft] = useState('');
+  // 高级筛选：可搜索的用户/课程名称选项（选中后仍以 id 过滤，保持后端契约）
+  const [authorOptions, setAuthorOptions] = useState<Array<{ id: string; label: string }>>([]);
+  const [courseOptions, setCourseOptions] = useState<Array<{ id: string; label: string }>>([]);
+  const [authorSearching, setAuthorSearching] = useState(false);
+  const [courseSearching, setCourseSearching] = useState(false);
   const [moderationItem, setModerationItem] = useState<AdminCommunityItem | null>(null);
   const [moderationAction, setModerationAction] = useState<CommunityModerationAction | null>(null);
   const [moderationError, setModerationError] = useState<string | null>(null);
   const [pendingItemId, setPendingItemId] = useState<string | null>(null);
   const [summary, setSummary] = useState<CommunitySummary | null>(null);
   const pageSize = 20;
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const hasActiveFilters = Boolean(keyword || authorId || courseId || status || from || to);
 
   const query = useMemo(() => {
@@ -154,13 +150,52 @@ export function CommunityAdminPanel() {
     void loadSummary();
   }, [loadSummary]);
 
+  // 关键词输入 debounce 400ms 后生效，Select/日期即时生效。
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setKeyword(keywordDraft.trim());
+      setPage(1);
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [keywordDraft]);
+
   function changeType(next: CommunityContentType) {
     setType(next);
     setStatus('');
-    setStatusDraft('');
     setPage(1);
     setModerationItem(null);
     setModerationAction(null);
+  }
+
+  async function searchUsers(queryText: string) {
+    setAuthorSearching(true);
+    try {
+      const response = await fetch(`/api/admin/users?q=${encodeURIComponent(queryText)}&pageSize=50`);
+      if (!response.ok) return;
+      const data = (await response.json()) as { users?: Array<{ id: string; displayName: string; phone: string | null }> };
+      setAuthorOptions(
+        (data.users ?? []).map((user) => ({
+          id: user.id,
+          label: user.displayName || user.phone || user.id,
+        })),
+      );
+    } finally {
+      setAuthorSearching(false);
+    }
+  }
+
+  async function searchCourses(queryText: string) {
+    setCourseSearching(true);
+    try {
+      const response = await fetch(`/api/admin/courses?q=${encodeURIComponent(queryText)}&pageSize=50`);
+      if (!response.ok) return;
+      const data = (await response.json()) as { courses?: Array<{ id: string; name: string }> };
+      setCourseOptions(
+        (data.courses ?? []).map((course) => ({ id: course.id, label: course.name })),
+      );
+    } finally {
+      setCourseSearching(false);
+    }
   }
 
   function resetFilters() {
@@ -171,21 +206,8 @@ export function CommunityAdminPanel() {
     setFrom('');
     setTo('');
     setKeywordDraft('');
-    setAuthorIdDraft('');
-    setCourseIdDraft('');
-    setStatusDraft('');
-    setFromDraft('');
-    setToDraft('');
-    setPage(1);
-  }
-
-  function applyFilters() {
-    setKeyword(keywordDraft.trim());
-    setAuthorId(authorIdDraft.trim());
-    setCourseId(courseIdDraft.trim());
-    setStatus(statusDraft);
-    setFrom(fromDraft);
-    setTo(toDraft);
+    setAuthorOptions([]);
+    setCourseOptions([]);
     setPage(1);
   }
 
@@ -234,22 +256,7 @@ export function CommunityAdminPanel() {
 
   return (
     <AdminPage data-community-admin-panel>
-      <AdminSectionHeader
-        action={
-          <AdminSessionActions
-            leading={
-              <AdminRefreshButton
-                loading={loading}
-                onRefresh={() => void Promise.all([load(true), loadSummary()])}
-              />
-            }
-          />
-        }
-        description="统一检索和处置弹幕、帖子与回复；每次管理员操作均保留操作者、原因和时间。"
-        eyebrow="Community governance"
-        icon={<MessageSquareText className="size-4" />}
-        title="社区内容"
-      />
+      <AdminSectionHeader title="社区内容" />
 
       <div className="grid gap-3 sm:grid-cols-3">
         <AdminMetricCard
@@ -275,45 +282,31 @@ export function CommunityAdminPanel() {
             ariaLabel="社区内容类型"
             items={availableTabs}
             onValueChange={changeType}
-            showDivider={false}
             value={type}
           />
         </div>
 
-        <div className="grid gap-3 border-b border-[var(--admin-border-subtle)] p-4">
+        <div className="border-b border-[var(--admin-border-subtle)] px-4 pt-3">
           <div
-            className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(180px,1fr)_minmax(160px,0.8fr)_minmax(150px,0.7fr)_170px_auto_auto] xl:items-center"
+            className="grid gap-3 xl:grid-cols-[minmax(180px,1fr)_minmax(160px,0.8fr)_minmax(220px,1.2fr)_auto] xl:items-center"
             data-community-filters
           >
             <Input
+              allowClear
               aria-label="关键词"
               className={adminInputClassName}
               onChange={(event) => setKeywordDraft(event.target.value)}
-              onKeyDown={(event) => event.key === 'Enter' && applyFilters()}
               placeholder={type === 'audit' ? '操作或原因关键词' : '内容关键词'}
               value={keywordDraft}
             />
-            <Input
-              aria-label={type === 'audit' ? '管理员用户 ID' : '作者用户 ID'}
-              className={adminInputClassName}
-              onChange={(event) => setAuthorIdDraft(event.target.value)}
-              placeholder={type === 'audit' ? '管理员用户 ID' : '作者用户 ID'}
-              value={authorIdDraft}
-            />
-            {type !== 'audit' ? (
-              <Input
-                aria-label="课程 ID"
-                className={adminInputClassName}
-                onChange={(event) => setCourseIdDraft(event.target.value)}
-                placeholder="课程 ID"
-                value={courseIdDraft}
-              />
-            ) : null}
             <Select
               aria-label={type === 'audit' ? '审计目标类型' : '内容状态'}
               className="w-full"
-              onChange={(value) => setStatusDraft(value)}
-              value={statusDraft}
+              onChange={(value) => {
+                setStatus(value);
+                setPage(1);
+              }}
+              value={status}
               options={[
                 { value: '', label: `全部${type === 'audit' ? '目标' : '状态'}` },
                 ...STATUS_OPTIONS[type].map((option) => ({
@@ -328,14 +321,15 @@ export function CommunityAdminPanel() {
               format="YYYY-MM-DD HH:mm"
               placeholder={['开始时间', '结束时间']}
               showTime={{ format: 'HH:mm' }}
-              value={[parseDateFilter(fromDraft), parseDateFilter(toDraft)]}
+              value={[parseDateFilter(from), parseDateFilter(to)]}
               onChange={(dates) => {
-                setFromDraft(dates?.[0]?.format('YYYY-MM-DDTHH:mm') ?? '');
-                setToDraft(dates?.[1]?.format('YYYY-MM-DDTHH:mm') ?? '');
+                setFrom(dates?.[0]?.format('YYYY-MM-DDTHH:mm') ?? '');
+                setTo(dates?.[1]?.format('YYYY-MM-DDTHH:mm') ?? '');
+                setPage(1);
               }}
               separator={<CalendarRange aria-hidden="true" className="size-4" />}
             />
-            <div className="flex gap-2 md:col-span-2 xl:col-span-1 xl:justify-end">
+            <div className="flex gap-2">
               <Button
                 className={adminSecondaryButtonClassName}
                 onClick={resetFilters}
@@ -344,12 +338,9 @@ export function CommunityAdminPanel() {
               >
                 清空
               </Button>
-              <Button className={adminPrimaryButtonClassName} onClick={applyFilters} type="button">
-                筛选
-              </Button>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 py-3">
             <span className="inline-flex items-center gap-2 text-xs text-[var(--admin-muted-foreground)]">
               <Search className="size-3.5" /> 共 {total} 条记录
             </span>
@@ -360,6 +351,62 @@ export function CommunityAdminPanel() {
               </span>
             ) : null}
           </div>
+        </div>
+
+        <div className="border-b border-[var(--admin-border-subtle)] px-4 pb-3">
+          <Collapse
+            ghost
+            items={[
+              {
+                key: 'advanced',
+                label: '高级筛选',
+                children: (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Select
+                      allowClear
+                      aria-label={type === 'audit' ? '按管理员名称筛选' : '按作者名称筛选'}
+                      filterOption={false}
+                      loading={authorSearching}
+                      notFoundContent={authorSearching ? '搜索中…' : '输入名称搜索用户'}
+                      onChange={(value) => {
+                        setAuthorId(value ?? '');
+                        setPage(1);
+                      }}
+                      onSearch={searchUsers}
+                      placeholder={type === 'audit' ? '按管理员名称筛选' : '按作者名称筛选'}
+                      showSearch
+                      value={authorId || undefined}
+                      options={authorOptions.map((option) => ({
+                        value: option.id,
+                        label: option.label,
+                      }))}
+                    />
+                    {type !== 'audit' ? (
+                      <Select
+                        allowClear
+                        aria-label="按课程名称筛选"
+                        filterOption={false}
+                        loading={courseSearching}
+                        notFoundContent={courseSearching ? '搜索中…' : '输入名称搜索课程'}
+                        onChange={(value) => {
+                          setCourseId(value ?? '');
+                          setPage(1);
+                        }}
+                        onSearch={searchCourses}
+                        placeholder="按课程名称筛选"
+                        showSearch
+                        value={courseId || undefined}
+                        options={courseOptions.map((option) => ({
+                          value: option.id,
+                          label: option.label,
+                        }))}
+                      />
+                    ) : null}
+                  </div>
+                ),
+              },
+            ]}
+          />
         </div>
 
         {loadError && items.length ? (
@@ -410,13 +457,11 @@ export function CommunityAdminPanel() {
 
         <div className="border-t border-[var(--admin-border-subtle)] p-4">
           <AdminPagination
-            end={Math.min(page * pageSize, total)}
             loading={loading}
             onPageChange={setPage}
             page={page}
-            start={total ? (page - 1) * pageSize + 1 : 0}
+            pageSize={pageSize}
             total={total}
-            totalPages={pageCount}
           />
         </div>
       </AdminCard>

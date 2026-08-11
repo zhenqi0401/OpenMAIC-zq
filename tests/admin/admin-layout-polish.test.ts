@@ -3,50 +3,37 @@ import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { AdminShell } from '@/components/admin/AdminShell';
-import {
-  AdminAccountMenu,
-  AdminSessionActions,
-  adminAccountMenuLabels,
-} from '@/components/admin/AdminSessionActions';
+import { ThemeProvider } from '@/lib/hooks/use-theme';
 import { DashboardAdminPanel } from '@/components/admin/dashboard/DashboardAdminPanel';
 import { AccessAdminPanel } from '@/components/admin/access/AccessAdminPanel';
 import { CourseAdminPanel } from '@/components/admin/courses/CourseAdminPanel';
 import { ExamPolicyAdminPanel } from '@/components/admin/exams/ExamPolicyAdminPanel';
 import { CommunityAdminPanel } from '@/components/admin/community/CommunityAdminPanel';
 
-describe('admin layout polish', () => {
-  it('keeps global session actions inside module headers instead of a separate top row', () => {
-    const markup = renderToStaticMarkup(
+function renderAdminShell() {
+  return renderToStaticMarkup(
+    React.createElement(
+      ThemeProvider,
+      null,
       React.createElement(
         AdminShell,
         { activeModuleId: 'dashboard' } as React.ComponentProps<typeof AdminShell>,
         React.createElement('div', null, 'module content'),
       ),
-    );
+    ),
+  );
+}
+
+describe('admin layout polish', () => {
+  it('keeps the unified account trigger in the header instead of a separate account button', () => {
+    const markup = renderAdminShell();
 
     expect(markup).toContain('module content');
+    expect(markup).toContain('data-admin-current-identity="trigger"');
     expect(markup).not.toContain('返回首页');
-    expect(markup).not.toContain('退出登录');
-  });
-
-  it('keeps module actions separate from the global account menu', () => {
-    const markup = renderToStaticMarkup(
-      React.createElement(AdminSessionActions, {
-        leading: React.createElement('button', null, '刷新'),
-      }),
-    );
-
-    expect(markup).toContain('刷新');
-    expect(markup).not.toContain('账户');
-
-    const accountMarkup = renderToStaticMarkup(React.createElement(AdminAccountMenu));
-    expect(accountMarkup).toContain('账户');
-    expect(accountMarkup).toContain('aria-label="账户"');
-    expect(accountMarkup).not.toContain('返回首页');
-    expect(accountMarkup).not.toContain('退出登录');
-    expect(adminAccountMenuLabels.home).toBe('生成工作台');
-    expect(adminAccountMenuLabels.learn).toBe('进入学员端');
-    expect(adminAccountMenuLabels.logout).toBe('退出登录');
+    expect(markup).not.toContain('>退出登录<');
+    // 不再有独立“账户”按钮（已与头像身份合并）
+    expect(markup.match(/aria-label="账户"/g)).toBeNull();
   });
 
   it('keeps shared row-action menus non-modal across admin modules', () => {
@@ -72,25 +59,24 @@ describe('admin layout polish', () => {
     expect(markup).not.toContain('测评通过率');
   });
 
-  it('keeps course and exam module action buttons textual', () => {
+  it('keeps course and exam module actions textual and removes duplicated list titles', () => {
     const courseMarkup = renderToStaticMarkup(React.createElement(CourseAdminPanel));
     const examMarkup = renderToStaticMarkup(React.createElement(ExamPolicyAdminPanel));
 
     expect(courseMarkup).not.toContain('>返回首页<');
     expect(courseMarkup).not.toContain('>退出登录<');
-    expect(courseMarkup).toContain('刷新');
-    expect(courseMarkup).toContain('课程列表');
-    expect(courseMarkup).toContain('上一页');
-    expect(courseMarkup).toContain('下一页');
+    expect(courseMarkup).toContain('导入企业课程');
     expect(courseMarkup).not.toContain('新建课程草稿');
     expect(courseMarkup).not.toContain('创建草稿');
     expect(courseMarkup).not.toContain('data-size="icon"');
+    // 页面标题下不再出现第二个“课程列表”标题
+    expect(courseMarkup).not.toContain('>课程列表<');
     expect(examMarkup).not.toContain('返回首页');
     expect(examMarkup).not.toContain('退出登录');
     expect(examMarkup).not.toContain('data-size="icon"');
   });
 
-  it('places the same refresh control in all five modules', () => {
+  it('removes the page-level refresh control from all five modules', () => {
     const markups = [
       DashboardAdminPanel,
       CourseAdminPanel,
@@ -100,10 +86,8 @@ describe('admin layout polish', () => {
     ].map((Component) => renderToStaticMarkup(React.createElement(Component)));
 
     for (const markup of markups) {
-      expect(markup.match(/data-admin-refresh-button="true"/g)).toHaveLength(1);
-      expect(markup).toContain('lucide-refresh-cw');
-      expect(markup).toContain('刷新中…');
-      expect(markup).toContain('disabled=""');
+      expect(markup.match(/data-admin-refresh-button="true"/g)).toBeNull();
+      expect(markup).not.toContain('刷新中…');
     }
   });
 

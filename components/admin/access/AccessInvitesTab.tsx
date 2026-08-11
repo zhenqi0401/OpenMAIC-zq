@@ -18,6 +18,7 @@ import {
   AdminCard,
   AdminStatusBadge,
   adminInputClassName,
+  adminLinkButtonClassName,
   adminPrimaryButtonClassName,
   adminSecondaryButtonClassName,
 } from '@/components/admin/AdminSurface';
@@ -354,7 +355,7 @@ export function AccessInvitesTab({
                   <th className="pb-2 pr-3">创建时间</th>
                   <th className="pb-2 pr-3">过期时间</th>
                   <th className="pb-2 pr-3">状态</th>
-                  <th className="pb-2 text-right">操作</th>
+                  <th className="pb-2 pr-3 text-left">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--admin-border-subtle)]">
@@ -366,14 +367,14 @@ export function AccessInvitesTab({
                       onCopy={(code) => void copyInviteCode(code)}
                       roles={roles}
                     />
-                    <td className="py-3 text-right">
-                      <div className="flex flex-wrap justify-end gap-2">
+                    <td className="py-3 text-left">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                         <Button
-                          className={adminSecondaryButtonClassName}
+                          className={adminLinkButtonClassName}
                           disabled={savingInviteCodeId === inviteCode.id}
                           onClick={() => openEdit(inviteCode)}
                           type="button"
-                          variant="outline"
+                          variant="link"
                         >
                           编辑
                         </Button>
@@ -381,6 +382,7 @@ export function AccessInvitesTab({
                           busy={deletingInviteCodeId === inviteCode.id}
                           confirmLabel="确认撤销"
                           description={`确认撤销绑定到「${getInviteCodeView(inviteCode, roles).roleLabel}」的邀请码？操作不可恢复，原邀请码将无法注册。`}
+                          link
                           onConfirm={() => onDeleteInvite(inviteCode)}
                           title="撤销邀请码"
                           triggerLabel="撤销"

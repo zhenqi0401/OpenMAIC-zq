@@ -1,11 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Shield } from 'lucide-react';
 import { AdminPage, AdminSectionHeader } from '@/components/admin/AdminSurface';
-import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
 import { AdminTabs } from '@/components/admin/AdminTabs';
-import { AdminRefreshButton } from '@/components/admin/AdminRefreshButton';
 import { adminErrorMessage, adminToast } from '@/lib/admin/toast';
 import { normalizeInviteCode } from '@/lib/auth/invite-code';
 import {
@@ -318,17 +315,7 @@ export function AccessAdminPanel({ initialSection = 'users' }: { initialSection?
 
   return (
     <AdminPage id="admin-access">
-      <AdminSectionHeader
-        action={
-          <AdminSessionActions
-            leading={<AdminRefreshButton loading={loading} onRefresh={() => void loadAll(true)} />}
-          />
-        }
-        description="集中管理用户资料、角色分配和邀请码，所有变更继续遵循现有权限规则。"
-        eyebrow="User management"
-        icon={<Shield className="size-4" />}
-        title="用户管理"
-      />
+      <AdminSectionHeader title="用户管理" />
 
       <AdminTabs
         ariaLabel="用户管理工作区"
@@ -336,13 +323,12 @@ export function AccessAdminPanel({ initialSection = 'users' }: { initialSection?
           ...tab,
           count:
             tab.value === 'users'
-              ? users.length
+              ? userPagination.total
               : tab.value === 'roles'
                 ? roles.length
                 : inviteCodes.length,
         }))}
         onValueChange={changeSection}
-        showDivider={false}
         value={section}
       />
 

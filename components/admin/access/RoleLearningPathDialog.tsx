@@ -42,7 +42,7 @@ export function RoleLearningPathDialog({
         }>;
       };
       const pathCourses = path.courses ?? [];
-      setSelected(pathCourses.map((item) => item.courseId));
+      setSelected(pathCourses.length ? pathCourses.map((item) => item.courseId) : ['']);
       setAvailable(
         (catalog.courses ?? []).filter(
           (course) =>
@@ -60,7 +60,7 @@ export function RoleLearningPathDialog({
       const response = await fetch(`/api/admin/roles/${role.id}/learning-path`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseIds: selected }),
+        body: JSON.stringify({ courseIds: selected.filter(Boolean) }),
       });
       if (!response.ok) throw new Error('学习路径保存失败');
       onOpenChange(false);
@@ -84,11 +84,14 @@ export function RoleLearningPathDialog({
                   className="min-h-10 flex-1"
                   value={id}
                   onChange={(nextValue) =>
-                    setSelected((current) =>
-                      current.map((currentValue, cursor) =>
+                    // selected 为空数组时（初始无已存路径）先补占位行，
+                    // 否则 map 空数组会丢弃首次选择
+                    setSelected((current) => {
+                      const rows = current.length ? current : [''];
+                      return rows.map((currentValue, cursor) =>
                         cursor === index ? nextValue : currentValue,
-                      ),
-                    )
+                      );
+                    })
                   }
                   options={[
                     { value: '', label: '选择课程' },
@@ -122,7 +125,7 @@ export function RoleLearningPathDialog({
             onClick={() => void save()}
             type="button"
           >
-            {saving ? '保存中…' : '保存学���路径'}
+            {saving ? '保存中…' : '保存学习路径'}
           </Button>
         </div>
       </DialogContent>

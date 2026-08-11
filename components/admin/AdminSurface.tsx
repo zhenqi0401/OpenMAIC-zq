@@ -1,7 +1,5 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { ChevronRight } from 'lucide-react';
 import { Alert, Tag } from 'antd';
-import { ProCard } from '@ant-design/pro-components';
 import { cn } from '@/lib/utils';
 export { adminThemeStyle } from '@/components/admin/admin-theme';
 
@@ -32,10 +30,13 @@ export const adminDangerOutlineButtonClassName =
 export const adminDangerButtonClassName =
   'rounded-[var(--admin-radius-control)] !bg-[var(--admin-danger)] !text-white shadow-none hover:!bg-[var(--admin-danger-strong)] focus-visible:border-[var(--admin-danger)] focus-visible:ring-[var(--admin-danger)]/25 disabled:!bg-[var(--admin-danger)]';
 
-export interface AdminBreadcrumbItem {
-  label: string;
-  href?: string;
-}
+/** 表格行内操作的文字链接按钮：蓝色可点击文字，无边框无背景。 */
+export const adminLinkButtonClassName =
+  'h-auto !rounded-none border-0 bg-transparent !p-0 !text-[var(--admin-link)] shadow-none hover:!text-[var(--admin-link-hover)] focus-visible:!outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus-ring)]/30 disabled:!text-[var(--admin-disabled-foreground)] disabled:!opacity-60';
+
+/** 表格行内危险操作的文字链接按钮：红色可点击文字。 */
+export const adminLinkDangerButtonClassName =
+  'h-auto !rounded-none border-0 bg-transparent !p-0 !text-[var(--admin-danger-strong)] shadow-none hover:!text-[var(--admin-danger)] focus-visible:!outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-danger)]/30 disabled:!text-[var(--admin-disabled-foreground)] disabled:!opacity-60';
 
 /** Stable page-level spacing and width contract for every admin module. */
 export function AdminPage({ children, className, ...props }: ComponentProps<'section'>) {
@@ -52,81 +53,30 @@ export function AdminPage({ children, className, ...props }: ComponentProps<'sec
 }
 
 export interface AdminSectionHeaderProps {
-  icon?: ReactNode;
-  eyebrow?: string;
-  breadcrumb?: AdminBreadcrumbItem[];
   title: string;
-  description?: string;
   action?: ReactNode;
 }
 
-export function AdminSectionHeader({
-  icon,
-  eyebrow,
-  breadcrumb,
-  title,
-  description,
-  action,
-}: AdminSectionHeaderProps) {
-  const hasBreadcrumb = breadcrumb && breadcrumb.length > 0;
-  const hasContext = icon || eyebrow || hasBreadcrumb;
-
+/**
+ * 后台一级页面头部：只保留一行中文标题与页面级操作。
+ * 英文 eyebrow、宽泛说明与常驻刷新已从公共组件中移除。
+ */
+export function AdminSectionHeader({ title, action }: AdminSectionHeaderProps) {
   return (
     <div
-      className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start"
+      className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3"
       data-admin-section-header
     >
-      <div className="grid max-w-[760px] gap-1">
-        {hasContext ? (
-          <div className="flex min-h-5 flex-wrap items-center gap-2 text-xs font-semibold tracking-[0.04em] text-[var(--admin-muted-foreground)]">
-            {icon ? (
-              <span aria-hidden="true" className="text-[var(--admin-link)]">
-                {icon}
-              </span>
-            ) : null}
-            {hasBreadcrumb ? (
-              <nav aria-label="面包屑">
-                <ol className="flex flex-wrap items-center gap-1.5">
-                  {breadcrumb.map((item, index) => {
-                    const current = index === breadcrumb.length - 1;
-                    return (
-                      <li className="flex items-center gap-1.5" key={`${item.label}-${index}`}>
-                        {item.href ? (
-                          <a
-                            className="rounded-[2px] transition-colors hover:text-[var(--admin-link-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus-ring)]/30"
-                            href={item.href}
-                          >
-                            {item.label}
-                          </a>
-                        ) : (
-                          <span aria-current={current ? 'page' : undefined}>{item.label}</span>
-                        )}
-                        {!current ? <ChevronRight aria-hidden="true" className="size-3" /> : null}
-                      </li>
-                    );
-                  })}
-                </ol>
-              </nav>
-            ) : null}
-            {eyebrow ? <span className="uppercase tracking-[0.08em]">{eyebrow}</span> : null}
-          </div>
-        ) : null}
-        <h2
-          className="text-xl font-semibold leading-7 tracking-[-0.01em] text-[var(--admin-heading)] sm:text-2xl sm:leading-8"
-          data-admin-section-title
-        >
-          {title}
-        </h2>
-        {description ? (
-          <p className="max-w-[72ch] text-sm leading-5 text-[var(--admin-muted-foreground)]">
-            {description}
-          </p>
-        ) : null}
-      </div>
+      <h2
+        className="text-xl font-semibold leading-7 tracking-[-0.01em] text-[var(--admin-heading)] sm:text-2xl sm:leading-8"
+        data-admin-section-title
+      >
+        {title}
+      </h2>
       {action ? (
         <div
           aria-label="页面操作"
-          className="flex flex-wrap justify-start gap-2 md:justify-end"
+          className="flex flex-wrap items-center justify-start gap-2 md:justify-end"
           data-admin-header-actions
           role="group"
         >
@@ -144,14 +94,12 @@ export function AdminCard({ children, className, ...props }: ComponentProps<'div
   return (
     <div
       className={cn(
-        'rounded-[var(--admin-radius-card)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)] shadow-[var(--admin-shadow-card)]',
+        'rounded-[var(--admin-radius-card)] border border-transparent bg-[var(--admin-surface)] text-[var(--admin-foreground)] shadow-[var(--admin-shadow-card)]',
         className,
       )}
       {...props}
     >
-      <ProCard bordered={false} className="!bg-transparent !shadow-none" bodyStyle={{ padding: 0 }}>
-        {children}
-      </ProCard>
+      {children}
     </div>
   );
 }
@@ -176,20 +124,33 @@ export function AdminNotice({
     <div {...props} role={role ?? (tone === 'error' ? 'alert' : undefined)}>
       <Alert
         className={cn('rounded-[var(--admin-radius-control)] text-sm', toneClassName, className)}
-        message={children}
+        title={children}
         type={tone === 'error' ? 'error' : tone === 'success' ? 'success' : 'info'}
       />
     </div>
   );
 }
 
-export function AdminStatusBadge({
-  children,
-  tone = 'neutral',
-}: {
+const adminStatusToneClassName: Record<NonNullable<AdminStatusBadgeProps['tone']>, string> = {
+  neutral: '!border-[var(--admin-border)] !bg-[var(--admin-surface-subtle)] !text-[var(--admin-foreground)]',
+  success:
+    '!border-[var(--admin-success)]/30 !bg-[color-mix(in_srgb,var(--admin-success)_12%,var(--admin-surface))] !text-[var(--admin-success-strong)]',
+  warning:
+    '!border-[var(--admin-warning)]/40 !bg-[var(--admin-warning-background)] !text-[var(--admin-warning-strong)]',
+  danger:
+    '!border-[var(--admin-danger)]/40 !bg-[var(--admin-danger-background)] !text-[var(--admin-danger-strong)]',
+};
+
+export interface AdminStatusBadgeProps {
   children: ReactNode;
   tone?: 'neutral' | 'success' | 'warning' | 'danger';
-}) {
+}
+
+export function AdminStatusBadge({ children, tone = 'neutral' }: AdminStatusBadgeProps) {
   const color = tone === 'danger' ? 'error' : tone === 'neutral' ? 'default' : tone;
-  return <Tag color={color}>{children}</Tag>;
+  return (
+    <Tag color={color} className={cn('!font-medium', adminStatusToneClassName[tone])}>
+      {children}
+    </Tag>
+  );
 }

@@ -148,8 +148,8 @@ describe('ExamPolicyAdminPanel', () => {
     expect(source.indexOf('data-exam-policy-list')).toBeLessThan(
       source.indexOf('data-exam-policy-filters'),
     );
-    expect(source).toContain('toast.success(message, { style: successToastStyle })');
-    expect(source).toContain('toast.error(error instanceof Error ? error.message : fallback');
+    expect(source).toContain('adminToast.success(message)');
+    expect(source).toContain('adminToast.error(error instanceof Error ? error.message : fallback');
     expect(source).toContain('data-exam-policy-status-bar');
     expect(source).toContain('setQuery(queryDraft.trim())');
     expect(source).not.toContain('待审核');

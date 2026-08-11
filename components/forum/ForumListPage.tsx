@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Empty, Form, Input, Pagination, Select, Skeleton } from 'antd';
+import { Alert, Button, Empty, Form, Input, Pagination, Segmented, Select, Skeleton } from 'antd';
 import {
   BookOpen,
   Clock3,
@@ -216,11 +216,8 @@ export function ForumListPage() {
       <main className="mx-auto w-[min(1600px,calc(100%-1.25rem))] py-7 sm:w-[min(1600px,calc(100%-2rem))] md:py-10">
         <section className="flex flex-col gap-5 border-b border-slate-200 pb-8 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="mb-2 font-mono text-[11px] font-semibold text-primary dark:text-primary/80">
-              COMMUNITY
-            </p>
-            <h1 className="text-3xl font-semibold sm:text-4xl">学习交流区</h1>
-            <p className="mt-2 text-base text-slate-600 dark:text-slate-400">
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">学习交流区</h1>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
               分享学习心得、提出问题，并围绕课程继续讨论。
             </p>
           </div>
@@ -309,26 +306,19 @@ export function ForumListPage() {
         )}
 
         <div className="mt-7">
-          <aside className="flex flex-col gap-3 border-b border-slate-200 pb-5 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
-            <nav className="flex flex-wrap gap-2" aria-label="讨论分类">
-              {VIEWS.map((item) => (
-                <Button
-                  key={item.value}
-                  type={view === item.value ? 'primary' : 'default'}
-                  htmlType="button"
-                  onClick={() =>
-                    setQuery({
-                      view: item.value === 'all' ? null : item.value,
-                      page: null,
-                      courseId: item.value === 'course' ? courseId : null,
-                    })
-                  }
-                  className="min-h-11 rounded-lg px-4 py-2.5 text-left text-base"
-                >
-                  {item.label}
-                </Button>
-              ))}
-            </nav>
+          <aside className="flex flex-col gap-3 border-b border-slate-200 pb-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+            <Segmented
+              aria-label="讨论分类"
+              onChange={(value) =>
+                setQuery({
+                  view: value === 'all' ? null : (value as ForumView),
+                  page: null,
+                  courseId: value === 'course' ? courseId : null,
+                })
+              }
+              options={VIEWS.map((item) => ({ value: item.value, label: item.label }))}
+              value={view}
+            />
             {view === 'course' && (
               <label className="grid gap-2 text-sm font-medium text-slate-500 sm:min-w-64">
                 按课程筛选
@@ -357,31 +347,17 @@ export function ForumListPage() {
                   <p className="mt-1 text-sm text-slate-500">共 {total} 个讨论</p>
                 )}
               </div>
-              <div
-                className="inline-flex rounded-md border border-slate-200 bg-white p-0.5 dark:border-slate-700 dark:bg-card-solid"
-                role="group"
+              <Segmented
                 aria-label="帖子排序"
-              >
-                {(
-                  [
-                    ['latest', '最新发布'],
-                    ['activity', '最后回复'],
-                  ] as const
-                ).map(([value, label]) => (
-                  <Button
-                    key={value}
-                    type={sort === value ? 'primary' : 'default'}
-                    htmlType="button"
-                    aria-pressed={sort === value}
-                    onClick={() =>
-                      setQuery({ sort: value === 'latest' ? null : value, page: null })
-                    }
-                    className="min-h-9 rounded px-4 py-1.5 text-sm"
-                  >
-                    {label}
-                  </Button>
-                ))}
-              </div>
+                onChange={(value) =>
+                  setQuery({ sort: value === 'latest' ? null : (value as ForumSort), page: null })
+                }
+                options={[
+                  { value: 'latest', label: '最新发布' },
+                  { value: 'activity', label: '最后回复' },
+                ]}
+                value={sort}
+              />
             </div>
 
             {error && (

@@ -1,56 +1,31 @@
-import type { CSSProperties } from 'react';
-import { toast, type ExternalToast } from 'sonner';
-import { adminBrandTokens } from '@/components/admin/admin-theme';
+import type { MessageInstance } from 'antd/es/message/interface';
 
 /**
- * Toast styles are derived from the admin brand tokens (the single source of
- * truth) so they can never drift from the console's semantic palette. We emit
- * `color-mix()` strings rather than `var(--admin-*)` because toasts may render
- * outside the scoped admin theme subtree where those variables don't resolve.
+ * Admin toast facade backed by the Ant Design App context message.
+ *
+ * The app renders a single `<AntApp>` boundary; components that need toasts
+ * must be inside it. Because `message` is only reachable through
+ * `App.useApp()`, the provider registers the instance here once mounted —
+ * module-level call sites keep their existing `adminToast.x(message)` shape.
  */
-function tinted(
-  color: string,
-  textColor: string = color,
-  { bgAlpha = 0.08, borderAlpha = 0.3 }: { bgAlpha?: number; borderAlpha?: number } = {},
-): CSSProperties {
-  return {
-    background: `color-mix(in srgb, ${color} ${bgAlpha * 100}%, #fff)`,
-    borderColor: `color-mix(in srgb, ${color} ${borderAlpha * 100}%, #fff)`,
-    color: textColor,
-  };
-}
+let messageApi: MessageInstance | null = null;
 
-export const adminSuccessToastStyle: CSSProperties = tinted(adminBrandTokens['--saas-success']);
-export const adminErrorToastStyle: CSSProperties = tinted(
-  adminBrandTokens['--saas-danger'],
-  adminBrandTokens['--saas-danger-strong'],
-);
-export const adminInfoToastStyle: CSSProperties = tinted(
-  adminBrandTokens['--saas-primary'],
-  adminBrandTokens['--saas-primary'],
-  { bgAlpha: 0.06 },
-);
-export const adminWarningToastStyle: CSSProperties = tinted(adminBrandTokens['--saas-warning']);
-
-function withAdminStyle(options: ExternalToast | undefined, style: CSSProperties): ExternalToast {
-  return {
-    ...options,
-    style: { ...style, ...options?.style },
-  };
+export function bindAdminMessageApi(api: MessageInstance | null) {
+  messageApi = api;
 }
 
 export const adminToast = {
-  success(message: string, options?: ExternalToast) {
-    return toast.success(message, withAdminStyle(options, adminSuccessToastStyle));
+  success(message: string) {
+    messageApi?.success(message);
   },
-  error(message: string, options?: ExternalToast) {
-    return toast.error(message, withAdminStyle(options, adminErrorToastStyle));
+  error(message: string) {
+    messageApi?.error(message);
   },
-  info(message: string, options?: ExternalToast) {
-    return toast.info(message, withAdminStyle(options, adminInfoToastStyle));
+  info(message: string) {
+    messageApi?.info(message);
   },
-  warning(message: string, options?: ExternalToast) {
-    return toast.warning(message, withAdminStyle(options, adminWarningToastStyle));
+  warning(message: string) {
+    messageApi?.warning(message);
   },
 };
 

@@ -102,7 +102,13 @@ function MobileAccountMenu({
       })),
     },
     ...(identity.isAdmin
-      ? [{ key: 'admin', icon: <SafetyOutlined />, label: <Link href="/admin">管理后台</Link> }]
+      ? [
+          {
+            key: 'admin',
+            icon: <SafetyOutlined />,
+            label: <Link href="/admin">进入管理后台</Link>,
+          },
+        ]
       : []),
     { type: 'divider' as const },
     { key: 'logout', danger: true, icon: <LogoutOutlined />, label: '退出' },
@@ -142,12 +148,7 @@ export function LearnerHeader({
       ? [
           {
             key: 'forum',
-            label: (
-              <Link href="/forum">
-                <span className="sm:hidden">交流</span>
-                <span className="hidden sm:inline">交流社区</span>
-              </Link>
-            ),
+            label: <Link href="/forum">交流社区</Link>,
           },
         ]
       : []),
@@ -175,7 +176,7 @@ export function LearnerHeader({
           {identity.isAdmin ? (
             <Link href="/admin">
               <Button type="text" icon={<SafetyOutlined />}>
-                管理后台
+                进入管理后台
               </Button>
             </Link>
           ) : null}

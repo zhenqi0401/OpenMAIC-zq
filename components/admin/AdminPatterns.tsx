@@ -1,3 +1,5 @@
+'use client';
+
 import type { ComponentProps, ReactNode } from 'react';
 import { Skeleton, Spin, Statistic } from 'antd';
 import { SearchX, ShieldAlert } from 'lucide-react';
@@ -35,7 +37,7 @@ export function AdminMetricCard({
         <Statistic
           value={typeof value === 'string' || typeof value === 'number' ? value : undefined}
           formatter={() => value}
-          valueStyle={{ color: 'var(--admin-heading)', fontSize: 28, fontWeight: 600 }}
+          styles={{ content: { color: 'var(--admin-heading)', fontSize: 28, fontWeight: 600 } }}
         />
         {trend}
       </div>
@@ -50,7 +52,7 @@ export function AdminFilterBar({ children, className, ...props }: ComponentProps
   return (
     <div
       className={cn(
-        'flex min-w-0 flex-wrap items-center gap-3 border-b border-[var(--admin-border-subtle)] bg-[var(--admin-surface-subtle)] p-4',
+        'flex min-w-0 flex-wrap items-center gap-3 py-3',
         className,
       )}
       data-admin-filter-bar
@@ -91,10 +93,11 @@ export function AdminLoadingState({ label = '正在加载…' }: { label?: strin
     <div
       aria-busy="true"
       aria-live="polite"
-      className="grid min-h-44 place-items-center rounded-[var(--admin-radius-card)] border border-[var(--admin-border-subtle)] bg-[var(--admin-surface)] p-6 text-sm text-[var(--admin-muted-foreground)]"
+      className="grid min-h-44 place-items-center gap-3 rounded-[var(--admin-radius-card)] border border-[var(--admin-border-subtle)] bg-[var(--admin-surface)] p-6 text-sm text-[var(--admin-muted-foreground)]"
       data-admin-state="loading"
     >
-      <Spin size="large" tip={label} />
+      <Spin size="large" />
+      <span>{label}</span>
     </div>
   );
 }

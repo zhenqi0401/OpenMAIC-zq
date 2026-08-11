@@ -86,12 +86,18 @@ design.md → 视觉样例与评审 → 复用实现 → 浏览器验收 → 共
 
 ## 响应式 Shell
 
-- `≥1280px`：`260px` 固定侧栏，显示图标、名称和说明；
-- `768–1279px`：`72px` 图标侧栏，悬停或键盘聚焦导航项时显示名称；
-- `<768px`：`AdminTopBar` 显示 `BrandLockup` 和导航按钮，导航在侧滑 `AdminDrawer` 中；
+后台使用 **antd v6 Layout 纯侧栏布局**（`data-admin-layout="side"`），不再使用 ProLayout mix 顶栏：
+
+- 侧栏从页面顶端开始，`BrandLockup` 与导航形成一个整体；
+- `≥992px`（lg）：`260px` 固定侧栏，可折叠为 `72px` 图标侧栏；折叠状态记忆在
+  `localStorage`（`yuanwo-admin-sider-collapsed`）；
+- `<992px`：侧栏折叠，Header 左侧出现导航按钮，导航在侧滑 `Drawer` 中；
+- 内容区 Header 只保留右侧**统一账户触发器**（头像 + 姓名 + 角色·公司 + 下拉），
+  菜单内包含只读身份说明、生成工作台、进入学习中心、主题设置与退出登录；
 - 页面主区必须使用 `min-width: 0`，禁止页面整体横向滚动；
 - 宽表格只允许自身局部滚动，并应在对应业务页面提供移动卡片；
-- 不使用 Stitch HTML 的固定画布、绝对定位或横向整排移动导航。
+- 菜单当前项使用浅蓝背景、蓝色图标与左侧指示条，点击通过 `Next Link` 跳转，
+  不做整页刷新。
 
 `BrandLockup` 是唯一品牌实现。不得重着色、添加图形底板或替换成 Stitch 临时品牌；品牌区副标题统一为
 “管理后台”。
@@ -100,22 +106,25 @@ design.md → 视觉样例与评审 → 复用实现 → 浏览器验收 → 共
 
 ### 骨架和页面
 
-- `AdminShell`：后台主题、响应式布局和横向溢出边界；
-- `AdminSidebar`：桌面、平板导航和当前账号位置；
-- `AdminTopBar`：移动品牌栏和导航抽屉入口；
-- `AdminPage`、`AdminPageHeader`：模块纵向节奏、标题、说明和页面操作。
+- `AdminShell`：后台主题、antd Layout 侧栏、响应式、账户触发器与横向溢出边界；
+- `AdminPage`、`AdminPageHeader`：模块纵向节奏与页面标题；一级页面只保留一行中文
+  标题与页面级操作，不含英文 eyebrow、宽泛说明、面包屑和常驻刷新；
+- 面包屑仅在未来出现层级页面时使用（如课程详情、角色详情）。
 
 ### 操作和内容
 
 - `adminPrimaryButtonClassName`、`adminSecondaryButtonClassName`、
   `adminIconButtonClassName`、`adminDangerButtonClassName`：按钮语义；
 - `AdminMetricCard`：KPI 和统计摘要；
-- `AdminFilterBar`：搜索、筛选、清除和刷新区；
-- `AdminTabs`：键盘可操作的业务分组；
+- `AdminFilterBar`：透明背景的统一筛选工具栏（搜索、Select、日期、清除），
+  无嵌套卡片、无额外边框；
+- `AdminTabs`：只保留 Ant ink bar 的活动指示，不绘制全宽分割线；
 - `AdminDataTable`：语义表格的局部宽度边界；
 - `AdminEntityCard`：课程、社区内容和移动实体卡片；
 - `AdminStatusChip`：带文本的状态表达；
-- `AdminPagination`：服务端分页范围和翻页；
+- `AdminPagination`：标准 Ant Pagination（`showSizeChanger={false}` +
+  `showTotal`，桌面右对齐、移动端 responsive）；单页时隐藏翻页按钮，只保留
+  “共 N 条”摘要；
 - `AdminRowActions`：普通操作与危险操作分区。
 
 ### 弹层和状态

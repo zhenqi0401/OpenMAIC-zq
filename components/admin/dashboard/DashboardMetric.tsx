@@ -35,7 +35,10 @@ export function DashboardMetric({ label, value, progress, note, tooltip }: Dashb
         </span>
         <CheckCircle2 aria-hidden="true" className="size-4 text-[var(--admin-success)]" />
       </div>
-      <Statistic value={value} valueStyle={{ color: 'var(--admin-foreground)', fontSize: 28 }} />
+      <Statistic
+        value={value}
+        styles={{ content: { color: 'var(--admin-foreground)', fontSize: 28 } }}
+      />
       {width === null ? null : (
         <div className="h-2 overflow-hidden rounded-full bg-[var(--admin-border-subtle)]">
           <span

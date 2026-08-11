@@ -1,18 +1,26 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { AdminShell, adminModules } from '@/components/admin/AdminShell';
-import { formatAdminIdentity } from '@/components/admin/AdminCurrentIdentity';
+import { AdminShell, adminModules, formatAdminIdentity } from '@/components/admin/AdminShell';
+import { ThemeProvider } from '@/lib/hooks/use-theme';
+
+function renderShell(activeModuleId: React.ComponentProps<typeof AdminShell>['activeModuleId']) {
+  return renderToStaticMarkup(
+    React.createElement(
+      ThemeProvider,
+      null,
+      React.createElement(
+        AdminShell,
+        { activeModuleId } as React.ComponentProps<typeof AdminShell>,
+        React.createElement('div', null, 'admin content'),
+      ),
+    ),
+  );
+}
 
 describe('AdminShell', () => {
   it('renders the five admin modules as accessible navigation targets', () => {
-    const markup = renderToStaticMarkup(
-      React.createElement(
-        AdminShell,
-        { activeModuleId: 'dashboard' } as React.ComponentProps<typeof AdminShell>,
-        React.createElement('div', null, 'admin content'),
-      ),
-    );
+    const markup = renderShell('dashboard');
 
     expect(adminModules.map((module) => module.id)).toEqual([
       'dashboard',
@@ -27,7 +35,6 @@ describe('AdminShell', () => {
     expect(markup).toContain('href="/admin?module=exams"');
     expect(markup).toContain('href="/admin?module=community"');
     expect(markup).toContain('href="/admin?module=access"');
-    expect(markup).toContain('aria-current="page"');
     expect(markup).toContain('data-admin-theme="yuanwo-saas-admin"');
     expect(markup).toContain('--primary:');
     expect(markup).toContain('--ring:');
@@ -37,7 +44,7 @@ describe('AdminShell', () => {
     expect(markup).not.toContain('访问与角色');
   });
 
-  it('formats the current session user and role for the sidebar', () => {
+  it('formats the current session user and role for the account trigger', () => {
     expect(
       formatAdminIdentity(
         {
@@ -56,39 +63,30 @@ describe('AdminShell', () => {
     });
   });
 
-  it('keeps the Pro workbench responsive and leaves identity/account actions in the header', () => {
-    const markup = renderToStaticMarkup(
-      React.createElement(
-        AdminShell,
-        { activeModuleId: 'access' } as React.ComponentProps<typeof AdminShell>,
-        React.createElement('section', { id: 'admin-access' }, 'access content'),
-      ),
-    );
+  it('keeps the side-bar workbench responsive and the unified account trigger in the header', () => {
+    const markup = renderShell('access');
 
-    expect(markup).toContain('管理后台');
     expect(markup).toContain('元我智脑');
-    expect(markup).toContain('access content');
+    expect(markup).toContain('admin content');
     expect(markup).toContain('data-admin-shell="yuanwo-saas-admin"');
-    expect(markup).toContain('data-admin-layout="pro"');
+    expect(markup).toContain('data-admin-layout="side"');
     expect(markup).toContain('data-admin-theme="yuanwo-saas-admin"');
     expect(markup).toContain('aria-label="后台模块导航"');
-    expect(markup).toContain('账户');
-    expect(markup).toContain('收起侧边导航');
+    expect(markup).toContain('data-admin-current-identity="trigger"');
+    // 右上角不再有重复的导航入口按钮，折叠/展开交给 Sider 自带 trigger
+    expect(markup).not.toContain('打开后台导航');
+    expect(markup).toContain('ant-layout-sider-trigger');
     expect(markup).not.toContain('max-w-[1280px]');
     expect(markup).not.toContain('运营状态一屏处理');
+    // 面包屑已从后台全局 Header 中移除
+    expect(markup).not.toContain('aria-label="面包屑"');
   });
 
   it('leaves module-level actions to each admin page header', () => {
-    const markup = renderToStaticMarkup(
-      React.createElement(
-        AdminShell,
-        { activeModuleId: 'courses' } as React.ComponentProps<typeof AdminShell>,
-        React.createElement('div', null, 'course content'),
-      ),
-    );
+    const markup = renderShell('courses');
 
-    expect(markup).toContain('course content');
+    expect(markup).toContain('admin content');
     expect(markup).not.toContain('返回首页');
-    expect(markup).not.toContain('退出登录');
+    expect(markup).not.toContain('>退出登录<');
   });
 });

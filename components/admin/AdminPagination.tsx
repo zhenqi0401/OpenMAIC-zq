@@ -1,78 +1,63 @@
 'use client';
 
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Pagination } from 'antd';
+import { cn } from '@/lib/utils';
 
 export interface AdminPaginationProps {
   page: number;
-  totalPages: number;
   total: number;
-  start: number;
-  end: number;
+  pageSize: number;
   loading?: boolean;
   onPageChange: (page: number) => void;
+  className?: string;
 }
 
+/**
+ * 标准 Ant Design Pagination：不重画翻页结构、不自定义文字、不额外显示
+ * “第 x / y 页”。桌面右对齐，移动端由 responsive 接管；单页时隐藏翻页
+ * 按钮，只保留“共 N 条”摘要。
+ */
 export function AdminPagination({
   page,
-  totalPages,
   total,
-  start,
-  end,
+  pageSize,
   loading = false,
   onPageChange,
+  className,
 }: AdminPaginationProps) {
-  const lastPage = Math.max(1, totalPages);
+  const lastPage = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(Math.max(1, page), lastPage);
-  const empty = total === 0;
-  const summary = empty ? '共 0 条' : `显示 ${start}–${end} 条，共 ${total} 条`;
+
+  if (lastPage <= 1) {
+    return (
+      <nav
+        aria-label="分页"
+        className={cn('flex flex-wrap items-center justify-end', className)}
+        data-admin-pagination
+      >
+        <span className="text-sm tabular-nums text-[var(--admin-muted-foreground)]">
+          共 {total} 条
+        </span>
+      </nav>
+    );
+  }
 
   return (
     <nav
       aria-label="分页"
-      className="flex flex-wrap items-center justify-between gap-3"
+      className={cn('flex flex-wrap items-center justify-end gap-3', className)}
       data-admin-pagination
     >
-      <span
-        aria-live="polite"
-        className="text-xs text-[var(--admin-muted-foreground)]"
-        data-admin-pagination-summary
-      >
-        {summary}
-      </span>
-      <div className="flex items-center gap-2">
-        <span className="text-xs tabular-nums text-[var(--admin-muted-foreground)]">
-          第 {currentPage} / {lastPage} 页
-        </span>
-        <Pagination
-          current={currentPage}
-          disabled={loading || empty}
-          hideOnSinglePage={false}
-          itemRender={(page, type, originalElement) => {
-            if (type === 'prev')
-              return (
-                <span aria-label="上一页">
-                  <ChevronLeft aria-hidden="true" />
-                  上一页
-                </span>
-              );
-            if (type === 'next')
-              return (
-                <span aria-label="下一页">
-                  下一页
-                  <ChevronRight aria-hidden="true" />
-                </span>
-              );
-            return originalElement;
-          }}
-          pageSize={1}
-          showLessItems
-          showSizeChanger={false}
-          simple
-          total={lastPage}
-          onChange={onPageChange}
-        />
-      </div>
+      <Pagination
+        current={currentPage}
+        disabled={loading}
+        onChange={onPageChange}
+        pageSize={pageSize}
+        responsive
+        showSizeChanger={false}
+        showTotal={(pageTotal, range) => `${range[0]}–${range[1]} / 共 ${pageTotal} 条`}
+        total={total}
+      />
     </nav>
   );
 }

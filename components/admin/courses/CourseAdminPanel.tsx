@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BookOpen, Upload } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import { adminToast } from '@/lib/admin/toast';
 import {
   AdminCard,
@@ -10,8 +10,6 @@ import {
   adminSecondaryButtonClassName,
   adminPrimaryButtonClassName,
 } from '@/components/admin/AdminSurface';
-import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
-import { AdminRefreshButton } from '@/components/admin/AdminRefreshButton';
 import { AdminDeleteDialog } from '@/components/admin/AdminDeleteDialog';
 import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
 import { AdminPagination } from '@/components/admin/AdminPagination';
@@ -142,7 +140,6 @@ export function CourseAdminPanel() {
   const [courseToDelete, setCourseToDelete] = useState<EnterpriseCourse | null>(null);
   const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null);
   const [filters, setFilters] = useState<CourseAdminFilters>(DEFAULT_COURSE_ADMIN_FILTERS);
-  const [filterDraft, setFilterDraft] = useState<CourseAdminFilters>(DEFAULT_COURSE_ADMIN_FILTERS);
   const [coursePage, setCoursePage] = useState(1);
   const [coursePagination, setCoursePagination] = useState<Pagination>({
     page: 1,
@@ -151,7 +148,7 @@ export function CourseAdminPanel() {
     totalPages: 1,
   });
   const [previews, setPreviews] = useState<Record<string, { canvas: unknown } | null>>({});
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true); // 加载态仅用于触发重渲染，当前无读取处
   const [importOpen, setImportOpen] = useState(false);
 
   const learnerRoles = useMemo(() => roles.filter((role) => !role.isAdmin), [roles]);
@@ -369,14 +366,17 @@ export function CourseAdminPanel() {
     }
   }
 
+  function applyCourseFilters(next: CourseAdminFilters) {
+    setFilters(next);
+    setCoursePage(1);
+  }
+
   function clearFilters() {
-    setFilterDraft(DEFAULT_COURSE_ADMIN_FILTERS);
     setFilters(DEFAULT_COURSE_ADMIN_FILTERS);
     setCoursePage(1);
   }
 
   function changeStatusFilter(status: CourseAdminStatusFilter) {
-    setFilterDraft((draft) => ({ ...draft, status }));
     setFilters((current) => ({ ...current, status }));
     setCoursePage(1);
   }
@@ -393,29 +393,6 @@ export function CourseAdminPanel() {
     <AdminPage id="admin-courses">
       <AdminSectionHeader
         action={
-          <AdminSessionActions
-            leading={<AdminRefreshButton loading={loading} onRefresh={() => void loadAll(true)} />}
-          />
-        }
-        description="维护课程从草稿到发布的全流程，并把可见范围绑定到真实角色。"
-        eyebrow="Courses"
-        icon={<BookOpen className="size-4" />}
-        title="课程管理"
-      />
-
-      <AdminCard className="overflow-hidden">
-        <div
-          className="flex flex-col gap-3 border-b border-[var(--admin-border)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
-          data-course-list-header
-        >
-          <div>
-            <div className="text-xl font-normal leading-tight tracking-[-0.016em] text-[var(--admin-foreground)]">
-              课程列表
-            </div>
-            <p className="mt-1 text-sm text-[var(--admin-muted-foreground)]">
-              课程可由首页生成或在此导入，此处负责筛选、分类、发布、可见范围和删除。
-            </p>
-          </div>
           <div className="flex shrink-0 flex-wrap gap-2" data-course-category-action>
             <Button
               className={adminSecondaryButtonClassName}
@@ -436,18 +413,15 @@ export function CourseAdminPanel() {
               onReorder={reorderCategories}
             />
           </div>
-        </div>
+        }
+        title="课程管理"
+      />
 
+      <AdminCard className="overflow-hidden">
         <CourseFilters
           categories={categories}
-          draft={filterDraft}
           filters={filters}
-          onApply={() => {
-            setFilters(filterDraft);
-            setCoursePage(1);
-            adminToast.success('课程筛选已应用');
-          }}
-          onChange={setFilterDraft}
+          onChange={applyCourseFilters}
           onClear={clearFilters}
           onStatusChange={changeStatusFilter}
         />
@@ -478,19 +452,10 @@ export function CourseAdminPanel() {
 
         <div className="border-t border-[var(--admin-border-subtle)] px-4 py-3">
           <AdminPagination
-            end={Math.min(
-              coursePagination.page * coursePagination.pageSize,
-              coursePagination.total,
-            )}
             onPageChange={setCoursePage}
             page={coursePagination.page}
-            start={
-              coursePagination.total
-                ? (coursePagination.page - 1) * coursePagination.pageSize + 1
-                : 0
-            }
+            pageSize={coursePagination.pageSize}
             total={coursePagination.total}
-            totalPages={coursePagination.totalPages}
           />
         </div>
       </AdminCard>

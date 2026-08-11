@@ -5,7 +5,7 @@ import { AdminRowActions, type AdminRowAction } from '@/components/admin/AdminRo
 import {
   AdminCard,
   AdminStatusBadge,
-  adminSecondaryButtonClassName,
+  adminLinkButtonClassName,
 } from '@/components/admin/AdminSurface';
 import { Button } from '@/components/antd/AntdButton';
 import {
@@ -124,12 +124,12 @@ export function CommunityItemRow({
             primaryAction={
               primaryAction ? (
                 <Button
-                  className={adminSecondaryButtonClassName}
+                  className={adminLinkButtonClassName}
                   disabled={pending}
                   onClick={() => onModerate(primaryAction)}
                   size="sm"
                   type="button"
-                  variant="outline"
+                  variant="link"
                 >
                   {pending ? <RefreshCw aria-hidden="true" className="animate-spin" /> : null}
                   {pending ? '处理中…' : communityActionLabel(primaryAction)}

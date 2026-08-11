@@ -7,7 +7,7 @@ export default function LearnPage() {
     <Suspense
       fallback={
         <main className="min-h-[100dvh] bg-page" aria-busy="true">
-          <Spin fullscreen tip="正在加载学习中心" />
+          <Spin fullscreen description="正在加载学习中心" />
         </main>
       }
     >

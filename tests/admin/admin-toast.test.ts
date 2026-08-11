@@ -1,62 +1,35 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const toastMocks = vi.hoisted(() => ({
+const messageMocks = vi.hoisted(() => ({
   success: vi.fn(),
   error: vi.fn(),
   info: vi.fn(),
   warning: vi.fn(),
 }));
 
-vi.mock('sonner', () => ({ toast: toastMocks }));
-
-import {
-  adminErrorMessage,
-  adminErrorToastStyle,
-  adminInfoToastStyle,
-  adminSuccessToastStyle,
-  adminToast,
-  adminWarningToastStyle,
-} from '@/lib/admin/toast';
-import { adminBrandTokens } from '@/components/admin/admin-theme';
+import { adminErrorMessage, adminToast, bindAdminMessageApi } from '@/lib/admin/toast';
 
 describe('adminToast', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    bindAdminMessageApi(messageMocks as never);
   });
 
-  it('uses the green admin treatment for successful operations', () => {
+  it('routes success to the Ant App message instance', () => {
     adminToast.success('考核列表已刷新');
-
-    expect(toastMocks.success).toHaveBeenCalledWith('考核列表已刷新', {
-      style: adminSuccessToastStyle,
-    });
-    expect(adminSuccessToastStyle).toMatchObject({
-      background: `color-mix(in srgb, ${adminBrandTokens['--saas-success']} 8%, #fff)`,
-      borderColor: `color-mix(in srgb, ${adminBrandTokens['--saas-success']} 30%, #fff)`,
-      color: adminBrandTokens['--saas-success'],
-    });
+    expect(messageMocks.success).toHaveBeenCalledWith('考核列表已刷新');
   });
 
-  it('uses red for failures and preserves per-toast option overrides', () => {
-    adminToast.error('保存失败', { duration: 6000, style: { color: '#600' } });
-
-    expect(toastMocks.error).toHaveBeenCalledWith('保存失败', {
-      duration: 6000,
-      style: { ...adminErrorToastStyle, color: '#600' },
-    });
-    expect(adminErrorToastStyle.background).toBe(
-      `color-mix(in srgb, ${adminBrandTokens['--saas-danger']} 8%, #fff)`,
-    );
+  it('routes failures to the Ant App message instance', () => {
+    adminToast.error('保存失败');
+    expect(messageMocks.error).toHaveBeenCalledWith('保存失败');
   });
 
-  it('defines distinct information and warning state colors', () => {
+  it('routes information and warning states', () => {
     adminToast.info('正在同步');
     adminToast.warning('部分内容未发布');
-
-    expect(toastMocks.info).toHaveBeenCalledWith('正在同步', { style: adminInfoToastStyle });
-    expect(toastMocks.warning).toHaveBeenCalledWith('部分内容未发布', {
-      style: adminWarningToastStyle,
-    });
+    expect(messageMocks.info).toHaveBeenCalledWith('正在同步');
+    expect(messageMocks.warning).toHaveBeenCalledWith('部分内容未发布');
   });
 
   it('prefers an Error message and otherwise uses the fallback', () => {

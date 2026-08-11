@@ -447,7 +447,7 @@ test('keeps invalid category links recoverable and uses learner mode for adminis
   expect(
     await page.getByRole('menuitem', { name: '主题' }).locator('svg').count(),
   ).toBeGreaterThanOrEqual(1);
-  await expect(page.getByRole('menuitem', { name: '管理后台' }).locator('svg')).toHaveCount(1);
+  await expect(page.getByRole('menuitem', { name: '进入管理后台' }).locator('svg')).toHaveCount(1);
   await expect(page.getByRole('menuitem', { name: '退出' }).locator('svg')).toHaveCount(1);
   await page.keyboard.press('Escape');
 
@@ -534,7 +534,7 @@ test('keeps navigation, wrapped categories, cards, and dialogs responsive', asyn
 
     if (width < 768) {
       await expect(page.getByRole('link', { name: '首页', exact: true })).toBeVisible();
-      await expect(page.getByRole('link', { name: '交流' })).toBeVisible();
+      await expect(page.getByRole('link', { name: '交流社区' })).toBeVisible();
       await page.getByRole('button', { name: '打开用户菜单' }).click();
       await expect(page.getByRole('menuitem', { name: '主题' })).toBeVisible();
       await expect(page.getByRole('menuitem', { name: '退出' })).toBeVisible();

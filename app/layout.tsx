@@ -44,15 +44,15 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <AntdRegistry>
-          <AntdProvider>
-            <ThemeProvider>
+          <ThemeProvider>
+            <AntdProvider>
               <I18nProvider>
                 <ServerProvidersInit />
                 <AuthSessionGuard>{children}</AuthSessionGuard>
                 <Toaster position="top-center" />
               </I18nProvider>
-            </ThemeProvider>
-          </AntdProvider>
+            </AntdProvider>
+          </ThemeProvider>
         </AntdRegistry>
       </body>
     </html>

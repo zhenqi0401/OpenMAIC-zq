@@ -4,8 +4,8 @@ import { RefreshCw } from 'lucide-react';
 import {
   AdminCard,
   AdminStatusBadge,
-  adminDangerOutlineButtonClassName,
-  adminSecondaryButtonClassName,
+  adminLinkButtonClassName,
+  adminLinkDangerButtonClassName,
 } from '@/components/admin/AdminSurface';
 import { Button } from '@/components/antd/AntdButton';
 import {
@@ -73,12 +73,12 @@ function ModerationButtons({
     <div className="flex flex-wrap items-center gap-2" data-community-moderation-buttons>
       {visibilityAction ? (
         <Button
-          className={adminSecondaryButtonClassName}
+          className={adminLinkButtonClassName}
           disabled={pending}
           onClick={() => onModerate(visibilityAction)}
           size="sm"
           type="button"
-          variant="outline"
+          variant="link"
         >
           {pending ? <RefreshCw aria-hidden="true" className="animate-spin" /> : null}
           {visibilityAction === 'restore' ? '恢复' : type === 'danmaku' ? '下架' : '隐藏'}
@@ -86,24 +86,24 @@ function ModerationButtons({
       ) : null}
       {(item.status === 'visible' || item.status === 'hidden') && type === 'posts' ? (
         <Button
-          className={adminSecondaryButtonClassName}
+          className={adminLinkButtonClassName}
           disabled={pending}
           onClick={() => onModerate(item.locked ? 'unlock' : 'lock')}
           size="sm"
           type="button"
-          variant="outline"
+          variant="link"
         >
           {item.locked ? '开放回复' : '关闭回复'}
         </Button>
       ) : null}
       {item.status === 'visible' || item.status === 'hidden' ? (
         <Button
-          className={`${adminDangerOutlineButtonClassName} min-h-[var(--admin-control-height)]`}
+          className={adminLinkDangerButtonClassName}
           disabled={pending}
           onClick={() => onModerate('delete')}
           size="sm"
           type="button"
-          variant="outline"
+          variant="link"
         >
           删除
         </Button>
