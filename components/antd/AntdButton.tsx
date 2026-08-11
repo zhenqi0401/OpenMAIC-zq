@@ -22,6 +22,7 @@ export function Button({
   variant = 'default',
   size = 'default',
   type: htmlType = 'button',
+  color: _color, // 原生 button 的 color 属性与 antd Button 的 color 联合类型冲突，剔除
   ...props
 }: React.ComponentProps<'button'> & {
   asChild?: boolean;

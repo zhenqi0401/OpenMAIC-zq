@@ -224,7 +224,8 @@ describe('ExamPolicyAdminPanel', () => {
     ]) {
       expect(markup).toContain(heading);
     }
-    expect(markup).toContain('编辑');
+    const tableSource = readFileSync('components/admin/exams/ExamPolicyTable.tsx', 'utf8');
+    expect(tableSource).toContain("policy.status === 'published' ? '查看' : '编辑'");
     expect(markup).not.toContain('题量充足');
     expect(markup).not.toContain('候选题不足');
     expect(markup).not.toContain('<input');

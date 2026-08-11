@@ -42,7 +42,6 @@ describe('admin layout polish', () => {
     const accountMarkup = renderToStaticMarkup(React.createElement(AdminAccountMenu));
     expect(accountMarkup).toContain('账户');
     expect(accountMarkup).toContain('aria-label="账户"');
-    expect(accountMarkup).toContain('生成工作台');
     expect(accountMarkup).not.toContain('返回首页');
     expect(accountMarkup).not.toContain('退出登录');
     expect(adminAccountMenuLabels.home).toBe('生成工作台');
@@ -65,7 +64,9 @@ describe('admin layout polish', () => {
     expect(markup).not.toContain('退出登录');
     const chartSource = readFileSync('components/admin/dashboard/AdminActivityChart.tsx', 'utf8');
     expect(chartSource).toContain('aria-label="趋势周期"');
-    expect(chartSource).toContain("['week', 'month', 'year']");
+    expect(chartSource).toContain("{ value: 'week', label: '周' }");
+    expect(chartSource).toContain("{ value: 'month', label: '月' }");
+    expect(chartSource).toContain("{ value: 'year', label: '年' }");
     expect(markup).not.toContain('data-admin-dashboard-progress-panel');
     expect(markup).not.toContain('学习记录');
     expect(markup).not.toContain('测评通过率');

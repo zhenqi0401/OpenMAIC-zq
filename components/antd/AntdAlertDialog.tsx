@@ -15,7 +15,15 @@ import {
 } from '@/components/antd/AntdDialog';
 
 export const AlertDialog = Dialog;
-export const AlertDialogTrigger = DialogTrigger;
+export function AlertDialogTrigger(props: ComponentProps<typeof DialogTrigger>) {
+  return (
+    <DialogTrigger
+      aria-haspopup="dialog"
+      data-slot="alert-dialog-trigger"
+      {...props}
+    />
+  );
+}
 export const AlertDialogContent = DialogContent;
 export const AlertDialogDescription = DialogDescription;
 export const AlertDialogFooter = DialogFooter;

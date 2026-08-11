@@ -13,7 +13,7 @@ describe('AdminRefreshButton', () => {
     expect(markup).toContain('data-variant="outline"');
     expect(markup).toContain('h-[var(--admin-control-height)]');
     expect(markup).toContain('lucide-refresh-cw');
-    expect(markup).toContain('>刷新</button>');
+    expect(markup).toContain('>刷新</span>');
     expect(markup).not.toContain('disabled=""');
   });
 

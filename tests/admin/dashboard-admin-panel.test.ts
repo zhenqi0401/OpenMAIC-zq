@@ -185,9 +185,9 @@ describe('dashboard pending items', () => {
     );
 
     expect(warningMarkup).toContain('2个待处理');
-    expect(warningMarkup).toContain('bg-[var(--admin-danger-background)]');
+    expect(warningMarkup).toContain('ant-tag-error');
     expect(zeroMarkup).toContain('0个待处理');
-    expect(zeroMarkup).toContain('bg-[var(--admin-success-background)]');
+    expect(zeroMarkup).toContain('ant-tag-success');
     expect(`${warningMarkup}${zeroMarkup}`).not.toContain('只列出已确认的配置或内容异常');
     expect(`${warningMarkup}${zeroMarkup}`).not.toContain('text-2xl font-semibold tabular-nums');
   });
@@ -281,9 +281,10 @@ describe('dashboard community activity chart', () => {
     expect(xAxis.data).toEqual(['暂无数据']);
     expect(series.every((item) => item.data[0] === 0)).toBe(true);
     expect(markup).toContain('aria-label="趋势周期"');
-    expect(markup).toContain('>周</button>');
-    expect(markup).toContain('>月</button>');
-    expect(markup).toContain('>年</button>');
+    expect(markup).toContain('>周</div>');
+    expect(markup).toContain('>月</div>');
+    expect(markup).toContain('>年</div>');
+    expect(markup).toContain('ant-segmented-item-selected');
     expect(markup).toContain('总互动');
     expect(markup).toContain('20');
     expect(markup).toContain('tabindex="0"');

@@ -7,7 +7,7 @@ const productionBrandTargets = [
   'components/admin/AdminSidebar.tsx',
   'components/admin/AdminTopBar.tsx',
   'components/admin/AdminAccessGate.tsx',
-  'components/home/LearnerHome.tsx',
+  'components/home/LearnerHeader.tsx',
   'components/stage/scene-sidebar.tsx',
   'components/edit/SlideNavRail/SlideNavRail.tsx',
   'components/scene-renderers/pbl/v2/workspace.tsx',
@@ -30,8 +30,11 @@ describe('元我智脑 production branding', () => {
   it('keeps desktop, tablet, and mobile branding inside the admin shell', () => {
     const shell = readFileSync('components/admin/AdminShell.tsx', 'utf8');
 
-    expect(shell).toContain('AdminSidebar');
-    expect(shell).toContain('AdminTopBar');
+    expect(shell).toContain('ProLayout');
+    expect(shell).toContain('layout="mix"');
+    expect(shell).toContain('menuHeaderRender');
+    expect(shell).toContain('headerContentRender');
+    expect(shell).toContain('BrandLockup');
   });
 
   it('removes the authentication placeholder and exposes branded metadata and icons', () => {

@@ -43,17 +43,22 @@ export function AdminShell({ activeModuleId = 'dashboard', children }: AdminShel
       <ProLayout
         contentStyle={{ background: 'var(--admin-page)', minHeight: '100dvh' }}
         fixSiderbar
+        layout="mix"
         collapsed={collapsed}
         onCollapse={setCollapsed}
         route={{ routes }}
-        menu={{ selectedKeys: [activeModuleId], defaultOpenAll: true }}
+        menu={{ defaultOpenAll: true }}
+        menuProps={{ selectedKeys: [activeModuleId] }}
         menuRender={(_, dom) => <nav aria-label="后台模块导航">{dom}</nav>}
         siderWidth={260}
-        collapsedWidth={72}
         logo={false}
         title={false}
         menuHeaderRender={() => <BrandLockup priority variant={collapsed ? 'mark' : 'full'} />}
-        menuItemRender={(item, dom) => <a href={item.path ?? '#'}>{dom}</a>}
+        menuItemRender={(item, dom) => (
+          <a aria-current={item.key === activeModuleId ? 'page' : undefined} href={item.path ?? '#'}>
+            {dom}
+          </a>
+        )}
         headerContentRender={() => (
           <div className="flex min-w-0 flex-1 items-center justify-between gap-4 px-2 sm:px-4">
             <AdminBreadcrumbs activeModuleId={activeModuleId} />

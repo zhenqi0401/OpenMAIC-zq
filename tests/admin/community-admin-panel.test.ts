@@ -302,7 +302,8 @@ describe('community admin panel presentation', () => {
     );
     expect(panelSource).toContain('aria-label="课程 ID"');
     expect(panelSource).toContain("aria-label={type === 'audit' ? '审计目标类型' : '内容状态'}");
-    expect(panelSource).toContain('选择日期范围');
+    expect(panelSource).toContain('aria-label="日期范围"');
+    expect(panelSource).toContain("placeholder={['开始时间', '结束时间']}");
     expect(panelSource).toContain('setKeyword(keywordDraft.trim())');
     expect(panelSource).not.toContain('社区正文按纯文本安全输出');
     expect(contentSource).not.toContain("onModerate('pin')");
