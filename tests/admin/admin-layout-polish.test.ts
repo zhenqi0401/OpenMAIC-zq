@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { AdminShell } from '@/components/admin/AdminShell';
 import {
+  AdminAccountMenu,
   AdminSessionActions,
   adminAccountMenuLabels,
 } from '@/components/admin/AdminSessionActions';
@@ -28,7 +29,7 @@ describe('admin layout polish', () => {
     expect(markup).not.toContain('退出登录');
   });
 
-  it('keeps leading actions visible and moves session links into an account menu', () => {
+  it('keeps module actions separate from the global account menu', () => {
     const markup = renderToStaticMarkup(
       React.createElement(AdminSessionActions, {
         leading: React.createElement('button', null, '刷新'),
@@ -36,14 +37,14 @@ describe('admin layout polish', () => {
     );
 
     expect(markup).toContain('刷新');
-    expect(markup).toContain('账户');
-    expect(markup).toContain('aria-haspopup="menu"');
-    expect(markup).toContain('aria-expanded="false"');
-    expect(readFileSync('components/admin/AdminSessionActions.tsx', 'utf8')).toContain(
-      '<DropdownMenu modal={false}>',
-    );
-    expect(markup).not.toContain('返回首页');
-    expect(markup).not.toContain('退出登录');
+    expect(markup).not.toContain('账户');
+
+    const accountMarkup = renderToStaticMarkup(React.createElement(AdminAccountMenu));
+    expect(accountMarkup).toContain('账户');
+    expect(accountMarkup).toContain('aria-label="账户"');
+    expect(accountMarkup).toContain('生成工作台');
+    expect(accountMarkup).not.toContain('返回首页');
+    expect(accountMarkup).not.toContain('退出登录');
     expect(adminAccountMenuLabels.home).toBe('生成工作台');
     expect(adminAccountMenuLabels.learn).toBe('进入学员端');
     expect(adminAccountMenuLabels.logout).toBe('退出登录');
@@ -52,15 +53,14 @@ describe('admin layout polish', () => {
   it('keeps shared row-action menus non-modal across admin modules', () => {
     const rowActionsSource = readFileSync('components/admin/AdminRowActions.tsx', 'utf8');
 
-    expect(rowActionsSource).toContain('menuModal = false');
-    expect(rowActionsSource).toContain('<DropdownMenu modal={menuModal}>');
+    expect(rowActionsSource).toContain('<Dropdown');
+    expect(rowActionsSource).toContain("trigger={['click']}");
   });
 
   it('uses the new dashboard periods without the removed learning table', () => {
     const markup = renderToStaticMarkup(React.createElement(DashboardAdminPanel));
 
     expect(markup).toContain('数据看板');
-    expect(markup).toContain('账户');
     expect(markup).not.toContain('返回首页');
     expect(markup).not.toContain('退出登录');
     const chartSource = readFileSync('components/admin/dashboard/AdminActivityChart.tsx', 'utf8');
@@ -75,7 +75,6 @@ describe('admin layout polish', () => {
     const courseMarkup = renderToStaticMarkup(React.createElement(CourseAdminPanel));
     const examMarkup = renderToStaticMarkup(React.createElement(ExamPolicyAdminPanel));
 
-    expect(courseMarkup).toContain('账户');
     expect(courseMarkup).not.toContain('>返回首页<');
     expect(courseMarkup).not.toContain('>退出登录<');
     expect(courseMarkup).toContain('刷新');
@@ -85,13 +84,12 @@ describe('admin layout polish', () => {
     expect(courseMarkup).not.toContain('新建课程草稿');
     expect(courseMarkup).not.toContain('创建草稿');
     expect(courseMarkup).not.toContain('data-size="icon"');
-    expect(examMarkup).toContain('账户');
     expect(examMarkup).not.toContain('返回首页');
     expect(examMarkup).not.toContain('退出登录');
     expect(examMarkup).not.toContain('data-size="icon"');
   });
 
-  it('places the same refresh control before the account button in all five modules', () => {
+  it('places the same refresh control in all five modules', () => {
     const markups = [
       DashboardAdminPanel,
       CourseAdminPanel,
@@ -103,9 +101,6 @@ describe('admin layout polish', () => {
     for (const markup of markups) {
       expect(markup.match(/data-admin-refresh-button="true"/g)).toHaveLength(1);
       expect(markup).toContain('lucide-refresh-cw');
-      expect(markup.indexOf('data-admin-refresh-button')).toBeLessThan(
-        markup.indexOf('aria-label="账户"'),
-      );
       expect(markup).toContain('刷新中…');
       expect(markup).toContain('disabled=""');
     }

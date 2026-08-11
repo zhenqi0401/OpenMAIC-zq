@@ -7,8 +7,8 @@ import {
   Search,
   Users,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button as AntButton, Input, Select } from 'antd';
+import { Button } from '@/components/antd/AntdButton';
 import type { AdminModuleId } from '@/components/admin/AdminShell';
 import {
   AdminCard,
@@ -164,12 +164,16 @@ function CoursePreview() {
               placeholder="搜索课程名称或描述"
             />
           </label>
-          <select className="h-10 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm">
-            <option>全部分类</option>
-          </select>
-          <select className="h-10 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm">
-            <option>全部可见范围</option>
-          </select>
+          <Select
+            className="w-36"
+            defaultValue="全部分类"
+            options={[{ value: '全部分类', label: '全部分类' }]}
+          />
+          <Select
+            className="w-36"
+            defaultValue="全部可见范围"
+            options={[{ value: '全部可见范围', label: '全部可见范围' }]}
+          />
         </AdminFilterBar>
       </AdminCard>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -359,7 +363,12 @@ function SimpleTable({ type }: { type: 'exam' | 'access' }) {
                             : '正常'}
                       </AdminStatusBadge>
                     ) : column === headers.length - 1 ? (
-                      <button className="font-medium text-[var(--admin-link)]">查看</button>
+                      <AntButton
+                        type="link"
+                        className="!p-0 !font-medium !text-[var(--admin-link)]"
+                      >
+                        查看
+                      </AntButton>
                     ) : (
                       `示例 ${row + 1}`
                     )}

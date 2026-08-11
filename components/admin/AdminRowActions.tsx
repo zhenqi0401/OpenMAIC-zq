@@ -1,17 +1,11 @@
 'use client';
 
-import { Fragment, type ReactNode } from 'react';
-import { MoreHorizontal } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import type { ReactNode } from 'react';
+import { Dropdown, type MenuProps } from 'antd';
+import { MoreOutlined } from '@ant-design/icons';
+
+import { Button } from '@/components/antd/AntdButton';
 import { adminSecondaryButtonClassName } from '@/components/admin/AdminSurface';
-import { adminThemeAttributes } from '@/components/admin/admin-theme';
 
 export interface AdminRowAction {
   id: string;
@@ -39,83 +33,73 @@ export function partitionAdminRowActions(actions: readonly AdminRowAction[]) {
   };
 }
 
-function RowActionItem({ action }: { action: AdminRowAction }) {
+function toMenuItem(action: AdminRowAction): NonNullable<MenuProps['items']>[number] {
   const disabledLabel =
     action.disabled && action.disabledReason
       ? `${action.label}（不可用：${action.disabledReason}）`
       : action.label;
-
-  return (
-    <DropdownMenuItem
-      aria-label={disabledLabel}
-      disabled={action.disabled}
-      onSelect={() => action.onSelect?.()}
-      title={action.disabledReason}
-      variant={action.destructive ? 'destructive' : 'default'}
-    >
-      {action.icon}
-      <span className="min-w-0 flex-1">{action.label}</span>
-      {action.disabled && action.disabledReason ? (
-        <span className="max-w-36 truncate text-[11px] opacity-70">{action.disabledReason}</span>
-      ) : null}
-    </DropdownMenuItem>
-  );
+  return {
+    key: action.id,
+    danger: action.destructive,
+    disabled: action.disabled,
+    icon: action.icon,
+    label: (
+      <span
+        aria-label={disabledLabel}
+        className="flex min-w-0 items-center gap-2"
+        title={action.disabledReason}
+      >
+        <span className="min-w-0 flex-1">{action.label}</span>
+        {action.disabled && action.disabledReason ? (
+          <span className="max-w-36 truncate text-[11px] opacity-70">{action.disabledReason}</span>
+        ) : null}
+      </span>
+    ),
+  };
 }
 
-/**
- * The menu deliberately exposes no confirmation API. Destructive callbacks
- * should only open the owning module's AdminDeleteDialog (or equivalent
- * confirmation surface); they must not perform deletion directly here.
- */
+/** Destructive callbacks open their owning module's confirmation surface. */
 export function AdminRowActions({
   actions,
   primaryAction,
   triggerLabel = '更多',
   triggerAriaLabel = '更多操作',
-  menuModal = false,
 }: AdminRowActionsProps) {
   const { standard, destructive } = partitionAdminRowActions(actions);
-
   if (!primaryAction && actions.length === 0) return null;
+
+  const items: MenuProps['items'] = [];
+  standard.forEach((action, index) => {
+    if (action.separatorBefore && index > 0) items.push({ type: 'divider' });
+    items.push(toMenuItem(action));
+  });
+  if (destructive.length > 0 && standard.length > 0) items.push({ type: 'divider' });
+  destructive.forEach((action) => items.push(toMenuItem(action)));
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-2" data-admin-row-actions>
       {primaryAction}
       {actions.length > 0 ? (
-        <DropdownMenu modal={menuModal}>
-          <DropdownMenuTrigger asChild>
-            <Button
-              aria-label={triggerAriaLabel}
-              className={adminSecondaryButtonClassName}
-              type="button"
-              variant="outline"
-            >
-              <MoreHorizontal aria-hidden="true" />
-              {triggerLabel}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            {...adminThemeAttributes}
-            align="end"
+        <Dropdown
+          menu={{
+            'aria-label': triggerAriaLabel,
+            items,
+            onClick: ({ key }) => actions.find((action) => action.id === key)?.onSelect?.(),
+          }}
+          placement="bottomRight"
+          trigger={['click']}
+        >
+          <Button
+            aria-haspopup="menu"
             aria-label={triggerAriaLabel}
-            className="min-w-48 border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)]"
+            className={adminSecondaryButtonClassName}
+            type="button"
+            variant="outline"
           >
-            {standard.map((action, index) => (
-              <Fragment key={action.id}>
-                {action.separatorBefore && index > 0 ? (
-                  <DropdownMenuSeparator className="bg-[var(--admin-border-subtle)]" />
-                ) : null}
-                <RowActionItem action={action} />
-              </Fragment>
-            ))}
-            {destructive.length > 0 && standard.length > 0 ? (
-              <DropdownMenuSeparator className="bg-[var(--admin-border-subtle)]" />
-            ) : null}
-            {destructive.map((action) => (
-              <RowActionItem action={action} key={action.id} />
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <MoreOutlined aria-hidden="true" />
+            {triggerLabel}
+          </Button>
+        </Dropdown>
       ) : null}
     </div>
   );

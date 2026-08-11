@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Layout, Skeleton } from 'antd';
 import { LearnerHeader } from '@/components/home/LearnerHeader';
 import { logoutCurrentSession } from '@/lib/auth/logout-client';
 import type { SessionIdentity } from '@/lib/auth/types';
@@ -42,7 +43,7 @@ export function ForumFrame({ children }: { children: React.ReactNode }) {
   const homeHref = identity?.isAdmin ? '/learn' : '/';
 
   return (
-    <div className="min-h-[100dvh] bg-page text-foreground dark:bg-page dark:text-slate-100">
+    <Layout className="min-h-[100dvh] !bg-page text-foreground dark:!bg-page dark:text-slate-100">
       {identity ? (
         <LearnerHeader
           current="forum"
@@ -54,10 +55,12 @@ export function ForumFrame({ children }: { children: React.ReactNode }) {
           }}
         />
       ) : (
-        <div className="h-16 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-card-solid" />
+        <div className="flex h-16 items-center border-b border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-card-solid">
+          <Skeleton.Avatar active size="large" shape="square" />
+        </div>
       )}
       {children}
-      <footer className="mx-auto mt-14 flex w-[min(1600px,calc(100%-1.25rem))] justify-between border-t border-slate-200 py-5 text-sm text-slate-400 dark:border-slate-800 sm:w-[min(1600px,calc(100%-2rem))]">
+      <Layout.Footer className="mx-auto mt-14 flex w-[min(1600px,calc(100%-1.25rem))] justify-between border-t border-slate-200 !bg-transparent !px-0 py-5 text-sm text-slate-400 dark:border-slate-800 sm:w-[min(1600px,calc(100%-2rem))]">
         <span>元我智脑</span>
         <Link
           href={homeHref}
@@ -65,7 +68,7 @@ export function ForumFrame({ children }: { children: React.ReactNode }) {
         >
           <ArrowLeft className="size-3" /> 返回学习中心
         </Link>
-      </footer>
-    </div>
+      </Layout.Footer>
+    </Layout>
   );
 }

@@ -17,7 +17,7 @@ import {
 } from '@/components/admin/dashboard/AdminActivityChart';
 import { AdminMetricCard, AdminLoadingState } from '@/components/admin/AdminPatterns';
 import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/antd/AntdButton';
 import { adminErrorMessage, adminToast } from '@/lib/admin/toast';
 import { createAdminClient, type AdminDashboard } from '@/lib/admin/client';
 

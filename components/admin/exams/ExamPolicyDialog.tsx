@@ -1,15 +1,15 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { Input, Select } from 'antd';
 import {
   adminInputClassName,
   adminPrimaryButtonClassName,
   adminSecondaryButtonClassName,
-  adminSelectClassName,
 } from '@/components/admin/AdminSurface';
 import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import { ScopePicker } from '@/components/admin/exams/ScopePicker';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/antd/AntdButton';
 import {
   Dialog,
   DialogClose,
@@ -18,8 +18,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+} from '@/components/antd/AntdDialog';
 import type { ExamCategory, ExamPolicyDraft } from '@/lib/admin/exam-policy-presentation';
 import type { AuthRole } from '@/lib/auth/service';
 import type { EnterpriseCourse } from '@/lib/storage/enterprise-service';
@@ -86,19 +85,19 @@ export function ExamPolicyDialog({
               />
             </Field>
             <Field className="sm:col-span-2" label="目标角色">
-              <select
+              <Select
                 aria-label="目标角色"
-                className={adminSelectClassName}
-                onChange={(event) => onDraftChange({ targetRoleId: event.target.value })}
+                className="w-full"
+                onChange={(value) => onDraftChange({ targetRoleId: value })}
                 value={draft.targetRoleId}
-              >
-                <option value="">请选择角色</option>
-                {roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name} ({role.code})
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: '', label: '请选择角色' },
+                  ...roles.map((role) => ({
+                    value: role.id,
+                    label: `${role.name} (${role.code})`,
+                  })),
+                ]}
+              />
             </Field>
             <Field label="题量">
               <NumberInput

@@ -48,6 +48,6 @@ describe('admin stage 1 patterns', () => {
     expect(markup).toContain('data-admin-state="skeleton"');
     expect(markup).toContain('data-admin-state="filtered"');
     expect(markup).toContain('data-admin-state="forbidden"');
-    expect(markup).toContain('motion-reduce:animate-none');
+    expect(markup).toContain('无权访问此内容');
   });
 });

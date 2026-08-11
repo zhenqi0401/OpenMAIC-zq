@@ -1,5 +1,7 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
+import { Alert, Tag } from 'antd';
+import { ProCard } from '@ant-design/pro-components';
 import { cn } from '@/lib/utils';
 export { adminThemeStyle } from '@/components/admin/admin-theme';
 
@@ -38,7 +40,12 @@ export interface AdminBreadcrumbItem {
 /** Stable page-level spacing and width contract for every admin module. */
 export function AdminPage({ children, className, ...props }: ComponentProps<'section'>) {
   return (
-    <section className={cn('min-w-0 scroll-mt-4 space-y-6', className)} data-admin-page {...props}>
+    <section
+      className={cn('min-w-0 scroll-mt-4 space-y-6', className)}
+      data-admin-page
+      data-admin-pro-page-container
+      {...props}
+    >
       {children}
     </section>
   );
@@ -142,7 +149,9 @@ export function AdminCard({ children, className, ...props }: ComponentProps<'div
       )}
       {...props}
     >
-      {children}
+      <ProCard bordered={false} className="!bg-transparent !shadow-none" bodyStyle={{ padding: 0 }}>
+        {children}
+      </ProCard>
     </div>
   );
 }
@@ -164,16 +173,12 @@ export function AdminNotice({
         : 'border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-muted-foreground)]';
 
   return (
-    <div
-      className={cn(
-        'rounded-[var(--admin-radius-control)] border px-3 py-2 text-sm',
-        toneClassName,
-        className,
-      )}
-      role={role ?? (tone === 'error' ? 'alert' : undefined)}
-      {...props}
-    >
-      {children}
+    <div {...props} role={role ?? (tone === 'error' ? 'alert' : undefined)}>
+      <Alert
+        className={cn('rounded-[var(--admin-radius-control)] text-sm', toneClassName, className)}
+        message={children}
+        type={tone === 'error' ? 'error' : tone === 'success' ? 'success' : 'info'}
+      />
     </div>
   );
 }
@@ -185,23 +190,6 @@ export function AdminStatusBadge({
   children: ReactNode;
   tone?: 'neutral' | 'success' | 'warning' | 'danger';
 }) {
-  const className =
-    tone === 'success'
-      ? 'border-[var(--admin-success)] bg-[var(--admin-success-background)] text-[var(--admin-success-strong)]'
-      : tone === 'warning'
-        ? 'border-[var(--admin-warning)] bg-[var(--admin-warning-background)] text-[var(--admin-warning-strong)]'
-        : tone === 'danger'
-          ? 'border-[var(--admin-danger)] bg-[var(--admin-danger-background)] text-[var(--admin-danger-strong)]'
-          : 'border-[var(--admin-border)] bg-[var(--admin-selection-background)] text-[var(--admin-muted-foreground)]';
-
-  return (
-    <span
-      className={cn(
-        'inline-flex h-7 w-fit items-center rounded-[var(--admin-radius-control)] border px-2 text-xs font-medium',
-        className,
-      )}
-    >
-      {children}
-    </span>
-  );
+  const color = tone === 'danger' ? 'error' : tone === 'neutral' ? 'default' : tone;
+  return <Tag color={color}>{children}</Tag>;
 }

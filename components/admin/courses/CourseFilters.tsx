@@ -1,12 +1,11 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button, Input, Segmented, Select } from 'antd';
+import { ProForm } from '@ant-design/pro-components';
 import {
   adminInputClassName,
   adminPrimaryButtonClassName,
   adminSecondaryButtonClassName,
-  adminSelectClassName,
 } from '@/components/admin/AdminSurface';
 import type { CourseVisibilityMode } from '@/lib/storage/enterprise-service';
 import type { CourseAdminFilters, CourseAdminStatusFilter } from '@/lib/admin/course-presentation';
@@ -42,31 +41,23 @@ export function CourseFilters({
   onStatusChange: (status: CourseAdminStatusFilter) => void;
 }) {
   return (
-    <div className="border-b border-[var(--admin-border-subtle)]" data-course-filters>
+    <ProForm
+      component="div"
+      submitter={false}
+      className="border-b border-[var(--admin-border-subtle)]"
+      data-course-filters
+    >
       <div
         aria-label="课程状态快捷筛选"
         className="flex flex-wrap gap-1 border-b border-[var(--admin-border-subtle)] px-3 pt-3"
         role="group"
       >
-        {statusOptions.map((option) => {
-          const active = filters.status === option.value;
-          return (
-            <Button
-              aria-pressed={active}
-              className={`rounded-b-none border-b-2 px-3 ${
-                active
-                  ? 'border-[var(--admin-selection-border)] bg-[var(--admin-selection-background)] text-[var(--admin-selection-foreground)]'
-                  : 'border-transparent text-[var(--admin-muted-foreground)]'
-              }`}
-              key={option.value}
-              onClick={() => onStatusChange(option.value)}
-              type="button"
-              variant="ghost"
-            >
-              {option.label}
-            </Button>
-          );
-        })}
+        <Segmented
+          aria-label="课程状态快捷筛选"
+          options={statusOptions}
+          value={filters.status}
+          onChange={(value) => onStatusChange(value as CourseAdminStatusFilter)}
+        />
       </div>
       <div className="grid gap-2 p-3 lg:grid-cols-[minmax(200px,1fr)_150px_150px_auto]">
         <Input
@@ -76,48 +67,46 @@ export function CourseFilters({
           placeholder="搜索课程、描述或分类"
           value={draft.query}
         />
-        <select
+        <Select
           aria-label="课程分类"
-          className={adminSelectClassName}
-          onChange={(event) => onChange({ ...draft, categoryId: event.target.value })}
+          className="w-full"
+          onChange={(value) => onChange({ ...draft, categoryId: value })}
           value={draft.categoryId}
-        >
-          <option value="">全部分类</option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-        <select
+          options={[
+            { value: '', label: '全部分类' },
+            ...categories.map((category) => ({ value: category.id, label: category.name })),
+          ]}
+        />
+        <Select
           aria-label="课程可见范围"
-          className={adminSelectClassName}
-          onChange={(event) =>
+          className="w-full"
+          onChange={(value) =>
             onChange({
               ...draft,
-              visibilityMode: event.target.value as CourseVisibilityMode | 'any',
+              visibilityMode: value as CourseVisibilityMode | 'any',
             })
           }
           value={draft.visibilityMode}
-        >
-          <option value="any">全部可见范围</option>
-          <option value="all">全体可见</option>
-          <option value="roles">按角色可见</option>
-        </select>
+          options={[
+            { value: 'any', label: '全部可见范围' },
+            { value: 'all', label: '全体可见' },
+            { value: 'roles', label: '按角色可见' },
+          ]}
+        />
         <div className="flex gap-2">
-          <Button className={adminPrimaryButtonClassName} onClick={onApply} type="button">
+          <Button
+            type="primary"
+            className={adminPrimaryButtonClassName}
+            onClick={onApply}
+            htmlType="button"
+          >
             筛选
           </Button>
-          <Button
-            className={adminSecondaryButtonClassName}
-            onClick={onClear}
-            type="button"
-            variant="outline"
-          >
+          <Button className={adminSecondaryButtonClassName} onClick={onClear} htmlType="button">
             清除筛选
           </Button>
         </div>
       </div>
-    </div>
+    </ProForm>
   );
 }

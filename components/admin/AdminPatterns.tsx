@@ -1,5 +1,6 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { LoaderCircle, SearchX, ShieldAlert } from 'lucide-react';
+import { Skeleton, Spin, Statistic } from 'antd';
+import { SearchX, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AdminCard, AdminStatusBadge } from '@/components/admin/AdminSurface';
 
@@ -31,9 +32,11 @@ export function AdminMetricCard({
         ) : null}
       </div>
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <strong className="text-[28px] font-semibold leading-8 tracking-[-0.02em] text-[var(--admin-heading)] tabular-nums">
-          {value}
-        </strong>
+        <Statistic
+          value={typeof value === 'string' || typeof value === 'number' ? value : undefined}
+          formatter={() => value}
+          valueStyle={{ color: 'var(--admin-heading)', fontSize: 28, fontWeight: 600 }}
+        />
         {trend}
       </div>
       {detail ? (
@@ -91,13 +94,7 @@ export function AdminLoadingState({ label = '正在加载…' }: { label?: strin
       className="grid min-h-44 place-items-center rounded-[var(--admin-radius-card)] border border-[var(--admin-border-subtle)] bg-[var(--admin-surface)] p-6 text-sm text-[var(--admin-muted-foreground)]"
       data-admin-state="loading"
     >
-      <span className="flex items-center gap-2">
-        <LoaderCircle
-          aria-hidden="true"
-          className="size-4 animate-spin motion-reduce:animate-none"
-        />
-        {label}
-      </span>
+      <Spin size="large" tip={label} />
     </div>
   );
 }
@@ -110,14 +107,7 @@ export function AdminSkeleton({ rows = 3 }: { rows?: number }) {
       data-admin-state="skeleton"
       role="status"
     >
-      {Array.from({ length: rows }, (_, index) => (
-        <span
-          aria-hidden="true"
-          className="h-4 animate-pulse rounded bg-[var(--admin-surface-selected)] motion-reduce:animate-none"
-          key={index}
-          style={{ width: `${Math.max(48, 92 - index * 12)}%` }}
-        />
-      ))}
+      <Skeleton active paragraph={{ rows }} title={false} />
     </div>
   );
 }

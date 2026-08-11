@@ -2,10 +2,10 @@
 
 import type { ComponentProps, ReactNode } from 'react';
 
-import { Input } from '@/components/ui/input';
+import { Input as AntInput } from 'antd';
 import { Label } from '@/components/ui/label';
 
-interface AuthFieldProps extends Omit<ComponentProps<typeof Input>, 'id' | 'name'> {
+interface AuthFieldProps extends Omit<ComponentProps<typeof AntInput>, 'id' | 'name'> {
   name: string;
   label: string;
   error?: string;
@@ -15,7 +15,7 @@ interface AuthFieldProps extends Omit<ComponentProps<typeof Input>, 'id' | 'name
 export function AuthField({ name, label, error, action, className, ...props }: AuthFieldProps) {
   const errorId = `${name}-error`;
   const input = (
-    <Input
+    <AntInput
       {...props}
       id={name}
       name={name}
@@ -24,6 +24,7 @@ export function AuthField({ name, label, error, action, className, ...props }: A
       } ${className ?? ''}`}
       aria-describedby={errorId}
       aria-invalid={Boolean(error)}
+      status={error ? 'error' : undefined}
     />
   );
 
@@ -40,7 +41,11 @@ export function AuthField({ name, label, error, action, className, ...props }: A
       ) : (
         input
       )}
-      <p id={errorId} className="text-xs leading-snug text-destructive empty:hidden" aria-live="polite">
+      <p
+        id={errorId}
+        className="text-xs leading-snug text-destructive empty:hidden"
+        aria-live="polite"
+      >
         {error}
       </p>
     </div>

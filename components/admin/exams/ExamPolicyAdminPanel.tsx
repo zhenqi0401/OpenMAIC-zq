@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ClipboardList, Plus } from 'lucide-react';
+import { Input, Select } from 'antd';
 import { toast } from 'sonner';
 import {
   adminErrorToastStyle as errorToastStyle,
@@ -14,7 +15,6 @@ import {
   adminInputClassName,
   adminPrimaryButtonClassName,
   adminSecondaryButtonClassName,
-  adminSelectClassName,
 } from '@/components/admin/AdminSurface';
 import { AdminSessionActions } from '@/components/admin/AdminSessionActions';
 import { AdminRefreshButton } from '@/components/admin/AdminRefreshButton';
@@ -23,8 +23,7 @@ import { ExamPolicyTable } from '@/components/admin/exams/ExamPolicyTable';
 import { ExamReadinessSummary } from '@/components/admin/exams/ExamReadinessSummary';
 import { ExamResultsDrawer } from '@/components/admin/exams/ExamResultsDrawer';
 import { AdminPagination } from '@/components/admin/AdminPagination';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/antd/AntdButton';
 import {
   createAdminClient,
   type AdminExamPolicy,
@@ -325,19 +324,16 @@ export function ExamPolicyAdminPanel() {
               placeholder="搜索考核名称或目标角色"
               value={queryDraft}
             />
-            <select
+            <Select
               aria-label="筛选目标角色"
-              className={adminSelectClassName}
-              onChange={(event) => setTargetRoleIdDraft(event.target.value)}
+              className="w-full"
+              onChange={(value) => setTargetRoleIdDraft(value)}
               value={targetRoleIdDraft}
-            >
-              <option value="">全部目标角色</option>
-              {learnerRoles.map((role) => (
-                <option key={role.id} value={role.id}>
-                  {role.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: '全部目标角色' },
+                ...learnerRoles.map((role) => ({ value: role.id, label: role.name })),
+              ]}
+            />
             <div className="flex flex-wrap gap-2 lg:justify-end">
               <Button className={adminPrimaryButtonClassName} onClick={applyFilters} type="button">
                 筛选

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Avatar } from 'antd';
 
 interface AdminSessionUser {
   id?: string;
@@ -85,12 +86,13 @@ export function AdminCurrentIdentity({ variant = 'stacked' }: { variant?: 'stack
         className="flex min-w-0 items-center gap-2.5 rounded-[var(--admin-radius-control)] border border-[var(--admin-border-subtle)] bg-[var(--admin-surface-subtle)] px-3 py-1.5"
         data-admin-current-identity="inline"
       >
-        <span
+        <Avatar
           aria-hidden="true"
-          className="grid size-8 shrink-0 place-items-center rounded-full bg-[var(--admin-selection-background)] text-sm font-semibold text-[var(--admin-interactive-accent)]"
+          size={32}
+          className="shrink-0 !bg-[var(--admin-selection-background)] !text-sm !font-semibold !text-[var(--admin-interactive-accent)]"
         >
           {Array.from(identity.user)[0] ?? '管'}
-        </span>
+        </Avatar>
         <span className="hidden min-w-0 flex-col lg:flex">
           <strong className="truncate text-sm font-medium leading-5 text-[var(--admin-foreground)]">
             {identity.user}

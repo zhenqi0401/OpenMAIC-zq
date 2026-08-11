@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/antd/AntdButton';
+import { Checkbox, Radio } from 'antd';
 import {
   Dialog,
   DialogClose,
@@ -10,7 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from '@/components/antd/AntdDialog';
 import {
   adminPrimaryButtonClassName,
   adminSecondaryButtonClassName,
@@ -102,12 +103,7 @@ function CourseVisibilityDialogContent({
         </DialogHeader>
         <div className="grid gap-3">
           <label className="flex items-start gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] p-3">
-            <input
-              checked={draft.visibilityMode === 'all'}
-              name="visibility-mode"
-              onChange={() => setMode('all')}
-              type="radio"
-            />
+            <Radio checked={draft.visibilityMode === 'all'} onChange={() => setMode('all')} />
             <span>
               <strong className="block font-medium">全体可见</strong>
               <span className="text-xs text-[var(--admin-muted-foreground)]">
@@ -116,12 +112,7 @@ function CourseVisibilityDialogContent({
             </span>
           </label>
           <label className="flex items-start gap-3 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] p-3">
-            <input
-              checked={draft.visibilityMode === 'roles'}
-              name="visibility-mode"
-              onChange={() => setMode('roles')}
-              type="radio"
-            />
+            <Radio checked={draft.visibilityMode === 'roles'} onChange={() => setMode('roles')} />
             <span>
               <strong className="block font-medium">按角色可见</strong>
               <span className="text-xs text-[var(--admin-muted-foreground)]">
@@ -137,10 +128,9 @@ function CourseVisibilityDialogContent({
               ) : (
                 roles.map((role) => (
                   <label className="flex items-center gap-2 text-sm" key={role.id}>
-                    <input
+                    <Checkbox
                       checked={draft.visibleRoleIds.includes(role.id)}
                       onChange={() => toggleRole(role.id)}
-                      type="checkbox"
                     />
                     {role.name}
                   </label>

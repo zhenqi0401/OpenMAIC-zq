@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Empty } from 'antd';
 import { CircleAlert, Inbox, SearchX, ShieldAlert } from 'lucide-react';
 import { AdminCard, AdminNotice } from '@/components/admin/AdminSurface';
 import { cn } from '@/lib/utils';
@@ -31,21 +32,30 @@ function StateContent({
   const Icon = stateIcons[kind];
 
   return (
-    <div className={cn('grid place-items-center text-center', compact ? 'gap-2 p-4' : 'gap-3 p-8')}>
-      <span
-        aria-hidden="true"
-        className="inline-flex size-10 items-center justify-center rounded-full bg-[var(--admin-selection-background)] text-[var(--admin-link)]"
-      >
-        <Icon className="size-5" />
-      </span>
-      <div className="grid max-w-[52ch] gap-1">
-        <h3 className="text-sm font-semibold text-[var(--admin-foreground)]">{title}</h3>
-        {description ? (
-          <p className="text-sm leading-6 text-[var(--admin-muted-foreground)]">{description}</p>
-        ) : null}
-      </div>
+    <Empty
+      className={cn(compact ? 'p-4' : 'p-8')}
+      image={
+        <span
+          aria-hidden="true"
+          className="mx-auto inline-flex size-10 items-center justify-center rounded-full bg-[var(--admin-selection-background)] text-[var(--admin-link)]"
+        >
+          <Icon className="size-5" />
+        </span>
+      }
+      imageStyle={{ height: 40 }}
+      description={
+        <span className="grid max-w-[52ch] gap-1">
+          <strong className="text-sm font-semibold text-[var(--admin-foreground)]">{title}</strong>
+          {description ? (
+            <span className="text-sm leading-6 text-[var(--admin-muted-foreground)]">
+              {description}
+            </span>
+          ) : null}
+        </span>
+      }
+    >
       {action ? <div className="flex flex-wrap justify-center gap-2">{action}</div> : null}
-    </div>
+    </Empty>
   );
 }
 

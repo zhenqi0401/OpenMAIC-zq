@@ -28,7 +28,8 @@ export function AdminNavigation({
           'min-w-0',
           !mobile &&
             'md:absolute md:left-[60px] md:z-20 md:hidden md:w-44 md:rounded-[var(--admin-radius-control)] md:border md:border-[var(--admin-border)] md:bg-[var(--admin-surface)] md:px-3 md:py-2 md:shadow-[var(--admin-shadow-popover)] md:group-hover/nav-item:block md:group-focus-visible/nav-item:block',
-          !mobile && !collapsed &&
+          !mobile &&
+            !collapsed &&
             'xl:static xl:block xl:w-auto xl:border-0 xl:bg-transparent xl:p-0 xl:shadow-none',
         );
         return (
@@ -46,7 +47,12 @@ export function AdminNavigation({
             <Icon aria-hidden="true" className="size-5 shrink-0" />
             <span className={labelClassName}>
               <span className="block truncate">{module.label}</span>
-              <span className={cn('mt-0.5 block text-xs font-normal', !mobile && !collapsed && 'xl:block')}>
+              <span
+                className={cn(
+                  'mt-0.5 block text-xs font-normal',
+                  !mobile && !collapsed && 'xl:block',
+                )}
+              >
                 {module.description}
               </span>
             </span>
@@ -71,6 +77,8 @@ export function AdminSidebar({
         !collapsed && 'xl:w-[var(--admin-sidebar-width)] xl:px-6',
       )}
       data-admin-sidebar
+      data-admin-pro-sider
+      aria-label="Ant Design Pro 侧边导航"
     >
       <div className="mb-8 min-h-14" data-admin-brand="desktop">
         <div className={cn(collapsed && 'hidden', !collapsed && 'hidden xl:block')}>
@@ -83,14 +91,14 @@ export function AdminSidebar({
           <BrandLockup priority variant="mark" />
         </div>
       </div>
-      <p
+      <div
         className={cn(
-          'mb-3 hidden text-xs font-semibold tracking-[0.08em] text-[var(--admin-muted-foreground)]',
+          'mb-3 hidden border-b border-[var(--admin-border-subtle)] pb-2 text-xs font-semibold tracking-[0.06em] text-[var(--admin-muted-foreground)]',
           !collapsed && 'xl:block',
         )}
       >
         管理后台
-      </p>
+      </div>
       <AdminNavigation activeModuleId={activeModuleId} collapsed={collapsed} />
       <div className={cn('mt-auto hidden', !collapsed && 'xl:block')}>
         <AdminCurrentIdentity />

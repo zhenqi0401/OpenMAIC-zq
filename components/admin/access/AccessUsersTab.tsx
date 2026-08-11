@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
+import { Input, Select } from 'antd';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,9 +12,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+} from '@/components/antd/AntdAlertDialog';
+import { Button } from '@/components/antd/AntdButton';
 import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import {
   AdminCard,
@@ -21,7 +21,6 @@ import {
   adminDangerOutlineButtonClassName,
   adminInputClassName,
   adminSecondaryButtonClassName,
-  adminSelectClassName,
 } from '@/components/admin/AdminSurface';
 import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
 import { AdminPagination } from '@/components/admin/AdminPagination';
@@ -124,26 +123,20 @@ function UserRoleEditor({
   return (
     <div className="grid min-w-0 gap-1.5">
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <select
+        <Select
           aria-label="当前角色"
-          className={`${adminSelectClassName} min-w-0 flex-1`}
+          className="min-w-0 flex-1"
           disabled={disabled}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(value) => onChange(value)}
           value={roleId}
-        >
-          {roleOptions.map((role) => (
-            <option
-              disabled={
-                (user.status !== 'active' && role.isAdmin) ||
-                (user.id === currentUserId && !role.isAdmin)
-              }
-              key={role.value}
-              value={role.value}
-            >
-              {role.label}
-            </option>
-          ))}
-        </select>
+          options={roleOptions.map((role) => ({
+            value: role.value,
+            label: role.label,
+            disabled:
+              (user.status !== 'active' && role.isAdmin) ||
+              (user.id === currentUserId && !role.isAdmin),
+          }))}
+        />
         <Button
           aria-busy={disabled}
           className={adminSecondaryButtonClassName}
@@ -476,31 +469,29 @@ export function AccessUsersTab({
           placeholder="搜索名称、手机号或 Host User ID"
           value={filters.q}
         />
-        <select
+        <Select
           aria-label="筛选用户角色"
-          className={adminSelectClassName}
-          onChange={(event) => onFiltersChange({ ...filters, roleId: event.target.value })}
+          className="min-w-0"
+          onChange={(value) => onFiltersChange({ ...filters, roleId: value })}
           value={filters.roleId}
-        >
-          <option value="">全部角色</option>
-          {roleOptions.map((role) => (
-            <option key={role.value} value={role.value}>
-              {role.label}
-            </option>
-          ))}
-        </select>
-        <select
+          options={[
+            { value: '', label: '全部角色' },
+            ...roleOptions.map((role) => ({ value: role.value, label: role.label })),
+          ]}
+        />
+        <Select
           aria-label="筛选账号状态"
-          className={adminSelectClassName}
-          onChange={(event) =>
-            onFiltersChange({ ...filters, status: event.target.value as typeof filters.status })
+          className="min-w-0"
+          onChange={(value) =>
+            onFiltersChange({ ...filters, status: value as typeof filters.status })
           }
           value={filters.status}
-        >
-          <option value="all">全部状态</option>
-          <option value="active">正常</option>
-          <option value="disabled">已冻结</option>
-        </select>
+          options={[
+            { value: 'all', label: '全部状态' },
+            { value: 'active', label: '正常' },
+            { value: 'disabled', label: '已冻结' },
+          ]}
+        />
       </AdminFilterBar>
       {content}
       <div className="border-t border-[var(--admin-border-subtle)] pt-3">

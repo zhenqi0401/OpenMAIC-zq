@@ -1,17 +1,7 @@
 'use client';
 
-import { ChevronsUpDown } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { adminThemeAttributes } from '@/components/admin/admin-theme';
+import { Button } from '@/components/antd/AntdButton';
+import { Checkbox, Select } from 'antd';
 import { examCourseScopeLabel } from '@/lib/admin/exam-policy-scope';
 import type { ExamCategory } from '@/lib/admin/exam-policy-presentation';
 import type { EnterpriseCourse } from '@/lib/storage/enterprise-service';
@@ -51,10 +41,9 @@ export function ScopePicker({
                 className="inline-flex items-center gap-1.5 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2 py-1.5 text-xs"
                 key={category.id}
               >
-                <input
+                <Checkbox
                   checked={categoryIds.includes(category.id)}
                   onChange={() => onCategoryToggle(category.id)}
-                  type="checkbox"
                 />
                 {category.name}
               </label>
@@ -66,59 +55,42 @@ export function ScopePicker({
         <div className="mb-2 text-xs font-medium text-[var(--admin-muted-foreground)]">
           课程范围
         </div>
-        <div>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                aria-label="搜索并选择课程"
-                className="min-w-[230px] justify-between rounded-[var(--admin-radius-control)] border-[var(--admin-border)] bg-[var(--admin-surface)] font-normal"
-                type="button"
-                variant="outline"
-              >
-                <span className="truncate">{examCourseScopeLabel([...courseIds])}</span>
-                <ChevronsUpDown className="size-4 text-[var(--admin-muted-foreground)]" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              {...adminThemeAttributes}
-              align="start"
-              className="w-[min(360px,calc(100vw-2rem))] rounded-[var(--admin-radius-card)] border-[var(--admin-border)] bg-[var(--admin-surface)] p-0 text-[var(--admin-foreground)]"
-            >
-              <Command className="rounded-[var(--admin-radius-card)]! bg-[var(--admin-surface)] text-[var(--admin-foreground)]">
-                <CommandInput placeholder="搜索课程名称" />
-                <CommandList>
-                  <CommandEmpty className="text-[var(--admin-muted-foreground)]">
-                    {emptyText}
-                  </CommandEmpty>
-                  {courses.length > 0 ? (
-                    <CommandGroup heading="已发布课程">
-                      {courses.map((course) => (
-                        <CommandItem
-                          data-checked={courseIds.includes(course.id)}
-                          key={course.id}
-                          onSelect={() => onCourseToggle(course.id)}
-                          value={course.name}
-                        >
-                          <span className="truncate">{course.name}</span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  ) : null}
-                </CommandList>
-                <div className="border-t border-[var(--admin-border-subtle)] p-2">
-                  <Button
-                    className="w-full justify-center rounded-[var(--admin-radius-control)]"
-                    disabled={courseIds.length === 0}
-                    onClick={onClearCourses}
-                    type="button"
-                    variant="outline"
-                  >
-                    恢复全部课程
-                  </Button>
-                </div>
-              </Command>
-            </PopoverContent>
-          </Popover>
+        <div className="grid gap-2">
+          <Select
+            aria-label="搜索并选择课程"
+            className="w-full min-w-[230px]"
+            disabled={categoryIds.length === 0}
+            mode="multiple"
+            maxTagCount="responsive"
+            notFoundContent={emptyText}
+            options={courses.map((course) => ({ value: course.id, label: course.name }))}
+            placeholder={examCourseScopeLabel([...courseIds])}
+            showSearch
+            optionFilterProp="label"
+            value={[...courseIds]}
+            onChange={(nextCourseIds) => {
+              if (nextCourseIds.length === 0) {
+                onClearCourses();
+                return;
+              }
+              const next = new Set(nextCourseIds);
+              courseIds.forEach((courseId) => {
+                if (!next.has(courseId)) onCourseToggle(courseId);
+              });
+              nextCourseIds.forEach((courseId) => {
+                if (!courseIds.includes(courseId)) onCourseToggle(courseId);
+              });
+            }}
+          />
+          <Button
+            className="w-fit rounded-[var(--admin-radius-control)]"
+            disabled={courseIds.length === 0}
+            onClick={onClearCourses}
+            type="button"
+            variant="outline"
+          >
+            恢复全部课程
+          </Button>
         </div>
         <p className="mt-2 text-xs leading-5 text-[var(--admin-muted-foreground)]">
           空选择表示使用所选分类下全部已发布课程。

@@ -56,7 +56,7 @@ describe('AdminShell', () => {
     });
   });
 
-  it('lets the right-side workbench fill the available screen width', () => {
+  it('keeps the Pro workbench responsive and leaves identity/account actions in the header', () => {
     const markup = renderToStaticMarkup(
       React.createElement(
         AdminShell,
@@ -67,22 +67,13 @@ describe('AdminShell', () => {
 
     expect(markup).toContain('管理后台');
     expect(markup).toContain('元我智脑');
-    expect(markup).toContain('data-admin-brand="desktop"');
-    expect(markup).toContain('data-admin-brand="mobile"');
     expect(markup).toContain('access content');
     expect(markup).toContain('data-admin-shell="yuanwo-saas-admin"');
-    expect(markup).toContain('data-admin-sidebar');
-    expect(markup).toContain('data-admin-top-bar');
-    expect(markup).toContain('打开后台导航');
-    expect(markup).toContain('md:grid-cols-[var(--admin-sidebar-compact-width)_minmax(0,1fr)]');
-    expect(markup).toContain('xl:grid-cols-[var(--admin-sidebar-width)_minmax(0,1fr)]');
-    expect(markup).toContain('fixed inset-y-0 left-0');
-    expect(markup).toContain('w-[var(--admin-sidebar-compact-width)]');
-    expect(markup).toContain('xl:w-[var(--admin-sidebar-width)]');
-    expect(markup.indexOf('公司：')).toBeLessThan(markup.indexOf('角色：'));
-    expect(markup.indexOf('角色：')).toBeLessThan(markup.indexOf('用户：'));
-    expect(markup).toContain('md:col-start-2');
-    expect(markup).not.toContain('<aside class="sticky');
+    expect(markup).toContain('data-admin-layout="pro"');
+    expect(markup).toContain('data-admin-theme="yuanwo-saas-admin"');
+    expect(markup).toContain('aria-label="后台模块导航"');
+    expect(markup).toContain('账户');
+    expect(markup).toContain('收起侧边导航');
     expect(markup).not.toContain('max-w-[1280px]');
     expect(markup).not.toContain('运营状态一屏处理');
   });

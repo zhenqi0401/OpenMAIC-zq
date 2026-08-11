@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 
-import { Button } from '@/components/ui/button';
+import { Alert, Button, Form } from 'antd';
 import {
   AuthClientError,
   login,
@@ -78,9 +78,10 @@ export function LoginForm() {
   }
 
   return (
-    <form
+    <Form
+      component="form"
       className="mx-auto mt-5 grid w-full max-w-[400px] flex-1 content-start gap-3.5 max-[900px]:mt-3"
-      onSubmit={submit}
+      onSubmitCapture={submit}
       noValidate
       aria-busy={submitting}
     >
@@ -124,32 +125,35 @@ export function LoginForm() {
 
       <div className="flex min-h-11 items-center justify-between gap-3 text-xs text-muted-foreground">
         <span>企业员工账号</span>
-        <button
-          type="button"
-          className="min-h-11 px-1 text-[13px] transition-colors hover:text-primary focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
+        <Button
+          type="link"
+          className="!h-11 !px-1 !text-[13px]"
           onClick={() => setStatus('请联系企业培训管理员重置账号密码。')}
         >
           无法登录？
-        </button>
+        </Button>
       </div>
 
-      <Button type="submit" className="mt-0.5 h-12 rounded-xl text-[15px] font-semibold" disabled={submitting}>
+      <Button
+        type="primary"
+        htmlType="submit"
+        className="mt-0.5 !h-12 rounded-xl !text-[15px] font-semibold"
+        loading={submitting}
+      >
         {submitting ? '正在验证账号' : '登录'}
       </Button>
-      <p
-        className="text-center text-[13px] leading-snug text-destructive empty:hidden"
-        role="status"
-        aria-live="polite"
-        data-state="error"
-      >
-        {status}
-      </p>
+      {status ? (
+        <Alert message={status} type="error" showIcon role="status" aria-live="polite" />
+      ) : null}
       <p className="text-center text-[13px] text-muted-foreground">
         首次使用？{' '}
-        <Link href="/register" className="font-semibold text-primary underline-offset-4 hover:underline">
+        <Link
+          href="/register"
+          className="font-semibold text-primary underline-offset-4 hover:underline"
+        >
           创建员工账号
         </Link>
       </p>
-    </form>
+    </Form>
   );
 }

@@ -1,20 +1,18 @@
 'use client';
 
-import { useState } from 'react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { BookOpen, ChevronDown, CircleUserRound, Home, LoaderCircle, LogOut } from 'lucide-react';
-import { adminToast } from '@/lib/admin/toast';
-import { Button } from '@/components/ui/button';
+import { Button, Dropdown } from 'antd';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { adminSecondaryButtonClassName } from '@/components/admin/AdminSurface';
-import { adminThemeAttributes } from '@/components/admin/admin-theme';
+  BookOutlined,
+  DownOutlined,
+  HomeOutlined,
+  LoadingOutlined,
+  LogoutOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
+
+import { adminToast } from '@/lib/admin/toast';
 import { logoutCurrentSession } from '@/lib/auth/logout-client';
 
 export const adminAccountMenuLabels = {
@@ -25,7 +23,7 @@ export const adminAccountMenuLabels = {
   loggingOut: '退出中',
 } as const;
 
-export function AdminSessionActions({ leading }: { leading?: ReactNode }) {
+export function AdminAccountMenu() {
   const [loggingOut, setLoggingOut] = useState(false);
 
   async function handleLogout() {
@@ -40,62 +38,51 @@ export function AdminSessionActions({ leading }: { leading?: ReactNode }) {
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2">
-      {leading}
-      <DropdownMenu modal={false}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            aria-busy={loggingOut}
-            aria-label={
-              loggingOut ? adminAccountMenuLabels.loggingOut : adminAccountMenuLabels.trigger
-            }
-            className={adminSecondaryButtonClassName}
-            disabled={loggingOut}
-            type="button"
-            variant="outline"
-          >
-            {loggingOut ? (
-              <LoaderCircle aria-hidden="true" className="animate-spin" />
-            ) : (
-              <CircleUserRound aria-hidden="true" />
-            )}
-            {loggingOut ? adminAccountMenuLabels.loggingOut : adminAccountMenuLabels.trigger}
-            {!loggingOut ? <ChevronDown aria-hidden="true" className="size-3.5" /> : null}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          {...adminThemeAttributes}
-          align="end"
-          aria-label="账户操作"
-          className="min-w-40 border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)]"
-        >
-          <DropdownMenuItem asChild>
-            <Link href="/">
-              <Home aria-hidden="true" />
-              {adminAccountMenuLabels.home}
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/learn">
-              <BookOpen aria-hidden="true" />
-              {adminAccountMenuLabels.learn}
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-[var(--admin-border-subtle)]" />
-          <DropdownMenuItem
-            disabled={loggingOut}
-            onSelect={() => void handleLogout()}
-            variant="destructive"
-          >
-            {loggingOut ? (
-              <LoaderCircle aria-hidden="true" className="animate-spin" />
-            ) : (
-              <LogOut aria-hidden="true" />
-            )}
-            {loggingOut ? adminAccountMenuLabels.loggingOut : adminAccountMenuLabels.logout}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    <Dropdown
+      placement="bottomRight"
+      menu={{
+        'aria-label': '账户操作',
+        items: [
+          {
+            key: 'home',
+            icon: <HomeOutlined />,
+            label: <Link href="/">{adminAccountMenuLabels.home}</Link>,
+          },
+          {
+            key: 'learn',
+            icon: <BookOutlined />,
+            label: <Link href="/learn">{adminAccountMenuLabels.learn}</Link>,
+          },
+          { type: 'divider' },
+          {
+            key: 'logout',
+            danger: true,
+            disabled: loggingOut,
+            icon: loggingOut ? <LoadingOutlined spin /> : <LogoutOutlined />,
+            label: loggingOut ? adminAccountMenuLabels.loggingOut : adminAccountMenuLabels.logout,
+          },
+        ],
+        onClick: ({ key }) => {
+          if (key === 'logout') void handleLogout();
+        },
+      }}
+    >
+      <Button
+        aria-busy={loggingOut}
+        aria-label={loggingOut ? adminAccountMenuLabels.loggingOut : adminAccountMenuLabels.trigger}
+        disabled={loggingOut}
+        icon={loggingOut ? <LoadingOutlined spin /> : <UserOutlined />}
+      >
+        <span className="hidden sm:inline">
+          {loggingOut ? adminAccountMenuLabels.loggingOut : adminAccountMenuLabels.trigger}
+        </span>
+        {!loggingOut ? <DownOutlined className="text-xs" /> : null}
+      </Button>
+    </Dropdown>
   );
+}
+
+/** Module headers retain only module-scoped controls such as refresh. */
+export function AdminSessionActions({ leading }: { leading?: ReactNode }) {
+  return <div className="flex flex-wrap items-center justify-end gap-2">{leading}</div>;
 }

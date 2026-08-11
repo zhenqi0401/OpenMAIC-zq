@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 
-import { Button } from '@/components/ui/button';
+import { Alert, Button, Form } from 'antd';
 import {
   AuthClientError,
   normalizeInviteCodeInput,
@@ -86,9 +86,10 @@ export function RegisterForm() {
   }
 
   return (
-    <form
+    <Form
+      component="form"
       className="mx-auto mt-5 grid w-full max-w-[400px] flex-1 content-start gap-3.5 max-[900px]:mt-3"
-      onSubmit={submit}
+      onSubmitCapture={submit}
       noValidate
       aria-busy={submitting}
     >
@@ -154,23 +155,26 @@ export function RegisterForm() {
         />
       </fieldset>
 
-      <Button type="submit" className="mt-0.5 h-12 rounded-xl text-[15px] font-semibold" disabled={submitting}>
+      <Button
+        type="primary"
+        htmlType="submit"
+        className="mt-0.5 !h-12 rounded-xl !text-[15px] font-semibold"
+        loading={submitting}
+      >
         {submitting ? '正在创建账号' : '创建账号'}
       </Button>
-      <p
-        className="text-center text-[13px] leading-snug text-destructive empty:hidden"
-        role="status"
-        aria-live="polite"
-        data-state="error"
-      >
-        {status}
-      </p>
+      {status ? (
+        <Alert message={status} type="error" showIcon role="status" aria-live="polite" />
+      ) : null}
       <p className="text-center text-[13px] text-muted-foreground">
         已有账号？{' '}
-        <Link href="/login" className="font-semibold text-primary underline-offset-4 hover:underline">
+        <Link
+          href="/login"
+          className="font-semibold text-primary underline-offset-4 hover:underline"
+        >
           直接登录
         </Link>
       </p>
-    </form>
+    </Form>
   );
 }

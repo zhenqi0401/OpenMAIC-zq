@@ -1,7 +1,7 @@
 'use client';
 
 import { RefreshCw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/antd/AntdButton';
 import { adminSecondaryButtonClassName } from '@/components/admin/AdminSurface';
 import { cn } from '@/lib/utils';
 

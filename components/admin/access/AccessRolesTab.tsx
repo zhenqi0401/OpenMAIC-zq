@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/antd/AntdButton';
+import { Input, Switch } from 'antd';
 import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import {
   Dialog,
@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from '@/components/antd/AntdDialog';
 import {
   AdminCard,
   AdminStatusBadge,
@@ -99,11 +99,10 @@ function RoleForm({
       ) : (
         <label className="grid gap-1.5 text-sm text-[var(--admin-muted-foreground)]">
           <span className="inline-flex items-center gap-2">
-            <input
+            <Switch
               checked={draft.isAdmin}
               disabled={disabled}
-              onChange={(event) => onChange({ ...draft, isAdmin: event.target.checked })}
-              type="checkbox"
+              onChange={(checked) => onChange({ ...draft, isAdmin: checked })}
             />
             管理员类型
           </span>

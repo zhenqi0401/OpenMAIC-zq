@@ -2,7 +2,7 @@
 
 import { Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { BrandLockup } from '@/components/brand/BrandLockup';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/antd/AntdButton';
 import { AdminDrawer } from '@/components/admin/AdminOverlay';
 import { AdminBreadcrumbs } from '@/components/admin/AdminBreadcrumbs';
 import { AdminCurrentIdentity } from '@/components/admin/AdminCurrentIdentity';
@@ -26,8 +26,9 @@ export function AdminTopBar({
     <>
       {/* 桌面端顶栏（Ant Design Pro 风格：64px，含折叠按钮 + 面包屑 + 模块标题 + 用户区） */}
       <header
-        className="sticky top-0 z-30 hidden h-16 items-center justify-between gap-4 border-b border-[var(--admin-border-subtle)] bg-[var(--admin-surface)] px-6 md:flex"
+        className="sticky top-0 z-30 hidden h-[var(--admin-header-height)] items-center justify-between gap-4 border-b border-[var(--admin-border-subtle)] bg-[var(--admin-surface)] px-6 md:flex"
         data-admin-top-bar="desktop"
+        data-admin-pro-header
       >
         <div className="flex min-w-0 items-center gap-3">
           <Button
@@ -58,7 +59,7 @@ export function AdminTopBar({
 
       {/* 移动端顶栏（保留原抽屉导航） */}
       <header
-        className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-[var(--admin-border-subtle)] bg-[var(--admin-surface)] px-4 md:hidden"
+        className="sticky top-0 z-30 flex h-[var(--admin-header-height)] items-center justify-between border-b border-[var(--admin-border-subtle)] bg-[var(--admin-surface)] px-4 md:hidden"
         data-admin-top-bar="mobile"
       >
         <div className="flex min-w-0 items-center gap-3" data-admin-brand="mobile">

@@ -15,7 +15,7 @@ import { AdminRefreshButton } from '@/components/admin/AdminRefreshButton';
 import { AdminDeleteDialog } from '@/components/admin/AdminDeleteDialog';
 import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
 import { AdminPagination } from '@/components/admin/AdminPagination';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/antd/AntdButton';
 import Link from 'next/link';
 import type { EnterpriseCourse } from '@/lib/storage/enterprise-service';
 import type { AuthRole } from '@/lib/auth/service';

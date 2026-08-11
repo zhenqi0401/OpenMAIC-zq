@@ -7,7 +7,7 @@ import {
   AdminStatusBadge,
   adminSecondaryButtonClassName,
 } from '@/components/admin/AdminSurface';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/antd/AntdButton';
 import {
   type AdminCommunityItem,
   type CommunityContentType,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Spin } from 'antd';
 import type { Slide } from '@openmaic/dsl';
 import { LearnerHome } from '@/components/home/LearnerHome';
 import type { SessionIdentity } from '@/lib/auth/types';
@@ -76,7 +77,11 @@ export function LearnerPage() {
   }, [loadCourses]);
 
   if (!identity) {
-    return <main className="min-h-[100dvh] bg-page" aria-busy="true" />;
+    return (
+      <main className="min-h-[100dvh] bg-page" aria-busy="true">
+        <Spin fullscreen tip="正在加载学习中心" />
+      </main>
+    );
   }
 
   return (

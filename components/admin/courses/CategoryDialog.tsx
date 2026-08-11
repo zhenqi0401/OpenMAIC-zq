@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/antd/AntdButton';
+import { Input } from 'antd';
 import {
   Dialog,
   DialogClose,
@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from '@/components/antd/AntdDialog';
 import {
   adminPrimaryButtonClassName,
   adminInputClassName,

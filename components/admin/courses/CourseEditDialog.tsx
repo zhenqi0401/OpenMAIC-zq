@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Input, Select } from 'antd';
+import { Button } from '@/components/antd/AntdButton';
 import {
   Dialog,
   DialogClose,
@@ -10,7 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from '@/components/antd/AntdDialog';
 import {
   adminPrimaryButtonClassName,
   adminSecondaryButtonClassName,
@@ -86,9 +87,9 @@ function CourseEditDialogContent({
         <div className="grid gap-4">
           <label className="grid gap-2 text-sm font-medium">
             课程名称
-            <input
+            <Input
               aria-label="课程名称"
-              className="h-10 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm outline-none focus:border-[var(--admin-selection-border)]"
+              className="!h-10 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm outline-none focus:border-[var(--admin-selection-border)]"
               disabled={saving}
               onChange={(event) => setName(event.target.value)}
               value={name}
@@ -96,20 +97,17 @@ function CourseEditDialogContent({
           </label>
           <label className="grid gap-2 text-sm font-medium">
             课程分类
-            <select
+            <Select
               aria-label="课程分类"
-              className="h-10 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm outline-none focus:border-[var(--admin-selection-border)]"
+              className="w-full"
               disabled={saving}
-              onChange={(event) => setCategoryId(event.target.value)}
+              onChange={(value) => setCategoryId(value)}
               value={categoryId}
-            >
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                  {category.scope === 'platform' ? '（平台固定分类）' : ''}
-                </option>
-              ))}
-            </select>
+              options={categories.map((category) => ({
+                value: category.id,
+                label: `${category.name}${category.scope === 'platform' ? '（平台固定分类）' : ''}`,
+              }))}
+            />
           </label>
           {course.scope === 'platform' ? (
             <p className="text-sm text-[var(--admin-warning)]">平台精品课程只读，不能修改。</p>

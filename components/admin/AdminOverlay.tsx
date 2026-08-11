@@ -1,26 +1,9 @@
 'use client';
 
-import type { ComponentProps, ReactNode } from 'react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import type { ComponentProps, MouseEvent, ReactElement, ReactNode } from 'react';
+import { cloneElement, isValidElement, useState } from 'react';
+import { Drawer, Modal, Popconfirm } from 'antd';
+
 import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import {
   adminDangerButtonClassName,
@@ -36,6 +19,35 @@ interface AdminOverlayProps {
   contentClassName?: string;
 }
 
+function withClick(trigger: ReactNode, onClick: () => void): ReactNode {
+  if (isValidElement(trigger)) {
+    const element = trigger as ReactElement<{
+      onClick?: (event: MouseEvent<HTMLElement>) => void;
+    }>;
+    return cloneElement(element, {
+      onClick: (event) => {
+        element.props.onClick?.(event);
+        onClick();
+      },
+    });
+  }
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+    >
+      {trigger}
+    </span>
+  );
+}
+
 export function AdminDialog({
   trigger,
   title,
@@ -43,27 +55,27 @@ export function AdminDialog({
   children,
   contentClassName,
 }: AdminOverlayProps) {
+  const [open, setOpen] = useState(false);
   return (
-    <Dialog>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent
+    <>
+      {withClick(trigger, () => setOpen(true))}
+      <Modal
         {...adminThemeAttributes}
-        className={cn(
-          'max-h-[min(720px,calc(100dvh-32px))] max-w-2xl overflow-y-auto rounded-[var(--admin-radius-dialog)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)] shadow-[var(--admin-shadow-popover)]',
-          contentClassName,
-        )}
+        centered
+        destroyOnHidden
+        footer={null}
+        open={open}
+        title={title}
+        width={720}
+        className={cn('max-h-[calc(100dvh-32px)]', contentClassName)}
+        onCancel={() => setOpen(false)}
       >
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold leading-7">{title}</DialogTitle>
-          {description ? (
-            <DialogDescription className="text-sm leading-5 text-[var(--admin-muted-foreground)]">
-              {description}
-            </DialogDescription>
-          ) : null}
-        </DialogHeader>
+        {description ? (
+          <p className="mb-4 text-sm text-[var(--admin-muted-foreground)]">{description}</p>
+        ) : null}
         {children}
-      </DialogContent>
-    </Dialog>
+      </Modal>
+    </>
   );
 }
 
@@ -74,27 +86,24 @@ export function AdminDrawer({
   children,
   contentClassName,
 }: AdminOverlayProps) {
+  const [open, setOpen] = useState(false);
   return (
-    <Dialog>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent
+    <>
+      {withClick(trigger, () => setOpen(true))}
+      <Drawer
         {...adminThemeAttributes}
-        className={cn(
-          'inset-y-0 left-auto right-0 top-0 h-[100dvh] max-h-none w-[min(92vw,560px)] max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none rounded-l-[var(--admin-radius-dialog)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)] shadow-[var(--admin-shadow-popover)] data-open:slide-in-from-right data-closed:slide-out-to-right',
-          contentClassName,
-        )}
+        destroyOnHidden
+        open={open}
+        title={title}
+        className={contentClassName}
+        onClose={() => setOpen(false)}
       >
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold leading-7">{title}</DialogTitle>
-          {description ? (
-            <DialogDescription className="text-sm leading-5 text-[var(--admin-muted-foreground)]">
-              {description}
-            </DialogDescription>
-          ) : null}
-        </DialogHeader>
+        {description ? (
+          <p className="mb-4 text-sm text-[var(--admin-muted-foreground)]">{description}</p>
+        ) : null}
         {children}
-      </DialogContent>
-    </Dialog>
+      </Drawer>
+    </>
   );
 }
 
@@ -114,38 +123,18 @@ export function AdminDangerConfirmDialog({
   onConfirm: () => void;
 }) {
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
-      <AlertDialogContent
-        {...adminThemeAttributes}
-        className="rounded-[var(--admin-radius-dialog)] border border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)] shadow-[var(--admin-shadow-popover)]"
-      >
-        <AlertDialogHeader>
-          <AlertDialogTitle className="text-xl font-semibold leading-7">{title}</AlertDialogTitle>
-          <AlertDialogDescription className="text-sm leading-5 text-[var(--admin-muted-foreground)]">
-            {description}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel className={adminSecondaryButtonClassName} disabled={busy}>
-            取消
-          </AlertDialogCancel>
-          <AlertDialogAction asChild>
-            <Button
-              aria-busy={busy}
-              className={adminDangerButtonClassName}
-              disabled={busy}
-              onClick={onConfirm}
-              type="button"
-              variant="destructive"
-            >
-              {busy ? '处理中…' : confirmLabel}
-            </Button>
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <Popconfirm
+      title={title}
+      description={description}
+      okText={busy ? '处理中…' : confirmLabel}
+      cancelText="取消"
+      okButtonProps={{ danger: true, className: adminDangerButtonClassName, loading: busy }}
+      cancelButtonProps={{ className: adminSecondaryButtonClassName, disabled: busy }}
+      onConfirm={onConfirm}
+    >
+      {trigger}
+    </Popconfirm>
   );
 }
 
-export type AdminDialogContentProps = ComponentProps<typeof DialogContent>;
+export type AdminDialogContentProps = ComponentProps<typeof Modal>;

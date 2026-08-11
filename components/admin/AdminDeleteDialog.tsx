@@ -10,8 +10,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
+} from '@/components/antd/AntdAlertDialog';
+import { Button } from '@/components/antd/AntdButton';
 import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import {
   adminDangerButtonClassName,

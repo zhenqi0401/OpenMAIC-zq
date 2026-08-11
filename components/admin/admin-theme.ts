@@ -7,6 +7,7 @@ export const ADMIN_THEME_NAME = 'yuanwo-saas-admin' as const;
  * semantic `--admin-*` contract below; these primitives stay in this file.
  */
 export const adminBrandTokens = {
+  // Ant Design Pro 的浅色工作台基底：内容区留白，卡片保持纯白层级。
   '--saas-surface': '#f7f9fb',
   '--saas-surface-lowest': '#ffffff',
   '--saas-surface-low': '#f2f4f6',
@@ -91,6 +92,8 @@ export const adminSemanticTokens = {
   '--admin-duration-fast': '120ms',
   '--admin-duration-normal': '180ms',
   '--admin-ease-standard': 'cubic-bezier(0.2, 0, 0, 1)',
+  '--admin-header-height': '64px',
+  '--admin-content-max-width': '1680px',
 } as const;
 
 const shadcnAdminTokens = {

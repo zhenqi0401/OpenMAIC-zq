@@ -8,7 +8,7 @@ import {
   adminPrimaryButtonClassName,
 } from '@/components/admin/AdminSurface';
 import { BrandLockup } from '@/components/brand/BrandLockup';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/antd/AntdButton';
 
 type GateState =
   | { status: 'checking' }

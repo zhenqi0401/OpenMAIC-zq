@@ -1,6 +1,6 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/antd/AntdButton';
 import Link from 'next/link';
 import type { Slide } from '@openmaic/dsl';
 import { SlideThumbnail } from '@/components/slide-renderer/SlideThumbnail';

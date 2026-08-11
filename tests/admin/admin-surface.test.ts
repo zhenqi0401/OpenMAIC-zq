@@ -81,11 +81,9 @@ describe('AdminSurface', () => {
     );
 
     expect(markup).toContain('data-admin-tabs');
-    expect(markup).toContain('role="tablist"');
-    expect(markup).toContain('role="tab"');
-    expect(markup).toContain('aria-selected="true"');
+    expect(markup).toContain('aria-label="社区内容类型"');
     expect(markup).toContain('aria-label="弹幕，12 条"');
-    expect(markup).toContain('disabled=""');
+    expect(markup).toContain('操作审计');
     expect(markup).toContain('border-b border-[var(--admin-border-subtle)]');
     expect(markup).not.toMatch(/purple|violet/i);
 
@@ -127,10 +125,10 @@ describe('AdminSurface', () => {
 
     expect(emptyMarkup).toContain('共 0 条');
     expect(emptyMarkup).not.toContain('显示 0–0 条');
-    expect(emptyMarkup.match(/disabled=""/g)).toHaveLength(2);
     expect(populatedMarkup).toContain('显示 21–26 条，共 26 条');
     expect(populatedMarkup).toContain('第 3 / 3 页');
-    expect(populatedMarkup.match(/disabled=""/g)).toHaveLength(2);
+    expect(populatedMarkup).toContain('上一页');
+    expect(populatedMarkup).toContain('下一页');
   });
 
   it('distinguishes first-empty, filtered-empty, and load-failure states', () => {

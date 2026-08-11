@@ -1,9 +1,8 @@
 'use client';
 
 import { CheckCircle2, Info } from 'lucide-react';
+import { Button, Statistic, Tooltip } from 'antd';
 import { AdminCard } from '@/components/admin/AdminSurface';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { adminThemeAttributes } from '@/components/admin/admin-theme';
 
 export interface DashboardMetricProps {
   label: string;
@@ -22,25 +21,21 @@ export function DashboardMetric({ label, value, progress, note, tooltip }: Dashb
         <span className="flex items-center gap-1.5">
           {label}
           {tooltip ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  aria-label={`${label}指标口径`}
-                  className="rounded-full text-[var(--admin-link)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus-ring)]/30"
-                  type="button"
-                >
-                  <Info aria-hidden="true" className="size-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent {...adminThemeAttributes}>{tooltip}</TooltipContent>
+            <Tooltip title={tooltip}>
+              <Button
+                aria-label={`${label}指标口径`}
+                className="!h-auto !rounded-full !p-0 !text-[var(--admin-link)]"
+                type="text"
+                htmlType="button"
+              >
+                <Info aria-hidden="true" className="size-3.5" />
+              </Button>
             </Tooltip>
           ) : null}
         </span>
         <CheckCircle2 aria-hidden="true" className="size-4 text-[var(--admin-success)]" />
       </div>
-      <div className="text-[28px] font-semibold leading-8 tabular-nums tracking-[-0.02em] text-[var(--admin-foreground)]">
-        {value}
-      </div>
+      <Statistic value={value} valueStyle={{ color: 'var(--admin-foreground)', fontSize: 28 }} />
       {width === null ? null : (
         <div className="h-2 overflow-hidden rounded-full bg-[var(--admin-border-subtle)]">
           <span

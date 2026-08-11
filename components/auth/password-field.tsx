@@ -1,29 +1,38 @@
 'use client';
 
-import { useState, type ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
+import { Input as AntInput } from 'antd';
+import { Label } from '@/components/ui/label';
 
 import { AuthField } from './auth-field';
 
 type PasswordFieldProps = Omit<ComponentProps<typeof AuthField>, 'type' | 'action'>;
 
 export function PasswordField(props: PasswordFieldProps) {
-  const [revealed, setRevealed] = useState(false);
-
+  const { name, label, error, className, ...inputProps } = props;
+  const errorId = `${name}-error`;
   return (
-    <AuthField
-      {...props}
-      type={revealed ? 'text' : 'password'}
-      action={
-        <button
-          type="button"
-          className="absolute top-1/2 right-2 flex min-h-8 min-w-11 -translate-y-1/2 items-center justify-center rounded-lg px-2 text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-slate-100 hover:text-foreground focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none"
-          aria-controls={props.name}
-          aria-label={revealed ? '隐藏密码' : '显示密码'}
-          onClick={() => setRevealed((current) => !current)}
-        >
-          {revealed ? '隐藏' : '显示'}
-        </button>
-      }
-    />
+    <div className="grid gap-2" data-field={name}>
+      <Label htmlFor={name} className="text-[13px] font-semibold text-foreground">
+        {label}
+      </Label>
+      <AntInput.Password
+        {...inputProps}
+        id={name}
+        name={name}
+        className={`h-12 rounded-xl border-slate-300 bg-background px-3.5 text-base placeholder:text-slate-400 ${className ?? ''}`}
+        aria-describedby={errorId}
+        aria-invalid={Boolean(error)}
+        status={error ? 'error' : undefined}
+        visibilityToggle
+      />
+      <p
+        id={errorId}
+        className="text-xs leading-snug text-destructive empty:hidden"
+        aria-live="polite"
+      >
+        {error}
+      </p>
+    </div>
   );
 }

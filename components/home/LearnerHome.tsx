@@ -3,11 +3,19 @@
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, CheckCircle2, GraduationCap, PlayCircle, RefreshCw, Search, UserRound } from 'lucide-react';
+import { Card as AntCard, Statistic } from 'antd';
+import {
+  BookOpen,
+  CheckCircle2,
+  GraduationCap,
+  PlayCircle,
+  RefreshCw,
+  Search,
+  UserRound,
+} from 'lucide-react';
 import type { Slide } from '@openmaic/dsl';
 import { SlideThumbnail } from '@/components/slide-renderer/SlideThumbnail';
 import { StageExamPanel } from '@/components/assessment/StageExamPanel';
-import { BrandLockup } from '@/components/brand/BrandLockup';
 import { LearnerHeader } from '@/components/home/LearnerHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -200,9 +208,12 @@ export function LearnerHome({
             />
             <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
               <div className="max-w-xl">
-                <div className="flex items-center gap-2">
-                  <GraduationCap className="size-4 text-primary dark:text-primary/80" aria-hidden="true" />
-                  <BrandLockup variant="compact" priority />
+                <div className="flex items-center gap-2 text-sm font-medium text-primary dark:text-primary/80">
+                  <GraduationCap
+                    className="size-4 text-primary dark:text-primary/80"
+                    aria-hidden="true"
+                  />
+                  学习概览
                 </div>
                 <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl dark:text-white">
                   欢迎回来，{displayName}
@@ -219,21 +230,20 @@ export function LearnerHome({
                 ].map((item) => {
                   const Icon = item.icon;
                   return (
-                    <div
-                      className="grid min-w-24 gap-1 rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-center shadow-sm backdrop-blur dark:border-slate-700 dark:bg-card-solid/80"
+                    <AntCard
+                      size="small"
+                      className="min-w-24 !rounded-xl !border-slate-200 !bg-white/80 !text-center !shadow-sm dark:!border-slate-700 dark:!bg-card-solid/80"
                       key={item.label}
                     >
-                      <Icon
-                        aria-hidden="true"
-                        className="mx-auto size-4 text-primary dark:text-primary/80"
+                      <Statistic
+                        title={item.label}
+                        value={item.value}
+                        prefix={
+                          <Icon aria-hidden="true" className="text-primary dark:text-primary/80" />
+                        }
+                        valueStyle={{ fontSize: 24, fontWeight: 600 }}
                       />
-                      <span className="text-xl font-semibold tabular-nums text-slate-900 dark:text-white">
-                        {item.value}
-                      </span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">
-                        {item.label}
-                      </span>
-                    </div>
+                    </AntCard>
                   );
                 })}
               </div>
@@ -248,7 +258,10 @@ export function LearnerHome({
                 id="learner-continue-title"
                 className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white"
               >
-                <PlayCircle className="size-5 text-primary dark:text-primary/80" aria-hidden="true" />
+                <PlayCircle
+                  className="size-5 text-primary dark:text-primary/80"
+                  aria-hidden="true"
+                />
                 继续学习
               </h2>
               <span className="text-sm text-slate-500 dark:text-slate-400">
@@ -573,19 +586,14 @@ function ContinueCourseCard({
               viewportRatio={slide.viewportRatio ?? 0.5625}
             />
           ) : (
-            <div
-              className="absolute inset-0 flex items-center justify-center"
-              aria-hidden="true"
-            >
+            <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
               <BookOpen className="size-6 text-primary/70 dark:text-primary/40" />
             </div>
           )}
           <span
             className={cn(
               'absolute left-2 top-2 rounded-md px-2 py-0.5 text-[11px] font-semibold text-white shadow-sm',
-              pendingAssessment
-                ? 'bg-amber-500'
-                : 'bg-gradient-to-r from-blue-600 to-primary',
+              pendingAssessment ? 'bg-amber-500' : 'bg-gradient-to-r from-blue-600 to-primary',
             )}
           >
             {pendingAssessment ? '待考核' : '学习中'}

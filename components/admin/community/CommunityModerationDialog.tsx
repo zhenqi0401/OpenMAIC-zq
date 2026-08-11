@@ -1,7 +1,8 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Input, Radio } from 'antd';
+import { Button } from '@/components/antd/AntdButton';
 import {
   Dialog,
   DialogClose,
@@ -10,8 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
+} from '@/components/antd/AntdDialog';
 import {
   AdminNotice,
   adminDangerButtonClassName,
@@ -28,6 +28,8 @@ import {
   composeModerationReason,
   moderationRequiresReason,
 } from '@/lib/admin/community-presentation';
+
+const { TextArea: Textarea } = Input;
 
 export function CommunityModerationDialog({
   action,
@@ -101,7 +103,12 @@ export function CommunityModerationDialog({
 
           <fieldset className="grid gap-2">
             <legend className="text-sm font-medium">
-              管理原因{reasonRequired ? <span className="text-[var(--admin-danger)]">（必填）</span> : '（可选）'}
+              管理原因
+              {reasonRequired ? (
+                <span className="text-[var(--admin-danger)]">（必填）</span>
+              ) : (
+                '（可选）'
+              )}
             </legend>
             <div className="grid gap-2 sm:grid-cols-2">
               {COMMUNITY_REASON_PRESETS.map((reason) => (
@@ -109,15 +116,13 @@ export function CommunityModerationDialog({
                   className="flex cursor-pointer items-center gap-2 rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] px-3 py-2 text-sm"
                   key={reason}
                 >
-                  <input
+                  <Radio
                     checked={preset === reason}
                     disabled={submitting}
-                    name="community-moderation-reason"
                     onChange={() => {
                       setPreset(reason);
                       setValidationError(null);
                     }}
-                    type="radio"
                   />
                   {reason}
                 </label>

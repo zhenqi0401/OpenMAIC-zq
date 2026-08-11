@@ -3,10 +3,9 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Button, Empty, Form, Input, Pagination, Select, Skeleton } from 'antd';
 import {
   BookOpen,
-  ChevronLeft,
-  ChevronRight,
   Clock3,
   Eye,
   Lock,
@@ -17,9 +16,6 @@ import {
   Send,
 } from 'lucide-react';
 import { getDisplayNameInitial } from '@/components/home/LearnerHeader';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import {
   FORUM_POST_MAX_LENGTH,
@@ -35,6 +31,7 @@ import {
 import { ForumFrame } from './ForumFrame';
 
 type ForumView = 'all' | 'course' | 'mine';
+const { TextArea } = Input;
 const PAGE_SIZE = 10;
 
 interface ListResponse {
@@ -237,45 +234,37 @@ export function ForumListPage() {
         </section>
 
         {composing && (
-          <form
-            onSubmit={submitPost}
+          <Form
+            component="form"
+            onSubmitCapture={submitPost}
             className="mt-7 rounded-xl border border-primary/20 bg-white p-5 shadow-sm dark:border-primary/30 dark:bg-card-solid sm:p-6"
           >
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap gap-2" role="group" aria-label="帖子类型">
                 {(['global', 'course'] as const).map((value) => (
-                  <button
+                  <Button
                     key={value}
-                    type="button"
+                    size="small"
+                    type={scope === value ? 'primary' : 'default'}
+                    htmlType="button"
                     aria-pressed={scope === value}
                     onClick={() => setScope(value)}
-                    className={cn(
-                      'rounded-full border px-3 py-1.5 text-xs transition-colors',
-                      scope === value
-                        ? 'border-primary bg-primary/5 text-primary dark:bg-primary/30 dark:text-primary'
-                        : 'border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300',
-                    )}
+                    className="rounded-full"
                   >
                     {value === 'global' ? '全局讨论' : '关联课程'}
-                  </button>
+                  </Button>
                 ))}
               </div>
               {scope === 'course' && (
                 <label className="grid gap-1.5 text-sm font-medium">
                   关联课程
-                  <select
+                  <Select
                     value={draftCourseId}
-                    required
-                    onChange={(event) => setDraftCourseId(event.target.value)}
-                    className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-page"
-                  >
-                    <option value="">请选择当前可见课程</option>
-                    {courses.map((course) => (
-                      <option key={course.id} value={course.id}>
-                        {course.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => setDraftCourseId(value)}
+                    className="w-full"
+                    placeholder="请选择当前可见课程"
+                    options={courses.map((course) => ({ value: course.id, label: course.name }))}
+                  />
                 </label>
               )}
               <label className="grid gap-1.5 text-sm font-medium">
@@ -293,7 +282,7 @@ export function ForumListPage() {
               </label>
               <label className="grid gap-1.5 text-sm font-medium">
                 正文
-                <Textarea
+                <TextArea
                   value={body}
                   required
                   maxLength={FORUM_POST_MAX_LENGTH}
@@ -306,7 +295,7 @@ export function ForumListPage() {
                 </span>
               </label>
               <div className="flex justify-end">
-                <Button type="submit" disabled={submitting || !title.trim() || !body.trim()}>
+                <Button htmlType="submit" disabled={submitting || !title.trim() || !body.trim()}>
                   {submitting ? (
                     <RefreshCw className="size-4 animate-spin" />
                   ) : (
@@ -316,16 +305,17 @@ export function ForumListPage() {
                 </Button>
               </div>
             </div>
-          </form>
+          </Form>
         )}
 
         <div className="mt-7">
           <aside className="flex flex-col gap-3 border-b border-slate-200 pb-5 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
             <nav className="flex flex-wrap gap-2" aria-label="讨论分类">
               {VIEWS.map((item) => (
-                <button
+                <Button
                   key={item.value}
-                  type="button"
+                  type={view === item.value ? 'primary' : 'default'}
+                  htmlType="button"
                   onClick={() =>
                     setQuery({
                       view: item.value === 'all' ? null : item.value,
@@ -333,34 +323,24 @@ export function ForumListPage() {
                       courseId: item.value === 'course' ? courseId : null,
                     })
                   }
-                  className={cn(
-                    'min-h-11 rounded-lg px-4 py-2.5 text-left text-base transition-colors',
-                    view === item.value
-                      ? 'bg-primary/10 font-semibold text-primary dark:bg-primary/30 dark:text-primary'
-                      : 'text-slate-600 hover:bg-white dark:text-slate-300 dark:hover:bg-slate-800',
-                  )}
+                  className="min-h-11 rounded-lg px-4 py-2.5 text-left text-base"
                 >
                   {item.label}
-                </button>
+                </Button>
               ))}
             </nav>
             {view === 'course' && (
               <label className="grid gap-2 text-sm font-medium text-slate-500 sm:min-w-64">
                 按课程筛选
-                <select
+                <Select
                   value={courseId}
-                  onChange={(event) =>
-                    setQuery({ courseId: event.target.value || null, page: null })
-                  }
-                  className="h-11 min-w-0 rounded-md border border-slate-200 bg-white px-3 text-base text-slate-800 dark:border-slate-700 dark:bg-card-solid dark:text-slate-100"
-                >
-                  <option value="">全部课程</option>
-                  {courses.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => setQuery({ courseId: value || null, page: null })}
+                  className="min-w-0 sm:min-w-64"
+                  options={[
+                    { value: '', label: '全部课程' },
+                    ...courses.map((course) => ({ value: course.id, label: course.name })),
+                  ]}
+                />
               </label>
             )}
           </aside>
@@ -388,44 +368,39 @@ export function ForumListPage() {
                     ['activity', '最后回复'],
                   ] as const
                 ).map(([value, label]) => (
-                  <button
+                  <Button
                     key={value}
-                    type="button"
+                    type={sort === value ? 'primary' : 'default'}
+                    htmlType="button"
                     aria-pressed={sort === value}
                     onClick={() =>
                       setQuery({ sort: value === 'latest' ? null : value, page: null })
                     }
-                    className={cn(
-                      'min-h-9 rounded px-4 py-1.5 text-sm',
-                      sort === value
-                        ? 'bg-primary/10 font-semibold text-primary dark:bg-primary/20 dark:text-primary'
-                        : 'text-slate-500',
-                    )}
+                    className="min-h-9 rounded px-4 py-1.5 text-sm"
                   >
                     {label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
 
             {error && (
-              <div
-                role="alert"
-                className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-950 dark:bg-red-950/30 dark:text-red-300"
-              >
-                {error}{' '}
-                <button type="button" onClick={() => void loadPosts()} className="ml-2 underline">
-                  重试
-                </button>
-              </div>
+              <Alert
+                className="mt-5"
+                type="error"
+                showIcon
+                message={error}
+                action={
+                  <Button type="link" onClick={() => void loadPosts()}>
+                    重试
+                  </Button>
+                }
+              />
             )}
             {loading ? (
               <div className="grid gap-3 py-5" aria-label="正在加载讨论">
                 {Array.from({ length: 4 }, (_, index) => (
-                  <div
-                    key={index}
-                    className="h-32 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800"
-                  />
+                  <Skeleton key={index} active paragraph={{ rows: 2 }} />
                 ))}
               </div>
             ) : posts.length ? (
@@ -493,39 +468,23 @@ export function ForumListPage() {
                 </div>
               </div>
             ) : !error ? (
-              <div className="py-16 text-center">
-                <MessageCircle className="mx-auto size-8 text-slate-300" />
-                <p className="mt-3 font-medium">这里还没有讨论</p>
-                <p className="mt-1 text-sm text-slate-500">发布第一个帖子，开始交流吧。</p>
-              </div>
+              <Empty className="py-16" description="这里还没有讨论，发布第一个帖子开始交流吧。" />
             ) : null}
 
             {!loading && totalPages > 1 && (
               <nav
-                className="mt-6 flex items-center justify-between border-t border-slate-200 pt-5 text-sm dark:border-slate-800"
+                className="mt-6 flex justify-end border-t border-slate-200 pt-5 dark:border-slate-800"
                 aria-label="帖子分页"
               >
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setQuery({ page: page > 2 ? String(page - 1) : null })}
-                >
-                  <ChevronLeft className="size-4" />
-                  上一页
-                </Button>
-                <span className="text-xs text-slate-500">
-                  第 {page} / {totalPages} 页
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setQuery({ page: String(page + 1) })}
-                >
-                  下一页
-                  <ChevronRight className="size-4" />
-                </Button>
+                <Pagination
+                  current={page}
+                  pageSize={PAGE_SIZE}
+                  showSizeChanger={false}
+                  total={total}
+                  onChange={(nextPage) =>
+                    setQuery({ page: nextPage > 1 ? String(nextPage) : null })
+                  }
+                />
               </nav>
             )}
           </section>

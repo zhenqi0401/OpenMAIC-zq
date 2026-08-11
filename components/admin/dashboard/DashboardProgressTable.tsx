@@ -1,14 +1,13 @@
 'use client';
 
 import type { Dispatch, SetStateAction } from 'react';
+import { Input, Select } from 'antd';
 import {
   AdminCard,
   adminInputClassName,
   adminPrimaryButtonClassName,
-  adminSelectClassName,
 } from '@/components/admin/AdminSurface';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/antd/AntdButton';
 import { buildRoleOptions, type AdminRole } from '@/lib/admin/client';
 import type { EnterpriseProgressDetail } from '@/lib/storage/enterprise-service';
 import { paginateAdminRows } from '@/lib/admin/pagination';
@@ -78,20 +77,15 @@ export function DashboardProgressTable({
         </label>
         <label className="grid gap-1.5 text-sm font-medium text-[var(--admin-foreground)]">
           <span>角色</span>
-          <select
-            className={adminSelectClassName}
+          <Select
+            className="w-full"
             value={dashboardFilters.roleId}
-            onChange={(event) =>
-              onFilterChange((filters) => ({ ...filters, roleId: event.target.value }))
-            }
-          >
-            <option value="">全部角色</option>
-            {roleOptions.map((role) => (
-              <option key={role.value} value={role.value}>
-                {role.label}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => onFilterChange((filters) => ({ ...filters, roleId: value }))}
+            options={[
+              { value: '', label: '全部角色' },
+              ...roleOptions.map((role) => ({ value: role.value, label: role.label })),
+            ]}
+          />
         </label>
         <label className="grid gap-1.5 text-sm font-medium text-[var(--admin-foreground)]">
           <span>课程 ID</span>

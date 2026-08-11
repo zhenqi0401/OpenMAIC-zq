@@ -1,13 +1,14 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { Select } from 'antd';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+} from '@/components/antd/AntdDialog';
+import { Button } from '@/components/antd/AntdButton';
 import {
   adminPrimaryButtonClassName,
   adminSecondaryButtonClassName,
@@ -79,24 +80,21 @@ export function RoleLearningPathDialog({
             return (
               <div className="flex items-center gap-2" key={`${id}-${index}`}>
                 <span className="w-6 text-sm">{index + 1}.</span>
-                <select
-                  className="min-h-10 flex-1 rounded border p-2"
+                <Select
+                  className="min-h-10 flex-1"
                   value={id}
-                  onChange={(event) =>
+                  onChange={(nextValue) =>
                     setSelected((current) =>
-                      current.map((value, cursor) =>
-                        cursor === index ? event.target.value : value,
+                      current.map((currentValue, cursor) =>
+                        cursor === index ? nextValue : currentValue,
                       ),
                     )
                   }
-                >
-                  <option value="">选择课程</option>
-                  {available.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.name}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { value: '', label: '选择课程' },
+                    ...available.map((course) => ({ value: course.id, label: course.name })),
+                  ]}
+                />
                 <Button
                   className={adminSecondaryButtonClassName}
                   onClick={() =>

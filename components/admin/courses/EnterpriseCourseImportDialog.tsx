@@ -1,10 +1,11 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { CheckCircle2, FileArchive, LoaderCircle, Upload } from 'lucide-react';
+import { useState } from 'react';
+import { Select, Upload } from 'antd';
+import { CheckCircle2, FileArchive, LoaderCircle, Upload as UploadIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/antd/AntdButton';
 import {
   Dialog,
   DialogContent,
@@ -12,14 +13,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+} from '@/components/antd/AntdDialog';
 import type { EnterpriseCourseImportWarning } from '@/lib/import/enterprise-course-import';
 import {
   previewEnterpriseCourseZip,
@@ -44,7 +38,6 @@ export function EnterpriseCourseImportDialog({
   onOpenChange: (open: boolean) => void;
   onImported?: () => Promise<void> | void;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<EnterpriseCourseZipPreview | null>(null);
   const [categoryId, setCategoryId] = useState('');
@@ -60,7 +53,6 @@ export function EnterpriseCourseImportDialog({
     setPhase('idle');
     setError(null);
     setWarnings([]);
-    if (inputRef.current) inputRef.current.value = '';
   }
 
   function close() {
@@ -148,26 +140,25 @@ export function EnterpriseCourseImportDialog({
         </DialogHeader>
 
         <div className="grid gap-4">
-          <input
-            ref={inputRef}
-            className="hidden"
-            type="file"
+          <Upload
             accept=".maic.zip,.zip,application/zip"
-            onChange={(event) => void chooseFile(event.target.files?.[0])}
-          />
-          <Button
+            beforeUpload={(selected) => {
+              void chooseFile(selected);
+              return false;
+            }}
             disabled={busy}
-            onClick={() => inputRef.current?.click()}
-            type="button"
-            variant="outline"
+            maxCount={1}
+            showUploadList={false}
           >
-            {phase === 'previewing' ? (
-              <LoaderCircle className="size-4 animate-spin" />
-            ) : (
-              <FileArchive className="size-4" />
-            )}
-            {file ? '重新选择课程包' : '选择课程 ZIP'}
-          </Button>
+            <Button disabled={busy} type="button" variant="outline">
+              {phase === 'previewing' ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <FileArchive className="size-4" />
+              )}
+              {file ? '重新选择课程包' : '选择课程 ZIP'}
+            </Button>
+          </Upload>
           {file ? (
             <div className="rounded-lg border bg-muted/30 p-3 text-sm">
               <div className="font-medium">{preview?.name ?? file.name}</div>
@@ -183,22 +174,16 @@ export function EnterpriseCourseImportDialog({
             <Select
               disabled={busy || categories.length === 0}
               value={categoryId}
-              onValueChange={setCategoryId}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="请选择课程分类" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onChange={setCategoryId}
+              className="w-full"
+              placeholder="请选择课程分类"
+              options={categories.map((category) => ({ value: category.id, label: category.name }))}
+            />
           </label>
           {categories.length === 0 ? (
-            <p className="text-sm text-[var(--admin-warning)]">当前没有课程分类，请先到课程管理创建分类。</p>
+            <p className="text-sm text-[var(--admin-warning)]">
+              当前没有课程分类，请先到课程管理创建分类。
+            </p>
           ) : null}
           {busy || phase === 'done' ? (
             <ol className="grid grid-cols-3 gap-2 text-xs" aria-label="导入进度">
@@ -251,7 +236,7 @@ export function EnterpriseCourseImportDialog({
             {busy ? (
               <LoaderCircle className="size-4 animate-spin" />
             ) : (
-              <Upload className="size-4" />
+              <UploadIcon className="size-4" />
             )}
             {busy ? '正在导入' : '导入并保存为草稿'}
           </Button>

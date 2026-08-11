@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import dayjs from 'dayjs';
+import { DatePicker, Input, Select } from 'antd';
 import { CalendarRange, MessageSquareText, Search } from 'lucide-react';
 import {
   AdminCard,
@@ -10,7 +12,6 @@ import {
   adminInputClassName,
   adminPrimaryButtonClassName,
   adminSecondaryButtonClassName,
-  adminSelectClassName,
 } from '@/components/admin/AdminSurface';
 import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
 import { AdminPagination } from '@/components/admin/AdminPagination';
@@ -19,10 +20,7 @@ import { AdminTabs } from '@/components/admin/AdminTabs';
 import { AdminRefreshButton } from '@/components/admin/AdminRefreshButton';
 import { CommunityContentList } from '@/components/admin/community/CommunityContentList';
 import { CommunityModerationDialog } from '@/components/admin/community/CommunityModerationDialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { adminThemeAttributes } from '@/components/admin/admin-theme';
+import { Button } from '@/components/antd/AntdButton';
 import {
   COMMUNITY_STATUS_LABELS,
   COMMUNITY_TARGET_LABELS,
@@ -66,6 +64,12 @@ const STATUS_OPTIONS: Record<CommunityContentType, Array<{ value: string; label:
     .map(([value, label]) => ({ value, label })),
   audit: Object.entries(COMMUNITY_TARGET_LABELS).map(([value, label]) => ({ value, label })),
 };
+
+function parseDateFilter(value: string) {
+  if (!value) return null;
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed : null;
+}
 
 export function CommunityAdminPanel() {
   const availableTabs = availableCommunityTabs(isDanmakuEnabled(), isForumEnabled());
@@ -305,56 +309,32 @@ export function CommunityAdminPanel() {
                 value={courseIdDraft}
               />
             ) : null}
-            <select
+            <Select
               aria-label={type === 'audit' ? '审计目标类型' : '内容状态'}
-              className={adminSelectClassName}
-              onChange={(event) => setStatusDraft(event.target.value)}
+              className="w-full"
+              onChange={(value) => setStatusDraft(value)}
               value={statusDraft}
-            >
-              <option value="">全部{type === 'audit' ? '目标' : '状态'}</option>
-              {STATUS_OPTIONS[type].map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button className={adminSecondaryButtonClassName} type="button" variant="outline">
-                  <CalendarRange aria-hidden="true" className="size-4" />
-                  选择日期范围
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent
-                {...adminThemeAttributes}
-                align="end"
-                className="grid w-[min(92vw,360px)] gap-3 border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 text-[var(--admin-foreground)]"
-              >
-                <label className="grid gap-1.5 text-sm">
-                  <span>开始时间</span>
-                  <Input
-                    aria-label="开始时间"
-                    className={adminInputClassName}
-                    onChange={(event) => setFromDraft(event.target.value)}
-                    type="datetime-local"
-                    value={fromDraft}
-                  />
-                </label>
-                <label className="grid gap-1.5 text-sm">
-                  <span>结束时间</span>
-                  <Input
-                    aria-label="结束时间"
-                    className={adminInputClassName}
-                    onChange={(event) => setToDraft(event.target.value)}
-                    type="datetime-local"
-                    value={toDraft}
-                  />
-                </label>
-                <p className="text-xs text-[var(--admin-muted-foreground)]">
-                  日期范围会在点击筛选后应用。
-                </p>
-              </PopoverContent>
-            </Popover>
+              options={[
+                { value: '', label: `全部${type === 'audit' ? '目标' : '状态'}` },
+                ...STATUS_OPTIONS[type].map((option) => ({
+                  value: option.value,
+                  label: option.label,
+                })),
+              ]}
+            />
+            <DatePicker.RangePicker
+              aria-label="日期范围"
+              className="w-full"
+              format="YYYY-MM-DD HH:mm"
+              placeholder={['开始时间', '结束时间']}
+              showTime={{ format: 'HH:mm' }}
+              value={[parseDateFilter(fromDraft), parseDateFilter(toDraft)]}
+              onChange={(dates) => {
+                setFromDraft(dates?.[0]?.format('YYYY-MM-DDTHH:mm') ?? '');
+                setToDraft(dates?.[1]?.format('YYYY-MM-DDTHH:mm') ?? '');
+              }}
+              separator={<CalendarRange aria-hidden="true" className="size-4" />}
+            />
             <div className="flex gap-2 md:col-span-2 xl:col-span-1 xl:justify-end">
               <Button
                 className={adminSecondaryButtonClassName}

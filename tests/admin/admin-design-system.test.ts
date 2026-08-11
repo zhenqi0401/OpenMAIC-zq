@@ -32,21 +32,23 @@ describe('Yuanwo SaaS admin design system', () => {
     expect(adminSemanticTokens['--admin-sidebar-compact-width']).toBe('72px');
   });
 
-  it('exports one theme boundary for portalled admin overlays', () => {
+  it('exports one theme boundary and mounts the Ant Design provider once', () => {
     expect(adminThemeAttributes['data-admin-theme']).toBe('yuanwo-saas-admin');
     expect(adminThemeAttributes.style['--primary']).toBe('var(--admin-action-primary)');
     expect(adminThemeAttributes.style['--ring']).toBe('var(--admin-focus-ring)');
 
-    const overlaySources = [
-      'components/admin/AdminRowActions.tsx',
-      'components/admin/AdminSessionActions.tsx',
-      'components/admin/courses/CategoryDialog.tsx',
-      'components/admin/exams/ScopePicker.tsx',
-      'components/admin/AdminOverlay.tsx',
-    ].map((file) => readFileSync(join(process.cwd(), file), 'utf8'));
-    expect(overlaySources.every((source) => source.includes('{...adminThemeAttributes}'))).toBe(
-      true,
+    const providerSource = readFileSync(
+      join(process.cwd(), 'components/providers/antd-provider.tsx'),
+      'utf8',
     );
+    const layoutSource = readFileSync(join(process.cwd(), 'app/layout.tsx'), 'utf8');
+
+    expect(providerSource).toContain('<ConfigProvider');
+    expect(providerSource).toContain('<AntApp>{children}</AntApp>');
+    expect(providerSource).toContain("colorPrimary: adminBrandTokens['--saas-primary']");
+    expect(providerSource).not.toMatch(/import\s+['"]antd\/dist\/reset\.css/);
+    expect(layoutSource.match(/<AntdProvider>/g)).toHaveLength(1);
+    expect(layoutSource).toContain('<AntdRegistry>');
   });
 
   it('keeps Stitch temporary colors and brands out of the formal theme', () => {

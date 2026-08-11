@@ -19,9 +19,9 @@ import {
   Trash2,
   UserRound,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/antd/AntdButton';
+import { Alert, Empty, Input, Skeleton } from 'antd';
+const { TextArea: Textarea } = Input;
 import type { SessionIdentity } from '@/lib/auth/types';
 import {
   FORUM_POST_MAX_LENGTH,
@@ -539,30 +539,18 @@ export function ForumPostPage({ postId }: { postId: string }) {
           </Link>
         </Button>
 
-        {error && (
-          <div
-            role="alert"
-            className="mb-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-950 dark:bg-red-950/30 dark:text-red-300"
-          >
-            {error}
-          </div>
-        )}
+        {error ? <Alert className="mb-5" message={error} type="error" showIcon /> : null}
         {loading ? (
-          <div className="space-y-4">
-            <div className="h-64 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
-            <div className="h-36 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
-          </div>
+          <Skeleton active paragraph={{ rows: 8 }} />
         ) : !post ? (
-          <div className="py-20 text-center">
-            <MessageCircle className="mx-auto size-8 text-slate-300" />
-            <h1 className="mt-4 text-xl font-semibold">无法打开这个讨论</h1>
-            <p className="mt-2 text-sm text-slate-500">
-              内容可能已删除，或你没有关联课程的访问权限。
-            </p>
+          <Empty
+            className="py-20"
+            description="无法打开这个讨论。内容可能已删除，或你没有关联课程的访问权限。"
+          >
             <Button asChild variant="outline" className="mt-5">
               <Link href="/forum">返回交流区</Link>
             </Button>
-          </div>
+          </Empty>
         ) : (
           <>
             <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-card-solid sm:p-7">

@@ -1,8 +1,7 @@
 'use client';
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { adminSecondaryButtonClassName } from '@/components/admin/AdminSurface';
+import { Pagination } from 'antd';
 
 export interface AdminPaginationProps {
   page: number;
@@ -26,8 +25,6 @@ export function AdminPagination({
   const lastPage = Math.max(1, totalPages);
   const currentPage = Math.min(Math.max(1, page), lastPage);
   const empty = total === 0;
-  const previousDisabled = loading || empty || currentPage <= 1;
-  const nextDisabled = loading || empty || currentPage >= lastPage;
   const summary = empty ? '共 0 条' : `显示 ${start}–${end} 条，共 ${total} 条`;
 
   return (
@@ -47,30 +44,34 @@ export function AdminPagination({
         <span className="text-xs tabular-nums text-[var(--admin-muted-foreground)]">
           第 {currentPage} / {lastPage} 页
         </span>
-        <Button
-          aria-label="上一页"
-          className={adminSecondaryButtonClassName}
-          disabled={previousDisabled}
-          onClick={() => onPageChange(currentPage - 1)}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          <ChevronLeft aria-hidden="true" />
-          上一页
-        </Button>
-        <Button
-          aria-label="下一页"
-          className={adminSecondaryButtonClassName}
-          disabled={nextDisabled}
-          onClick={() => onPageChange(currentPage + 1)}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          下一页
-          <ChevronRight aria-hidden="true" />
-        </Button>
+        <Pagination
+          current={currentPage}
+          disabled={loading || empty}
+          hideOnSinglePage={false}
+          itemRender={(page, type, originalElement) => {
+            if (type === 'prev')
+              return (
+                <span aria-label="上一页">
+                  <ChevronLeft aria-hidden="true" />
+                  上一页
+                </span>
+              );
+            if (type === 'next')
+              return (
+                <span aria-label="下一页">
+                  下一页
+                  <ChevronRight aria-hidden="true" />
+                </span>
+              );
+            return originalElement;
+          }}
+          pageSize={1}
+          showLessItems
+          showSizeChanger={false}
+          simple
+          total={lastPage}
+          onChange={onPageChange}
+        />
       </div>
     </nav>
   );

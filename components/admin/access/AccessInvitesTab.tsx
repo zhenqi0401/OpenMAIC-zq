@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Input, Select, Switch } from 'antd';
+import { Button } from '@/components/antd/AntdButton';
 import { adminThemeAttributes } from '@/components/admin/admin-theme';
 import {
   Dialog,
@@ -13,14 +13,13 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from '@/components/antd/AntdDialog';
 import {
   AdminCard,
   AdminStatusBadge,
   adminInputClassName,
   adminPrimaryButtonClassName,
   adminSecondaryButtonClassName,
-  adminSelectClassName,
 } from '@/components/admin/AdminSurface';
 import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
 import {
@@ -99,19 +98,16 @@ function InviteForm({
       ) : null}
       <label className="grid gap-1.5 text-sm text-[var(--admin-muted-foreground)]">
         <span>绑定角色</span>
-        <select
-          className={adminSelectClassName}
+        <Select
+          className="w-full"
           disabled={disabled}
-          onChange={(event) => onChange({ ...draft, roleId: event.target.value })}
+          onChange={(value) => onChange({ ...draft, roleId: value })}
           value={draft.roleId}
-        >
-          <option value="">请选择角色</option>
-          {roleOptions.map((role) => (
-            <option key={role.value} value={role.value}>
-              {role.label}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: '', label: '请选择角色' },
+            ...roleOptions.map((role) => ({ value: role.value, label: role.label })),
+          ]}
+        />
       </label>
       <label className="grid gap-1.5 text-sm text-[var(--admin-muted-foreground)]">
         <span>过期时间</span>
@@ -124,11 +120,10 @@ function InviteForm({
         />
       </label>
       <label className="inline-flex items-center gap-2 text-sm text-[var(--admin-muted-foreground)]">
-        <input
+        <Switch
           checked={draft.enabled}
           disabled={disabled}
-          onChange={(event) => onChange({ ...draft, enabled: event.target.checked })}
-          type="checkbox"
+          onChange={(checked) => onChange({ ...draft, enabled: checked })}
         />
         启用
       </label>

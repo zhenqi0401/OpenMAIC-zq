@@ -5,8 +5,8 @@ import * as echarts from 'echarts/core';
 import { LineChart } from 'echarts/charts';
 import { AriaComponent, GridComponent, TooltipComponent } from 'echarts/components';
 import { SVGRenderer } from 'echarts/renderers';
+import { Segmented } from 'antd';
 import { AdminCard } from '@/components/admin/AdminSurface';
-import { cn } from '@/lib/utils';
 import type { AdminDashboard } from '@/lib/admin/client';
 
 echarts.use([LineChart, AriaComponent, GridComponent, TooltipComponent, SVGRenderer]);
@@ -254,29 +254,17 @@ export function AdminActivityChart({
             真实帖子、回复和弹幕聚合；关闭的功能类型不计入互动。
           </p>
         </div>
-        <div
+        <Segmented
           aria-label="趋势周期"
-          className="inline-flex rounded-[var(--admin-radius-control)] bg-[var(--admin-surface-subtle)] p-1"
-          role="group"
-        >
-          {(['week', 'month', 'year'] as const).map((item) => (
-            <button
-              aria-pressed={range === item}
-              className={cn(
-                'h-8 rounded-md px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus-ring)]/30',
-                range === item
-                  ? 'bg-[var(--admin-chart-interactions)] text-white shadow-sm'
-                  : 'text-[var(--admin-muted-foreground)] hover:text-[var(--admin-foreground)]',
-              )}
-              disabled={loading}
-              key={item}
-              onClick={() => onRangeChange(item)}
-              type="button"
-            >
-              {{ week: '周', month: '月', year: '年' }[item]}
-            </button>
-          ))}
-        </div>
+          disabled={loading}
+          options={[
+            { value: 'week', label: '周' },
+            { value: 'month', label: '月' },
+            { value: 'year', label: '年' },
+          ]}
+          value={range}
+          onChange={(value) => onRangeChange(value as AdminActivityRange)}
+        />
       </div>
 
       <dl className="mt-5 grid grid-cols-2 gap-x-5 gap-y-3 border-y border-[var(--admin-border-subtle)] py-4 sm:grid-cols-4">
