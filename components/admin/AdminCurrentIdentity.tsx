@@ -46,7 +46,7 @@ export function formatAdminIdentity(
   return { company: companyLabel, user: userLabel, role: roleLabel };
 }
 
-export function AdminCurrentIdentity() {
+export function AdminCurrentIdentity({ variant = 'stacked' }: { variant?: 'stacked' | 'inline' }) {
   const [identity, setIdentity] = useState<AdminIdentityLabels>({
     company: '读取中…',
     user: '读取中…',
@@ -78,6 +78,30 @@ export function AdminCurrentIdentity() {
       cancelled = true;
     };
   }, []);
+
+  if (variant === 'inline') {
+    return (
+      <div
+        className="flex min-w-0 items-center gap-2.5 rounded-[var(--admin-radius-control)] border border-[var(--admin-border-subtle)] bg-[var(--admin-surface-subtle)] px-3 py-1.5"
+        data-admin-current-identity="inline"
+      >
+        <span
+          aria-hidden="true"
+          className="grid size-8 shrink-0 place-items-center rounded-full bg-[var(--admin-selection-background)] text-sm font-semibold text-[var(--admin-interactive-accent)]"
+        >
+          {Array.from(identity.user)[0] ?? '管'}
+        </span>
+        <span className="hidden min-w-0 flex-col lg:flex">
+          <strong className="truncate text-sm font-medium leading-5 text-[var(--admin-foreground)]">
+            {identity.user}
+          </strong>
+          <span className="truncate text-xs leading-4 text-[var(--admin-muted-foreground)]">
+            {identity.role} · {identity.company}
+          </span>
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div

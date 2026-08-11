@@ -107,7 +107,7 @@ export function DashboardAdminPanel() {
   }, [load]);
 
   return (
-    <AdminPage className="space-y-4" id="admin-dashboard">
+    <AdminPage id="admin-dashboard">
       <AdminSectionHeader
         action={
           <AdminSessionActions

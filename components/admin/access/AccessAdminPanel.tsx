@@ -317,10 +317,7 @@ export function AccessAdminPanel({ initialSection = 'users' }: { initialSection?
   }
 
   return (
-    <AdminPage
-      className="w-[calc(100vw-1.5rem)] space-y-4 sm:w-[calc(100vw-2rem)] lg:w-auto"
-      id="admin-access"
-    >
+    <AdminPage id="admin-access">
       <AdminSectionHeader
         action={
           <AdminSessionActions

@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, RefreshCw, Search, UserRound } from 'lucide-react';
+import { BookOpen, CheckCircle2, GraduationCap, PlayCircle, RefreshCw, Search, UserRound } from 'lucide-react';
 import type { Slide } from '@openmaic/dsl';
 import { SlideThumbnail } from '@/components/slide-renderer/SlideThumbnail';
 import { StageExamPanel } from '@/components/assessment/StageExamPanel';
+import { BrandLockup } from '@/components/brand/BrandLockup';
 import { LearnerHeader } from '@/components/home/LearnerHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -161,6 +162,18 @@ export function LearnerHome({
     }),
     [courses],
   );
+  const continueCourses = useMemo(
+    () =>
+      courses.filter(
+        (course) =>
+          course.learningStatus === 'learning' || course.learningStatus === 'assessment_pending',
+      ),
+    [courses],
+  );
+  const completedCount = useMemo(
+    () => courses.filter((course) => course.learningStatus === 'completed').length,
+    [courses],
+  );
 
   return (
     <div className="min-h-[100dvh] bg-page text-foreground dark:bg-page dark:text-slate-100">
@@ -172,6 +185,89 @@ export function LearnerHome({
       />
 
       <main className="mx-auto w-[min(1600px,calc(100%-1.25rem))] pb-16 pt-5 sm:w-[min(1600px,calc(100%-2rem))] sm:pt-7">
+        {!loading && !error ? (
+          <section
+            aria-label="学习概览"
+            className="relative mb-8 overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-primary/5 px-6 py-7 sm:px-8 sm:py-8 dark:border-slate-800 dark:from-card-solid dark:via-card-solid dark:to-primary/10"
+          >
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-16 -top-20 size-56 rounded-full border-[28px] border-primary/10 dark:border-primary/15"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -bottom-24 right-24 size-40 rounded-full border-[20px] border-slate-200/70 dark:border-slate-700/40"
+            />
+            <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-xl">
+                <div className="flex items-center gap-2">
+                  <GraduationCap className="size-4 text-primary dark:text-primary/80" aria-hidden="true" />
+                  <BrandLockup variant="compact" priority />
+                </div>
+                <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl dark:text-white">
+                  欢迎回来，{displayName}
+                </h1>
+                <p className="mt-2 text-sm leading-6 text-slate-600 sm:text-base dark:text-slate-300">
+                  保持节奏，积少成多。从最近的学习继续，或浏览新的课程。
+                </p>
+              </div>
+              <div className="grid shrink-0 grid-cols-3 gap-3 sm:gap-4">
+                {[
+                  { label: '全部课程', value: courses.length, icon: BookOpen },
+                  { label: '学习中', value: continueCourses.length, icon: PlayCircle },
+                  { label: '已完成', value: completedCount, icon: CheckCircle2 },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <div
+                      className="grid min-w-24 gap-1 rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-center shadow-sm backdrop-blur dark:border-slate-700 dark:bg-card-solid/80"
+                      key={item.label}
+                    >
+                      <Icon
+                        aria-hidden="true"
+                        className="mx-auto size-4 text-primary dark:text-primary/80"
+                      />
+                      <span className="text-xl font-semibold tabular-nums text-slate-900 dark:text-white">
+                        {item.value}
+                      </span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        {item.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {!loading && !error && continueCourses.length > 0 ? (
+          <section className="mb-8 min-w-0" aria-labelledby="learner-continue-title">
+            <div className="mb-3 flex items-baseline justify-between gap-3">
+              <h2
+                id="learner-continue-title"
+                className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white"
+              >
+                <PlayCircle className="size-5 text-primary dark:text-primary/80" aria-hidden="true" />
+                继续学习
+              </h2>
+              <span className="text-sm text-slate-500 dark:text-slate-400">
+                {continueCourses.length} 门课程进行中
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {continueCourses.map((course) => (
+                <ContinueCourseCard
+                  key={`continue-${course.id}`}
+                  course={course}
+                  slide={thumbnails[course.id]}
+                  href={getCourseHref(course.id)}
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <StageExamPanel identity={identity} />
 
         <section className="mt-7 min-w-0" aria-labelledby="learner-courses-title">
@@ -432,6 +528,88 @@ function CourseGridSkeleton() {
         </div>
       ))}
     </div>
+  );
+}
+
+function ContinueCourseCard({
+  course,
+  slide,
+  href,
+}: {
+  course: EnterpriseHomeCourse;
+  slide?: Slide;
+  href: string;
+}) {
+  const thumbnailRef = useRef<HTMLDivElement>(null);
+  const [thumbnailWidth, setThumbnailWidth] = useState(0);
+
+  useEffect(() => {
+    const element = thumbnailRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => setThumbnailWidth(entry.contentRect.width));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  const pendingAssessment = course.learningStatus === 'assessment_pending';
+
+  return (
+    <article className="min-w-0">
+      <Link
+        href={href}
+        aria-label={`继续学习：${course.name}`}
+        data-continue-course-id={course.id}
+        className="group flex min-w-0 gap-4 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_12px_28px_rgba(48,41,92,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:border-slate-800 dark:bg-card-solid dark:hover:border-primary dark:focus-visible:ring-offset-page"
+      >
+        <div
+          ref={thumbnailRef}
+          className="relative aspect-video w-32 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-indigo-100 via-blue-50 to-primary/10 sm:w-40 dark:from-indigo-950 dark:via-slate-900 dark:to-primary/20"
+        >
+          {slide && thumbnailWidth > 0 ? (
+            <SlideThumbnail
+              slide={slide}
+              size={thumbnailWidth}
+              viewportSize={slide.viewportSize ?? 1000}
+              viewportRatio={slide.viewportRatio ?? 0.5625}
+            />
+          ) : (
+            <div
+              className="absolute inset-0 flex items-center justify-center"
+              aria-hidden="true"
+            >
+              <BookOpen className="size-6 text-primary/70 dark:text-primary/40" />
+            </div>
+          )}
+          <span
+            className={cn(
+              'absolute left-2 top-2 rounded-md px-2 py-0.5 text-[11px] font-semibold text-white shadow-sm',
+              pendingAssessment
+                ? 'bg-amber-500'
+                : 'bg-gradient-to-r from-blue-600 to-primary',
+            )}
+          >
+            {pendingAssessment ? '待考核' : '学习中'}
+          </span>
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 py-1">
+          <h3
+            className="line-clamp-2 text-sm font-semibold leading-5 text-slate-900 transition-colors group-hover:text-primary dark:text-white dark:group-hover:text-primary/80"
+            title={course.name}
+          >
+            {course.name}
+          </h3>
+          {course.categoryName ? (
+            <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+              {course.categoryName}
+            </p>
+          ) : null}
+          <span className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary dark:bg-primary/25 dark:text-primary">
+            <PlayCircle className="size-3.5" aria-hidden="true" />
+            {pendingAssessment ? '去完成考核' : '继续学习'}
+          </span>
+        </div>
+      </Link>
+    </article>
   );
 }
 
