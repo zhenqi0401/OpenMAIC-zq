@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   App as AntApp,
   Avatar,
+  Button,
   Dropdown,
   Layout,
   Menu,
@@ -14,6 +15,8 @@ import {
   BulbOutlined,
   HomeOutlined,
   LogoutOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
   MoonOutlined,
   SettingOutlined,
   SunOutlined,
@@ -22,6 +25,7 @@ import {
 import { BrandLockup } from '@/components/brand/BrandLockup';
 import { adminModules, type AdminModuleId } from '@/components/admin/admin-navigation';
 import { ADMIN_THEME_NAME, adminThemeStyle } from '@/components/admin/admin-theme';
+import { cn } from '@/lib/utils';
 import { logoutCurrentSession } from '@/lib/auth/logout-client';
 import { useTheme } from '@/lib/hooks/use-theme';
 import { isDanmakuEnabled, isForumEnabled } from '@/lib/config/feature-flags';
@@ -100,13 +104,14 @@ export function AdminShell({ activeModuleId = 'dashboard', children }: AdminShel
             setCollapsed(isBroken);
           }}
           onCollapse={setCollapsed}
+          trigger={null}
           width={SIDER_WIDTH}
         >
-          {/* Logo 区与导航之间用分割线区分 */}
-          <div className="flex h-16 items-center border-b border-[var(--admin-border-subtle)] px-4">
+          {/* Logo 区与导航之间用分割线区分；折叠时仅显示居中的标志，避免与折叠按钮互相遮挡 */}
+          <div className="flex h-16 items-center justify-between gap-1 border-b border-[var(--admin-border-subtle)] py-2 pl-4 pr-2">
             <Link
               aria-label="回到生成工作台"
-              className="inline-flex min-w-0 items-center"
+              className={cn('inline-flex min-w-0 items-center', collapsed && 'mx-auto')}
               href="/"
             >
               <BrandLockup priority variant={collapsed ? 'mark' : 'full'} />
@@ -119,9 +124,22 @@ export function AdminShell({ activeModuleId = 'dashboard', children }: AdminShel
 
         <Layout className="!bg-transparent">
           <Layout.Header
-            className="!flex !h-16 !items-center !justify-end !border-b !border-[var(--admin-border-subtle)] !bg-[var(--admin-surface)] !px-4"
+            className="!flex !h-16 !items-center !justify-between !border-b !border-[var(--admin-border-subtle)] !bg-[var(--admin-surface)] !px-4"
             data-admin-header
           >
+            {/* 折叠/展开按钮放在内容区顶栏左侧，折叠态不会遮挡侧边栏标志 */}
+            {!broken ? (
+              <Button
+                aria-label={collapsed ? '展开导航栏' : '收起导航栏'}
+                className="shrink-0 !border-[var(--admin-border-subtle)] !text-[var(--admin-muted-foreground)] hover:!text-[var(--admin-interactive-accent)]"
+                icon={
+                  collapsed ? <MenuUnfoldOutlined aria-hidden /> : <MenuFoldOutlined aria-hidden />
+                }
+                onClick={() => setCollapsed((value) => !value)}
+                shape="circle"
+                type="default"
+              />
+            ) : null}
             <AdminAccountTrigger />
           </Layout.Header>
 

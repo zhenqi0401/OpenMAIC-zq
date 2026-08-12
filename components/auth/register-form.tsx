@@ -88,16 +88,13 @@ export function RegisterForm() {
   return (
     <Form
       component="form"
-      className="mx-auto mt-5 grid w-full max-w-[400px] flex-1 content-start gap-3.5 max-[900px]:mt-3"
+      className="grid w-full max-w-[440px] flex-1 content-center gap-3.5 self-center max-[900px]:mt-4"
       onSubmitCapture={submit}
       noValidate
       aria-busy={submitting}
     >
       <div>
-        <p className="text-[10px] font-semibold tracking-[0.1em] text-muted-foreground uppercase [@media(max-height:700px)_and_(max-width:900px)]:hidden">
-          加入学习空间
-        </p>
-        <h1 className="mt-1 mb-1.5 text-[29px] leading-tight font-semibold tracking-tight text-foreground">
+        <h1 className="mb-1.5 text-3xl leading-tight font-semibold tracking-tight text-foreground">
           注册账号
         </h1>
         <p className="text-sm leading-snug text-muted-foreground [@media(max-height:700px)_and_(max-width:900px)]:hidden">
@@ -158,7 +155,7 @@ export function RegisterForm() {
       <Button
         type="primary"
         htmlType="submit"
-        className="mt-0.5 !h-12 rounded-xl !text-[15px] font-semibold"
+        className="mt-0.5 !h-12 rounded-xl !text-sm font-semibold"
         loading={submitting}
       >
         {submitting ? '正在创建账号' : '创建账号'}
@@ -166,7 +163,7 @@ export function RegisterForm() {
       {status ? (
         <Alert message={status} type="error" showIcon role="status" aria-live="polite" />
       ) : null}
-      <p className="text-center text-[13px] text-muted-foreground">
+      <p className="text-center text-sm text-muted-foreground">
         已有账号？{' '}
         <Link
           href="/login"

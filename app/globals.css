@@ -2,6 +2,28 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
+/* ══════════════════════════════════════════════════════════════════
+ * 字体体系（参考 Ant Design 字体规范 https://ant.design/docs/spec/font-cn）
+ *
+ * 原则：字阶克制在 5 级，字重只用 400/500/600，文字颜色只用
+ * 一级/二级两级 —— 不用随意字号、字重、颜色叠加去强调层级。
+ *
+ * | 类别     | 字阶        | 字重 | 用途                              |
+ * |----------|-------------|------|-----------------------------------|
+ * | 展示     | text-3xl 30 | 600  | 页面级大标题（欢迎回来、学习交流区） |
+ * | 标题     | text-2xl 24 | 600  | 区块/卡片标题                      |
+ * | 小标题   | text-lg 18  | 600  | 次级区块标题、图表标题              |
+ * | 正文     | text-sm 14  | 400/500 | 主文本、输入、列表（antd 主字体） |
+ * | 辅助     | text-xs 12  | 400  | 标签、时间戳、页脚、辅助说明        |
+ *
+ * 例外：登录/注册品牌故事栏的展示标题允许用响应式 clamp(30→44px)
+ * 做宽屏微调，其余场景一律使用上表字阶。
+ *
+ * 行高：正文 22px（leading-relaxed / antd 默认），标题用默认行高。
+ * 文字颜色：一级 text-foreground（≈90%），二级 text-muted-foreground（≈65%），
+ * 禁用态 opacity-40（≈25%）。数字纵向对比用 tabular-nums。
+ * ══════════════════════════════════════════════════════════════════ */
+
 /* Streamdown (AI sidebar markdown) styles itself with Tailwind utilities —
    Tailwind must scan its dist so those classes get generated. */
 @source '../node_modules/streamdown/dist/*.js';

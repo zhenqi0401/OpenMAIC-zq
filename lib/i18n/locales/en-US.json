@@ -6,7 +6,6 @@
     "loading": "Loading..."
   },
   "home": {
-    "slogan": "Generative Learning in Multi-Agent Interactive Classroom",
     "greetingWithName": "Hi, {{name}}"
   },
   "toolbar": {

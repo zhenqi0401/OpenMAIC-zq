@@ -107,7 +107,10 @@ export function getPolicyScopeSummary(
   policy: Pick<AdminExamPolicy, 'categoryIds' | 'courseIds'>,
   categoryNames: ReadonlyMap<string, string>,
 ) {
-  const categories = policy.categoryIds.map((id) => categoryNames.get(id) ?? id).join('、');
+  // 分类可能已被删除：查不到名字时显示「已删除分类」，避免暴露原始 id
+  const categories = policy.categoryIds
+    .map((id) => categoryNames.get(id) ?? '已删除分类')
+    .join('、');
   const courseScope =
     policy.courseIds.length === 0 ? '分类下全部课程' : `指定 ${policy.courseIds.length} 门课程`;
   return `${categories || '未选分类'} · ${courseScope}`;

@@ -508,7 +508,7 @@ function ContinueCourseCard({
           )}
           <span
             className={cn(
-              'absolute left-2 top-2 rounded-md px-2 py-0.5 text-[11px] font-semibold text-white shadow-sm',
+              'absolute left-2 top-2 rounded-md px-2 py-0.5 text-xs font-semibold text-white shadow-sm',
               pendingAssessment ? 'bg-amber-500' : 'bg-gradient-to-r from-blue-600 to-primary',
             )}
           >

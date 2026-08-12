@@ -438,9 +438,6 @@ export function CommunityAdminPanel() {
             <div className="p-4">
               <AdminEmptyState
                 compact
-                description={
-                  hasActiveFilters ? '请调整筛选条件后再试。' : '这个类型下暂时没有需要展示的记录。'
-                }
                 kind={hasActiveFilters ? 'filtered' : 'empty'}
                 title={hasActiveFilters ? '当前筛选没有结果' : '当前类型暂无记录'}
               />

@@ -351,11 +351,11 @@ export function ForumPostPage({ postId }: { postId: string }) {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-semibold">
                 {reply.author.displayName}{' '}
-                <span className="ml-1 text-[11px] font-normal text-slate-400">
+                <span className="ml-1 text-xs font-normal text-slate-400">
                   {reply.author.roleName} · 第 {reply.depth} 层
                 </span>
               </p>
-              <time className="text-[11px] text-slate-400">
+              <time className="text-xs text-slate-400">
                 {formatForumTime(reply.createdAt)}
                 {wasForumContentEdited(reply.createdAt, reply.updatedAt) && ' · 已编辑'}
               </time>
@@ -413,7 +413,7 @@ export function ForumPostPage({ postId }: { postId: string }) {
                   </Button>
                 )}
                 {reply.status === 'visible' && reply.depth >= FORUM_REPLY_MAX_DEPTH && (
-                  <span className="px-2 text-[11px] text-slate-400">已达到最多 5 层</span>
+                  <span className="px-2 text-xs text-slate-400">已达到最多 5 层</span>
                 )}
                 {ownsReply && reply.status === 'visible' && (
                   <>
@@ -482,7 +482,7 @@ export function ForumPostPage({ postId }: { postId: string }) {
                   aria-label={`回复 ${reply.author.displayName}`}
                 />
                 <div className="mt-2 flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-xs text-slate-400">
                     {nestedReplyBody.length}/{FORUM_REPLY_MAX_LENGTH}
                   </span>
                   <div className="flex gap-2">
@@ -556,13 +556,13 @@ export function ForumPostPage({ postId }: { postId: string }) {
             <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-card-solid sm:p-7">
               <div className="flex flex-wrap items-center gap-2">
                 {post.pinned && (
-                  <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-1 text-[10px] font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                  <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200">
                     <Pin className="size-3" />
                     置顶
                   </span>
                 )}
                 {post.locked && (
-                  <span className="inline-flex items-center gap-1 rounded bg-slate-200 px-2 py-1 text-[10px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  <span className="inline-flex items-center gap-1 rounded bg-slate-200 px-2 py-1 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                     <Lock className="size-3" />
                     已关闭回复
                   </span>
@@ -570,7 +570,7 @@ export function ForumPostPage({ postId }: { postId: string }) {
                 {post.courseName && (
                   <Link
                     href={`/forum?view=course&courseId=${encodeURIComponent(post.courseId ?? '')}`}
-                    className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 text-[10px] text-emerald-700 hover:underline dark:bg-emerald-950/60 dark:text-emerald-300"
+                    className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 text-xs text-emerald-700 hover:underline dark:bg-emerald-950/60 dark:text-emerald-300"
                   >
                     <BookOpen className="size-3" />
                     {post.courseName}
@@ -626,7 +626,7 @@ export function ForumPostPage({ postId }: { postId: string }) {
                       {wasForumContentEdited(post.createdAt, post.updatedAt) && ' · 已编辑'}
                     </span>
                   </div>
-                  <div className="mt-7 whitespace-pre-wrap break-words text-[15px] leading-7 text-slate-700 dark:text-slate-300">
+                  <div className="mt-7 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700 dark:text-slate-300">
                     {post.body || <span className="italic text-slate-400">原帖已由作者删除</span>}
                   </div>
                 </>
@@ -764,7 +764,7 @@ export function ForumPostPage({ postId }: { postId: string }) {
                     aria-label="回复内容"
                   />
                   <div className="mt-2 flex items-center justify-between">
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-xs text-slate-400">
                       {replyBody.length}/{FORUM_REPLY_MAX_LENGTH}
                     </span>
                     <Button type="submit" disabled={submitting || !replyBody.trim()}>

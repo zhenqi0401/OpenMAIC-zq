@@ -6,7 +6,6 @@
     "loading": "載入中..."
   },
   "home": {
-    "slogan": "多智能體互動課室中的生成式學習",
     "greetingWithName": "嗨，{{name}}"
   },
   "toolbar": {

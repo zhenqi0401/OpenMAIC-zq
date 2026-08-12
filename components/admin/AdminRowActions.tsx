@@ -2,7 +2,6 @@
 
 import type { ReactNode } from 'react';
 import { Dropdown, type MenuProps } from 'antd';
-import { MoreOutlined } from '@ant-design/icons';
 
 import { Button } from '@/components/antd/AntdButton';
 import { adminLinkButtonClassName } from '@/components/admin/AdminSurface';
@@ -51,7 +50,7 @@ function toMenuItem(action: AdminRowAction): NonNullable<MenuProps['items']>[num
       >
         <span className="min-w-0 flex-1">{action.label}</span>
         {action.disabled && action.disabledReason ? (
-          <span className="max-w-36 truncate text-[11px] opacity-70">{action.disabledReason}</span>
+          <span className="max-w-36 truncate text-xs opacity-70">{action.disabledReason}</span>
         ) : null}
       </span>
     ),
@@ -96,7 +95,6 @@ export function AdminRowActions({
             type="button"
             variant="link"
           >
-            <MoreOutlined aria-hidden="true" className="!text-[var(--admin-link)]" />
             {triggerLabel}
           </Button>
         </Dropdown>

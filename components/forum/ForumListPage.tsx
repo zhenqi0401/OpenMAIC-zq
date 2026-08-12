@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Empty, Form, Input, Pagination, Segmented, Select, Skeleton } from 'antd';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Button, Empty, Form, Input, Pagination, Radio, Segmented, Select, Skeleton } from 'antd';
 import {
   BookOpen,
   Clock3,
@@ -12,7 +12,6 @@ import {
   MessageCircle,
   PenLine,
   Pin,
-  RefreshCw,
   Send,
 } from 'lucide-react';
 import { getDisplayNameInitial } from '@/components/home/LearnerHeader';
@@ -124,11 +123,14 @@ export function ForumListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [composing, setComposing] = useState(composeRequested);
-  const [scope, setScope] = useState<'global' | 'course'>(courseId ? 'course' : 'global');
-  const [draftCourseId, setDraftCourseId] = useState(courseId);
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [form] = Form.useForm<{
+    scope: 'global' | 'course';
+    courseId?: string;
+    title: string;
+    body: string;
+  }>();
+  const scope = Form.useWatch('scope', form) ?? 'global';
 
   const setQuery = useCallback(
     (changes: Record<string, string | null>) => {
@@ -173,10 +175,10 @@ export function ForumListPage() {
   useEffect(() => {
     if (composeRequested) setComposing(true);
     if (courseId) {
-      setScope('course');
-      setDraftCourseId(courseId);
+      form.setFieldValue('scope', 'course');
+      form.setFieldValue('courseId', courseId);
     }
-  }, [composeRequested, courseId]);
+  }, [composeRequested, courseId, form]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const activeCourse = useMemo(
@@ -184,12 +186,7 @@ export function ForumListPage() {
     [courseId, courses],
   );
 
-  async function submitPost(event: FormEvent) {
-    event.preventDefault();
-    if (scope === 'course' && !draftCourseId) {
-      setError('请选择要关联的课程');
-      return;
-    }
+  async function submitPost(values: { scope: 'global' | 'course'; courseId?: string; title: string; body: string }) {
     setSubmitting(true);
     setError(null);
     try {
@@ -197,10 +194,10 @@ export function ForumListPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          scope,
-          courseId: scope === 'course' ? draftCourseId : null,
-          title,
-          body,
+          scope: values.scope,
+          courseId: values.scope === 'course' ? values.courseId : null,
+          title: values.title,
+          body: values.body,
         }),
       });
       router.push(`/forum/posts/${result.post.id}`);
@@ -232,75 +229,63 @@ export function ForumListPage() {
 
         {composing && (
           <Form
-            component="form"
-            onSubmitCapture={submitPost}
+            form={form}
+            onFinish={submitPost}
+            layout="vertical"
             className="mt-7 rounded-xl border border-primary/20 bg-white p-5 shadow-sm dark:border-primary/30 dark:bg-card-solid sm:p-6"
           >
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-wrap gap-2" role="group" aria-label="帖子类型">
-                {(['global', 'course'] as const).map((value) => (
-                  <Button
-                    key={value}
-                    size="small"
-                    type={scope === value ? 'primary' : 'default'}
-                    htmlType="button"
-                    aria-pressed={scope === value}
-                    onClick={() => setScope(value)}
-                    className="rounded-full"
-                  >
-                    {value === 'global' ? '全局讨论' : '关联课程'}
-                  </Button>
-                ))}
-              </div>
-              {scope === 'course' && (
-                <label className="grid gap-1.5 text-sm font-medium">
-                  关联课程
-                  <Select
-                    value={draftCourseId}
-                    onChange={(value) => setDraftCourseId(value)}
-                    className="w-full"
-                    placeholder="请选择当前可见课程"
-                    options={courses.map((course) => ({ value: course.id, label: course.name }))}
-                  />
-                </label>
-              )}
-              <label className="grid gap-1.5 text-sm font-medium">
-                标题
-                <Input
-                  value={title}
-                  required
-                  maxLength={FORUM_TITLE_MAX_LENGTH}
-                  onChange={(event) => setTitle(event.target.value)}
-                  placeholder="清晰概括你想讨论的内容"
+            <Form.Item
+              name="scope"
+              initialValue={courseId ? 'course' : 'global'}
+              label="帖子类型"
+              rules={[{ required: true }]}
+            >
+              <Radio.Group aria-label="帖子类型">
+                <Radio.Button value="global">全局讨论</Radio.Button>
+                <Radio.Button value="course">关联课程</Radio.Button>
+              </Radio.Group>
+            </Form.Item>
+            {scope === 'course' && (
+              <Form.Item
+                name="courseId"
+                label="关联课程"
+                dependencies={['scope']}
+                rules={[{ required: true, message: '请选择要关联的课程' }]}
+              >
+                <Select
+                  placeholder="请选择当前可见课程"
+                  options={courses.map((course) => ({ value: course.id, label: course.name }))}
                 />
-                <span className="text-right text-[11px] font-normal text-slate-400">
-                  {title.length}/{FORUM_TITLE_MAX_LENGTH}
-                </span>
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium">
-                正文
-                <TextArea
-                  value={body}
-                  required
-                  maxLength={FORUM_POST_MAX_LENGTH}
-                  onChange={(event) => setBody(event.target.value)}
-                  placeholder="写下你的观点、问题或学习心得"
-                  className="min-h-36 resize-y"
-                />
-                <span className="text-right text-[11px] font-normal text-slate-400">
-                  {body.length}/{FORUM_POST_MAX_LENGTH}
-                </span>
-              </label>
-              <div className="flex justify-end">
-                <Button htmlType="submit" disabled={submitting || !title.trim() || !body.trim()}>
-                  {submitting ? (
-                    <RefreshCw className="size-4 animate-spin" />
-                  ) : (
-                    <Send className="size-4" />
-                  )}
-                  {submitting ? '正在发布' : '立即发布'}
-                </Button>
-              </div>
+              </Form.Item>
+            )}
+            <Form.Item
+              name="title"
+              label="标题"
+              rules={[{ required: true, message: '请输入标题' }]}
+            >
+              <Input
+                maxLength={FORUM_TITLE_MAX_LENGTH}
+                showCount
+                placeholder="清晰概括你想讨论的内容"
+              />
+            </Form.Item>
+            <Form.Item
+              name="body"
+              label="正文"
+              rules={[{ required: true, message: '请输入正文' }]}
+            >
+              <TextArea
+                maxLength={FORUM_POST_MAX_LENGTH}
+                showCount
+                placeholder="写下你的观点、问题或学习心得"
+                className="min-h-36 resize-y"
+              />
+            </Form.Item>
+            <div className="flex justify-end">
+              <Button htmlType="submit" type="primary" loading={submitting}>
+                <Send className="size-4" />
+                {submitting ? '正在发布' : '立即发布'}
+              </Button>
             </div>
           </Form>
         )}

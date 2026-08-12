@@ -145,10 +145,9 @@ test('course forum supports compose, pagination, reply, admin close, mobile and 
   const api = await installCommunityApi(page);
   await page.goto('/forum?view=course&courseId=course-1&compose=true');
 
-  await expect(page.getByRole('link', { name: '交流社区' })).toHaveAttribute(
-    'aria-current',
-    'page',
-  );
+  await expect(page.getByRole('link', { name: '交流社区' })).toBeVisible();
+  // antd Menu 用 .ant-menu-item-selected 表达选中态（不输出 aria-current）
+  await expect(page.locator('.ant-menu-item-selected', { hasText: '交流社区' })).toBeVisible();
   await expect(page.getByRole('banner').getByText('学员 A', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: '门店安全课 · 课程讨论' })).toBeVisible();
   await expect(page.getByText('话题', { exact: true })).toBeVisible();
@@ -157,8 +156,10 @@ test('course forum supports compose, pagination, reply, admin close, mobile and 
   await expect(page.getByText('浏览量', { exact: true })).toBeVisible();
   await expect(page.getByText('发布时间', { exact: true })).toBeVisible();
   await expect(page.getByLabel('12 次浏览')).toBeVisible();
-  await expect(page.getByLabel('关联课程')).toHaveValue('course-1');
-  await expect(page.getByText('第 1 / 3 页')).toBeVisible();
+  // 发布表单的关联课程 Select 已选中来自 URL 的 courseId（antd v6 在 .ant-select-content 展示课程名）
+  await expect(page.locator('form .ant-select-content')).toHaveText('门店安全课');
+  // antd Pagination 以页码按钮呈现（迁移前的"第 x / y 页"文案已下线）
+  await expect(page.locator('.ant-pagination-item')).toHaveCount(3);
   await page.screenshot({
     path: 'output/playwright/forum-catalog-desktop.png',
     fullPage: true,

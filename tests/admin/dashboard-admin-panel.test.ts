@@ -7,7 +7,9 @@ import {
 } from '@/components/admin/dashboard/DashboardAdminPanel';
 import {
   AdminActivityChart,
+  buildTickFilter,
   formatActivityTooltip,
+  seriesNameOf,
 } from '@/components/admin/dashboard/AdminActivityChart';
 import { DashboardMetric } from '@/components/admin/dashboard/DashboardMetric';
 import { DashboardProgressTable } from '@/components/admin/dashboard/DashboardProgressTable';
@@ -200,6 +202,38 @@ describe('dashboard community activity chart', () => {
       { date: '2026-07-23', interactions: 12, posts: 2, replies: 5, danmaku: 5 },
     ],
   };
+
+  it('resolves the series name from both single datum and G2 series arrays', () => {
+    expect(seriesNameOf({ series: '总互动', date: '2026-07-22' })).toBe('总互动');
+    // G2 对 area/line 系列图形传入该系列全部数据点数组
+    expect(
+      seriesNameOf([
+        { series: '帖子', date: '2026-07-22', value: 1 },
+        { series: '帖子', date: '2026-07-23', value: 2 },
+      ]),
+    ).toBe('帖子');
+    expect(seriesNameOf([])).toBeUndefined();
+    expect(seriesNameOf(null)).toBeUndefined();
+  });
+
+  it('keeps one x tick per day for week, one per 3 days for month and one per month for year', () => {
+    const days = Array.from({ length: 30 }, (_, i) => {
+      const d = new Date(Date.UTC(2026, 6, 1 + i));
+      return d.toISOString().slice(0, 10);
+    });
+    // 周:每天一个刻度
+    expect(days.filter(buildTickFilter('week'))).toHaveLength(30);
+    // 月:每三天一个刻度(1、4、7、…、28)
+    const monthTicks = days.filter(buildTickFilter('month'));
+    expect(monthTicks).toHaveLength(10);
+    expect(monthTicks[0]).toBe('2026-07-01');
+    expect(monthTicks[1]).toBe('2026-07-04');
+    // 年:每月一个刻度(YYYY-MM 格式直接放行)
+    const yearMonths = ['2026-01', '2026-02', '2026-12'];
+    expect(yearMonths.filter(buildTickFilter('year'))).toHaveLength(3);
+    // 非日期标签(空数据占位)在月视图也保持显示
+    expect(buildTickFilter('month')('暂无数据')).toBe(true);
+  });
 
   it('formats a rich axis tooltip for the focused point', () => {
     const tooltip = formatActivityTooltip(activity.points[1]);

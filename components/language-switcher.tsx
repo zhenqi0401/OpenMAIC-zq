@@ -1,14 +1,9 @@
 'use client';
 
+import { CheckOutlined, GlobalOutlined } from '@ant-design/icons';
+import { Button, Dropdown } from 'antd';
 import { useI18n } from '@/lib/hooks/use-i18n';
-import { supportedLocales } from '@/lib/i18n';
-import { cn } from '@/lib/utils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { supportedLocales, type Locale } from '@/lib/i18n';
 
 interface LanguageSwitcherProps {
   /** Called when the dropdown opens, so parent can close sibling dropdowns. */
@@ -16,41 +11,37 @@ interface LanguageSwitcherProps {
 }
 
 /**
- * Locale picker pill. Backed by Radix DropdownMenu so its content is
- * portaled to `document.body` — important inside Pro mode's CommandBar
- * (which lives under an `overflow-hidden` canvas slot that would
- * otherwise clip the dropdown).
+ * Locale picker pill, backed by antd Dropdown so its look and colors match
+ * the sibling theme selector (both are antd text buttons with a dropdown).
  */
 export function LanguageSwitcher({ onOpen }: LanguageSwitcherProps) {
   const { locale, setLocale } = useI18n();
 
+  const items = supportedLocales.map((l) => ({
+    key: l.code,
+    label: (
+      <span className="flex items-center gap-2">
+        {l.label}
+        {locale === l.code ? <CheckOutlined /> : null}
+      </span>
+    ),
+  }));
+
   return (
-    <DropdownMenu
-      modal={false}
+    <Dropdown
+      menu={{
+        items,
+        selectedKeys: [locale],
+        onClick: ({ key }) => setLocale(key as Locale),
+      }}
+      placement="bottomRight"
       onOpenChange={(open) => {
         if (open) onOpen?.();
       }}
     >
-      <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all">
-          {supportedLocales.find((l) => l.code === locale)?.shortLabel ?? locale}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={8} className="min-w-[120px]">
-        {supportedLocales.map((l) => (
-          <DropdownMenuItem
-            key={l.code}
-            onSelect={() => setLocale(l.code)}
-            className={cn(
-              'cursor-pointer',
-              locale === l.code &&
-                'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
-            )}
-          >
-            {l.label}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      <Button type="text" icon={<GlobalOutlined />} aria-label="语言设置">
+        {supportedLocales.find((l) => l.code === locale)?.shortLabel ?? locale}
+      </Button>
+    </Dropdown>
   );
 }

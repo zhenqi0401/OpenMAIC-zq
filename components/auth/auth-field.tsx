@@ -30,7 +30,7 @@ export function AuthField({ name, label, error, action, className, ...props }: A
 
   return (
     <div className="grid gap-2" data-field={name}>
-      <Label htmlFor={name} className="text-[13px] font-semibold text-foreground">
+      <Label htmlFor={name} className="text-sm font-semibold text-foreground">
         {label}
       </Label>
       {action ? (

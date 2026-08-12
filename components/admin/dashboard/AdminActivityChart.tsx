@@ -29,6 +29,39 @@ const SERIES_COLOR: Record<string, string> = Object.fromEntries(
   ACTIVITY_SERIES.map((item) => [item.label, item.color]),
 );
 
+/**
+ * G2 对 area/line 等系列图形调用 style 函数时，第一个参数是该系列
+ * 的全部数据点数组（seriesIndex 对应的 abstractData 切片），而非单条数据。
+ * 这里兼容两种情况，取第一条记录的系列名。
+ */
+export function seriesNameOf(datum: unknown): string | undefined {
+  const first = Array.isArray(datum) ? datum[0] : datum;
+  return (first as { series?: string } | undefined)?.series;
+}
+
+/** 将 #rrggbb 转为 rgba 字符串（canvas 渐变 stop 用，避免 8 位 hex 解析问题） */
+function hexToRgba(hex: string, opacity: number): string {
+  const value = hex.replace('#', '');
+  return `rgba(${parseInt(value.slice(0, 2), 16)}, ${parseInt(value.slice(2, 4), 16)}, ${parseInt(value.slice(4, 6), 16)}, ${opacity})`;
+}
+
+/**
+ * 按周期控制横轴刻度密度：
+ * - 周：每天一个刻度（数据本身 7 天）
+ * - 月：每三天一个刻度（1、4、7、…）
+ * - 年：每月一个刻度（数据本身 12 个月）
+ */
+export function buildTickFilter(range: AdminActivityRange) {
+  return (tick: unknown) => {
+    if (range !== 'month') return true;
+    const text = String(tick);
+    // 仅对完整日期（YYYY-MM-DD）做密度过滤；非日期标签（如空数据的"暂无数据"）保持显示
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return true;
+    const day = Number(text.slice(8, 10));
+    return day % 3 === 1;
+  };
+}
+
 const EMPTY_POINT: ActivityPoint = {
   date: '暂无数据',
   interactions: 0,
@@ -144,16 +177,26 @@ export function AdminActivityChart({
             x: {
               title: false,
               labelFill: CHART_TEXT_COLOR,
+              // 标签始终横向排布，密集时自动隐藏重叠项
+              label: {
+                align: 'horizontal',
+                overlap: [{ type: 'hide' }],
+              },
               line: true,
               lineStroke: 'var(--admin-border)',
               tick: false,
+              // 周/月/年按需求控制刻度密度
+              tickFilter: buildTickFilter(range),
             },
             y: {
               title: false,
               labelFill: CHART_TEXT_COLOR,
-              grid: true,
-              gridStroke: 'var(--admin-border-subtle)',
-              gridStrokeOpacity: 1,
+              // 标签保持横向，不随轴旋转
+              label: {
+                align: 'horizontal',
+              },
+              // 去掉横向网格虚线
+              grid: false,
             },
           }}
           colorField="series"
@@ -164,27 +207,22 @@ export function AdminActivityChart({
               marker: false,
             },
           }}
-          legend={{
-            color: {
-              position: 'bottom',
-              label: {
-                fill: CHART_TEXT_COLOR,
-                fontSize: 13,
-              },
-            },
-          }}
+          // 图表内不渲染图例：上方统计区已有图例与配色
+          legend={false}
           line={{
+            // 平滑折线，颜色严格按上方图例（ACTIVITY_SERIES）配色
             style: {
-              stroke: (datum: { series?: string }) =>
-                SERIES_COLOR[datum?.series ?? ''] ?? CHART_TEXT_COLOR,
+              shape: 'smooth',
+              stroke: (datum: unknown) =>
+                SERIES_COLOR[seriesNameOf(datum) ?? ''] ?? CHART_TEXT_COLOR,
               lineWidth: 2,
             },
           }}
           point={{
             size: 4,
             style: {
-              stroke: (datum: { series?: string }) =>
-                SERIES_COLOR[datum?.series ?? ''] ?? CHART_TEXT_COLOR,
+              stroke: (datum: unknown) =>
+                SERIES_COLOR[seriesNameOf(datum) ?? ''] ?? CHART_TEXT_COLOR,
               fill: adminBrandTokens['--saas-surface-lowest'],
             },
           }}
@@ -193,13 +231,19 @@ export function AdminActivityChart({
               range: ACTIVITY_SERIES.map((item) => item.color),
             },
             y: {
+              // 纵坐标随数据自动扩展
               nice: true,
             },
           }}
           style={{
-            fill: (datum: { series?: string }) => {
-              const color = SERIES_COLOR[datum?.series ?? ''] ?? CHART_TEXT_COLOR;
-              return `linear-gradient(-90deg, ${color} 0%, ${color}26 100%)`;
+            // 仅总互动绘制面积，且渐变从上往下由实色渐浅。
+            // g-lite 的角度为数学约定（0°=向右、90°=向下），故 90deg 表示从上到下。
+            shape: 'smooth',
+            fill: (datum: unknown) => {
+              const series = seriesNameOf(datum);
+              if (series !== '总互动') return 'transparent';
+              const color = SERIES_COLOR[series] ?? CHART_TEXT_COLOR;
+              return `linear-gradient(90deg, ${color} 0%, ${hexToRgba(color, 0)} 100%)`;
             },
           }}
           theme={{

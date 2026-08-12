@@ -316,15 +316,8 @@ export function ExamPolicyAdminPanel() {
           </div>
         </div>
         {policies.length === 0 ? (
-          <AdminEmptyState
-            action={
-              <Button className={adminPrimaryButtonClassName} onClick={openCreateDialog} type="button">
-                <Plus aria-hidden="true" className="size-4" />
-                新建考核
-              </Button>
-            }
-            title="暂无阶段考核"
-          />
+          // 新建考核入口在页面头部工具栏已提供，空态不再重复放置按钮
+          <AdminEmptyState title="暂无阶段考核" />
         ) : (
           <ExamPolicyTable
             categoryNames={categoryNames}

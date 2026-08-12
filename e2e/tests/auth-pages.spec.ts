@@ -79,7 +79,8 @@ test('uses a mobile single column and maps register API errors to the invite fie
   await page.goto('/register');
 
   await expect(page.getByRole('heading', { name: '注册账号' })).toBeVisible();
-  await expect(page.getByText('用邀请码加入学习空间')).toBeHidden();
+  // 左侧品牌故事栏在移动端单列下隐藏（"用邀请码加入学习空间"等文案已下线）
+  await expect(page.locator('main[data-auth-page="register"] > aside')).toBeHidden();
   const columns = await page
     .locator('main[data-auth-page="register"]')
     .evaluate((element) =>

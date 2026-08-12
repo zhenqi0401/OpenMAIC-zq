@@ -73,9 +73,10 @@ describe('AdminShell', () => {
     expect(markup).toContain('data-admin-theme="yuanwo-saas-admin"');
     expect(markup).toContain('aria-label="后台模块导航"');
     expect(markup).toContain('data-admin-current-identity="trigger"');
-    // 右上角不再有重复的导航入口按钮，折叠/展开交给 Sider 自带 trigger
+    // 右上角不再有重复的导航入口按钮，折叠/展开交给内容区顶栏左侧圆形按钮
     expect(markup).not.toContain('打开后台导航');
-    expect(markup).toContain('ant-layout-sider-trigger');
+    expect(markup).toContain('aria-label="收起导航栏"');
+    expect(markup).toContain('ant-btn-circle');
     expect(markup).not.toContain('max-w-[1280px]');
     expect(markup).not.toContain('运营状态一屏处理');
     // 面包屑已从后台全局 Header 中移除

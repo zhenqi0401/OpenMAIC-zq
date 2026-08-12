@@ -28,6 +28,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
+import { Dropdown as AntDropdown, Button as AntButton } from 'antd';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { createLogger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
@@ -227,7 +228,6 @@ function HomePage() {
     setForm((prev) => (prev.requirement ? prev : { ...prev, requirement: cachedRequirement }));
   }, [cachedRequirement]);
 
-  const [themeOpen, setThemeOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [classrooms, setClassrooms] = useState<EnterpriseHomeCourse[]>([]);
   const [learnerCategories, setLearnerCategories] = useState<HomeCourseCategory[]>([]);
@@ -240,7 +240,6 @@ function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchButtonRef = useRef<HTMLButtonElement>(null);
-  const toolbarRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const thumbnailsRef = useRef<Record<string, Slide>>({});
 
@@ -250,18 +249,6 @@ function HomePage() {
     setThumbnails(slides);
     window.setTimeout(() => revokeThumbnailSlideMediaUrls(previous), 0);
   };
-
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    if (!themeOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
-        setThemeOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [themeOpen]);
 
   const loadClassrooms = async () => {
     if (!identity) return;
@@ -542,7 +529,6 @@ function HomePage() {
       )}
       {/* ═══ Top-right pill (unchanged) ═══ */}
       <div
-        ref={toolbarRef}
         className="fixed top-4 right-4 z-50 flex items-center gap-1 bg-white/70 dark:bg-card-solid/70 backdrop-blur-md px-2 py-1.5 rounded-full border border-slate-200/60 dark:border-slate-700/60 shadow-sm"
       >
         {shouldShowAdminEntry(identity) && (
@@ -567,69 +553,38 @@ function HomePage() {
         <div className="w-[1px] h-4 bg-slate-200 dark:bg-slate-700" />
 
         {/* Language Selector */}
-        <LanguageSwitcher onOpen={() => setThemeOpen(false)} />
+        <LanguageSwitcher />
 
         <div className="w-[1px] h-4 bg-slate-200 dark:bg-slate-700" />
 
         {/* Theme Selector */}
-        <div className="relative">
-          <button
-            onClick={() => {
-              setThemeOpen(!themeOpen);
-            }}
-            className="p-2 rounded-full text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-primary dark:hover:text-primary/80 hover:shadow-sm transition-all"
-          >
-            {theme === 'light' && <Sun className="w-4 h-4" />}
-            {theme === 'dark' && <Moon className="w-4 h-4" />}
-            {theme === 'system' && <Monitor className="w-4 h-4" />}
-          </button>
-          {themeOpen && (
-            <div className="absolute top-full mt-2 right-0 bg-white dark:bg-card-solid border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg overflow-hidden z-50 min-w-[140px]">
-              <button
-                onClick={() => {
-                  setTheme('light');
-                  setThemeOpen(false);
-                }}
-                className={cn(
-                  'w-full px-4 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-2',
-                  theme === 'light' &&
-                    'bg-primary/5 dark:bg-primary/20 text-primary dark:text-primary/80',
-                )}
-              >
+        <AntDropdown
+          menu={{
+            items: [
+              { key: 'light', icon: <Sun className="size-4" />, label: t('settings.themeOptions.light') },
+              { key: 'dark', icon: <Moon className="size-4" />, label: t('settings.themeOptions.dark') },
+              { key: 'system', icon: <Monitor className="size-4" />, label: t('settings.themeOptions.system') },
+            ],
+            selectedKeys: [theme],
+            onClick: ({ key }) => setTheme(key as 'light' | 'dark' | 'system'),
+          }}
+          placement="bottomRight"
+        >
+          <AntButton
+            type="text"
+            shape="circle"
+            icon={
+              theme === 'light' ? (
                 <Sun className="w-4 h-4" />
-                {t('settings.themeOptions.light')}
-              </button>
-              <button
-                onClick={() => {
-                  setTheme('dark');
-                  setThemeOpen(false);
-                }}
-                className={cn(
-                  'w-full px-4 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-2',
-                  theme === 'dark' &&
-                    'bg-primary/5 dark:bg-primary/20 text-primary dark:text-primary/80',
-                )}
-              >
+              ) : theme === 'dark' ? (
                 <Moon className="w-4 h-4" />
-                {t('settings.themeOptions.dark')}
-              </button>
-              <button
-                onClick={() => {
-                  setTheme('system');
-                  setThemeOpen(false);
-                }}
-                className={cn(
-                  'w-full px-4 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-2',
-                  theme === 'system' &&
-                    'bg-primary/5 dark:bg-primary/20 text-primary dark:text-primary/80',
-                )}
-              >
+              ) : (
                 <Monitor className="w-4 h-4" />
-                {t('settings.themeOptions.system')}
-              </button>
-            </div>
-          )}
-        </div>
+              )
+            }
+            aria-label="主题设置"
+          />
+        </AntDropdown>
 
         <div className="w-[1px] h-4 bg-slate-200 dark:bg-slate-700" />
 
@@ -698,20 +653,10 @@ function HomePage() {
             stiffness: 200,
             damping: 20,
           }}
-          className="mb-3"
+          className="mb-8"
         >
           <BrandLockup priority />
         </motion.div>
-
-        {/* ── Slogan ── */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.25 }}
-          className="text-sm text-muted-foreground/60 mb-8"
-        >
-          {t('home.slogan')}
-        </motion.p>
 
         {/* ── Unified input area ── */}
         <motion.div
@@ -733,7 +678,7 @@ function HomePage() {
             <textarea
               ref={textareaRef}
               placeholder={t('upload.requirementPlaceholder')}
-              className="w-full resize-none border-0 bg-transparent px-4 pt-1 pb-2 text-[13px] leading-relaxed placeholder:text-muted-foreground/40 focus:outline-none min-h-[140px] max-h-[300px]"
+              className="w-full resize-none border-0 bg-transparent px-4 pt-1 pb-2 text-sm leading-relaxed placeholder:text-muted-foreground/40 focus:outline-none min-h-[140px] max-h-[300px]"
               value={form.requirement}
               onChange={(e) => updateForm('requirement', e.target.value)}
               onKeyDown={handleKeyDown}
@@ -771,10 +716,10 @@ function HomePage() {
                             className="mt-0.5 size-3.5 shrink-0 accent-primary"
                           />
                           <span className="min-w-0">
-                            <span className="block text-[12px] font-medium leading-4 text-foreground">
+                            <span className="block text-xs font-medium leading-4 text-foreground">
                               {t(`upload.trainingCourseTypes.${type}.label`)}
                             </span>
-                            <span className="mt-0.5 block text-[10px] leading-4 text-muted-foreground">
+                            <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
                               {t(`upload.trainingCourseTypes.${type}.description`)}
                             </span>
                           </span>
@@ -785,7 +730,7 @@ function HomePage() {
                 )}
               </div>
               {(form.interactiveMode || form.vocationalTestMode) && (
-                <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-300">
+                <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
                   {t('upload.fidelityNormalModeHint')}
                 </p>
               )}
@@ -793,13 +738,13 @@ function HomePage() {
 
             {requiresCategory && (
               <div className="px-4 pb-2 pt-1">
-                <label className="flex items-center gap-2 rounded-lg bg-slate-50/70 px-2.5 py-1.5 text-[12px] text-muted-foreground dark:bg-slate-800/50">
+                <label className="flex items-center gap-2 rounded-lg bg-slate-50/70 px-2.5 py-1.5 text-xs text-muted-foreground dark:bg-slate-800/50">
                   <span className="shrink-0">课程分类选择</span>
                   <select
                     aria-label="课程分类选择"
                     value={form.categoryId}
                     onChange={(event) => updateForm('categoryId', event.target.value)}
-                    className="min-w-0 flex-1 rounded-md border-0 bg-transparent px-1 py-0.5 text-[12px] text-foreground outline-none transition-colors focus:bg-background/70"
+                    className="min-w-0 flex-1 rounded-md border-0 bg-transparent px-1 py-0.5 text-xs text-foreground outline-none transition-colors focus:bg-background/70"
                   >
                     <option value="">请选择课程分类</option>
                     {courseCategories.map((category) => (
@@ -904,13 +849,13 @@ function HomePage() {
                   aria-checked={form.vocationalTestMode}
                   onClick={() => updateForm('vocationalTestMode', !form.vocationalTestMode)}
                   className={cn(
-                    'inline-flex h-7 items-center gap-2 rounded-full border px-2.5 text-[11px] font-medium transition-colors',
+                    'inline-flex h-7 items-center gap-2 rounded-full border px-2.5 text-xs font-medium transition-colors',
                     form.vocationalTestMode
                       ? 'border-cyan-400/70 bg-cyan-50 text-cyan-700 shadow-[0_0_10px_rgba(6,182,212,0.16)] dark:bg-cyan-950/40 dark:text-cyan-300'
                       : 'border-border/70 bg-background/70 text-muted-foreground hover:border-cyan-300/60 hover:text-cyan-700 dark:hover:text-cyan-300',
                   )}
                 >
-                  <span className="rounded-full bg-cyan-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-normal text-cyan-700 dark:bg-cyan-900/45 dark:text-cyan-300">
+                  <span className="rounded-full bg-cyan-100 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-normal text-cyan-700 dark:bg-cyan-900/45 dark:text-cyan-300">
                     测试功能
                   </span>
                   <Sparkles className="size-3.5" />
@@ -956,7 +901,7 @@ function HomePage() {
           <div className="relative z-10 mt-4 flex items-center gap-4">
             <button
               onClick={() => setEnterpriseImportOpen(true)}
-              className="flex items-center gap-1.5 text-[12px] text-muted-foreground/40 hover:text-foreground/60 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground/40 hover:text-foreground/60 transition-colors"
             >
               <Upload className="size-3.5" />
               <span>{t('import.classroom')}</span>
@@ -965,7 +910,7 @@ function HomePage() {
               <button
                 onClick={triggerPptxFileSelect}
                 disabled={pptxImporting}
-                className="flex items-center gap-1.5 text-[12px] text-muted-foreground/40 hover:text-foreground/60 transition-colors"
+                className="flex items-center gap-1.5 text-xs text-muted-foreground/40 hover:text-foreground/60 transition-colors"
               >
                 <Presentation className="size-3.5" />
                 <span>{t('import.pptx')}</span>
@@ -986,14 +931,14 @@ function HomePage() {
           {/* Trigger — divider-line with centered text */}
           <div className="group w-full flex items-center gap-4 py-2">
             <div className="flex-1 h-px bg-border/40 group-hover:bg-border/70 transition-colors" />
-            <div className="shrink-0 flex items-center gap-3 text-[13px] text-muted-foreground/60 select-none">
+            <div className="shrink-0 flex items-center gap-3 text-sm text-muted-foreground/60 select-none">
               <button
                 onClick={() => persistRecentOpen(!recentOpen)}
                 className="flex items-center gap-2 hover:text-foreground/70 transition-colors cursor-pointer"
               >
                 <Clock className="size-3.5" />
                 {t('classroom.recentClassrooms')}
-                <span className="text-[11px] tabular-nums opacity-60">{classrooms.length}</span>
+                <span className="text-xs tabular-nums opacity-60">{classrooms.length}</span>
                 <motion.div
                   animate={{ rotate: recentOpen ? 180 : 0 }}
                   transition={{ duration: 0.3, ease: 'easeInOut' }}
@@ -1034,7 +979,7 @@ function HomePage() {
                   >
                     <InputGroup
                       className={cn(
-                        'h-7 text-[12px] rounded-full bg-muted/40 border-transparent shadow-none',
+                        'h-7 text-xs rounded-full bg-muted/40 border-transparent shadow-none',
                         'transition-colors',
                         'hover:bg-muted/60',
                         'has-[[data-slot=input-group-control]:focus-visible]:bg-muted/60',
@@ -1086,7 +1031,7 @@ function HomePage() {
 
               <button
                 onClick={() => setEnterpriseImportOpen(true)}
-                className="group/import grid grid-cols-[auto_0fr] hover:grid-cols-[auto_1fr] items-center gap-1 rounded-full px-1.5 py-0.5 text-[12px] text-muted-foreground/35 hover:text-muted-foreground/70 hover:bg-muted/50 transition-all duration-200 cursor-pointer"
+                className="group/import grid grid-cols-[auto_0fr] hover:grid-cols-[auto_1fr] items-center gap-1 rounded-full px-1.5 py-0.5 text-xs text-muted-foreground/35 hover:text-muted-foreground/70 hover:bg-muted/50 transition-all duration-200 cursor-pointer"
               >
                 <Upload className="size-3" />
                 <span className="overflow-hidden opacity-0 group-hover/import:opacity-100 transition-opacity duration-200 whitespace-nowrap">
@@ -1097,7 +1042,7 @@ function HomePage() {
                 <button
                   onClick={triggerPptxFileSelect}
                   disabled={pptxImporting}
-                  className="group/import-pptx grid grid-cols-[auto_0fr] hover:grid-cols-[auto_1fr] items-center gap-1 rounded-full px-1.5 py-0.5 text-[12px] text-muted-foreground/35 hover:text-muted-foreground/70 hover:bg-muted/50 transition-all duration-200 cursor-pointer"
+                  className="group/import-pptx grid grid-cols-[auto_0fr] hover:grid-cols-[auto_1fr] items-center gap-1 rounded-full px-1.5 py-0.5 text-xs text-muted-foreground/35 hover:text-muted-foreground/70 hover:bg-muted/50 transition-all duration-200 cursor-pointer"
                 >
                   <Presentation className="size-3" />
                   <span className="overflow-hidden opacity-0 group-hover/import-pptx:opacity-100 transition-opacity duration-200 whitespace-nowrap">
@@ -1120,7 +1065,7 @@ function HomePage() {
                 className="w-full overflow-hidden"
               >
                 {searchQuery.trim() && filteredClassrooms.length === 0 ? (
-                  <div className="pt-8 pb-2 text-center text-[13px] text-muted-foreground/60">
+                  <div className="pt-8 pb-2 text-center text-sm text-muted-foreground/60">
                     {t('classroom.searchEmpty')}
                   </div>
                 ) : (
@@ -1278,7 +1223,7 @@ function GreetingBar() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="leading-none select-none flex items-center gap-1">
-                  <span className="text-[13px] font-semibold text-foreground/85 group-hover:text-foreground transition-colors">
+                  <span className="text-sm font-semibold text-foreground/85 group-hover:text-foreground transition-colors">
                     {t('home.greetingWithName', { name: displayName })}
                   </span>
                   <ChevronDown className="size-3 text-muted-foreground/30 group-hover:text-muted-foreground/60 transition-colors shrink-0" />
@@ -1354,7 +1299,7 @@ function GreetingBar() {
                         onBlur={commitName}
                         maxLength={20}
                         placeholder={t('profile.defaultNickname')}
-                        className="flex-1 min-w-0 h-6 bg-transparent border-b border-border/80 text-[13px] font-semibold text-foreground outline-none placeholder:text-muted-foreground/40"
+                        className="flex-1 min-w-0 h-6 bg-transparent border-b border-border/80 text-sm font-semibold text-foreground outline-none placeholder:text-muted-foreground/40"
                       />
                       <button
                         onClick={commitName}
@@ -1371,7 +1316,7 @@ function GreetingBar() {
                       }}
                       className="group/name inline-flex items-center gap-1 cursor-pointer"
                     >
-                      <span className="text-[13px] font-semibold text-foreground/85 group-hover/name:text-foreground transition-colors">
+                      <span className="text-sm font-semibold text-foreground/85 group-hover/name:text-foreground transition-colors">
                         {displayName}
                       </span>
                       <Pencil className="size-2.5 text-muted-foreground/30 opacity-0 group-hover/name:opacity-100 transition-opacity" />
@@ -1442,7 +1387,7 @@ function GreetingBar() {
                   placeholder={t('profile.bioPlaceholder')}
                   maxLength={200}
                   rows={2}
-                  className="resize-none border-border/40 bg-transparent min-h-[72px] !text-[13px] !leading-relaxed placeholder:!text-[11px] placeholder:!leading-relaxed focus-visible:ring-1 focus-visible:ring-border/60"
+                  className="resize-none border-border/40 bg-transparent min-h-[72px] !text-sm !leading-relaxed placeholder:!text-xs placeholder:!leading-relaxed focus-visible:ring-1 focus-visible:ring-border/60"
                 />
               </div>
             </div>
@@ -1613,18 +1558,18 @@ function ClassroomCard({
               className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/50 backdrop-blur-[6px]"
               onClick={(e) => e.stopPropagation()}
             >
-              <span className="text-[13px] font-medium text-white/90">
+              <span className="text-sm font-medium text-white/90">
                 {t('classroom.deleteConfirmTitle')}?
               </span>
               <div className="flex gap-2">
                 <button
-                  className="px-3.5 py-1 rounded-lg text-[12px] font-medium bg-white/15 text-white/80 hover:bg-white/25 backdrop-blur-sm transition-colors"
+                  className="px-3.5 py-1 rounded-lg text-xs font-medium bg-white/15 text-white/80 hover:bg-white/25 backdrop-blur-sm transition-colors"
                   onClick={onCancelDelete}
                 >
                   {t('common.cancel')}
                 </button>
                 <button
-                  className="px-3.5 py-1 rounded-lg text-[12px] font-medium bg-red-500/90 text-white hover:bg-red-500 transition-colors"
+                  className="px-3.5 py-1 rounded-lg text-xs font-medium bg-red-500/90 text-white hover:bg-red-500 transition-colors"
                   onClick={onConfirmDelete}
                 >
                   {t('classroom.delete')}
@@ -1637,7 +1582,7 @@ function ClassroomCard({
 
       {/* Info — outside the thumbnail */}
       <div className="mt-2.5 px-1 flex items-center gap-2">
-        <span className="shrink-0 inline-flex items-center rounded-full bg-primary/10 dark:bg-primary/30 px-2 py-0.5 text-[11px] font-medium text-primary dark:text-primary/80">
+        <span className="shrink-0 inline-flex items-center rounded-full bg-primary/10 dark:bg-primary/30 px-2 py-0.5 text-xs font-medium text-primary dark:text-primary/80">
           {classroom.sceneCount} {t('classroom.slides')} · {formatDate(classroom.updatedAt)}
         </span>
         {editing && allowLocalManagement ? (
@@ -1653,14 +1598,14 @@ function ClassroomCard({
               onBlur={commitRename}
               maxLength={100}
               placeholder={t('classroom.renamePlaceholder')}
-              className="w-full bg-transparent border-b border-primary/60 text-[15px] font-medium text-foreground/90 outline-none placeholder:text-muted-foreground/40"
+              className="w-full bg-transparent border-b border-primary/60 text-sm font-medium text-foreground/90 outline-none placeholder:text-muted-foreground/40"
             />
           </div>
         ) : (
           <Tooltip>
             <TooltipTrigger asChild>
               <p
-                className="font-medium text-[15px] truncate text-foreground/90 min-w-0 cursor-text"
+                className="font-medium text-sm truncate text-foreground/90 min-w-0 cursor-text"
                 onDoubleClick={allowLocalManagement ? startRename : undefined}
               >
                 {classroom.name}

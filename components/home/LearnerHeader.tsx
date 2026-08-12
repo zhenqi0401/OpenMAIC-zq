@@ -156,11 +156,15 @@ export function LearnerHeader({
 
   return (
     <Layout.Header
-      className="sticky top-0 z-40 !h-16 !border-b !border-slate-200 !bg-white/95 !px-0 backdrop-blur-md dark:!border-slate-800 dark:!bg-card-solid/95"
+      className="sticky top-0 z-40 !h-16 !border-b !border-slate-200 !bg-white/95 !px-0 !leading-[64px] backdrop-blur-md dark:!border-slate-800 dark:!bg-card-solid/95"
       data-learner-header
     >
       <div className="mx-auto flex h-16 w-[min(1600px,calc(100%-1rem))] items-center gap-2 sm:w-[min(1600px,calc(100%-2rem))] sm:gap-3">
-        <Link href={homeHref} aria-label="元我智脑学习首页" className="shrink-0">
+        <Link
+          href={homeHref}
+          aria-label="元我智脑学习首页"
+          className="flex h-16 shrink-0 items-center"
+        >
           <BrandLockup variant="compact" priority />
         </Link>
         <Menu
