@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
   AdminCard,
@@ -109,12 +109,22 @@ export function DashboardAdminPanel() {
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 按周期缓存看板数据：切换周/月/年时命中缓存立即呈现，避免重复请求的等待
+  const dashboardCacheRef = useRef(new Map<AdminActivityRange, AdminDashboard>());
   const load = useCallback(
     async (notify = false) => {
-      setLoading(true);
       setError(null);
+      const cached = dashboardCacheRef.current.get(range);
+      if (cached) {
+        setDashboard(cached);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
       try {
-        setDashboard(await client.getDashboard(range));
+        const data = await client.getDashboard(range);
+        dashboardCacheRef.current.set(range, data);
+        setDashboard(data);
         if (notify) adminToast.success('看板已刷新');
       } catch (cause) {
         const message = adminErrorMessage(cause, '看板加载失败');
@@ -129,6 +139,21 @@ export function DashboardAdminPanel() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 预取其余周期数据：首屏后切换周/月/年几乎无等待（当前周期由 load 负责）
+  useEffect(() => {
+    const ranges: AdminActivityRange[] = ['week', 'month', 'year'];
+    for (const r of ranges) {
+      if (r === range) continue;
+      if (dashboardCacheRef.current.has(r)) continue;
+      void client
+        .getDashboard(r)
+        .then((data) => dashboardCacheRef.current.set(r, data))
+        .catch(() => {
+          // 预取失败不影响按需加载
+        });
+    }
+  }, [client, range]);
 
   return (
     <AdminPage id="admin-dashboard">

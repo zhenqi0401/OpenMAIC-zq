@@ -95,6 +95,9 @@ export function AdminActivityChart({
     [activity.points],
   );
 
+  // 周期切换后数据点数量变化，渲染时钳制聚焦索引避免越界
+  const safeKeyboardIndex = Math.min(keyboardIndex, points.length - 1);
+
   const data = useMemo(
     () =>
       points.flatMap((point) =>
@@ -151,10 +154,10 @@ export function AdminActivityChart({
         aria-label="社区活跃趋势图。聚焦后使用左右方向键查看数据点。"
         aria-valuemax={points.length - 1}
         aria-valuemin={0}
-        aria-valuenow={keyboardIndex}
+        aria-valuenow={safeKeyboardIndex}
         aria-valuetext={
-          points[keyboardIndex]
-            ? `${points[keyboardIndex].date}：总互动 ${points[keyboardIndex].interactions}，帖子 ${points[keyboardIndex].posts}，回复 ${points[keyboardIndex].replies}，弹幕 ${points[keyboardIndex].danmaku}`
+          points[safeKeyboardIndex]
+            ? `${points[safeKeyboardIndex].date}：总互动 ${points[safeKeyboardIndex].interactions}，帖子 ${points[safeKeyboardIndex].posts}，回复 ${points[safeKeyboardIndex].replies}，弹幕 ${points[safeKeyboardIndex].danmaku}`
             : undefined
         }
         className="mt-4 h-72 w-full rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus-ring)]/30"
@@ -164,7 +167,7 @@ export function AdminActivityChart({
           event.preventDefault();
           const nextIndex = Math.max(
             0,
-            Math.min(keyboardIndex + (event.key === 'ArrowRight' ? 1 : -1), points.length - 1),
+            Math.min(safeKeyboardIndex + (event.key === 'ArrowRight' ? 1 : -1), points.length - 1),
           );
           setKeyboardIndex(nextIndex);
         }}
@@ -177,11 +180,11 @@ export function AdminActivityChart({
             x: {
               title: false,
               labelFill: CHART_TEXT_COLOR,
-              // 标签始终横向排布，密集时自动隐藏重叠项
-              label: {
-                align: 'horizontal',
-                overlap: [{ type: 'hide' }],
-              },
+              // 标签始终水平排布（labelAlign 为 @antv/component 的正确配置，
+              // 旧代码的 label.align 无效导致日期被旋转）
+              labelAlign: 'horizontal',
+              // 标签重叠时隐藏（正确属性名为 labelOverlap，位于轴配置顶层）
+              labelOverlap: [{ type: 'hide' }],
               line: true,
               lineStroke: 'var(--admin-border)',
               tick: false,
@@ -191,10 +194,8 @@ export function AdminActivityChart({
             y: {
               title: false,
               labelFill: CHART_TEXT_COLOR,
-              // 标签保持横向，不随轴旋转
-              label: {
-                align: 'horizontal',
-              },
+              // 数值标签保持水平，与横坐标平行
+              labelAlign: 'horizontal',
               // 去掉横向网格虚线
               grid: false,
             },
