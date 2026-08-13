@@ -14,6 +14,7 @@ type ActivityKey = keyof CommunityActivity['totals'];
 
 // 图表走 canvas 渲染，无法解析 var() —— 使用品牌原始色值保证线色稳定
 const CHART_TEXT_COLOR = adminBrandTokens['--saas-on-surface-variant'];
+const CHART_GRID_COLOR = adminBrandTokens['--saas-outline-variant'];
 const ACTIVITY_SERIES = [
   {
     key: 'interactions',
@@ -180,8 +181,9 @@ export function AdminActivityChart({
             x: {
               title: false,
               labelFill: CHART_TEXT_COLOR,
-              // 标签始终水平排布（labelAlign 为 @antv/component 的正确配置，
-              // 旧代码的 label.align 无效导致日期被旋转）
+              // G2 在标签放不下且 labelTransform 未设置时会自动注入 rotate(90)。
+              // 显式锁定为 0 度，再由 tickFilter / labelOverlap 控制密度。
+              labelTransform: 'rotate(0)',
               labelAlign: 'horizontal',
               // 标签重叠时隐藏（正确属性名为 labelOverlap，位于轴配置顶层）
               labelOverlap: [{ type: 'hide' }],
@@ -194,10 +196,19 @@ export function AdminActivityChart({
             y: {
               title: false,
               labelFill: CHART_TEXT_COLOR,
+              labelOpacity: 0.72,
+              labelSpacing: 10,
               // 数值标签保持水平，与横坐标平行
               labelAlign: 'horizontal',
-              // 去掉横向网格虚线
-              grid: false,
+              // 连续数值轴使用 Ant Design Charts 默认节奏的轻量虚线网格；
+              // 不绘制纵轴实体线和刻度，避免与数据系列争夺视觉层级。
+              grid: true,
+              gridLineDash: [3, 4],
+              gridLineWidth: 1,
+              gridStroke: CHART_GRID_COLOR,
+              gridStrokeOpacity: 0.55,
+              line: false,
+              tick: false,
             },
           }}
           colorField="series"

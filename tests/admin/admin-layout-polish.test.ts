@@ -54,6 +54,9 @@ describe('admin layout polish', () => {
     expect(chartSource).toContain("{ value: 'week', label: '周' }");
     expect(chartSource).toContain("{ value: 'month', label: '月' }");
     expect(chartSource).toContain("{ value: 'year', label: '年' }");
+    expect(chartSource).toContain("labelTransform: 'rotate(0)'");
+    expect(chartSource).toContain('gridLineDash: [3, 4]');
+    expect(chartSource).toContain('gridStrokeOpacity: 0.55');
     expect(markup).not.toContain('data-admin-dashboard-progress-panel');
     expect(markup).not.toContain('学习记录');
     expect(markup).not.toContain('测评通过率');
