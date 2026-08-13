@@ -3,17 +3,20 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Empty, Form, Input, Pagination, Radio, Segmented, Select, Skeleton } from 'antd';
 import {
-  BookOpen,
-  Clock3,
-  Eye,
-  Lock,
-  MessageCircle,
-  PenLine,
-  Pin,
-  Send,
-} from 'lucide-react';
+  Alert,
+  Button,
+  Drawer,
+  Empty,
+  Form,
+  Input,
+  Pagination,
+  Segmented,
+  Select,
+  Skeleton,
+  Space,
+} from 'antd';
+import { BookOpen, Clock3, Eye, Lock, MessageCircle, PenLine, Pin, Send } from 'lucide-react';
 import { getDisplayNameInitial } from '@/components/home/LearnerHeader';
 import { cn } from '@/lib/utils';
 import {
@@ -122,8 +125,10 @@ export function ForumListPage() {
   const [courses, setCourses] = useState<ForumCourseOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [composeError, setComposeError] = useState<string | null>(null);
   const [composing, setComposing] = useState(composeRequested);
   const [submitting, setSubmitting] = useState(false);
+  const [composerWidth, setComposerWidth] = useState(560);
   const [form] = Form.useForm<{
     scope: 'global' | 'course';
     courseId?: string;
@@ -180,15 +185,33 @@ export function ForumListPage() {
     }
   }, [composeRequested, courseId, form]);
 
+  useEffect(() => {
+    const updateComposerWidth = () => setComposerWidth(Math.min(560, document.body.clientWidth));
+    updateComposerWidth();
+    window.addEventListener('resize', updateComposerWidth);
+    return () => window.removeEventListener('resize', updateComposerWidth);
+  }, []);
+
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const activeCourse = useMemo(
     () => courses.find((course) => course.id === courseId),
     [courseId, courses],
   );
 
-  async function submitPost(values: { scope: 'global' | 'course'; courseId?: string; title: string; body: string }) {
+  const closeComposer = useCallback(() => {
+    setComposing(false);
+    setComposeError(null);
+    if (composeRequested) setQuery({ compose: null });
+  }, [composeRequested, setQuery]);
+
+  async function submitPost(values: {
+    scope: 'global' | 'course';
+    courseId?: string;
+    title: string;
+    body: string;
+  }) {
     setSubmitting(true);
-    setError(null);
+    setComposeError(null);
     try {
       const result = await forumApi<{ post: ForumClientPost }>('/api/forum/posts', {
         method: 'POST',
@@ -202,7 +225,7 @@ export function ForumListPage() {
       });
       router.push(`/forum/posts/${result.post.id}`);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '发布失败');
+      setComposeError(cause instanceof Error ? cause.message : '发布失败');
     } finally {
       setSubmitting(false);
     }
@@ -219,31 +242,88 @@ export function ForumListPage() {
             </p>
           </div>
           <Button
-            onClick={() => setComposing((value) => !value)}
-            className="bg-primary text-white hover:bg-primary"
+            onClick={() => setComposing(true)}
+            type="primary"
+            size="large"
+            icon={<PenLine className="size-4" />}
           >
-            <PenLine className="size-4" />
-            {composing ? '收起发帖' : '发布讨论'}
+            发布讨论
           </Button>
         </section>
 
-        {composing && (
+        <Drawer
+          open={composing}
+          onClose={closeComposer}
+          placement="right"
+          width={composerWidth}
+          styles={{
+            section: {
+              width: '100%',
+              minWidth: 0,
+              maxWidth: '100%',
+              boxSizing: 'border-box',
+              overflow: 'hidden',
+            },
+            body: {
+              width: '100%',
+              minWidth: 0,
+              boxSizing: 'border-box',
+              overflowX: 'hidden',
+              padding: composerWidth < 576 ? 16 : 24,
+            },
+            footer: {
+              width: '100%',
+              boxSizing: 'border-box',
+              padding: composerWidth < 576 ? '12px 16px' : '12px 24px',
+            },
+          }}
+          title="发布讨论"
+          destroyOnHidden
+          footer={
+            <div className="flex justify-end">
+              <Space>
+                <Button onClick={closeComposer}>取消</Button>
+                <Button
+                  htmlType="submit"
+                  type="primary"
+                  loading={submitting}
+                  icon={<Send className="size-4" />}
+                  form="forum-compose-form"
+                >
+                  {submitting ? '正在发布' : '立即发布'}
+                </Button>
+              </Space>
+            </div>
+          }
+        >
           <Form
+            id="forum-compose-form"
             form={form}
             onFinish={submitPost}
             layout="vertical"
-            className="mt-7 rounded-xl border border-primary/20 bg-white p-5 shadow-sm dark:border-primary/30 dark:bg-card-solid sm:p-6"
+            size="large"
+            requiredMark={false}
+            scrollToFirstError={{ focus: true }}
+            initialValues={{
+              scope: courseId ? 'course' : 'global',
+              courseId: courseId || undefined,
+            }}
+            className="w-full min-w-0 max-w-full"
           >
             <Form.Item
               name="scope"
-              initialValue={courseId ? 'course' : 'global'}
-              label="帖子类型"
-              rules={[{ required: true }]}
+              className="mb-5"
+              rules={[{ required: true, message: '请选择讨论范围' }]}
             >
-              <Radio.Group aria-label="帖子类型">
-                <Radio.Button value="global">全局讨论</Radio.Button>
-                <Radio.Button value="course">关联课程</Radio.Button>
-              </Radio.Group>
+              <Segmented
+                block
+                aria-label="讨论范围"
+                className="max-w-full"
+                options={[
+                  { value: 'global', label: '全局讨论' },
+                  { value: 'course', label: '关联课程' },
+                ]}
+              />
             </Form.Item>
             {scope === 'course' && (
               <Form.Item
@@ -253,6 +333,10 @@ export function ForumListPage() {
                 rules={[{ required: true, message: '请选择要关联的课程' }]}
               >
                 <Select
+                  showSearch
+                  optionFilterProp="label"
+                  allowClear
+                  className="w-full max-w-full"
                   placeholder="请选择当前可见课程"
                   options={courses.map((course) => ({ value: course.id, label: course.name }))}
                 />
@@ -261,34 +345,34 @@ export function ForumListPage() {
             <Form.Item
               name="title"
               label="标题"
+              className="mb-5"
               rules={[{ required: true, message: '请输入标题' }]}
             >
               <Input
                 maxLength={FORUM_TITLE_MAX_LENGTH}
                 showCount
+                allowClear
+                className="max-w-full"
                 placeholder="清晰概括你想讨论的内容"
               />
             </Form.Item>
             <Form.Item
               name="body"
               label="正文"
+              className="mb-0"
               rules={[{ required: true, message: '请输入正文' }]}
             >
               <TextArea
                 maxLength={FORUM_POST_MAX_LENGTH}
                 showCount
                 placeholder="写下你的观点、问题或学习心得"
-                className="min-h-36 resize-y"
+                autoSize={{ minRows: 6, maxRows: 12 }}
+                className="max-w-full"
               />
             </Form.Item>
-            <div className="flex justify-end">
-              <Button htmlType="submit" type="primary" loading={submitting}>
-                <Send className="size-4" />
-                {submitting ? '正在发布' : '立即发布'}
-              </Button>
-            </div>
+            {composeError && <Alert type="error" showIcon message={composeError} />}
           </Form>
-        )}
+        </Drawer>
 
         <div className="mt-7">
           <aside className="flex flex-col gap-3 border-b border-slate-200 pb-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">

@@ -156,8 +156,9 @@ test('course forum supports compose, pagination, reply, admin close, mobile and 
   await expect(page.getByText('浏览量', { exact: true })).toBeVisible();
   await expect(page.getByText('发布时间', { exact: true })).toBeVisible();
   await expect(page.getByLabel('12 次浏览')).toBeVisible();
-  // 发布表单的关联课程 Select 已选中来自 URL 的 courseId（antd v6 在 .ant-select-content 展示课程名）
-  await expect(page.locator('form .ant-select-content')).toHaveText('门店安全课');
+  // 发帖抽屉按 URL 深链打开，并预选关联课程。
+  await expect(page.getByRole('dialog', { name: '发布讨论' })).toBeVisible();
+  await expect(page.locator('#forum-compose-form .ant-select-content')).toHaveText('门店安全课');
   // antd Pagination 以页码按钮呈现（迁移前的"第 x / y 页"文案已下线）
   await expect(page.locator('.ant-pagination-item')).toHaveCount(3);
   await page.screenshot({
@@ -165,6 +166,17 @@ test('course forum supports compose, pagination, reply, admin close, mobile and 
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
+  const composeDrawer = page.getByRole('dialog', { name: '发布讨论' });
+  await expect(composeDrawer).toBeVisible();
+  await expect
+    .poll(async () => {
+      const box = await composeDrawer.boundingBox();
+      const viewportWidth = await page.evaluate(() => document.body.clientWidth);
+      return box
+        ? { left: Math.round(box.x), right: Math.round(box.x + box.width), viewportWidth }
+        : null;
+    })
+    .toEqual({ left: 0, right: 375, viewportWidth: 375 });
   await expect(page.getByText('12 浏览', { exact: false })).toBeVisible();
   await expect
     .poll(() =>
@@ -234,5 +246,7 @@ test('course forum supports compose, pagination, reply, admin close, mobile and 
 
   api.revokeCourseAccess();
   await page.reload();
-  await expect(page.getByRole('heading', { name: '无法打开这个讨论' })).toBeVisible();
+  await expect(
+    page.getByText('无法打开这个讨论。内容可能已删除，或你没有关联课程的访问权限。'),
+  ).toBeVisible();
 });
