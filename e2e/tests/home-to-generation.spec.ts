@@ -77,4 +77,25 @@ test.describe('Home → Generation', () => {
     await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
     await expectBodyScrollState(page, initialBodySpacing, true);
   });
+
+  test('uses consistent Ant Design controls and keeps the CN language label', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('locale', 'zh-CN'));
+    const home = new HomePage(page);
+    await home.goto();
+
+    const controls = page.locator('[data-generation-workbench-controls]');
+    await expect(controls).toBeVisible();
+    const buttons = controls.locator('button.ant-btn');
+    await expect(buttons).toHaveCount(6);
+    await expect(page.getByRole('button', { name: '语言设置' })).toHaveText('CN');
+
+    const sizes = await buttons.evaluateAll((elements) =>
+      elements.map((element) => {
+        const box = element.getBoundingClientRect();
+        return { width: box.width, height: box.height };
+      }),
+    );
+    expect(new Set(sizes.map(({ height }) => height)).size).toBe(1);
+    expect(sizes.every(({ width, height }) => width === height)).toBe(true);
+  });
 });

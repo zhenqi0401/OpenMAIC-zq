@@ -530,25 +530,26 @@ function HomePage() {
       {/* ═══ Top-right pill (unchanged) ═══ */}
       <div
         className="fixed top-4 right-4 z-50 flex items-center gap-1 bg-white/70 dark:bg-card-solid/70 backdrop-blur-md px-2 py-1.5 rounded-full border border-slate-200/60 dark:border-slate-700/60 shadow-sm"
+        data-generation-workbench-controls
       >
         {shouldShowAdminEntry(identity) && (
-          <button
+          <AntButton
+            type="text"
+            shape="circle"
+            icon={<Shield className="size-4" />}
             onClick={() => router.push('/admin')}
-            className="p-2 rounded-full text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-primary dark:hover:text-primary/80 hover:shadow-sm transition-all"
             aria-label="Admin"
-          >
-            <Shield className="w-4 h-4" />
-          </button>
+          />
         )}
 
-        <button
+        <AntButton
+          type="text"
+          shape="circle"
+          icon={<BookOpen className="size-4" />}
           onClick={() => router.push('/learn')}
-          className="p-2 rounded-full text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-primary dark:hover:text-primary/80 hover:shadow-sm transition-all"
           aria-label="进入学员端"
           title="进入学员端"
-        >
-          <BookOpen className="w-4 h-4" />
-        </button>
+        />
 
         <div className="w-[1px] h-4 bg-slate-200 dark:bg-slate-700" />
 
@@ -589,26 +590,26 @@ function HomePage() {
         <div className="w-[1px] h-4 bg-slate-200 dark:bg-slate-700" />
 
         {/* Settings Button */}
-        <div className="relative">
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="p-2 rounded-full text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-primary dark:hover:text-primary/80 hover:shadow-sm transition-all group"
-          >
-            <Settings className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
-          </button>
-        </div>
+        <AntButton
+          type="text"
+          shape="circle"
+          icon={<Settings className="size-4" />}
+          onClick={() => setSettingsOpen(true)}
+          aria-label="设置"
+          title="设置"
+        />
 
         {identity && (
           <>
             <div className="w-[1px] h-4 bg-slate-200 dark:bg-slate-700" />
-            <button
+            <AntButton
+              type="text"
+              shape="circle"
+              icon={<LogOut className="size-4" />}
               onClick={handleLogout}
-              className="p-2 rounded-full text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-primary dark:hover:text-primary/80 hover:shadow-sm transition-all"
               aria-label="退出登录"
               title="退出登录"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+            />
           </>
         )}
       </div>

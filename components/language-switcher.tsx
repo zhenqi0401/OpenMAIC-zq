@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckOutlined, GlobalOutlined } from '@ant-design/icons';
+import { CheckOutlined } from '@ant-design/icons';
 import { Button, Dropdown } from 'antd';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { supportedLocales, type Locale } from '@/lib/i18n';
@@ -11,8 +11,8 @@ interface LanguageSwitcherProps {
 }
 
 /**
- * Locale picker pill, backed by antd Dropdown so its look and colors match
- * the sibling theme selector (both are antd text buttons with a dropdown).
+ * Locale picker backed by antd Dropdown. The trigger keeps the compact locale
+ * code (CN/TW/EN) so it matches sibling circular icon controls.
  */
 export function LanguageSwitcher({ onOpen }: LanguageSwitcherProps) {
   const { locale, setLocale } = useI18n();
@@ -39,7 +39,7 @@ export function LanguageSwitcher({ onOpen }: LanguageSwitcherProps) {
         if (open) onOpen?.();
       }}
     >
-      <Button type="text" icon={<GlobalOutlined />} aria-label="语言设置">
+      <Button type="text" shape="circle" aria-label="语言设置">
         {supportedLocales.find((l) => l.code === locale)?.shortLabel ?? locale}
       </Button>
     </Dropdown>

@@ -56,5 +56,16 @@ describe('home course category selector UI', () => {
       toolbar.indexOf('<LanguageSwitcher'),
     );
     expect(toolbar).toContain("router.push('/learn')");
+    expect(toolbar).not.toContain('<button');
+    expect(toolbar).toContain('shape="circle"');
+  });
+
+  it('keeps the compact CN language label on an Ant Design circle button', () => {
+    const source = readFileSync('components/language-switcher.tsx', 'utf8');
+    const locales = readFileSync('lib/i18n/locales.ts', 'utf8');
+
+    expect(source).toContain('<Button type="text" shape="circle" aria-label="语言设置">');
+    expect(source).toContain('shortLabel');
+    expect(locales).toContain("{ code: 'zh-CN', label: '简体中文', shortLabel: 'CN' }");
   });
 });
