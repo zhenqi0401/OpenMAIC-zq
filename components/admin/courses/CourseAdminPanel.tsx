@@ -148,7 +148,6 @@ export function CourseAdminPanel() {
     totalPages: 1,
   });
   const [previews, setPreviews] = useState<Record<string, { canvas: unknown } | null>>({});
-  const [, setLoading] = useState(true); // 加载态仅用于触发重渲染，当前无读取处
   const [importOpen, setImportOpen] = useState(false);
 
   const learnerRoles = useMemo(() => roles.filter((role) => !role.isAdmin), [roles]);
@@ -158,9 +157,8 @@ export function CourseAdminPanel() {
   );
   const loadAll = useCallback(
     async (notify = false) => {
-      setLoading(true);
       try {
-        const [rolesResponse, categoriesResponse, courseResult] = await Promise.all([
+        const [rolesResult, categoriesResult, courseResult] = await Promise.allSettled([
           fetch('/api/admin/roles'),
           fetch('/api/admin/categories'),
           client.queryCourses({
@@ -173,18 +171,23 @@ export function CourseAdminPanel() {
             sort: 'updatedAt:desc',
           }),
         ]);
-        if (!rolesResponse.ok || !categoriesResponse.ok) {
-          throw new Error('课程后台加载失败');
+        if (courseResult.status === 'rejected') throw courseResult.reason;
+        setCourses(courseResult.value.items);
+        setCoursePagination(courseResult.value.pagination);
+
+        if (rolesResult.status === 'fulfilled' && rolesResult.value.ok) {
+          const rolesData = (await rolesResult.value.json()) as { roles: AuthRole[] };
+          setRoles(rolesData.roles);
         }
-        const rolesData = (await rolesResponse.json()) as { roles: AuthRole[] };
-        const categoriesData = (await categoriesResponse.json()) as { categories: Category[] };
-        setRoles(rolesData.roles);
-        setCategories(categoriesData.categories);
-        setCourses(courseResult.items);
-        setCoursePagination(courseResult.pagination);
+        if (categoriesResult.status === 'fulfilled' && categoriesResult.value.ok) {
+          const categoriesData = (await categoriesResult.value.json()) as {
+            categories: Category[];
+          };
+          setCategories(categoriesData.categories);
+        }
         try {
           const previewResult = await client.getCoursePreviews(
-            courseResult.items.map((course) => course.id),
+            courseResult.value.items.map((course) => course.id),
           );
           setPreviews(previewResult.previews);
         } catch {
@@ -193,8 +196,6 @@ export function CourseAdminPanel() {
         if (notify) adminToast.success('课程列表已刷新');
       } catch {
         adminToast.error('课程后台加载失败');
-      } finally {
-        setLoading(false);
       }
     },
     [client, coursePage, filters],

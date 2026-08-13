@@ -60,6 +60,8 @@ export interface EnterpriseCourse {
   generationStatus?: string;
   generationComplete?: boolean;
   assessmentQuestions: unknown[];
+  /** Available on list projections that deliberately omit the full question JSON. */
+  assessmentQuestionCount?: number;
   learnerCount?: number;
   sceneCount?: number;
   publishedAt: Date | null;
@@ -415,6 +417,8 @@ export interface EnterpriseRepository {
   ): Promise<EnterpriseCategory | null>;
 
   listAdminCourses(filters?: HostQueryFilters): Promise<EnterpriseCourse[]>;
+  /** Lightweight list projection: excludes stage snapshots and full assessment payloads. */
+  listCourseSummaries?(): Promise<EnterpriseCourse[]>;
   createCourse(input: CreateCourseInput): Promise<EnterpriseCourse>;
   importEnterpriseCourse?(
     input: PreparedEnterpriseCourseImport & {
@@ -460,6 +464,10 @@ export interface EnterpriseRepository {
     userId: string,
     courseId: string,
   ): Promise<EnterpriseAssessmentAttempt[]>;
+  getLearnerCourseMeta?(
+    userId: string,
+    courseIds: string[],
+  ): Promise<Map<string, { progress: EnterpriseCourseProgress | null; assessmentPassed: boolean }>>;
   createAssessmentAttempt(
     input: EnterpriseAssessmentAttemptInput,
   ): Promise<EnterpriseAssessmentAttempt>;
@@ -530,23 +538,28 @@ export class EnterpriseStorageServiceError extends Error {
   }
 }
 
-function isCourseVisibleToRole(course: EnterpriseCourse, roleId: string): boolean {
+type CourseAccessFields = Pick<
+  EnterpriseCourse,
+  'status' | 'visibilityMode' | 'visibleRoleIds' | 'scope' | 'tenantId'
+>;
+
+function isCourseVisibleToRole(course: CourseAccessFields, roleId: string): boolean {
   if (course.status !== 'published') return false;
   if (course.visibilityMode === 'all') return true;
   return course.visibleRoleIds.includes(roleId);
 }
 
-function isCourseReadable(course: EnterpriseCourse, access: TenantAccessContext): boolean {
+function isCourseReadable(course: CourseAccessFields, access: TenantAccessContext): boolean {
   if (course.scope !== 'platform' && course.tenantId !== access.tenantId) return false;
   if (access.isAdmin) return true;
   if (course.status !== 'published') return false;
   return course.scope === 'platform' || isCourseVisibleToRole(course, access.roleId);
 }
 
-function withManagementMode(
-  course: EnterpriseCourse,
+function withManagementMode<T extends Pick<EnterpriseCourse, 'scope' | 'tenantId'>>(
+  course: T,
   access?: TenantAccessContext,
-): EnterpriseCourse {
+): T & { managementMode: CourseManagementMode } {
   return {
     ...course,
     managementMode:
@@ -1057,6 +1070,28 @@ export function createEnterpriseStorageService(
         )
         .map((course) => withManagementMode(course, defaultAccess));
     },
+    listCourseSummaries: async (): Promise<EnterpriseCourse[]> => {
+      const courses = repository.listCourseSummaries
+        ? await repository.listCourseSummaries()
+        : await repository.listAdminCourses();
+      return courses
+        .filter(
+          (course) =>
+            !defaultAccess ||
+            course.scope === 'platform' ||
+            course.tenantId === defaultAccess.tenantId,
+        )
+        .map((course) => {
+          const projected = withManagementMode(course, defaultAccess);
+          const { stageSnapshot: _stageSnapshot, assessmentQuestions, ...summary } = projected;
+          return {
+            ...summary,
+            assessmentQuestions: [],
+            assessmentQuestionCount:
+              projected.assessmentQuestionCount ?? assessmentQuestions.length,
+          };
+        });
+    },
     createCourse: async (
       input: Omit<CreateCourseInput, 'tenantId'>,
       access?: TenantAccessContext,
@@ -1219,7 +1254,9 @@ export function createEnterpriseStorageService(
       access: TenantAccessContext | string,
       sort: CourseListSort = 'latest',
     ) {
-      const courses = await repository.listAdminCourses();
+      const courses = repository.listCourseSummaries
+        ? await repository.listCourseSummaries()
+        : await repository.listAdminCourses();
       const visible = courses
         .filter((course) =>
           typeof access === 'string'
@@ -1232,13 +1269,26 @@ export function createEnterpriseStorageService(
       if (typeof access === 'string' || access.isAdmin) return sortVisibleCourses(visible, sort);
       const path = await listRoleLearningPath(access.roleId);
       const pathMap = new Map(path.map((item) => [item.courseId, item.position]));
+      const courseMeta = repository.getLearnerCourseMeta
+        ? await repository.getLearnerCourseMeta(
+            access.userId,
+            visible.map((course) => course.id),
+          )
+        : null;
       const enriched = await Promise.all(
         visible.map(async (course) => {
-          const progress = await repository.getCourseProgress(access.userId, course.id);
-          const attempts = await repository.listCourseAssessmentAttempts(access.userId, course.id);
+          const meta = courseMeta?.get(course.id);
+          const progress = meta
+            ? meta.progress
+            : await repository.getCourseProgress(access.userId, course.id);
+          const assessmentPassed = meta
+            ? meta.assessmentPassed
+            : (await repository.listCourseAssessmentAttempts(access.userId, course.id)).some(
+                (attempt) => attempt.passed,
+              );
           const learningStatus: LearningStatus = !progress
             ? 'not_started'
-            : attempts.some((attempt) => attempt.passed)
+            : assessmentPassed
               ? 'completed'
               : progress.completed
                 ? 'assessment_pending'
@@ -1666,6 +1716,13 @@ export function createEnterpriseStorageService(
         repository.listCourseProgress(scopedFilters),
       ]);
       return { summary, progress };
+    },
+
+    async getDashboardSummary(filters?: HostQueryFilters) {
+      const scopedFilters = defaultAccess
+        ? { ...filters, tenantId: defaultAccess.tenantId }
+        : filters;
+      return repository.getDashboardSummary(scopedFilters);
     },
 
     async getHostSummary(input: {

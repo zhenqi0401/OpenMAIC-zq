@@ -1,4 +1,4 @@
-import { and, asc, count, eq, gte, inArray, lte } from 'drizzle-orm';
+import { and, asc, count, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 
 import { hashInviteCode, type AuthRole } from '@/lib/auth/service';
 import type { StoredHostApiKey } from '@/lib/host-api/access';
@@ -184,7 +184,10 @@ type CourseRow = typeof courses.$inferSelect & { categoryName?: string | null };
 async function loadVisibleRoleIds(courseIds: string[]): Promise<Map<string, string[]>> {
   const result = new Map<string, string[]>();
   if (courseIds.length === 0) return result;
-  const rows = await getDb().select().from(courseVisibilityRoles);
+  const rows = await getDb()
+    .select()
+    .from(courseVisibilityRoles)
+    .where(inArray(courseVisibilityRoles.courseId, courseIds));
   for (const row of rows) {
     if (!courseIds.includes(row.courseId)) continue;
     const current = result.get(row.courseId) ?? [];
@@ -535,6 +538,116 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
         Number(row.sceneCount ?? 0),
       ),
     );
+  }
+
+  async listCourseSummaries(): Promise<EnterpriseCourse[]> {
+    const learnerCounts = getDb()
+      .select({
+        courseId: courseProgress.courseId,
+        learnerCount: count(courseProgress.userId).as('learner_count'),
+      })
+      .from(courseProgress)
+      .innerJoin(users, eq(courseProgress.userId, users.id))
+      .innerJoin(roles, eq(users.roleId, roles.id))
+      .where(eq(roles.isAdmin, false))
+      .groupBy(courseProgress.courseId)
+      .as('course_learner_counts');
+    const sceneCounts = getDb()
+      .select({ courseId: scenes.courseId, sceneCount: count(scenes.id).as('scene_count') })
+      .from(scenes)
+      .groupBy(scenes.courseId)
+      .as('course_scene_counts');
+    const rows = await getDb()
+      .select({
+        id: courses.id,
+        tenantId: courses.tenantId,
+        scope: courses.scope,
+        name: courses.name,
+        description: courses.description,
+        categoryId: courses.categoryId,
+        categoryName: courseCategories.name,
+        status: courses.status,
+        visibilityMode: courses.visibilityMode,
+        generationStatus: courses.generationStatus,
+        generationComplete: courses.generationComplete,
+        assessmentQuestionCount: sql<number>`jsonb_array_length(${courses.assessmentQuestions})`,
+        learnerCount: learnerCounts.learnerCount,
+        sceneCount: sceneCounts.sceneCount,
+        publishedAt: courses.publishedAt,
+        createdAt: courses.createdAt,
+        updatedAt: courses.updatedAt,
+      })
+      .from(courses)
+      .leftJoin(courseCategories, eq(courses.categoryId, courseCategories.id))
+      .leftJoin(learnerCounts, eq(courses.id, learnerCounts.courseId))
+      .leftJoin(sceneCounts, eq(courses.id, sceneCounts.courseId));
+    const roleIds = await loadVisibleRoleIds(rows.map((row) => row.id));
+    return rows.map((row) => ({
+      id: row.id,
+      tenantId: row.tenantId,
+      scope: row.scope as EnterpriseCourse['scope'],
+      managementMode: row.scope === 'platform' ? 'read_only' : 'editable',
+      name: row.name,
+      description: row.description,
+      categoryId: row.categoryId,
+      categoryName: row.categoryName,
+      status: row.status as CourseStatus,
+      visibilityMode: row.visibilityMode as CourseVisibilityMode,
+      visibleRoleIds: roleIds.get(row.id) ?? [],
+      generationStatus: row.generationStatus,
+      generationComplete: row.generationComplete,
+      assessmentQuestions: [],
+      assessmentQuestionCount: Number(row.assessmentQuestionCount ?? 0),
+      learnerCount: Number(row.learnerCount ?? 0),
+      sceneCount: Number(row.sceneCount ?? 0),
+      publishedAt: row.publishedAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    }));
+  }
+
+  async getLearnerCourseMeta(userId: string, courseIds: string[]) {
+    const result = new Map<
+      string,
+      { progress: EnterpriseCourseProgress | null; assessmentPassed: boolean }
+    >();
+    if (courseIds.length === 0) return result;
+    const [progressRows, attemptRows] = await Promise.all([
+      getDb()
+        .select()
+        .from(courseProgress)
+        .where(and(eq(courseProgress.userId, userId), inArray(courseProgress.courseId, courseIds))),
+      getDb()
+        .select({ courseId: assessmentAttempts.courseId, passed: assessmentAttempts.passed })
+        .from(assessmentAttempts)
+        .where(
+          and(eq(assessmentAttempts.userId, userId), inArray(assessmentAttempts.courseId, courseIds)),
+        ),
+    ]);
+    const progressByCourse = new Map(progressRows.map((row) => [row.courseId, row]));
+    const passedCourseIds = new Set(
+      attemptRows.filter((row) => row.passed).map((row) => row.courseId),
+    );
+    for (const courseId of courseIds) {
+      const progress = progressByCourse.get(courseId);
+      result.set(courseId, {
+        progress: progress
+          ? {
+              tenantId: progress.tenantId,
+              userId: progress.userId,
+              courseId: progress.courseId,
+              sceneIndex: progress.sceneIndex,
+              actionIndex: progress.actionIndex,
+              completed: progress.completed,
+              startedAt: progress.startedAt,
+              lastViewedAt: progress.lastViewedAt,
+              updatedAt: progress.updatedAt,
+            }
+          : null,
+        assessmentPassed: passedCourseIds.has(courseId),
+      });
+    }
+    return result;
   }
 
   /**

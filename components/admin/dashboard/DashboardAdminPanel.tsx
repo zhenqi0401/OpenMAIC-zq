@@ -20,22 +20,6 @@ import { createAdminClient, type AdminDashboard } from '@/lib/admin/client';
 
 export { formatDashboardPercent, toDashboardProgressRatio } from '@/lib/admin/presentation';
 
-interface DashboardAdminClient {
-  getDashboard(): Promise<unknown>;
-  listRoles(): Promise<unknown>;
-  listInviteCodes(): Promise<unknown>;
-  listUsers(): Promise<unknown>;
-}
-export async function loadDashboardAdminData(client: DashboardAdminClient) {
-  const [dashboard, roles, inviteCodes, users] = await Promise.all([
-    client.getDashboard(),
-    client.listRoles(),
-    client.listInviteCodes(),
-    client.listUsers(),
-  ]);
-  return { dashboard, roles, inviteCodes, users };
-}
-
 function percent(value: number | null) {
   return value === null ? '—' : `${value}%`;
 }
@@ -139,26 +123,6 @@ export function DashboardAdminPanel() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  // 预取其余周期数据：当前周期首屏渲染完成后延迟预取，避免与首屏请求
-  // 抢占数据库连接、拖慢图表首次呈现（当前周期由 load 负责）。
-  useEffect(() => {
-    if (!dashboard) return;
-    const timer = setTimeout(() => {
-      const ranges: AdminActivityRange[] = ['week', 'month', 'year'];
-      for (const r of ranges) {
-        if (r === range) continue;
-        if (dashboardCacheRef.current.has(r)) continue;
-        void client
-          .getDashboard(r)
-          .then((data) => dashboardCacheRef.current.set(r, data))
-          .catch(() => {
-            // 预取失败不影响按需加载
-          });
-      }
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [dashboard, client, range]);
 
   return (
     <AdminPage id="admin-dashboard">

@@ -54,7 +54,7 @@ export function ExamPolicyAdminPanel() {
   const [query, setQuery] = useState('');
   const [queryDraft, setQueryDraft] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | AdminExamPolicy['status']>('all');
-  const [, setLoading] = useState(true); // 加载态仅用于触发重渲染，当前无读取处
+  const [dialogCoursesLoaded, setDialogCoursesLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingPolicyId, setDeletingPolicyId] = useState<string | null>(null);
   const [resultPolicy, setResultPolicy] = useState<AdminExamPolicy | null>(null);
@@ -113,12 +113,10 @@ export function ExamPolicyAdminPanel() {
   }, [dialogDraft, dialogMode, dialogPolicyId, policies, publishedCourses]);
   const loadAll = useCallback(
     async (notify = false) => {
-      setLoading(true);
       try {
-        const [roleData, categoriesResponse, coursesResponse, policyData] = await Promise.all([
+        const [roleResult, categoriesResult, policyResult] = await Promise.allSettled([
           client.listRoles(),
           fetch('/api/admin/categories'),
-          fetch('/api/admin/courses?pageSize=100'),
           client.queryExamPolicies({
             q: query || undefined,
             status: statusFilter,
@@ -127,20 +125,20 @@ export function ExamPolicyAdminPanel() {
             pageSize: 20,
           }),
         ]);
-        if (!categoriesResponse.ok || !coursesResponse.ok) throw new Error('分类或课程加载失败');
-        const categoriesData = (await categoriesResponse.json()) as { categories: ExamCategory[] };
-        const coursesData = (await coursesResponse.json()) as { courses: EnterpriseCourse[] };
-        setRoles(roleData);
-        setCategories(categoriesData.categories);
-        setCourses(coursesData.courses);
-        setPolicies(policyData.items);
-        setSummary(policyData.summary);
-        setPagination(policyData.pagination);
+        if (policyResult.status === 'rejected') throw policyResult.reason;
+        setPolicies(policyResult.value.items);
+        setSummary(policyResult.value.summary);
+        setPagination(policyResult.value.pagination);
+        if (roleResult.status === 'fulfilled') setRoles(roleResult.value);
+        if (categoriesResult.status === 'fulfilled' && categoriesResult.value.ok) {
+          const categoriesData = (await categoriesResult.value.json()) as {
+            categories: ExamCategory[];
+          };
+          setCategories(categoriesData.categories);
+        }
         if (notify) notifySuccess('考核列表已刷新');
       } catch (loadError) {
         notifyError(loadError, '考核策略加载失败');
-      } finally {
-        setLoading(false);
       }
     },
     [client, page, query, statusFilter, targetRoleId],
@@ -159,11 +157,21 @@ export function ExamPolicyAdminPanel() {
     return () => window.clearTimeout(timer);
   }, [queryDraft]);
 
+  const loadDialogCourses = useCallback(async () => {
+    if (dialogCoursesLoaded) return;
+    const response = await fetch('/api/admin/courses?status=published&pageSize=100');
+    if (!response.ok) throw new Error('考核课程加载失败');
+    const data = (await response.json()) as { courses: EnterpriseCourse[] };
+    setCourses(data.courses);
+    setDialogCoursesLoaded(true);
+  }, [dialogCoursesLoaded]);
+
   function openCreateDialog() {
     setDialogMode('create');
     setDialogPolicyId(null);
     setDialogDraft(createEmptyPolicyDraft(learnerRoles[0]?.id, categories[0]?.id));
     setDialogOpen(true);
+    void loadDialogCourses().catch((error) => notifyError(error, '考核课程加载失败'));
   }
 
   function openEditDialog(policy: AdminExamPolicy) {
@@ -171,6 +179,7 @@ export function ExamPolicyAdminPanel() {
     setDialogPolicyId(policy.id);
     setDialogDraft(toPolicyDraft(policy));
     setDialogOpen(true);
+    void loadDialogCourses().catch((error) => notifyError(error, '考核课程加载失败'));
   }
 
   function updateDialogDraft(patch: Partial<ExamPolicyDraft>) {

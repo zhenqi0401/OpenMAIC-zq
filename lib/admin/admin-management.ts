@@ -1,4 +1,7 @@
-import type { EnterpriseCourse, EnterpriseExamPolicy } from '@/lib/storage/enterprise-service';
+import type {
+  EnterpriseCourse,
+  EnterpriseExamPolicy,
+} from '@/lib/storage/enterprise-service';
 import {
   paginateAdminItems,
   toAdminPagination,
@@ -34,6 +37,7 @@ export interface AdminExamPolicyQuery {
 
 interface EnterpriseAdminSource {
   listAdminCourses(): Promise<EnterpriseCourse[]>;
+  listCourseSummaries?(): Promise<EnterpriseCourse[]>;
   listExamPolicies(): Promise<EnterpriseExamPolicy[]>;
   getDashboard(): Promise<{
     summary: {
@@ -43,6 +47,13 @@ interface EnterpriseAdminSource {
       examPassRate: number;
       examAttemptCount: number;
     };
+  }>;
+  getDashboardSummary?(): Promise<{
+    learnerCount: number;
+    courseCount: number;
+    courseCompletionRate: number;
+    examPassRate: number;
+    examAttemptCount: number;
   }>;
 }
 
@@ -56,11 +67,26 @@ export class AdminManagementError extends Error {
   }
 }
 
-function hasAssessment(course: EnterpriseCourse) {
-  return Array.isArray(course.assessmentQuestions) && course.assessmentQuestions.length > 0;
+type CourseListSource = EnterpriseCourse;
+
+function assessmentQuestionCount(course: CourseListSource) {
+  return (
+    course.assessmentQuestionCount ??
+    ('assessmentQuestions' in course && Array.isArray(course.assessmentQuestions)
+      ? course.assessmentQuestions.length
+      : 0)
+  );
 }
 
-export function getAdminCourseContentStatus(course: EnterpriseCourse): AdminCourseContentStatus {
+function hasAssessment(course: CourseListSource) {
+  return assessmentQuestionCount(course) > 0;
+}
+
+function listCourseSummaries(source: EnterpriseAdminSource) {
+  return source.listCourseSummaries?.() ?? source.listAdminCourses();
+}
+
+export function getAdminCourseContentStatus(course: CourseListSource): AdminCourseContentStatus {
   if (course.generationComplete === false) {
     return course.generationStatus === 'generating' ? 'generating' : 'incomplete';
   }
@@ -68,7 +94,7 @@ export function getAdminCourseContentStatus(course: EnterpriseCourse): AdminCour
   return 'ready';
 }
 
-function courseForList(course: EnterpriseCourse) {
+function courseForList(course: CourseListSource) {
   return {
     id: course.id,
     scope: course.scope,
@@ -84,10 +110,10 @@ function courseForList(course: EnterpriseCourse) {
     learnerCount: course.learnerCount ?? 0,
     sceneCount: course.sceneCount ?? 0,
     updatedAt: course.updatedAt.toISOString(),
-    stageSnapshot: course.stageSnapshot,
     generationStatus: course.generationStatus,
     generationComplete: course.generationComplete,
-    assessmentQuestions: course.assessmentQuestions,
+    assessmentQuestions: [],
+    assessmentQuestionCount: assessmentQuestionCount(course),
     publishedAt: course.publishedAt?.toISOString() ?? null,
     createdAt: course.createdAt.toISOString(),
   };
@@ -215,7 +241,7 @@ export function createAdminManagementService(input: {
 
     async queryCourses(query: AdminCourseListQuery) {
       const normalizedQuery = query.q?.toLocaleLowerCase('zh-CN');
-      const all = await input.enterprise.listAdminCourses();
+      const all = await listCourseSummaries(input.enterprise);
       const filtered = all
         .filter((course) => {
           if (
@@ -291,7 +317,7 @@ export function createAdminManagementService(input: {
     async queryExamPolicies(query: AdminExamPolicyQuery) {
       const [policies, courses, stats] = await Promise.all([
         input.enterprise.listExamPolicies(),
-        input.enterprise.listAdminCourses(),
+        listCourseSummaries(input.enterprise),
         input.repository.getExamAttemptStats(),
       ]);
       const q = query.q?.toLocaleLowerCase('zh-CN');
@@ -375,9 +401,10 @@ export function createAdminManagementService(input: {
       const currentTime = now();
       const activeFlags = flags();
       const provisional = buildActivityPoints([], range, currentTime, activeFlags);
-      const [dashboard, courses, policies, health, activity] = await Promise.all([
-        input.enterprise.getDashboard(),
-        input.enterprise.listAdminCourses(),
+      const [summary, courses, policies, health, activity] = await Promise.all([
+        input.enterprise.getDashboardSummary?.() ??
+          input.enterprise.getDashboard().then((dashboard) => dashboard.summary),
+        listCourseSummaries(input.enterprise),
         input.enterprise.listExamPolicies(),
         input.repository.getConfigurationHealth(currentTime),
         input.repository.listCommunityActivity(provisional.start, provisional.end),
@@ -472,12 +499,11 @@ export function createAdminManagementService(input: {
 
       return {
         summary: {
-          learnerCount: dashboard.summary.learnerCount,
-          activeCourseCount: dashboard.summary.courseCount,
-          courseCompletionRate: dashboard.summary.courseCompletionRate,
-          examPassRate:
-            dashboard.summary.examAttemptCount === 0 ? null : dashboard.summary.examPassRate,
-          examAttemptCount: dashboard.summary.examAttemptCount,
+          learnerCount: summary.learnerCount,
+          activeCourseCount: summary.courseCount,
+          courseCompletionRate: summary.courseCompletionRate,
+          examPassRate: summary.examAttemptCount === 0 ? null : summary.examPassRate,
+          examAttemptCount: summary.examAttemptCount,
         },
         communityActivity: { totals, points: activityResult.points },
         pending: { total: items.reduce((sum, item) => sum + item.count, 0), items },

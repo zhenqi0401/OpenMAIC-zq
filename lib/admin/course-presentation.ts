@@ -33,7 +33,7 @@ export function getCourseContentStatus(course: EnterpriseCourse): CourseContentS
   if (course.generationComplete === false) {
     return { label: '内容未完成', tone: 'warning' };
   }
-  if (course.assessmentQuestions.length === 0) {
+  if ((course.assessmentQuestionCount ?? course.assessmentQuestions.length) === 0) {
     return { label: '缺少课后测评', tone: 'warning' };
   }
   return { label: '已有测评题', tone: 'neutral' };

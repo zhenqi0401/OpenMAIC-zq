@@ -62,7 +62,7 @@ export function toPolicyInput(draft: ExamPolicyDraft): ExamPolicyInput {
 export function getExamReadiness(courses: readonly EnterpriseCourse[]): ExamReadiness {
   const publishedCourses = courses.filter((course) => course.status === 'published');
   const readyCourseCount = publishedCourses.filter(
-    (course) => course.assessmentQuestions.length > 0,
+    (course) => (course.assessmentQuestionCount ?? course.assessmentQuestions.length) > 0,
   ).length;
   return {
     publishedCourseCount: publishedCourses.length,
@@ -83,7 +83,11 @@ export function countDraftCandidateQuestions(
         draft.categoryIds.includes(course.categoryId) &&
         (selectedCourseIds.size === 0 || selectedCourseIds.has(course.id)),
     )
-    .reduce((total, course) => total + course.assessmentQuestions.length, 0);
+    .reduce(
+      (total, course) =>
+        total + (course.assessmentQuestionCount ?? course.assessmentQuestions.length),
+      0,
+    );
 }
 
 export function getPolicyStatusView(status: AdminExamPolicy['status']) {

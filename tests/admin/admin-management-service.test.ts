@@ -82,7 +82,15 @@ function setup(options?: {
   };
   const enterprise = {
     listAdminCourses: vi.fn().mockResolvedValue(options?.courses ?? [course()]),
+    listCourseSummaries: vi.fn().mockResolvedValue(options?.courses ?? [course()]),
     listExamPolicies: vi.fn().mockResolvedValue(options?.policies ?? [policy()]),
+    getDashboardSummary: vi.fn().mockResolvedValue({
+      learnerCount: 20,
+      courseCount: 1,
+      courseCompletionRate: 75,
+      examPassRate: 0,
+      examAttemptCount: 0,
+    }),
     getDashboard: vi.fn().mockResolvedValue({
       summary: {
         learnerCount: 20,
@@ -286,7 +294,8 @@ describe('stage 2 admin management service', () => {
     expect(dashboard.pending.items.find((item) => item.type === 'course_assessment')?.count).toBe(
       1,
     );
-    expect(enterprise.getDashboard).toHaveBeenCalledOnce();
+    expect(enterprise.getDashboardSummary).toHaveBeenCalledOnce();
+    expect(enterprise.getDashboard).not.toHaveBeenCalled();
   });
 
   it('rejects invalid category reorder and in-use deletion outcomes', async () => {

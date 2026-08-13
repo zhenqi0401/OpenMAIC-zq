@@ -15,4 +15,14 @@ describe('enterprise course list repository', () => {
     expect(source).toContain('.leftJoin(sceneCounts, eq(courses.id, sceneCounts.courseId))');
     expect(source).toContain('Number(row.sceneCount ?? 0)');
   });
+
+  test('course summaries do not select full stage snapshots or assessment JSON', () => {
+    const summaryMethod = source.slice(
+      source.indexOf('async listCourseSummaries()'),
+      source.indexOf('async getLearnerCourseMeta('),
+    );
+    expect(summaryMethod).not.toContain('stageSnapshot: courses.stageSnapshot');
+    expect(summaryMethod).not.toContain('assessmentQuestions: courses.assessmentQuestions');
+    expect(summaryMethod).toContain('jsonb_array_length(${courses.assessmentQuestions})');
+  });
 });
