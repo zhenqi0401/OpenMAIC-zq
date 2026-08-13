@@ -5,7 +5,6 @@ import {
   AdminCard,
   AdminStatusBadge,
   adminLinkButtonClassName,
-  adminLinkDangerButtonClassName,
 } from '@/components/admin/AdminSurface';
 import { Button } from '@/components/antd/AntdButton';
 import {
@@ -98,7 +97,7 @@ function ModerationButtons({
       ) : null}
       {item.status === 'visible' || item.status === 'hidden' ? (
         <Button
-          className={adminLinkDangerButtonClassName}
+          danger
           disabled={pending}
           onClick={() => onModerate('delete')}
           size="sm"

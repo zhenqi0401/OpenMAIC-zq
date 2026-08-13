@@ -13,11 +13,6 @@ import {
 } from '@/components/antd/AntdAlertDialog';
 import { Button } from '@/components/antd/AntdButton';
 import { adminThemeAttributes } from '@/components/admin/admin-theme';
-import {
-  adminDangerButtonClassName,
-  adminDangerOutlineButtonClassName,
-  adminSecondaryButtonClassName,
-} from '@/components/admin/AdminSurface';
 
 export function AdminDeleteDialog({
   title,
@@ -37,7 +32,7 @@ export function AdminDeleteDialog({
       <AlertDialogTrigger asChild>
         <Button
           aria-busy={deleting}
-          className={adminDangerOutlineButtonClassName}
+          danger
           disabled={deleting}
           title="删除"
           variant="outline"
@@ -58,12 +53,9 @@ export function AdminDeleteDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="border-t border-[var(--admin-border-subtle)] px-5 pb-5 pt-3 sm:justify-end">
-          <AlertDialogCancel className={adminSecondaryButtonClassName} disabled={deleting}>
-            取消
-          </AlertDialogCancel>
+          <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
           <AlertDialogAction
             aria-busy={deleting}
-            className={adminDangerButtonClassName}
             disabled={deleting}
             onClick={onDelete}
             variant="destructive"

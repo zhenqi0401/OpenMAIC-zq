@@ -6,7 +6,6 @@ import { Table, type TableColumnsType } from 'antd';
 import { AdminRowActions } from '@/components/admin/AdminRowActions';
 import {
   AdminStatusBadge,
-  adminDangerButtonClassName,
   adminLinkButtonClassName,
   adminSecondaryButtonClassName,
 } from '@/components/admin/AdminSurface';
@@ -163,7 +162,6 @@ export function ExamPolicyTable({
             </AlertDialogCancel>
             <AlertDialogAction
               aria-busy={Boolean(deletingPolicyId)}
-              className={adminDangerButtonClassName}
               disabled={Boolean(deletingPolicyId)}
               onClick={() => deleteTarget && onDelete(deleteTarget.id)}
               variant="destructive"

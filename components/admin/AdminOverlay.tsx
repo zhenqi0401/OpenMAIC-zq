@@ -5,10 +5,6 @@ import { cloneElement, isValidElement, useState } from 'react';
 import { Drawer, Modal, Popconfirm } from 'antd';
 
 import { adminThemeAttributes } from '@/components/admin/admin-theme';
-import {
-  adminDangerButtonClassName,
-  adminSecondaryButtonClassName,
-} from '@/components/admin/AdminSurface';
 import { cn } from '@/lib/utils';
 
 interface AdminOverlayProps {
@@ -128,8 +124,8 @@ export function AdminDangerConfirmDialog({
       description={description}
       okText={busy ? '处理中…' : confirmLabel}
       cancelText="取消"
-      okButtonProps={{ danger: true, className: adminDangerButtonClassName, loading: busy }}
-      cancelButtonProps={{ className: adminSecondaryButtonClassName, disabled: busy }}
+      okButtonProps={{ danger: true, loading: busy }}
+      cancelButtonProps={{ disabled: busy }}
       onConfirm={onConfirm}
     >
       {trigger}

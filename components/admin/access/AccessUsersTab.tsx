@@ -15,14 +15,7 @@ import {
 } from '@/components/antd/AntdAlertDialog';
 import { Button } from '@/components/antd/AntdButton';
 import { adminThemeAttributes } from '@/components/admin/admin-theme';
-import {
-  AdminCard,
-  adminDangerButtonClassName,
-  adminDangerOutlineButtonClassName,
-  adminInputClassName,
-  adminLinkDangerButtonClassName,
-  adminSecondaryButtonClassName,
-} from '@/components/admin/AdminSurface';
+import { AdminCard, adminInputClassName } from '@/components/admin/AdminSurface';
 import { AdminEmptyState } from '@/components/admin/AdminEmptyState';
 import { AdminPagination } from '@/components/admin/AdminPagination';
 import { AdminRowActions } from '@/components/admin/AdminRowActions';
@@ -54,11 +47,7 @@ export function AccessDangerDialog({
       <AlertDialogTrigger asChild>
         <Button
           aria-busy={busy}
-          className={
-            link
-              ? adminLinkDangerButtonClassName
-              : adminDangerOutlineButtonClassName
-          }
+          danger
           disabled={busy || disabled}
           type="button"
           variant={link ? 'link' : 'outline'}
@@ -79,12 +68,9 @@ export function AccessDangerDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="border-t border-[var(--admin-border-subtle)] px-5 pb-5 pt-3 sm:justify-end">
-          <AlertDialogCancel className={adminSecondaryButtonClassName} disabled={busy}>
-            取消
-          </AlertDialogCancel>
+          <AlertDialogCancel disabled={busy}>取消</AlertDialogCancel>
           <AlertDialogAction
             aria-busy={busy}
-            className={adminDangerButtonClassName}
             disabled={busy}
             onClick={onConfirm}
             variant="destructive"
@@ -147,7 +133,6 @@ function UserRoleEditor({
         />
         <Button
           aria-busy={disabled}
-          className={adminSecondaryButtonClassName}
           disabled={saveDisabled}
           onClick={requestSave}
           type="button"
@@ -177,10 +162,11 @@ function UserRoleEditor({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className={adminSecondaryButtonClassName}>取消</AlertDialogCancel>
+            <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction
-              className={promoting ? adminSecondaryButtonClassName : adminDangerButtonClassName}
+              danger={!promoting}
               onClick={onSave}
+              variant={promoting ? 'outline' : 'default'}
             >
               {promoting ? '确认提升' : '确认取消管理员'}
             </AlertDialogAction>
@@ -236,11 +222,8 @@ function UserDeleteAction({
           <AlertDialogDescription>{`确认永久删除用户「${user.displayName}」？该操作会删除账号，并清理其学习进度、测评记录和阶段考试记录，且不可恢复。`}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel className={adminSecondaryButtonClassName} disabled={busy}>
-            取消
-          </AlertDialogCancel>
+          <AlertDialogCancel disabled={busy}>取消</AlertDialogCancel>
           <AlertDialogAction
-            className={adminDangerButtonClassName}
             disabled={busy}
             onClick={onDelete}
             variant="destructive"

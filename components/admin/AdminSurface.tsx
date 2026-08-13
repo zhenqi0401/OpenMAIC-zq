@@ -15,28 +15,15 @@ export const adminSelectClassName =
 export const adminInputClassName =
   'rounded-[var(--admin-radius-control)] border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)] placeholder:text-[var(--admin-disabled-foreground)] focus-visible:border-[var(--admin-focus-ring)] focus-visible:ring-[var(--admin-focus-ring)]/25';
 
-export const adminSecondaryButtonClassName =
-  'min-h-[var(--admin-control-height)] rounded-[var(--admin-radius-control)] border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)] shadow-none hover:border-[var(--admin-border-interactive)] hover:bg-[var(--admin-surface-selected)] focus-visible:border-[var(--admin-focus-ring)] focus-visible:ring-[var(--admin-focus-ring)]/25';
-
-export const adminPrimaryButtonClassName =
-  'min-h-[var(--admin-control-height)] rounded-[var(--admin-radius-control)] bg-[var(--admin-action-primary)] text-white shadow-none hover:bg-[var(--admin-action-primary-hover)] active:bg-[var(--admin-action-primary-active)] focus-visible:ring-[var(--admin-focus-ring)]/30';
-
-export const adminIconButtonClassName =
-  'size-[var(--admin-control-height)] rounded-[var(--admin-radius-control)] border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-foreground)] shadow-none hover:bg-[var(--admin-surface-selected)] focus-visible:ring-[var(--admin-focus-ring)]/25';
-
-export const adminDangerOutlineButtonClassName =
-  'rounded-[var(--admin-radius-control)] border-[var(--admin-danger)]/70 bg-[var(--admin-surface)] text-[var(--admin-danger-strong)] shadow-none hover:border-[var(--admin-danger)] hover:bg-[var(--admin-danger-background)] focus-visible:border-[var(--admin-danger)] focus-visible:ring-[var(--admin-danger)]/25';
-
-export const adminDangerButtonClassName =
-  'rounded-[var(--admin-radius-control)] !bg-[var(--admin-danger)] !text-white shadow-none hover:!bg-[var(--admin-danger-strong)] focus-visible:border-[var(--admin-danger)] focus-visible:ring-[var(--admin-danger)]/25 disabled:!bg-[var(--admin-danger)]';
-
-/** 表格行内操作的文字链接按钮：蓝色可点击文字，无边框无背景。 */
-export const adminLinkButtonClassName =
-  'h-auto !rounded-none border-0 bg-transparent !p-0 !text-[var(--admin-link)] shadow-none hover:!text-[var(--admin-link-hover)] focus-visible:!outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-focus-ring)]/30 disabled:!text-[var(--admin-disabled-foreground)] disabled:!opacity-60';
-
-/** 表格行内危险操作的文字链接按钮：红色可点击文字。 */
-export const adminLinkDangerButtonClassName =
-  'h-auto !rounded-none border-0 bg-transparent !p-0 !text-[var(--admin-danger-strong)] shadow-none hover:!text-[var(--admin-danger)] focus-visible:!outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-danger)]/30 disabled:!text-[var(--admin-disabled-foreground)] disabled:!opacity-60';
+export const adminSecondaryButtonClassName = '';
+export const adminPrimaryButtonClassName = '';
+export const adminIconButtonClassName = '';
+export const adminDangerOutlineButtonClassName = '';
+export const adminDangerButtonClassName = '';
+/** 表格行内操作的文字链接按钮：去按钮内边距与固定高度，颜色/边框交给 antd link 语义。 */
+export const adminLinkButtonClassName = 'h-auto !p-0';
+/** 表格行内危险操作的文字链接按钮：配合 Button 的 danger 语义使用。 */
+export const adminLinkDangerButtonClassName = 'h-auto !p-0';
 
 /** Stable page-level spacing and width contract for every admin module. */
 export function AdminPage({ children, className, ...props }: ComponentProps<'section'>) {

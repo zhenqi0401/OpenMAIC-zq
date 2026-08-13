@@ -14,8 +14,6 @@ import {
 } from '@/components/antd/AntdDialog';
 import {
   AdminNotice,
-  adminDangerButtonClassName,
-  adminPrimaryButtonClassName,
   adminSecondaryButtonClassName,
 } from '@/components/admin/AdminSurface';
 import { adminThemeAttributes } from '@/components/admin/admin-theme';
@@ -164,9 +162,7 @@ export function CommunityModerationDialog({
           </DialogClose>
           <Button
             aria-busy={submitting}
-            className={
-              action === 'delete' ? adminDangerButtonClassName : adminPrimaryButtonClassName
-            }
+            danger={action === 'delete'}
             disabled={submitting}
             onClick={submit}
             type="button"

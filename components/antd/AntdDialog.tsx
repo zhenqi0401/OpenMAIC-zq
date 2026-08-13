@@ -94,6 +94,18 @@ export function DialogClose({
 
 type PreventableEvent = { preventDefault: () => void };
 
+/**
+ * 剥离 shadcn 视觉类，避免叠加到 antd Modal 容器上产生黑边、双阴影、
+ * 意外背景与圆角错位。只保留布局/间距类（max-w / max-h / overflow / p-*）。
+ */
+function sanitizeDialogClassName(className?: string): string | undefined {
+  if (!className) return undefined;
+  const kept = className
+    .split(/\s+/)
+    .filter((token) => !/^(border|shadow|rounded|bg-|text-|ring|outline|divide)/.test(token));
+  return kept.length ? kept.join(' ') : undefined;
+}
+
 export interface DialogContentProps extends Omit<React.ComponentProps<'div'>, 'title'> {
   showCloseButton?: boolean;
   onEscapeKeyDown?: (event: PreventableEvent) => void;
@@ -125,7 +137,7 @@ export const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps
         mask={modal ? { closable: !onPointerDownOutside } : false}
         open={open}
         width="min(92vw, 720px)"
-        className={cn('yuanwo-antd-dialog', className)}
+        className={cn('yuanwo-antd-dialog', sanitizeDialogClassName(className))}
         afterOpenChange={(nextOpen) => {
           if (!nextOpen || !onOpenAutoFocus) return;
           onOpenAutoFocus({ preventDefault: () => undefined });
