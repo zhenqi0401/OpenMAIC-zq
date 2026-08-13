@@ -16,6 +16,8 @@ export type EnterpriseHomeCourse = StageListItem & {
   learningRequirement?: 'required' | 'elective';
   pathPosition?: number | null;
   learningStatus?: 'not_started' | 'learning' | 'assessment_pending' | 'completed';
+  /** First-slide canvas shipped by the catalogue API; used as the home thumbnail. */
+  thumbnail?: Slide;
 };
 
 export interface HomeCourseCategory {
@@ -62,6 +64,7 @@ interface EnterpriseCourseListResponse {
     learningRequirement?: unknown;
     pathPosition?: unknown;
     learningStatus?: unknown;
+    thumbnail?: unknown;
   }>;
   categories?: Array<{
     id?: unknown;
@@ -70,16 +73,6 @@ interface EnterpriseCourseListResponse {
     scope?: unknown;
     categoryKey?: unknown;
     isSystem?: unknown;
-  }>;
-}
-
-interface EnterpriseCourseContentResponse {
-  content?: EnterpriseCourseContentResponse;
-  scenes?: Array<{
-    content?: {
-      type?: unknown;
-      canvas?: unknown;
-    };
   }>;
 }
 
@@ -166,6 +159,10 @@ export async function loadEnterpriseHomeCatalog(
           course.learningStatus === 'completed'
             ? course.learningStatus
             : undefined,
+        thumbnail:
+          course.thumbnail && typeof course.thumbnail === 'object'
+            ? (course.thumbnail as Slide)
+            : undefined,
       })),
     categories,
   };
@@ -235,34 +232,11 @@ export function changeHomeCourseCategory(
   };
 }
 
-export async function loadEnterpriseHomeCourseThumbnails(
-  courses: Array<{ id: string }>,
-  fetcher: FetchLike = (url) => fetch(url),
-): Promise<Record<string, Slide>> {
-  const thumbnails: Record<string, Slide> = {};
-  await Promise.all(
-    courses.map(async (course) => {
-      let response = await fetcher(`/api/courses/${encodeURIComponent(course.id)}`);
-      if (!response.ok) {
-        response = await fetcher(`/api/admin/courses/${encodeURIComponent(course.id)}/content`);
-      }
-      if (!response.ok) return;
-      const data = (await response.json().catch(() => ({}))) as EnterpriseCourseContentResponse;
-      const payload = data.content ?? data;
-      const scenes = Array.isArray(payload.scenes) ? payload.scenes : [];
-      const firstSlide = scenes.find((scene) => scene.content?.type === 'slide');
-      const canvas = firstSlide?.content?.canvas;
-      if (canvas && typeof canvas === 'object') {
-        thumbnails[course.id] = canvas as Slide;
-      }
-    }),
-  );
-  return thumbnails;
-}
-
 /**
  * Load the learner catalogue exclusively from the server-authoritative course API.
- * Browser-local IndexedDB stages intentionally never enter this path.
+ * Browser-local IndexedDB stages intentionally never enter this path. Thumbnails
+ * ship inside the catalogue response itself (first-slide canvas per course), so
+ * no per-course detail requests are issued here.
  */
 export async function loadLearnerHomeCourses(
   loaders: LearnerHomeCourseLoaders = {
@@ -271,14 +245,21 @@ export async function loadLearnerHomeCourses(
 ): Promise<LearnerHomeCourseLoadResult> {
   const enterpriseCatalog = await loaders.loadEnterpriseCatalog();
   const courses = sortHomeCourses(enterpriseCatalog.courses, 'latest');
-  const thumbnails =
-    courses.length > 0
-      ? await (loaders.loadEnterpriseFirstSlides ?? loadEnterpriseHomeCourseThumbnails)(courses)
-      : {};
+  const thumbnails = loaders.loadEnterpriseFirstSlides
+    ? await loaders.loadEnterpriseFirstSlides(courses)
+    : thumbnailsFromCourses(courses);
 
   return {
     courses,
     categories: enterpriseCatalog.categories,
     thumbnails,
   };
+}
+
+function thumbnailsFromCourses(courses: EnterpriseHomeCourse[]): Record<string, Slide> {
+  const thumbnails: Record<string, Slide> = {};
+  for (const course of courses) {
+    if (course.thumbnail) thumbnails[course.id] = course.thumbnail;
+  }
+  return thumbnails;
 }

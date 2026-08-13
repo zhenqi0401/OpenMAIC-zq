@@ -1,4 +1,4 @@
-import { and, asc, count, eq, gte, lte } from 'drizzle-orm';
+import { and, asc, count, eq, gte, inArray, lte } from 'drizzle-orm';
 
 import { hashInviteCode, type AuthRole } from '@/lib/auth/service';
 import type { StoredHostApiKey } from '@/lib/host-api/access';
@@ -535,6 +535,38 @@ export class DrizzleEnterpriseRepository implements EnterpriseRepository {
         Number(row.sceneCount ?? 0),
       ),
     );
+  }
+
+  /**
+   * Batch-resolve the first slide canvas for each course, keyed by course ID.
+   *
+   * Deliberately applies NO tenant/role/status filtering: callers must pass IDs
+   * that they have already filtered through their own visibility rules (for the
+   * learner catalogue, `listVisibleCourses` output), so tenant isolation and
+   * learner visibility are inherited from the caller instead of duplicated here.
+   */
+  async getCourseFirstSlideThumbnails(courseIds: string[]): Promise<Map<string, unknown>> {
+    if (courseIds.length === 0) return new Map();
+    const rows = await getDb()
+      .select({ courseId: scenes.courseId, content: scenes.content })
+      .from(scenes)
+      .where(and(inArray(scenes.courseId, courseIds), eq(scenes.type, 'slide')))
+      .orderBy(asc(scenes.courseId), asc(scenes.sceneOrder), asc(scenes.id));
+    const firstByCourse = new Map<string, unknown>();
+    // Keep the legacy semantic: only the FIRST slide of each course is the
+    // thumbnail source. If its canvas is missing the course has no thumbnail —
+    // we do not silently fall back to a later slide.
+    const seenCourses = new Set<string>();
+    for (const row of rows) {
+      if (seenCourses.has(row.courseId)) continue;
+      seenCourses.add(row.courseId);
+      const canvas =
+        row.content && typeof row.content === 'object' && 'canvas' in row.content
+          ? row.content.canvas
+          : undefined;
+      if (canvas !== undefined && canvas !== null) firstByCourse.set(row.courseId, canvas);
+    }
+    return firstByCourse;
   }
 
   async createCourse(input: CreateCourseInput): Promise<EnterpriseCourse> {

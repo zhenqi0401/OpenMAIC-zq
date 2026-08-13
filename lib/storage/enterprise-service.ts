@@ -435,6 +435,12 @@ export interface EnterpriseRepository {
   archiveCourse(id: string): Promise<EnterpriseCourse | null>;
   deleteCourse(id: string): Promise<EnterpriseCourse | null>;
   getCourseContent(id: string): Promise<EnterpriseCourseContent | null>;
+  /**
+   * Batch-resolve first-slide thumbnails for already visibility-filtered course
+   * IDs. No tenant/role/status filtering is applied here — callers pass only
+   * IDs their own visibility rules have admitted.
+   */
+  getCourseFirstSlideThumbnails?(courseIds: string[]): Promise<Map<string, unknown>>;
   replaceCourseContent(
     courseId: string,
     input: ReplaceCourseContentInput,
@@ -1248,6 +1254,17 @@ export function createEnterpriseStorageService(
         }),
       );
       return sortVisibleCourses(enriched, sort);
+    },
+
+    /**
+     * Resolve first-slide thumbnails for visible course IDs in one batch query.
+     * Callers must pass IDs already filtered by their visibility rules (e.g. the
+     * output of listVisibleCourses), which keeps tenant isolation and learner
+     * visibility identical to the course list itself.
+     */
+    async listCourseThumbnails(courseIds: string[]): Promise<Map<string, unknown>> {
+      if (typeof repository.getCourseFirstSlideThumbnails !== 'function') return new Map();
+      return repository.getCourseFirstSlideThumbnails(courseIds);
     },
 
     async getVisibleCourse(id: string, access: TenantAccessContext | string) {

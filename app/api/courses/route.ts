@@ -27,9 +27,27 @@ export async function GET(request: Request) {
       service.listVisibleCourses(toTenantAccessContext(current.identity), requestedSort),
       service.listCategories(toTenantAccessContext(current.identity)),
     ]);
+    // Thumbnails are resolved only for the courses listVisibleCourses admitted,
+    // so tenant isolation and learner visibility match the course list exactly.
+    // A thumbnail lookup failure must never take down the course list itself —
+    // degrade to placeholder thumbnails instead of erroring the whole response.
+    let thumbnails: Map<string, unknown> = new Map();
+    try {
+      thumbnails = await service.listCourseThumbnails(courses.map((course) => course.id));
+    } catch (error) {
+      console.error('Failed to resolve learner course thumbnails:', error);
+    }
     return apiSuccess({
       courses: courses.map(
-        ({ managementMode: _managementMode, tenantId: _tenantId, ...course }) => course,
+        ({
+          managementMode: _managementMode,
+          tenantId: _tenantId,
+          stageSnapshot: _stageSnapshot,
+          ...course
+        }) => ({
+          ...course,
+          thumbnail: thumbnails.get(course.id) ?? null,
+        }),
       ),
       categories: categories.map(
         ({ managementMode: _managementMode, tenantId: _tenantId, ...category }) => category,

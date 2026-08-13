@@ -73,6 +73,7 @@ function makeCourse(id: string, status: EnterpriseCourse['status']): EnterpriseC
     status,
     visibilityMode: 'all',
     visibleRoleIds: [],
+    stageSnapshot: { scenes: 'stub' },
     assessmentQuestions: [],
     sceneCount: status === 'published' ? 4 : 0,
     publishedAt: status === 'published' ? new Date('2026-07-01T00:00:00Z') : null,
@@ -367,6 +368,9 @@ function makeRepository(): EnterpriseRepository {
     async getCourseAudioBlob(courseId, audioId) {
       return audio.get(`${courseId}:${audioId}`) ?? null;
     },
+    async getCourseFirstSlideThumbnails(courseIds) {
+      return new Map(courseIds.map((id) => [id, { id: `slide-${id}`, elements: [] }]));
+    },
   };
 }
 
@@ -557,10 +561,20 @@ describe('Slice-01 API routes', () => {
 
   test('learner course API only returns published visible courses and saves progress', async () => {
     const list = await getRoute('@/app/api/courses/route');
-    await expect(list.json()).resolves.toMatchObject({
-      courses: [{ id: 'course-published', sceneCount: 4 }],
-      categories: [{ id: 'cat-1', name: 'Default', sortOrder: 0 }],
+    const body = (await list.json()) as {
+      courses?: Array<{ id: string; thumbnail?: unknown; stageSnapshot?: unknown }>;
+      categories?: Array<{ id: string }>;
+    };
+    expect(body.courses).toHaveLength(1);
+    expect(body.courses?.[0]).toMatchObject({
+      id: 'course-published',
+      sceneCount: 4,
+      thumbnail: { id: 'slide-course-published', elements: [] },
     });
+    expect(body.courses?.[0]).not.toHaveProperty('stageSnapshot');
+    expect(body.categories).toEqual([
+      { id: 'cat-1', name: 'Default', sortOrder: 0, scope: 'tenant' },
+    ]);
 
     const draft = await getRouteWithContext(
       '@/app/api/courses/[id]/route',
@@ -590,6 +604,22 @@ describe('Slice-01 API routes', () => {
     await expect(progress.json()).resolves.toMatchObject({
       progress: { userId: 'learner-1', courseId: 'course-published', completed: true },
     });
+  });
+
+  test('learner course API degrades to placeholders when thumbnail lookup fails', async () => {
+    mocks.repository = {
+      ...makeRepository(),
+      getCourseFirstSlideThumbnails: async () => {
+        throw new Error('thumbnail store unavailable');
+      },
+    };
+
+    const list = await getRoute('@/app/api/courses/route');
+    expect(list.status).toBe(200);
+    const body = (await list.json()) as {
+      courses?: Array<{ id: string; thumbnail?: unknown }>;
+    };
+    expect(body.courses?.[0]).toMatchObject({ id: 'course-published', thumbnail: null });
   });
 
   test('learner course API validates the requested popularity sort', async () => {

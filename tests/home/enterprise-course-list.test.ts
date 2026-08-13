@@ -5,7 +5,6 @@ import {
   changeHomeCourseScope,
   filterHomeCourses,
   loadEnterpriseHomeCatalog,
-  loadEnterpriseHomeCourseThumbnails,
   loadLearnerHomeCourses,
   sortHomeCourses,
   type EnterpriseHomeCourse,
@@ -101,6 +100,7 @@ describe('learner home server course catalogue', () => {
           scope: 'platform',
           generationComplete: true,
           learnerCount: 12,
+          pathPosition: null,
         },
         {
           id: 'course-tenant',
@@ -116,6 +116,7 @@ describe('learner home server course catalogue', () => {
           scope: 'tenant',
           generationComplete: undefined,
           learnerCount: 0,
+          pathPosition: null,
         },
       ],
       categories: [
@@ -157,26 +158,35 @@ describe('learner home server course catalogue', () => {
     await expect(loadEnterpriseHomeCatalog(fetcher)).rejects.toThrow('课程加载失败');
   });
 
-  test('loads the first server course slide as a home thumbnail', async () => {
+  test('builds home thumbnails from catalogue thumbnail fields without per-course requests', async () => {
     const fetcher = vi.fn(async (url: string) => {
-      expect(url).toBe('/api/courses/course-platform');
+      expect(url).toBe('/api/courses');
       return Response.json({
         success: true,
-        scenes: [
-          { id: 'non-slide', content: { type: 'video' } },
+        courses: [
           {
-            id: 'scene-1',
-            content: { type: 'slide', canvas: { id: 'slide-platform', elements: [] } },
+            id: 'course-with-thumb',
+            name: '带封面课程',
+            categoryId: 'cat-1',
+            thumbnail: { id: 'slide-cover', elements: [] },
+          },
+          {
+            id: 'course-without-thumb',
+            name: '无封面课程',
+            categoryId: 'cat-1',
+            thumbnail: null,
           },
         ],
+        categories: [{ id: 'cat-1', name: '分类', sortOrder: 1, scope: 'tenant' }],
       });
     });
 
-    await expect(
-      loadEnterpriseHomeCourseThumbnails([{ id: 'course-platform' }], fetcher),
-    ).resolves.toEqual({
-      'course-platform': { id: 'slide-platform', elements: [] },
+    const result = await loadLearnerHomeCourses({
+      loadEnterpriseCatalog: () => loadEnterpriseHomeCatalog(fetcher),
     });
+
+    expect(result.thumbnails).toEqual({ 'course-with-thumb': { id: 'slide-cover', elements: [] } });
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
   test('loads learner courses and thumbnails without calling the IndexedDB loader', async () => {

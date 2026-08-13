@@ -46,6 +46,8 @@ function repository() {
     }),
     listMediaFiles: vi.fn(async () => []),
     listCourseAudioBlobs: vi.fn(async () => []),
+    getCourseProgress: vi.fn(async () => null),
+    listCourseAssessmentAttempts: vi.fn(async () => []),
     updateCourse: vi.fn(async (id: string) => courses.find((item) => item.id === id) ?? null),
   } as unknown as EnterpriseRepository;
 }
