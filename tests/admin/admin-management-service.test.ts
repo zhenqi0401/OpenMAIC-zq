@@ -263,9 +263,9 @@ describe('stage 2 admin management service', () => {
       validInviteCodeCount: 0,
     });
     repository.listCommunityActivity.mockResolvedValue([
-      { type: 'posts', createdAt: new Date('2026-07-23T01:00:00Z') },
-      { type: 'replies', createdAt: new Date('2026-07-23T02:00:00Z') },
-      { type: 'danmaku', createdAt: new Date('2026-07-23T03:00:00Z') },
+      { type: 'posts', day: '2026-07-23', count: 1 },
+      { type: 'replies', day: '2026-07-23', count: 1 },
+      { type: 'danmaku', day: '2026-07-23', count: 1 },
     ]);
     const dashboard = await service.getDashboard('week');
     expect(dashboard.summary.examPassRate).toBeNull();

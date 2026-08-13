@@ -135,8 +135,8 @@ function buildActivityPoints(
     });
     const byDate = new Map(points.map((point) => [point.date, point]));
     for (const row of rows) {
-      const point = byDate.get(row.createdAt.toISOString().slice(0, 7));
-      if (point) point[row.type] += 1;
+      const point = byDate.get(row.day.slice(0, 7));
+      if (point) point[row.type] += row.count;
     }
     return {
       start,
@@ -159,8 +159,8 @@ function buildActivityPoints(
   }));
   const byDate = new Map(points.map((point) => [point.date, point]));
   for (const row of rows) {
-    const point = byDate.get(dateKey(row.createdAt));
-    if (point) point[row.type] += 1;
+    const point = byDate.get(row.day);
+    if (point) point[row.type] += row.count;
   }
   return {
     start,

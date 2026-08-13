@@ -13,6 +13,7 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
+import type { AnyPgColumn, AnyPgTable } from 'drizzle-orm/pg-core';
 import { getDb, runDbTransaction } from '@/lib/storage/db';
 import {
   communityModerationAudit,
@@ -85,10 +86,35 @@ export interface CommunityWindowCounts {
 
 export interface CommunityActivityRow {
   type: 'posts' | 'replies' | 'danmaku';
-  createdAt: Date;
+  /** UTC 自然日，格式 YYYY-MM-DD（SQL 端按天聚合后的键）。 */
+  day: string;
+  count: number;
 }
 
 const moderationActions = ['hide', 'restore', 'delete', 'pin', 'unpin', 'lock', 'unlock'];
+
+/** 按 UTC 自然日对某张社区表做 count 聚合，返回每天的行数（避免全量回传内存再累加）。 */
+function countActivityByDay(
+  table: AnyPgTable,
+  createdAt: AnyPgColumn,
+  tenantId: AnyPgColumn,
+  start: Date,
+  end: Date,
+  tenant?: string,
+): Promise<Array<{ day: string; count: number }>> {
+  const dayExpr = sql<string>`to_char((${createdAt} AT TIME ZONE 'UTC'), 'YYYY-MM-DD')`;
+  return getDb()
+    .select({ day: dayExpr, count: count().mapWith(Number) })
+    .from(table)
+    .where(
+      and(
+        gte(createdAt, start),
+        lt(createdAt, end),
+        tenant ? eq(tenantId, tenant) : undefined,
+      ),
+    )
+    .groupBy(dayExpr);
+}
 
 function toUserRow(record: { user: typeof users.$inferSelect; role: typeof roles.$inferSelect }) {
   return {
@@ -410,42 +436,17 @@ export class AdminDataRepository {
   }
 
   async listCommunityActivity(start: Date, end: Date): Promise<CommunityActivityRow[]> {
+    // 按 UTC 自然日聚合：把「拉取时间范围内全部行再在内存逐条累加」改为
+    // 数据库端 GROUP BY + COUNT，只返回每天每类型的计数，大幅减少传输与内存开销。
     const [postRows, replyRows, danmakuRows] = await Promise.all([
-      getDb()
-        .select({ createdAt: forumPosts.createdAt })
-        .from(forumPosts)
-        .where(
-          and(
-            gte(forumPosts.createdAt, start),
-            lt(forumPosts.createdAt, end),
-            this.tenantId ? eq(forumPosts.tenantId, this.tenantId) : undefined,
-          ),
-        ),
-      getDb()
-        .select({ createdAt: forumReplies.createdAt })
-        .from(forumReplies)
-        .where(
-          and(
-            gte(forumReplies.createdAt, start),
-            lt(forumReplies.createdAt, end),
-            this.tenantId ? eq(forumReplies.tenantId, this.tenantId) : undefined,
-          ),
-        ),
-      getDb()
-        .select({ createdAt: courseDanmaku.createdAt })
-        .from(courseDanmaku)
-        .where(
-          and(
-            gte(courseDanmaku.createdAt, start),
-            lt(courseDanmaku.createdAt, end),
-            this.tenantId ? eq(courseDanmaku.tenantId, this.tenantId) : undefined,
-          ),
-        ),
+      countActivityByDay(forumPosts, forumPosts.createdAt, forumPosts.tenantId, start, end, this.tenantId),
+      countActivityByDay(forumReplies, forumReplies.createdAt, forumReplies.tenantId, start, end, this.tenantId),
+      countActivityByDay(courseDanmaku, courseDanmaku.createdAt, courseDanmaku.tenantId, start, end, this.tenantId),
     ]);
     return [
-      ...postRows.map((row) => ({ type: 'posts' as const, createdAt: row.createdAt })),
-      ...replyRows.map((row) => ({ type: 'replies' as const, createdAt: row.createdAt })),
-      ...danmakuRows.map((row) => ({ type: 'danmaku' as const, createdAt: row.createdAt })),
+      ...postRows.map((row) => ({ type: 'posts' as const, day: row.day, count: row.count })),
+      ...replyRows.map((row) => ({ type: 'replies' as const, day: row.day, count: row.count })),
+      ...danmakuRows.map((row) => ({ type: 'danmaku' as const, day: row.day, count: row.count })),
     ];
   }
 
